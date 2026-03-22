@@ -127,11 +127,28 @@ with DAG(
         ),
     },
     doc_md="""
-    ### Lawdigest AI Summary 즉시 실행 DAG
+    ## ⚡ Lawdigest AI Summary 즉시 실행 (Single)
 
-    - 스케줄링 없음 (`schedule=None`)
-    - 수동 트리거로 단일 법안을 즉시 요약합니다.
-    - `upsert=True`이면 요약 결과를 DB에 즉시 반영합니다.
+    특정 법안 하나에 대해 즉시 AI 요약을 생성하고 확인하거나 DB에 반영하는 도구 성격의 DAG입니다.
+
+    ### 🚀 주요 기능
+    1. **단일 법안 요약**: 입력받은 법안 데이터(ID, 이름, 요약 원문 등)를 기반으로 즉시 OpenAI 요약을 수행합니다.
+    2. **결과 확인**: 요약된 `brief_summary`, `gpt_summary`, `tags`를 로그와 XCom 결과로 즉시 확인할 수 있습니다.
+    3. **선택적 DB 반영**: `upsert=True` 파라미터를 통해 결과를 DB에 즉시 업데이트할 수 있습니다.
+
+    ### ⚙️ 실행 모드 (Execution Mode)
+    - `dry_run` (기본값): AI 요약까지만 수행하고 **DB에는 절대 저장하지 않습니다.** (단순 결과 테스트용)
+    - `test`: 요약 결과를 테스트 데이터베이스의 `Bill` 테이블에 반영합니다.
+    - `prod`: 요약 결과를 실제 운영 데이터베이스에 즉시 업데이트합니다.
+
+    ### 📅 파라미터 가이드
+    - `execution_mode`: 실행 환경 및 실제 DB 반영 여부 선택
+    - `bill_json`: (권장) 법안 전체 데이터를 JSON 문자열로 입력
+    - `bill_id` ~ `stage`: 개별 필드로 법안 데이터를 직접 입력 (bill_json이 없을 때 사용)
+    - `upsert`: 결과를 DB에 업데이트할지 여부 (기본값: True, dry_run 시 무시됨)
+
+    ---
+    *참고: 특정 법안의 요약 내용이 마음에 들지 않아 다시 생성하고 싶을 때 유용합니다.*
     """,
 ) as dag:
     instant_ai_summary = PythonOperator(

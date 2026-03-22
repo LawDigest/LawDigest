@@ -38,34 +38,27 @@ with DAG(
     catchup=False,
     tags=["lawdigest", "manual-run", "tools"],
     doc_md="""
-    ### 수동 법안 데이터 수집
-    
-    Airflow UI에서 직접 파라미터를 입력하여 특정 기간과 대수의 법안 데이터를 수집하는 DAG입니다.
-    - **start_date**: 수집 시작일 (YYYY-MM-DD)
-    - **end_date**: 수집 종료일 (YYYY-MM-DD)
-    - **age**: 국회 대수 (예: 21)
+    ## 🛠️ Lawdigest 수동 법안 데이터 수집 도구
+
+    스케줄에 의존하지 않고, 사용자가 직접 범위를 지정하여 법안 데이터를 강제 수집할 때 사용하는 도구용 DAG입니다.
+
+    ### 🚀 주요 기능
+    1. **범위 지정 수집**: `start_date`와 `end_date`를 지정하여 특정 기간의 법안을 수집합니다.
+    2. **국회 대수 선택**: 특정 국회 대수(`age`)를 지정하여 대량 수집이 가능합니다.
+    3. **데이터 보정**: 자동 수집 과정에서 누락된 데이터를 수동으로 메울 때 유용합니다.
+
+    ### ⚙️ 실행 방법
+    - **수동 실행 전용** (`schedule=None`)
+    - `Trigger DAG w/ Config`를 통해 파라미터를 입력하고 실행하세요.
+
+    ### 📅 파라미터 가이드
+    - `start_date`: 수집 시작 날짜 (YYYY-MM-DD)
+    - `end_date`: 수집 종료 날짜 (YYYY-MM-DD)
+    - `age`: 국회 대수 (예: 21, 22)
+
+    ---
+    *주의: 대량 데이터를 수집할 때는 API 속도 제한이나 DB 부하를 고려하여 적절한 기간으로 나누어 실행하십시오.*
     """,
-    # Airflow UI에 표시될 파라미터 정의
-    params={
-        "start_date": Param(
-            type="string",
-            title="시작 날짜",
-            description="데이터 수집을 시작할 날짜 (YYYY-MM-DD)",
-            default=(pendulum.now("Asia/Seoul").subtract(days=7)).to_date_string(),
-        ),
-        "end_date": Param(
-            type="string",
-            title="종료 날짜",
-            description="데이터 수집을 종료할 날짜 (YYYY-MM-DD)",
-            default=(pendulum.now("Asia/Seoul")).to_date_string(),
-        ),
-        "age": Param(
-            type="string",
-            title="국회 대수",
-            description="수집할 국회 대수 (예: 22)",
-            default="22",
-        ),
-    },
 ) as dag:
     manual_collect_task = PythonOperator(
         task_id="collect_bills_with_params",

@@ -85,13 +85,27 @@ with DAG(
         ),
     },
     doc_md="""
-    ### Lawdigest AI Summary 배치 처리 DAG
+    ## 🛠️ Lawdigest AI Summary 배치 복구 (Fallback)
 
-    - 스케줄링 없음 (`schedule=None`)
-    - 수동 트리거 시:
-      1. DB에서 AI 요약 결측 법안 조회
-      2. 결측치에 대해 AI 요약 배치 복구 수행
-      3. 실행 모드(dry_run, test, prod)에 따라 DB 연동 방식 결정
+    이미 DB에 수집되어 있으나 AI 요약 데이터가 누락된 법안들을 찾아내어 일괄적으로 요약을 생성하고 채워넣는 DAG입니다.
+
+    ### 🚀 주요 기능
+    1. **누락 대상 추출**: `Bill` 테이블에서 `brief_summary` 또는 `gpt_summary`가 `NULL`이거나 비어 있는 법안들을 모두 추출합니다.
+    2. **요약 생성**: 누락된 법안들에 대해 OpenAI API를 호출하여 요약 내용을 새롭게 생성합니다.
+    3. **DB 업데이트**: 생성된 요약 정보를 `Bill` 테이블에 다시 저장합니다.
+
+    ### ⚙️ 실행 모드 (Execution Mode)
+    - `dry_run` (기본값): 실제 DB 업데이트를 하지 않고, 어떤 데이터들이 복구 대상인지와 가상의 요약 결과만 로그로 확인합니다.
+    - `test`: 테스트용 DB를 조회하여 결측치를 찾고 결과를 테스트 DB에 저장합니다.
+    - `prod`: 실제 서비스 운영 DB를 대상으로 대규모 결측치 복구를 수행합니다. (실제 요금 발생 주의)
+
+    ### 📅 파라미터 가이드
+    - `execution_mode`: 실행 환경 및 실제 DB 반영 여부 선택
+    - `output_path`: 작업 중 생성되는 임시 JSON 파일 저장 경로 (기본값: /tmp/lawdigest_missing_summaries.json)
+    - `batch_size`: 한 번에 처리할 법안 개수 (기본값: 10)
+
+    ---
+    *참고: 이 DAG는 실시간 연동보다 과거에 누적된 결측치를 일괄 복구할 때 주로 사용됩니다.*
     """,
 ) as dag:
     batch_ai_summary = PythonOperator(
