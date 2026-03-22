@@ -18,6 +18,9 @@ def ingest_bills_from_api(**context):
     start_date = params.get("start_date")
     end_date = params.get("end_date")
     age = str(params.get("age") or "22")
+    mode = params.get("execution_mode") or "dry_run"
+
+    print(f"[ingest] Current Mode: {mode}")
 
     today = datetime.now().strftime("%Y-%m-%d")
     start_date = start_date or today
@@ -28,7 +31,10 @@ def ingest_bills_from_api(**context):
         sys.path.append(project_root)
 
     from src.lawdigest_data_pipeline.DatabaseManager import DatabaseManager
-    from src.lawdigest_data_pipeline.ai_batch_pipeline_utils import get_test_db_config
+    from src.lawdigest_data_pipeline.ai_batch_pipeline_utils import (
+        get_test_db_config,
+        get_prod_db_config,
+    )
 
     cmd = [
         "python",
@@ -42,11 +48,16 @@ def ingest_bills_from_api(**context):
         "--age",
         age,
     ]
+    print(f"[ingest] Fetching data for {start_date} to {end_date}, age={age}")
     completed = subprocess.run(cmd, capture_output=True, text=True, check=True)
     rows = json.loads(completed.stdout.strip() or "[]")
     if not rows:
         print("[ingest] 수집된 법안이 없습니다.")
-        return {"fetched": 0, "upserted": 0}
+        return {"fetched": 0, "upserted": 0, "mode": mode}
+
+    if mode == "dry_run":
+        print(f"[ingest] [DRY_RUN] {len(rows)}개의 법안을 수집했으나 DB에 반영하지 않습니다.")
+        return {"fetched": len(rows), "upserted": 0, "mode": "dry_run"}
 
     mapped = []
     for row in rows:
@@ -80,7 +91,14 @@ def ingest_bills_from_api(**context):
             }
         )
 
-    db_cfg = get_test_db_config()
+    # 모드에 따른 DB 설정 선택
+    if mode == "prod":
+        db_cfg = get_prod_db_config()
+        print("[ingest] Using PRODUCTION database")
+    else:
+        db_cfg = get_test_db_config()
+        print("[ingest] Using TEST database")
+
     db = DatabaseManager(
         host=db_cfg["host"],
         port=db_cfg["port"],
@@ -90,8 +108,8 @@ def ingest_bills_from_api(**context):
     )
     db.insert_bill_info(mapped)
 
-    print(f"[ingest] fetched={len(rows)} upserted={len(mapped)}")
-    return {"fetched": len(rows), "upserted": len(mapped)}
+    print(f"[ingest] [{mode}] fetched={len(rows)} upserted={len(mapped)}")
+    return {"fetched": len(rows), "upserted": len(mapped), "mode": mode}
 
 
 with DAG(
@@ -99,8 +117,15 @@ with DAG(
     schedule="0 * * * *",
     start_date=pendulum.datetime(2024, 1, 1, tz="Asia/Seoul"),
     catchup=False,
-    tags=["lawdigest", "ingest", "api", "test-db"],
+    tags=["lawdigest", "ingest", "api"],
     params={
+        "execution_mode": Param(
+            "dry_run",
+            type="string",
+            enum=["dry_run", "test", "prod"],
+            title="실행 모드",
+            description="dry_run: DB 미반영, test: 테스트 DB, prod: 운영 DB",
+        ),
         "start_date": Param(
             None,
             type=["null", "string"],
@@ -116,10 +141,13 @@ with DAG(
         "age": Param("22", type="string", title="국회 대수"),
     },
     doc_md="""
-    ### Lawdigest 법안 수집 DAG (테스트 DB)
+    ### Lawdigest 법안 수집 DAG
 
     - 매시간 법안 API에서 원문 데이터를 수집합니다.
-    - AI 요약은 수행하지 않고 Bill 테이블에 원문만 upsert합니다.
+    - **실행 모드 선택 가능**:
+        - `dry_run`: 수집만 수행하고 DB에는 저장하지 않습니다.
+        - `test`: 테스트용 DB(`TEST_DB_*`)에 저장합니다.
+        - `prod`: 운영용 DB(`DB_*`)에 저장합니다.
     """,
 ) as dag:
     ingest_bills = PythonOperator(
