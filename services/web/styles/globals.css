@@ -1,0 +1,89 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard-dynamic-subset.css');
+@import './mobile-floating-nav.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  font-family:
+    'Pretendard Variable',
+    Pretendard,
+    -apple-system,
+    BlinkMacSystemFont,
+    system-ui,
+    Roboto,
+    'Helvetica Neue',
+    'Segoe UI',
+    'Apple SD Gothic Neo',
+    'Noto Sans KR',
+    'Malgun Gothic',
+    'Apple Color Emoji',
+    'Segoe UI Emoji',
+    'Segoe UI Symbol',
+    sans-serif;
+}
+
+.더불어민주당 {
+  border-color: #152484;
+}
+
+.국민의힘 {
+  border-color: #e61e2b;
+}
+
+.조국혁신당 {
+  border-color: #0073cf;
+}
+
+.개혁신당 {
+  border-color: #ff7210;
+}
+
+.진보당 {
+  border-color: #d6001c;
+}
+
+.새로운미래 {
+  border-color: #45babd;
+}
+
+.기본소득당 {
+  border-color: #00d2c3;
+}
+
+.사회민주당 {
+  border-color: #f58400;
+}
+
+.녹색정의당 {
+  border-color: #007c36;
+}
+
+.무소속 {
+  border-color: #797c85;
+}
+
+.다수 {
+  border-color: #2e2e2e;
+}
+
+.ERROR {
+  background-color: rgb(239 68 68 / 95%);
+}
+
+.SUCCESS {
+  background-color: rgb(22 163 74 / 95%);
+}
+
+.CANCEL {
+  background-color: rgb(153 153 153 / 95%);
+}
+
+.INFO {
+  background-color: rgb(59 130 246 / 95%);
+}
+
+.DAFAULT {
+  background-color: transparent;
+}

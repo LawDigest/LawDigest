@@ -1,0 +1,14 @@
+requests
+pandas
+lxml
+openai
+python-dotenv
+beautifulsoup4
+tqdm
+PyMySQL
+langchain
+langchain-community
+langchain-openai
+langchain-google-genai
+llama-index
+pydantic-ai-slim[openai]

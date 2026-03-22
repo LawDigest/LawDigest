@@ -1,0 +1,21 @@
+.env
+data/
+pyenv/
+__pycache__/
+.vscode/
+.DS_Store
+lawdigestenv/
+.claude/
+.venv/
+
+# archive (레거시 폴더 보관)
+archive/
+
+# 테스트 결과물
+tests/ipynb
+tests/result/
+tests/*.ipynb
+tests/DataFecther_test.ipynb
+
+# 빌드/패키지
+src/lawdigest_dataops.egg-info
