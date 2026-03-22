@@ -1,0 +1,93 @@
+name: Format issue title
+
+on:
+  issues:
+    types: [opened, edited, labeled, unlabeled]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  format-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build formatted title and update
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const number = issue.number;
+            const originalTitle = issue.title?.trim() || "";
+            const body = issue.body || "";
+            const labels = (issue.labels || []).map(l => (typeof l === 'string' ? l : l.name)).filter(Boolean);
+
+            // 1) issue type 추출 우선순위
+            //   - 라벨: "type: xxx" 또는 ["bug","feature","enhancement","chore","docs","test"]
+            //   - 이슈 폼/본문: "issue type: xxx", "type: xxx" 등 키워드
+            function extractType() {
+              // (a) 라벨에서 찾기
+              const typeLike = labels.find(l => /^type[:/]/i.test(l));
+              if (typeLike) return typeLike.split(/[:/]/)[1].trim();
+
+              const known = ["bug","feature","enhancement","chore","docs","test","ci","refactor"];
+              const hit = labels.find(l => known.includes(l.toLowerCase()));
+              if (hit) return hit;
+
+              // (b) 본문에서 찾기 (이슈 폼 등)
+              const lines = body.split(/\r?\n/);
+              for (const line of lines) {
+                const m = line.match(/^\s*(issue\s*type|type)\s*[:\-]\s*(.+)$/i);
+                if (m) return m[2].trim();
+              }
+
+              return "task";
+            }
+
+            function sanitize(s) {
+              // 제목에 쓰기 안전하도록 슬래시 앞뒤 공백 정리 및 중복 공백 제거
+              return s.replace(/\s+/g, " ").replace(/\s*\/\s*/g, "/").trim();
+            }
+
+            const issueTypeRaw = extractType();
+
+            // 첫 글자만 대문자로, 나머지는 소문자로 변환
+            function capitalizeFirst(str) {
+              return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+            }
+            
+            const issueType = sanitize(capitalizeFirst(issueTypeRaw));
+
+            const formattedPrefix = `[${issueType}]/#${number}/`;
+
+            // 이미 원하는 형식인지 검사
+            const alreadyFormatted = new RegExp(`^\\[${issueType.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\]/#${number}/`, 'i').test(originalTitle);
+
+            // 기존에 다른 형식의 접두어가 붙어 있다면 제거 시도: [..]/#123/ 또는 #123 , [..]
+            let baseTitle = originalTitle
+              .replace(/^\s*\[[^\]]+\]\s*\/\s*#\d+\s*\/\s*/i, "") // [type]/#123/
+              .replace(/^\s*#\d+\s*[:/\-\]]?\s*/i, "")             // #123 ...
+              .replace(/^\s*\[[^\]]+\]\s*/i, "")                   // [type] ...
+              .trim();
+
+            if (!baseTitle) baseTitle = originalTitle; // 방어
+
+            // 최종 제목 구성
+            const newTitle = `${formattedPrefix}${baseTitle}`;
+
+            if (alreadyFormatted || newTitle === originalTitle) {
+              core.info("Title already formatted. Skipping update.");
+              return;
+            }
+
+            // GitHub 제목 길이 안전(256자 근사치) — 필요 시 조정
+            const MAX = 256;
+            const finalTitle = newTitle.length <= MAX ? newTitle : newTitle.slice(0, MAX - 1) + "…";
+
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              title: finalTitle
+            });
+            core.info(`Updated title to: ${finalTitle}`);

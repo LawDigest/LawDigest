@@ -1,0 +1,81 @@
+name: Deploy Backend (dev)
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'services/backend/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up JDK 17 and build cache
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+            
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+
+      - name: Make gradlew executable
+        run: chmod +x services/backend/gradlew
+
+      - name: Execute Gradle build
+        working-directory: services/backend
+        run: ./gradlew build -x test
+
+      - name: Docker build & push
+        working-directory: services/backend
+        run: |
+          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+          docker buildx build --push --platform linux/arm64 -f Dockerfile -t ${{ secrets.DOCKER_USERNAME }}/lawmaking-test-back .
+
+      - name: Deploy to dev
+        uses: appleboy/ssh-action@master
+        id: deploy-prod
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            docker rm -f lawmaking-test-back 2>/dev/null || true
+            docker pull ${{ secrets.DOCKER_USERNAME }}/lawmaking-test-back
+            docker run -d -p 808:8080 --name=lawmaking-test-back \
+              --network law_test_network \
+              -v spring-log:/var/test/logs \
+              -v /usr/share/zoneinfo/Asia/Seoul:/etc/localtime:ro \
+              -e "ACTIVE=test" \
+              -e "DB_HOSTNAME=${{ secrets.DB_HOSTNAME_TEST }}" \
+              -e "DB_NAME=${{ secrets.DB_NAME_TEST }}" \
+              -e "DB_USERNAME=${{ secrets.DB_USERNAME_TEST }}" \
+              -e "DB_PASSWORD=${{ secrets.DB_PASSWORD_TEST }}" \
+              -e "KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }}" \
+              -e "KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}" \
+              -e "ACCESS_TOKEN_EXPIRY=${{ secrets.ACCESS_TOKEN_EXPIRY }}" \
+              -e "REFRESH_TOKEN_EXPIRY=${{ secrets.REFRESH_TOKEN_EXPIRY }}" \
+              -e "TOKEN_SECRET=${{ secrets.TOKEN_SECRET }}" \
+              -e "BIN_LOG_HOST=${{ secrets.BIN_LOG_HOST_TEST }}" \
+              -e "BIN_LOG_PASSWORD=${{ secrets.BIN_LOG_PASSWORD_TEST }}" \
+              -e "BIN_LOG_USER=${{ secrets.BIN_LOG_USER }}" \
+              -e "BIN_LOG_PORT=${{ secrets.BIN_LOG_PORT }}" \
+              -e "APP_ADMIN_KEY=${{ secrets.APP_ADMIN_KEY }}" \
+              -e "ELASTIC_CACHE_HOST=${{ secrets.ELASTIC_CACHE_HOST_TEST }}" \
+              -e "ELASTIC_CACHE_PASSWORD=${{ secrets.ELASTIC_CACHE_PASSWORD_TEST }}" \
+              -e "NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }}" \
+              -e "NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }}" \
+              -e "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}" \
+              -e "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+              ${{ secrets.DOCKER_USERNAME }}/lawmaking-test-back
+            docker rmi -f $(docker images -f "dangling=true" -q) || true

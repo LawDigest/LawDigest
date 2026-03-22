@@ -1,0 +1,88 @@
+version: "3.8"
+
+services:
+  # Database
+  mysql:
+    image: mysql:8.0.35
+    container_name: lawdigest-mysql
+    ports:
+      - "3306:3306"
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: acOE-P?/<$$(+z*mc5
+      MYSQL_DATABASE: cloneOfLaw
+      MYSQL_USER: law_user
+      MYSQL_PASSWORD: law_password
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+  # Cache
+  redis:
+    image: redis:latest
+    container_name: lawdigest-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server
+
+  # Monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: lawdigest-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/data
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: lawdigest-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+  # Workflow orchestration
+  n8n:
+    image: n8nio/n8n
+    container_name: lawdigest-n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=admin
+      - DB_TYPE=mysql
+      - DB_MYSQL_HOST=mysql
+      - DB_MYSQL_PORT=3306
+      - DB_MYSQL_DATABASE=n8n
+      - DB_MYSQL_USER=n8n_user
+      - DB_MYSQL_PASSWORD=n8n_password
+    volumes:
+      - n8n-data:/home/node/.n8n
+      - ./services/data/n8n:/data/n8n
+    depends_on:
+      - mysql
+
+volumes:
+  mysql-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  n8n-data:
+
+networks:
+  default:
+    name: lawdigest-network
