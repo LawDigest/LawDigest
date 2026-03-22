@@ -107,7 +107,18 @@ with DAG(
             description="dry_run: DB 반영 안 함, test: 테스트 DB 사용, prod: 운영 DB 사용",
         ),
         "bill_json": Param(
-...
+            "",
+            type="string",
+            title="법안 JSON",
+            description="단일 법안 payload(JSON 문자열). 설정 시 아래 개별 필드는 무시됩니다.",
+        ),
+        "bill_id": Param("", type="string", title="법안 ID"),
+        "bill_name": Param("", type="string", title="법안명"),
+        "summary": Param("", type="string", title="원문 요약"),
+        "proposers": Param("", type="string", title="발의자"),
+        "proposer_kind": Param("CONGRESSMAN", type="string", title="발의자 구분"),
+        "propose_date": Param("", type="string", title="발의일(YYYY-MM-DD)"),
+        "stage": Param("", type="string", title="단계"),
         "upsert": Param(
             True,
             type="boolean",
@@ -127,4 +138,3 @@ with DAG(
         task_id="instant_ai_summary",
         python_callable=run_instant_ai_summary,
     )
-
