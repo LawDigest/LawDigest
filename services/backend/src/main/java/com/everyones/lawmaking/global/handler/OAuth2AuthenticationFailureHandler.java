@@ -31,7 +31,9 @@ public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationF
                 .orElse(("/v1/login"));
         targetUrl = UriComponentsBuilder.fromUriString(targetUrl)
                 .queryParam("error", exception.getLocalizedMessage())
-                .build().toUriString();
+                .build()
+                .encode()
+                .toUriString();
 
         // 사용자 principal (사용자명 등)을 가져와서 토큰 삭제
         String clientRegistrationId = request.getParameter("client_id"); // 예: google, facebook 등
