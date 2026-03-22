@@ -1,7 +1,7 @@
 'use client';
 
 import { Logo } from '@/components';
-import { Button, Link as NextUILink } from '@nextui-org/react';
+import { Button } from '@nextui-org/react';
 import Image from 'next/image';
 
 const buildOAuthHref = (provider: 'kakao' | 'google' | 'naver', callbackPath: string) => {
@@ -16,7 +16,7 @@ export default function Login() {
       <Logo width={222} height={37} />
 
       <Button
-        as={NextUILink}
+        as="a"
         href={buildOAuthHref('kakao', '/login/kakaoLogin')}
         variant="bordered"
         radius="full"
@@ -25,7 +25,7 @@ export default function Login() {
         카카오톡으로 시작하기
       </Button>
       <Button
-        as={NextUILink}
+        as="a"
         href={buildOAuthHref('google', '/login/googleLogin')}
         variant="bordered"
         radius="full"
@@ -34,7 +34,7 @@ export default function Login() {
         구글로 시작하기
       </Button>
       <Button
-        as={NextUILink}
+        as="a"
         href={buildOAuthHref('naver', '/login/naverLogin')}
         variant="bordered"
         radius="full"
