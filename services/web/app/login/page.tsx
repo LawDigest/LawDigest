@@ -4,6 +4,12 @@ import { Logo } from '@/components';
 import { Button, Link as NextUILink } from '@nextui-org/react';
 import Image from 'next/image';
 
+const buildOAuthHref = (provider: 'kakao' | 'google' | 'naver', callbackPath: string) => {
+  const redirectUri = `${process.env.NEXT_PUBLIC_DOMAIN}${callbackPath}`;
+
+  return `/v1/oauth2/authorization/${provider}?redirect_uri=${encodeURIComponent(redirectUri)}`;
+};
+
 export default function Login() {
   return (
     <section className="w-[90%] mx-auto flex flex-col items-center gap-8 mt-48 sm:w-[430px] ">
@@ -11,7 +17,7 @@ export default function Login() {
 
       <Button
         as={NextUILink}
-        href={`${process.env.NEXT_PUBLIC_URL}oauth2/authorization/kakao?redirect_uri=${`${process.env.NEXT_PUBLIC_DOMAIN}/login/kakaoLogin`}`}
+        href={buildOAuthHref('kakao', '/login/kakaoLogin')}
         variant="bordered"
         radius="full"
         startContent={<Image src="/images/kakao.svg" width={22} height={22} alt="카카오톡 로고 이미지" />}
@@ -20,7 +26,7 @@ export default function Login() {
       </Button>
       <Button
         as={NextUILink}
-        href={`${process.env.NEXT_PUBLIC_URL}oauth2/authorization/google?redirect_uri=${`${process.env.NEXT_PUBLIC_DOMAIN}/login/googleLogin`}`}
+        href={buildOAuthHref('google', '/login/googleLogin')}
         variant="bordered"
         radius="full"
         startContent={<Image src="/images/google.svg" width={22} height={22} alt="구글 로고 이미지" />}
@@ -29,7 +35,7 @@ export default function Login() {
       </Button>
       <Button
         as={NextUILink}
-        href={`${process.env.NEXT_PUBLIC_URL}oauth2/authorization/naver?redirect_uri=${`${process.env.NEXT_PUBLIC_DOMAIN}/login/naverLogin`}`}
+        href={buildOAuthHref('naver', '/login/naverLogin')}
         variant="bordered"
         radius="full"
         startContent={<Image src="/images/naver.png" width={22} height={22} alt="네이버 로고 이미지" />}
