@@ -13,6 +13,9 @@ from airflow.operators.python import PythonOperator
 def poll_and_ingest_batch_results(**context):
     params = context.get("params", {})
     max_jobs = int(params.get("max_jobs") or 20)
+    mode = params.get("execution_mode") or "dry_run"
+
+    print(f"[batch-ingest] Current Mode: {mode}")
 
     project_root = "/opt/airflow/project"
     if project_root not in sys.path:
@@ -28,7 +31,7 @@ def poll_and_ingest_batch_results(**context):
         update_job_status,
     )
 
-    conn = get_db_connection()
+    conn = get_db_connection(mode=mode if mode == "prod" else "test")
     processed_jobs = 0
     total_success = 0
     total_failed = 0
@@ -38,7 +41,7 @@ def poll_and_ingest_batch_results(**context):
         jobs = fetch_jobs_for_polling(conn, max_jobs=max_jobs)
         if not jobs:
             print("[batch-ingest] 처리할 진행 중 batch가 없습니다.")
-            return {"jobs": 0, "success": 0, "failed": 0}
+            return {"jobs": 0, "success": 0, "failed": 0, "mode": mode}
 
         for job in jobs:
             processed_jobs += 1
@@ -46,6 +49,11 @@ def poll_and_ingest_batch_results(**context):
             status = (batch.get("status") or "UNKNOWN").upper()
             output_file_id = batch.get("output_file_id")
             error_file_id = batch.get("error_file_id")
+
+            if mode == "dry_run":
+                print(f"[batch-ingest] [DRY_RUN] job_id={job['id']} status={status} (DB 업데이트 안 함)")
+                continue
+
             update_job_status(
                 conn=conn,
                 job_id=job["id"],
@@ -74,11 +82,11 @@ def poll_and_ingest_batch_results(**context):
                 error_message=None if failed == 0 else f"{failed}건 처리 실패",
             )
             print(
-                f"[batch-ingest] job_id={job['id']} batch_id={job['batch_id']} "
+                f"[batch-ingest] [{mode}] job_id={job['id']} batch_id={job['batch_id']} "
                 f"success={success} failed={failed}"
             )
 
-        return {"jobs": processed_jobs, "success": total_success, "failed": total_failed}
+        return {"jobs": processed_jobs, "success": total_success, "failed": total_failed, "mode": mode}
     finally:
         conn.close()
 
@@ -88,8 +96,17 @@ with DAG(
     schedule="*/10 * * * *",
     start_date=pendulum.datetime(2024, 1, 1, tz="Asia/Seoul"),
     catchup=False,
-    tags=["lawdigest", "ai-summary", "batch-ingest", "test-db"],
-    params={"max_jobs": Param(20, type="integer", title="한 번에 조회할 batch 개수")},
+    tags=["lawdigest", "ai-summary", "batch-ingest"],
+    params={
+        "execution_mode": Param(
+            "dry_run",
+            type="string",
+            enum=["dry_run", "test", "prod"],
+            title="실행 모드",
+            description="dry_run: 상태 조회만 하고 DB 업데이트 안 함, test: 테스트 DB 사용, prod: 운영 DB 사용",
+        ),
+        "max_jobs": Param(20, type="integer", title="한 번에 조회할 batch 개수"),
+    },
     doc_md="""
     ### Lawdigest AI Batch 결과 수신 DAG (테스트 DB)
 

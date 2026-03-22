@@ -23,6 +23,8 @@ def _as_bool(value: object) -> bool:
 
 def run_instant_ai_summary(**context):
     params = context.get("params", {})
+    mode = params.get("execution_mode") or "dry_run"
+    print(f"[ai-summary-instant] Current Mode: {mode}")
 
     bill_json = params.get("bill_json")
     if bill_json:
@@ -52,12 +54,38 @@ def run_instant_ai_summary(**context):
 
     # 파서 단계 import 실패를 피하기 위해 실행 시점에 import
     from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+    from src.lawdigest_data_pipeline.DatabaseManager import DatabaseManager
+    from src.lawdigest_data_pipeline.ai_batch_pipeline_utils import (
+        get_test_db_config,
+        get_prod_db_config,
+    )
 
     workflow = WorkFlowManager(mode="db")
     summarized_rows = workflow.summarize_bill_step(bill_data)
 
-    if _as_bool(params.get("upsert", True)):
-        workflow.upsert_bill_step(summarized_rows)
+    if mode != "dry_run" and _as_bool(params.get("upsert", True)):
+        if mode == "prod":
+            db_cfg = get_prod_db_config()
+            print("[ai-summary-instant] Using PRODUCTION database")
+        else:
+            db_cfg = get_test_db_config()
+            print("[ai-summary-instant] Using TEST database")
+
+        db = DatabaseManager(
+            host=db_cfg["host"],
+            port=db_cfg["port"],
+            username=db_cfg["user"],
+            password=db_cfg["password"],
+            database=db_cfg["database"],
+        )
+        # WorkFlowManager의 upsert_bill_step 대신 명시적 DB 인스턴스 사용
+        import pandas as pd
+        bill_rows = [workflow._build_bill_row(pd.Series(r)) for r in summarized_rows]
+        if bill_rows:
+            db.insert_bill_info(bill_rows)
+            print(f"[ai-summary-instant] [{mode}] DB upsert completed.")
+    else:
+        print(f"[ai-summary-instant] [{mode}] DB upsert skipped.")
 
     result = summarized_rows[0] if summarized_rows else {}
     print(json.dumps(result, ensure_ascii=False))
@@ -71,24 +99,20 @@ with DAG(
     catchup=False,
     tags=["lawdigest", "ai-summary", "instant"],
     params={
-        "bill_json": Param(
-            "",
+        "execution_mode": Param(
+            "dry_run",
             type="string",
-            title="법안 JSON",
-            description="단일 법안 payload(JSON 문자열). 설정 시 아래 개별 필드는 무시됩니다.",
+            enum=["dry_run", "test", "prod"],
+            title="실행 모드",
+            description="dry_run: DB 반영 안 함, test: 테스트 DB 사용, prod: 운영 DB 사용",
         ),
-        "bill_id": Param("", type="string", title="법안 ID"),
-        "bill_name": Param("", type="string", title="법안명"),
-        "summary": Param("", type="string", title="원문 요약"),
-        "proposers": Param("", type="string", title="발의자"),
-        "proposer_kind": Param("CONGRESSMAN", type="string", title="발의자 구분"),
-        "propose_date": Param("", type="string", title="발의일(YYYY-MM-DD)"),
-        "stage": Param("", type="string", title="단계"),
+        "bill_json": Param(
+...
         "upsert": Param(
             True,
             type="boolean",
             title="DB upsert",
-            description="True면 요약 결과를 Bill 테이블에 즉시 반영",
+            description="True면 요약 결과를 Bill 테이블에 즉시 반영 (dry_run 모드에서는 무시됨)",
         ),
     },
     doc_md="""
