@@ -20,6 +20,9 @@ harness
 # 워크트리
 .worktrees
 
+# 캐시
+.ruff_cache
+
 # =====================
 # Java / Spring Boot (services/backend)
 # =====================

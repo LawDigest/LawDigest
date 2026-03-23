@@ -66,9 +66,9 @@
 ## 아키텍처
 
 ```mermaid
-graph TB
-    subgraph CLIENT["🌐 Client"]
-        Browser["Browser"]
+graph LR
+    subgraph CLIENT["Client"]
+        Browser["🌐 Browser"]
     end
 
     subgraph FRONTEND["services/web"]
@@ -76,46 +76,52 @@ graph TB
     end
 
     subgraph BACKEND["services/backend"]
-        API["Spring Boot 3.1\n법안 · 의원 · 유저 API"]
-        Redis[("Redis")]
-    end
-
-    subgraph DB_LAYER["Storage"]
-        DB[("MySQL RDS")]
-        Qdrant[("Qdrant 벡터 DB")]
-    end
-
-    subgraph PIPELINE["services/data"]
-        OpenAPI["🏛️ 국회 Open API"]
-        Data["DataFetcher · DataProcessor"]
-        OpenAPI -->|"법안 데이터"| Data
+        API["Spring Boot 3.1 | 법안 · 의원 · 유저 API"]
     end
 
     subgraph AI_SERVICE["services/ai"]
-        Processor["processor/  AI 요약"]
-        RAG["rag/  RAG 챗봇"]
+        Processor["processor | AI 요약 배치"]
+        RAG["rag | RAG 챗봇"]
     end
 
-    subgraph ORCHESTRATION["⚙️ Apache Airflow 3.1"]
-        DAG_DATA["수집 DAG"]
-        DAG_AI["요약 DAG"]
+    subgraph PIPELINE["services/data"]
+        Data["데이터 수집 | DataFetcher · DataProcessor"]
     end
 
-    OpenAI["🤖 OpenAI GPT-5"]
+    subgraph STORAGE["Storage"]
+        DB[("MySQL RDS")]
+        Redis[("Redis")]
+        Qdrant[("Qdrant\n벡터 DB")]
+    end
 
+    subgraph EXTERNAL["External"]
+        OpenAPI["🏛️ 국회 Open API"]
+        OpenAI["🤖 OpenAI GPT-5"]
+        Airflow["⚙️ Airflow 3.1"]
+    end
+
+    %% --- 보이지 않는 연결로 수직 순서 고정 ---
+    Processor ~~~ Data
+    OpenAI ~~~ DB
+
+    %% --- 실제 관계 정의 ---
     Browser --> Web
     Web -->|"REST"| API
     API --> DB
-    API --- Redis
+    API --> Redis
 
-    DAG_DATA --> Data
-    DAG_AI --> Processor
+    Airflow -->|"수집 DAG"| Data
+    Airflow -->|"요약 DAG"| Processor
 
-    Data -->|"적재"| DB
-    Processor -->|"요약 결과"| DB
+    OpenAPI -->|"법안 데이터"| Data
+
     Processor -->|"GPT 호출"| OpenAI
     RAG -->|"임베딩 / 생성"| OpenAI
+
+    Processor -->|"요약 결과"| DB
     RAG <-->|"벡터 검색"| Qdrant
+    Data -->|"적재"| DB
+
 ```
 
 <br>
