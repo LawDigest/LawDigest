@@ -36,10 +36,7 @@ def run_batch_ai_summary(**context):
     # 파서 단계 import 실패를 피하기 위해 실행 시점에 import
     from scripts.find_missing_summaries import find_missing_summaries
     from scripts.repair_missing_summaries import repair_missing_summaries
-    from src.lawdigest_data_pipeline.ai_batch_pipeline_utils import (
-        get_test_db_config,
-        get_prod_db_config,
-    )
+    from lawdigest_ai.db import get_prod_db_config, get_test_db_config
 
     if mode == "prod":
         db_cfg = get_prod_db_config()

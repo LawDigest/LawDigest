@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import os
 import sys
 
 import pendulum
@@ -13,8 +12,6 @@ from airflow.operators.python import PythonOperator
 
 def submit_ai_batch(**context):
     params = context.get("params", {})
-    limit = int(params.get("limit") or 200)
-    model = params.get("model") or "gpt-4o-mini"
     mode = params.get("execution_mode") or "dry_run"
 
     print(f"[batch-submit] Current Mode: {mode}")
@@ -23,51 +20,13 @@ def submit_ai_batch(**context):
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.ai_batch_pipeline_utils import (
-        build_batch_request_rows,
-        create_batch_job_with_items,
-        ensure_status_tables,
-        fetch_unsummarized_bills,
-        get_db_connection,
-        openai_create_batch,
-        openai_upload_batch_file,
-        write_jsonl_tempfile,
+    from lawdigest_ai.processor.batch_submit import submit_batch
+
+    return submit_batch(
+        limit=int(params.get("limit") or 200),
+        model=params.get("model") or "gpt-4o-mini",
+        mode=mode,
     )
-
-    conn = get_db_connection(mode=mode if mode == "prod" else "test")
-    try:
-        ensure_status_tables(conn)
-        bills = fetch_unsummarized_bills(conn, limit=limit)
-        if not bills:
-            print("[batch-submit] 제출 대상 법안이 없습니다.")
-            return {"submitted": 0, "mode": mode}
-
-        if mode == "dry_run":
-            print(f"[batch-submit] [DRY_RUN] {len(bills)}개의 법안을 요약 제출 대상으로 선정했습니다. (실제 제출 안 함)")
-            return {"submitted": len(bills), "mode": "dry_run"}
-
-        request_rows = build_batch_request_rows(bills, model=model)
-        jsonl_path = write_jsonl_tempfile(request_rows)
-        try:
-            input_file_id = openai_upload_batch_file(jsonl_path)
-            batch_obj = openai_create_batch(input_file_id=input_file_id, model=model)
-            batch_id = batch_obj["id"]
-
-            job_id = create_batch_job_with_items(
-                conn=conn,
-                batch_id=batch_id,
-                input_file_id=input_file_id,
-                model=model,
-                bill_ids=[b["bill_id"] for b in bills],
-                status=(batch_obj.get("status") or "SUBMITTED").upper(),
-            )
-            print(f"[batch-submit] [{mode}] job_id={job_id} batch_id={batch_id} count={len(bills)}")
-            return {"submitted": len(bills), "batch_id": batch_id, "job_id": job_id, "mode": mode}
-        finally:
-            if os.path.exists(jsonl_path):
-                os.remove(jsonl_path)
-    finally:
-        conn.close()
 
 
 with DAG(

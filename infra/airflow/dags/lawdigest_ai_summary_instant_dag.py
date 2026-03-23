@@ -53,17 +53,14 @@ def run_instant_ai_summary(**context):
         sys.path.append(project_root)
 
     # 파서 단계 import 실패를 피하기 위해 실행 시점에 import
-    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
-    from src.lawdigest_data_pipeline.DatabaseManager import DatabaseManager
-    from src.lawdigest_data_pipeline.ai_batch_pipeline_utils import (
-        get_test_db_config,
-        get_prod_db_config,
-    )
+    from lawdigest_ai.processor.instant_summarizer import summarize_single_bill
 
-    workflow = WorkFlowManager(mode="db")
-    summarized_rows = workflow.summarize_bill_step(bill_data)
+    result = summarize_single_bill(bill_data)
 
     if mode != "dry_run" and _as_bool(params.get("upsert", True)):
+        from src.lawdigest_data_pipeline.DatabaseManager import DatabaseManager
+        from lawdigest_ai.db import get_prod_db_config, get_test_db_config
+
         if mode == "prod":
             db_cfg = get_prod_db_config()
             print("[ai-summary-instant] Using PRODUCTION database")
@@ -78,17 +75,18 @@ def run_instant_ai_summary(**context):
             password=db_cfg["password"],
             database=db_cfg["database"],
         )
-        # WorkFlowManager의 upsert_bill_step 대신 명시적 DB 인스턴스 사용
-        import pandas as pd
-        bill_rows = [workflow._build_bill_row(pd.Series(r)) for r in summarized_rows]
-        if bill_rows:
-            db.insert_bill_info(bill_rows)
-            print(f"[ai-summary-instant] [{mode}] DB upsert completed.")
+        bill_row = {
+            "bill_id": result.get("bill_id"),
+            "brief_summary": result.get("brief_summary"),
+            "gpt_summary": result.get("gpt_summary"),
+            "summary_tags": result.get("summary_tags"),
+        }
+        db.insert_bill_info([bill_row])
+        print(f"[ai-summary-instant] [{mode}] DB upsert completed.")
     else:
         print(f"[ai-summary-instant] [{mode}] DB upsert skipped.")
 
-    result = summarized_rows[0] if summarized_rows else {}
-    print(json.dumps(result, ensure_ascii=False))
+    print(json.dumps(result, ensure_ascii=False, default=str))
     return result
 
 
