@@ -121,7 +121,6 @@ graph LR
     Processor -->|"요약 결과"| DB
     RAG <-->|"벡터 검색"| Qdrant
     Data -->|"적재"| DB
-
 ```
 
 <br>
