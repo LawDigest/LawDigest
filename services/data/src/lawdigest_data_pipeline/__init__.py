@@ -5,7 +5,15 @@
 """
 
 from importlib import import_module
+from pathlib import Path
+import sys
 from typing import Any
+
+_AI_SRC_PATH = Path(__file__).resolve().parents[3] / "ai" / "src"
+if _AI_SRC_PATH.exists():
+    ai_src = str(_AI_SRC_PATH)
+    if ai_src not in sys.path:
+        sys.path.insert(0, ai_src)
 
 __all__ = [
     "DatabaseManager",
