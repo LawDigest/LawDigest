@@ -93,3 +93,6 @@ services/data/archive/
 services/data/airflow/logs/
 services/backend/build/
 services/web/.vercel/
+
+# 배포 런타임
+.runtime/
