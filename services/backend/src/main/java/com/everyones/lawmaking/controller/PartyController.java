@@ -16,7 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
+import com.everyones.lawmaking.global.util.AuthenticationUtil;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -124,8 +124,7 @@ public class PartyController {
             @Schema(type = "boolean", allowableValues = {"true", "false"})
             @RequestParam("follow_checked") boolean followChecked
     ) {
-        var userDetails = (UserDetails) authentication.getPrincipal();
-        var userId = Long.parseLong(userDetails.getUsername());
+        var userId = AuthenticationUtil.requireUserId(authentication);
         var result = likeFacade.followParty(userId, partyId, followChecked);
         return BaseResponse.ok(result);
     }

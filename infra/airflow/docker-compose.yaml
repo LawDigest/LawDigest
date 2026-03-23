@@ -49,8 +49,8 @@ x-airflow-common:
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.5-python3.10}
-  # build: .
+  image: ${AIRFLOW_IMAGE_NAME:-lawdigest-airflow:latest}
+  build: .
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -124,7 +124,7 @@ services:
 
   airflow-webserver:
     <<: *airflow-common
-    command: webserver
+    command: api-server
     ports:
       - "8081:8080"
     healthcheck:
@@ -161,7 +161,7 @@ services:
       - -c
       - |
         while true; do
-          /opt/airflow/project/airflow/scripts/trim_airflow_logs_to_1gb.sh /opt/airflow/logs 1073741824
+          /opt/airflow/project/infra/airflow/scripts/trim_airflow_logs_to_1gb.sh /opt/airflow/logs 1073741824
           sleep 300
         done
     restart: always
@@ -227,7 +227,7 @@ services:
       _AIRFLOW_DB_MIGRATE: 'true'
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
-      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-oracleserver2220!}
       _PIP_ADDITIONAL_REQUIREMENTS: ''
     user: "0:0"
     volumes:

@@ -11,6 +11,15 @@ Thumbs.db
 .vscode/
 *.iml
 
+# 에이전트
+.claude
+.codex
+.gemini
+harness
+
+# 워크트리
+.worktrees
+
 # =====================
 # Java / Spring Boot (services/backend)
 # =====================

@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
+import com.everyones.lawmaking.global.util.AuthenticationUtil;
 import org.springframework.web.bind.annotation.*;
 
 import static com.everyones.lawmaking.global.SwaggerConstants.EXAMPLE_ERROR_500_CONTENT;
@@ -110,8 +110,7 @@ public class CongressmanController {
             @Schema(type = "boolean", allowableValues = {"true", "false"})
             @RequestParam("like_checked") boolean likeChecked
     ) {
-        var userDetails = (UserDetails) authentication.getPrincipal();
-        var userId = Long.parseLong(userDetails.getUsername());
+        var userId = AuthenticationUtil.requireUserId(authentication);
         var result = likeFacade.likeCongressman(userId, congressmanId, likeChecked);
         return BaseResponse.ok(result);
     }

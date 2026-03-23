@@ -87,3 +87,77 @@
 .DAFAULT {
   background-color: transparent;
 }
+
+/* ── 피드 콘텐츠 타입 탭 ── */
+
+/* 슬라이딩 인디케이터 */
+.feed-tab-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 85px;
+  height: 36px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(251, 235, 89, 0.15) 0%,
+    rgba(252, 86, 216, 0.15) 31%,
+    rgba(16, 217, 239, 0.15) 65%,
+    rgba(108, 248, 128, 0.15) 100%
+  );
+  box-shadow: 0px 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 레인보우 그라디언트 테두리 */
+.feed-tab-indicator::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  padding: 2px;
+  background: linear-gradient(90deg, #fbeb59 0%, #fc56d8 31%, #10d9ef 65%, #6cf880 100%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+/* 탭 버튼 */
+.feed-content-tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 85px;
+  height: 36px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: rgba(25, 25, 25, 0.4);
+  font-size: 1rem;
+  font-weight: 500;
+  font-family: 'Pretendard Variable', 'Pretendard', sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.25s ease;
+}
+
+.feed-content-tab.is-active {
+  color: #191919;
+}
+
+.feed-content-tab:active {
+  transform: scale(0.97);
+}

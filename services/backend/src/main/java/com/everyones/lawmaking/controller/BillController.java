@@ -19,8 +19,9 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import com.everyones.lawmaking.global.error.AuthException;
+import com.everyones.lawmaking.global.util.AuthenticationUtil;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -154,8 +155,7 @@ public class BillController {
             @Schema(type = "boolean", allowableValues = {"true", "false"})
             @RequestParam("likeChecked") boolean likeChecked
     ) {
-        var userDetails = (UserDetails) authentication.getPrincipal();
-        var userId = Long.parseLong(userDetails.getUsername());
+        var userId = AuthenticationUtil.requireUserId(authentication);
         var result = likeFacade.likeBill(userId, billId, likeChecked);
         return BaseResponse.ok(result);
     }

@@ -20,7 +20,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -56,8 +55,7 @@ public class UserController {
     @GetMapping("/info")
     public BaseResponse<UserMyPageInfoResponse> getUserMyPageInfo(
             Authentication authentication) {
-        var userDetails = (UserDetails) authentication.getPrincipal();
-        var userId = Long.parseLong(userDetails.getUsername());
+        var userId = AuthenticationUtil.requireUserId(authentication);
         var result = userFacade.getUserMyPageInfo(userId);
         return BaseResponse.ok(result);
     }
@@ -78,8 +76,7 @@ public class UserController {
     @GetMapping("/following/party")
     public BaseResponse<List<FollowingPartyResponse>> getFollowingParty (
             Authentication authentication) {
-        var userDetails = (UserDetails) authentication.getPrincipal();
-        var userId = Long.parseLong(userDetails.getUsername());
+        var userId = AuthenticationUtil.requireUserId(authentication);
         var result = partyFacade.getFollowingParty(userId);
         return BaseResponse.ok(result);
     }
@@ -100,8 +97,7 @@ public class UserController {
     @GetMapping("/liking/congressman")
     public BaseResponse<List<LikingCongressmanResponse>> getLikingCongressman (
             Authentication authentication) {
-        var userDetails = (UserDetails) authentication.getPrincipal();
-        var userId = Long.parseLong(userDetails.getUsername());
+        var userId = AuthenticationUtil.requireUserId(authentication);
         var result = congressmanFacade.getLikingCongressman(userId);
         return BaseResponse.ok(result);
     }

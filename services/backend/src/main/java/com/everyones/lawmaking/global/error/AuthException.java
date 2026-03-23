@@ -60,4 +60,14 @@ public class AuthException extends CustomException {
             super(ErrorCode.TOKEN_NOT_FOUND, inputValueProperties);
         }
     }
+
+    public static class Unauthorized extends AuthException {
+        public Unauthorized() {
+            super(ErrorCode.UNAUTHORIZED);
+        }
+
+        public Unauthorized(Map<String, String> inputValueProperties) {
+            super(ErrorCode.UNAUTHORIZED, inputValueProperties);
+        }
+    }
 }

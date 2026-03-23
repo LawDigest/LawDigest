@@ -208,20 +208,25 @@ function Nav() {
       {/* 검색 열림 시 백드롭 — 탭하면 닫힘 */}
       {isSearchOpen && <div className="mobile-floating-nav-backdrop" onClick={closeSearch} aria-hidden="true" />}
 
-      <div className={`mobile-floating-nav-wrapper${isSearchOpen ? ' is-search-open' : ''}`}>
+      <div
+        className="mobile-floating-nav-wrapper"
+        style={{ '--mobile-nav-count': navItems.length } as React.CSSProperties}>
         {/* 탭 바 */}
         <nav
           ref={registerNavRef}
           className={`mobile-floating-nav${isCompact ? ' is-compact' : ''}${isDragging ? ' is-dragging' : ''}${isSearchOpen ? ' is-search-open' : ''}`}
-          style={{ '--mobile-nav-count': navItems.length } as React.CSSProperties}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={() => {
-            dragState.current = null;
-            isDraggingRef.current = false;
-            setIsDragging(false);
-          }}>
+          onPointerDown={isSearchOpen ? undefined : handlePointerDown}
+          onPointerMove={isSearchOpen ? undefined : handlePointerMove}
+          onPointerUp={isSearchOpen ? undefined : handlePointerUp}
+          onPointerCancel={
+            isSearchOpen
+              ? undefined
+              : () => {
+                  dragState.current = null;
+                  isDraggingRef.current = false;
+                  setIsDragging(false);
+                }
+          }>
           <div className="mobile-floating-nav__indicator" />
 
           <div aria-hidden="true" className="mobile-floating-nav__active-overlay">
@@ -252,15 +257,23 @@ function Nav() {
             </button>
           ))}
 
-          {/* 검색 열림 시: 현재 활성 탭 아이콘만 단독 표시 */}
-          {navItems.map(({ label, IconComponent }, i) => (
-            <div
-              key={`solo-${label}`}
-              className={`mobile-floating-nav__solo-icon${i === activeIndex ? ' is-active' : ''}`}
-              aria-hidden="true">
-              <IconComponent isActive />
-            </div>
-          ))}
+          {/* 검색 열림 시: 현재 활성 탭 아이콘만 단독 표시 (클릭 시 검색 닫힘) */}
+          {navItems.map(({ label, IconComponent }, i) =>
+            i === activeIndex ? (
+              <button
+                key={`solo-${label}`}
+                type="button"
+                className="mobile-floating-nav__solo-icon is-active"
+                onClick={closeSearch}
+                aria-label="검색 닫기">
+                <IconComponent isActive />
+              </button>
+            ) : (
+              <div key={`solo-${label}`} className="mobile-floating-nav__solo-icon" aria-hidden="true">
+                <IconComponent isActive />
+              </div>
+            ),
+          )}
         </nav>
 
         {/* 검색 그룹: 예시 질문 버블 + 검색 버튼/바 */}

@@ -19,12 +19,16 @@
   padding: 0 1rem;
   z-index: 70;
   pointer-events: none;
-  transition: justify-content 0s, align-items 0s;
-}
-
-.mobile-floating-nav-wrapper.is-search-open {
-  justify-content: flex-start;
-  align-items: flex-end;
+  /* 공유 CSS 변수 — nav와 search-wrap이 동일한 너비 계산에 사용 */
+  --mobile-nav-gap: 0.125rem;
+  --mobile-nav-shell-padding: 0.25rem;
+  --mobile-nav-item-min-width: 4.5rem;
+  --mobile-nav-item-min-width-compact: 2.625rem;
+  --mobile-nav-full-width: calc(
+    var(--mobile-nav-count) * var(--mobile-nav-item-min-width)
+    + (var(--mobile-nav-shell-padding) * 2)
+    + (var(--mobile-nav-gap) * (var(--mobile-nav-count) - 1))
+  );
 }
 
 .mobile-floating-nav-wrapper > * {
@@ -33,11 +37,6 @@
 
 /* ── 탭 바 쉘 ── */
 .mobile-floating-nav {
-  --mobile-nav-gap: 0.125rem;
-  --mobile-nav-shell-padding: 0.25rem;
-  --mobile-nav-item-min-width: 4.5rem;
-  --mobile-nav-item-min-width-compact: 2.625rem; /* 42px */
-  /* CSS variable 기반 인디케이터 크기/위치 */
   --mobile-nav-indicator-width: calc(
     (100% - (var(--mobile-nav-shell-padding) * 2) - (var(--mobile-nav-gap) * (var(--mobile-nav-count) - 1)))
     / var(--mobile-nav-count)
@@ -45,7 +44,7 @@
   --mobile-nav-indicator-left: calc(
     var(--mobile-nav-shell-padding) + (var(--mobile-nav-index, 0) * (var(--mobile-nav-indicator-width) + var(--mobile-nav-gap)))
   );
-  width: calc(var(--mobile-nav-count) * var(--mobile-nav-item-min-width) + (var(--mobile-nav-shell-padding) * 2) + (var(--mobile-nav-gap) * (var(--mobile-nav-count) - 1)));
+  width: var(--mobile-nav-full-width);
   height: 3.875rem;
   padding: var(--mobile-nav-shell-padding);
   display: flex;
@@ -76,7 +75,11 @@
 
 /* 축소 상태 */
 .mobile-floating-nav.is-compact {
-  width: calc(var(--mobile-nav-count) * var(--mobile-nav-item-min-width-compact) + (var(--mobile-nav-shell-padding) * 2) + (var(--mobile-nav-gap) * (var(--mobile-nav-count) - 1)));
+  width: calc(
+    var(--mobile-nav-count) * var(--mobile-nav-item-min-width-compact)
+    + (var(--mobile-nav-shell-padding) * 2)
+    + (var(--mobile-nav-gap) * (var(--mobile-nav-count) - 1))
+  );
   height: 2.6875rem;
 }
 
@@ -131,6 +134,7 @@
   transition: opacity 0.18s ease;
 }
 
+
 /* ── 활성 아이콘 오버레이 ── */
 .mobile-floating-nav__active-overlay {
   position: absolute;
@@ -172,7 +176,19 @@
 
 .mobile-floating-nav.is-search-open .mobile-floating-nav__solo-icon.is-active {
   opacity: 1;
+  pointer-events: auto;
   transition-delay: 0.12s;
+}
+
+/* solo icon이 button일 때 기본 스타일 제거 */
+button.mobile-floating-nav__solo-icon {
+  border: none;
+  background: transparent;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
 }
 
 /* ── 탭 아이템 ── */
@@ -249,22 +265,20 @@
   transform: translateY(4px);
 }
 
-/* ── 검색 그룹 (예시 버블 + 검색 wrap 세로 묶음) ── */
+/* ── 검색 그룹 (예시 버블 + 검색 wrap) ── */
 .mobile-floating-nav-search-group {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.5rem;
+  position: relative; /* 버블 absolute 기준점 */
   flex-shrink: 0;
-  transition: flex 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
-.mobile-floating-nav-wrapper.is-search-open .mobile-floating-nav-search-group {
-  flex: 1;
-}
-
-/* ── 예시 질문 버블 ── */
+/* ── 예시 질문 버블 — absolute로 레이아웃에서 분리 ── */
 .mobile-floating-nav-suggestions {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  right: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -289,12 +303,13 @@
   align-items: center;
   padding: 0.4375rem 0.875rem;
   border-radius: 999px;
-  border: 1px solid rgba(79, 172, 254, 0.25);
+  border: 1px solid rgba(252, 86, 216, 0.20);
   background: rgba(255, 255, 255, 0.82);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   box-shadow:
-    0 2px 12px rgba(79, 172, 254, 0.10),
+    0 2px 14px rgba(252, 86, 216, 0.08),
+    0 1px 4px rgba(16, 217, 239, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
   color: #1a1a2e;
   font-size: 0.75rem;
@@ -348,7 +363,6 @@
   transition:
     width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
     height 0.32s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.22s ease,
     border-radius 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -357,16 +371,16 @@
   height: 2.6875rem;
 }
 
-/* 확장 상태 */
+/* 확장 상태: nav 원래 너비와 동일 → 총 너비 불변 */
 .mobile-floating-nav-search-wrap.is-expanded {
-  width: 100%;
+  width: var(--mobile-nav-full-width);
   height: 3.875rem;
   padding: 1.5px;
   background: none;
   overflow: hidden;
 }
 
-/* 확장 시 회전하는 그라데이션 테두리 */
+/* 확장 시 회전하는 그라데이션 테두리 — 메인 컬러 기반 */
 .mobile-floating-nav-search-wrap.is-expanded::before {
   content: '';
   position: absolute;
@@ -375,15 +389,13 @@
   top: -50%;
   left: -50%;
   background: conic-gradient(
-    from 0deg,
-    #4facfe 0%,
-    #b6a6ff 20%,
-    #00d2ff 40%,
-    #6edcd9 60%,
-    #b6a6ff 80%,
-    #4facfe 100%
+    from 0deg at 50% 50%,
+    #FBEB59 0%,
+    #FC56D8 31%,
+    #10D9EF 65%,
+    #6CF880 100%
   );
-  animation: search-border-spin 4s linear infinite;
+  animation: search-border-spin 5s linear infinite;
   z-index: 0;
 }
 
@@ -391,18 +403,18 @@
 .mobile-floating-nav-search-wrap.is-expanded::after {
   content: '';
   position: absolute;
-  inset: -4px;
+  inset: -6px;
   border-radius: 999px;
   background: conic-gradient(
-    from 0deg,
-    rgba(79, 172, 254, 0.18),
-    rgba(182, 166, 255, 0.12),
-    rgba(0, 210, 255, 0.18),
-    rgba(110, 220, 217, 0.12),
-    rgba(79, 172, 254, 0.18)
+    from 0deg at 50% 50%,
+    rgba(251, 235, 89, 0.15),
+    rgba(252, 86, 216, 0.15),
+    rgba(16, 217, 239, 0.15),
+    rgba(108, 248, 128, 0.15),
+    rgba(251, 235, 89, 0.15)
   );
-  filter: blur(8px);
-  animation: search-border-spin 4s linear infinite;
+  filter: blur(10px);
+  animation: search-border-spin 5s linear infinite;
   z-index: -1;
   pointer-events: none;
 }
@@ -450,7 +462,8 @@
   width: 100%;
   border: none;
   background: transparent;
-  font-size: 0.875rem;
+  /* iOS Safari는 font-size < 16px이면 자동 확대됨 — 1rem(16px)으로 방지 */
+  font-size: 1rem;
   font-weight: 400;
   color: #1a1a1a;
   outline: none;

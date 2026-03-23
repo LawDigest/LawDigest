@@ -14,7 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
+import com.everyones.lawmaking.global.util.AuthenticationUtil;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -43,15 +43,15 @@ public class NotificationController {
     })
     @GetMapping("")
     public BaseResponse<List<NotificationResponse>> getNotifications(Authentication authentication) {
-        final UserDetails user = (UserDetails) authentication.getPrincipal();
-        var result = notificationFacade.getNotifications(Long.parseLong(user.getUsername()));
+        var userId = AuthenticationUtil.requireUserId(authentication);
+        var result = notificationFacade.getNotifications(userId);
         return BaseResponse.ok(result);
     }
 
     @GetMapping("/top3-unread")
     public BaseResponse<List<NotificationResponse>> getTop3UnreadNotifications(Authentication authentication) {
-        final UserDetails user = (UserDetails) authentication.getPrincipal();
-        var result = notificationFacade.getTop3UnreadNotifications(Long.parseLong(user.getUsername()));
+        var userId = AuthenticationUtil.requireUserId(authentication);
+        var result = notificationFacade.getTop3UnreadNotifications(userId);
         return BaseResponse.ok(result);
     }
 
@@ -70,8 +70,8 @@ public class NotificationController {
     })
     @PutMapping("/read/all")
     public BaseResponse<List<NotificationResponse>> readAllNotifications(Authentication authentication) {
-        final UserDetails user = (UserDetails) authentication.getPrincipal();
-        var result = notificationFacade.readAllNotifications(Long.parseLong(user.getUsername()));
+        var userId = AuthenticationUtil.requireUserId(authentication);
+        var result = notificationFacade.readAllNotifications(userId);
         return BaseResponse.ok(result);
     }
 
@@ -92,8 +92,8 @@ public class NotificationController {
     public BaseResponse<NotificationResponse> readNotification(Authentication authentication,
              @Parameter(example = "3", description = "읽음 처리할 알림id를 의미합니다.")
              @RequestParam(name = "notification_id") int notificationId) {
-        final UserDetails user = (UserDetails) authentication.getPrincipal();
-        var result = notificationFacade.readNotification(Long.parseLong(user.getUsername()), notificationId);
+        var userId = AuthenticationUtil.requireUserId(authentication);
+        var result = notificationFacade.readNotification(userId, notificationId);
         return BaseResponse.ok(result.get(0));
     }
 
@@ -112,8 +112,8 @@ public class NotificationController {
     })
     @DeleteMapping("/delete/all")
     public BaseResponse<String> deleteAllNotification(Authentication authentication) {
-        final UserDetails user = (UserDetails) authentication.getPrincipal();
-        var result = notificationFacade.deleteAllNotification(Long.parseLong(user.getUsername()));
+        var userId = AuthenticationUtil.requireUserId(authentication);
+        var result = notificationFacade.deleteAllNotification(userId);
         return BaseResponse.ok(result);
     }
 
@@ -134,8 +134,8 @@ public class NotificationController {
     public BaseResponse<String> deleteNotification(Authentication authentication,
            @Parameter(example = "3", description = "읽음 처리할 알림id를 의미합니다.")
            @RequestParam(name = "notification_id") int notificationId) {
-        final UserDetails user = (UserDetails) authentication.getPrincipal();
-        var result = notificationFacade.deleteNotification(Long.parseLong(user.getUsername()),notificationId);
+        var userId = AuthenticationUtil.requireUserId(authentication);
+        var result = notificationFacade.deleteNotification(userId, notificationId);
         return BaseResponse.ok(result);
     }
 
@@ -155,8 +155,8 @@ public class NotificationController {
     })
     @GetMapping("/count")
     public BaseResponse<NotificationCountResponse> countNotifications(Authentication authentication) {
-        final UserDetails user = (UserDetails) authentication.getPrincipal();
-        var result = notificationFacade.countNotifications(Long.parseLong(user.getUsername()));
+        var userId = AuthenticationUtil.requireUserId(authentication);
+        var result = notificationFacade.countNotifications(userId);
         return BaseResponse.ok(result);
     }
 

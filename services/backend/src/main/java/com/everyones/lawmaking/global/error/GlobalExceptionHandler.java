@@ -1,9 +1,7 @@
 package com.everyones.lawmaking.global.error;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.coyote.Response;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -28,6 +26,13 @@ public class GlobalExceptionHandler {
 
         log.error(e.getErrorInfoLog());
         return new ResponseEntity<>(ErrorResponse.from(e), HttpStatus.NOT_FOUND);
+    }
+
+    //401 error
+    @ExceptionHandler(AuthException.class)
+    protected ResponseEntity<ErrorResponse> handleGlobalAuthException(final AuthException e) {
+        log.error(e.getErrorInfoLog());
+        return new ResponseEntity<>(ErrorResponse.from(e), HttpStatus.valueOf(e.getCode()));
     }
 
     //500 error
