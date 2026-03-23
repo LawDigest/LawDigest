@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any, Dict, List
+
+logger = logging.getLogger(__name__)
 
 from openai import OpenAI
 from lawdigest_ai import config
@@ -63,15 +66,19 @@ class LawdigestionChatbot:
             "법안 정보에 없는 내용은 추측하지 마세요."
         )
         user_prompt = f"[참고 법안 정보]\n{context}\n\n[질문]\n{query}"
-        response = self.llm.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.3,
-        )
-        return response.choices[0].message.content or ""
+        try:
+            response = self.llm.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.3,
+            )
+            return response.choices[0].message.content or ""
+        except Exception as e:
+            logger.exception(f"LLM 호출 실패: {e}")
+            return "죄송합니다. 일시적인 오류가 발생했습니다."
 
     def answer(self, query: str) -> str:
         """사용자 질문에 대한 RAG 기반 답변을 반환합니다."""

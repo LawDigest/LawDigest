@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 import qdrant_client
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from lawdigest_ai import config
+
+logger = logging.getLogger(__name__)
 
 
 class VectorStore:
@@ -19,7 +22,7 @@ class VectorStore:
                 https=config.QDRANT_USE_HTTPS,
             )
         except Exception as e:
-            print(f"Qdrant 클라이언트 초기화 실패: {e}")
+            logger.error(f"Qdrant 클라이언트 초기화 실패: {e}")
             self.client = None
 
     def create_collection(self, collection_name: str, vector_size: int, recreate: bool = False) -> None:

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from typing import List, Optional
 from openai import OpenAI
 from lawdigest_ai import config
+
+logger = logging.getLogger(__name__)
 
 
 class EmbeddingGenerator:
@@ -17,7 +20,7 @@ class EmbeddingGenerator:
             try:
                 self.client = OpenAI(api_key=config.get_openai_api_key())
             except Exception as e:
-                print(f"OpenAI 클라이언트 초기화 실패: {e}")
+                logger.error(f"OpenAI 클라이언트 초기화 실패: {e}")
         elif model_type == "huggingface":
             if not model_name:
                 raise ValueError("HuggingFace 모델을 사용하려면 model_name을 지정해야 합니다.")
@@ -25,7 +28,7 @@ class EmbeddingGenerator:
                 from sentence_transformers import SentenceTransformer
                 self.huggingface_model = SentenceTransformer(model_name)
             except Exception as e:
-                print(f"HuggingFace 모델 로드 실패: {e}")
+                logger.error(f"HuggingFace 모델 로드 실패: {e}")
 
     def generate(self, text: str) -> Optional[List[float]]:
         """텍스트에 대한 임베딩 벡터를 반환합니다."""
@@ -42,7 +45,7 @@ class EmbeddingGenerator:
                 )
                 return response.data[0].embedding
             except Exception as e:
-                print(f"OpenAI 임베딩 생성 실패: {e}")
+                logger.exception(f"OpenAI 임베딩 생성 실패: {e}")
                 return None
 
         elif self.model_type == "huggingface":
@@ -51,6 +54,6 @@ class EmbeddingGenerator:
             try:
                 return self.huggingface_model.encode(text).tolist()
             except Exception as e:
-                print(f"HuggingFace 임베딩 생성 실패: {e}")
+                logger.exception(f"HuggingFace 임베딩 생성 실패: {e}")
                 return None
         return None
