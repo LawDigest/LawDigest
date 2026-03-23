@@ -89,25 +89,25 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 
 | DAG ID | 스케줄 | 용도 |
 |--------|--------|------|
-| `lawdigest_bill_ingest_dag` | `0 * * * *` (매 정시) | 국회 API → DB 수집 |
-| `lawdigest_hourly_update_dag` | `0 * * * *` (매 정시) | 법안 상세 정보 동기화 |
-| `lawdigest_ai_batch_submit_dag` | `10 * * * *` (매 정시 10분) | 미요약 법안 → OpenAI Batch 제출 |
-| `lawdigest_ai_batch_ingest_dag` | `*/10 * * * *` (10분마다) | OpenAI 배치 결과 수신 → DB |
-| `lawdigest_daily_db_backup_dag` | `0 0 * * *` (매일 자정) | 전체 DB 백업 |
+| `bill_ingest_dag` | `0 * * * *` (매 정시) | 국회 API → DB 수집 |
+| `bill_status_sync_dag` | `0 * * * *` (매 정시) | 법안 의원/타임라인/결과/표결 동기화 |
+| `ai_batch_submit_dag` | `10 * * * *` (매 정시 10분) | 미요약 법안 → OpenAI Batch 제출 |
+| `ai_batch_ingest_dag` | `*/10 * * * *` (10분마다) | OpenAI 배치 결과 수신 → DB |
+| `db_backup_dag` | `0 0 * * *` (매일 자정) | 전체 DB 백업 |
 
 ### 5.2 수동 실행 DAG
 
 | DAG ID | 용도 |
 |--------|------|
-| `lawdigest_ai_summary_batch_dag` | 결측된 AI 요약 일괄 복구 |
-| `lawdigest_ai_summary_instant_dag` | 단일 법안 즉시 요약 |
-| `manual_collect_bills` | 특정 기간 법안 수동 수집 |
+| `manual_ai_summary_repair_dag` | 결측된 AI 요약 일괄 복구 |
+| `manual_ai_summary_instant_dag` | 단일 법안 즉시 요약 |
+| `manual_bill_collect_dag` | 특정 기간 법안 수동 수집 |
 
 ---
 
 ## 6. DAG 상세 흐름
 
-### 6.1 lawdigest_bill_ingest_dag (매 정시)
+### 6.1 bill_ingest_dag (매 정시)
 
 ```
 DataFetcher.fetch_bills_data()
@@ -122,7 +122,7 @@ DatabaseManager.upsert_bill() x 1000개 청크
 
 ---
 
-### 6.2 lawdigest_hourly_update_dag (매 정시)
+### 6.2 bill_status_sync_dag (매 정시)
 
 ```
 update_lawmakers

@@ -72,26 +72,26 @@ docker exec airflow-postgres-1 psql -U airflow -d airflow -c \
 
 ```bash
 # 1-1. 법안 수집 DAG 활성화
-docker exec airflow-airflow-webserver-1 airflow dags unpause lawdigest_bill_ingest_dag
+docker exec airflow-airflow-webserver-1 airflow dags unpause bill_ingest_dag
 
-# 1-2. 시간별 업데이트 DAG 활성화
-docker exec airflow-airflow-webserver-1 airflow dags unpause lawdigest_hourly_update_dag
+# 1-2. 법안 상태 동기화 DAG 활성화 (의원/타임라인/결과/표결)
+docker exec airflow-airflow-webserver-1 airflow dags unpause bill_status_sync_dag
 ```
 
 ### 단계 2: AI 배치 DAG 활성화
 
 ```bash
 # 2-1. AI 배치 제출 DAG
-docker exec airflow-airflow-webserver-1 airflow dags unpause lawdigest_ai_batch_submit_dag
+docker exec airflow-airflow-webserver-1 airflow dags unpause ai_batch_submit_dag
 
 # 2-2. AI 배치 결과 수신 DAG
-docker exec airflow-airflow-webserver-1 airflow dags unpause lawdigest_ai_batch_ingest_dag
+docker exec airflow-airflow-webserver-1 airflow dags unpause ai_batch_ingest_dag
 ```
 
 ### 단계 3: DB 백업 DAG 활성화
 
 ```bash
-docker exec airflow-airflow-webserver-1 airflow dags unpause lawdigest_daily_db_backup_dag
+docker exec airflow-airflow-webserver-1 airflow dags unpause db_backup_dag
 ```
 
 > **수동 실행 DAG** (`lawdigest_ai_summary_batch_dag`, `lawdigest_ai_summary_instant_dag`, `manual_collect_bills`)은 스케줄 없이 필요 시 수동 트리거하므로 별도 활성화 불필요.
@@ -105,7 +105,7 @@ docker exec airflow-airflow-webserver-1 airflow dags unpause lawdigest_daily_db_
 ```bash
 # 법안 수집 dry-run 테스트 (DB 저장 없이 수집만)
 docker exec airflow-airflow-webserver-1 airflow dags trigger \
-  lawdigest_bill_ingest_dag \
+  bill_ingest_dag \
   --conf '{"execution_mode": "dry_run", "start_date": "2026-03-22", "end_date": "2026-03-23"}'
 ```
 
@@ -158,15 +158,15 @@ UI에서 DAG 활성화/비활성화 및 수동 트리거가 가능합니다.
 AIRFLOW="docker exec airflow-airflow-webserver-1 airflow dags unpause"
 
 echo "=== 데이터 수집 DAG 활성화 ==="
-$AIRFLOW lawdigest_bill_ingest_dag
-$AIRFLOW lawdigest_hourly_update_dag
+$AIRFLOW bill_ingest_dag
+$AIRFLOW bill_status_sync_dag
 
 echo "=== AI 배치 DAG 활성화 ==="
-$AIRFLOW lawdigest_ai_batch_submit_dag
-$AIRFLOW lawdigest_ai_batch_ingest_dag
+$AIRFLOW ai_batch_submit_dag
+$AIRFLOW ai_batch_ingest_dag
 
 echo "=== DB 백업 DAG 활성화 ==="
-$AIRFLOW lawdigest_daily_db_backup_dag
+$AIRFLOW db_backup_dag
 
 echo "=== 활성화 결과 확인 ==="
 docker exec airflow-airflow-webserver-1 airflow dags list
@@ -179,9 +179,9 @@ docker exec airflow-airflow-webserver-1 airflow dags list
 문제 발생 시 전체 DAG을 다시 일시정지합니다.
 
 ```bash
-for dag in lawdigest_bill_ingest_dag lawdigest_hourly_update_dag \
-           lawdigest_ai_batch_submit_dag lawdigest_ai_batch_ingest_dag \
-           lawdigest_daily_db_backup_dag; do
+for dag in bill_ingest_dag bill_status_sync_dag \
+           ai_batch_submit_dag ai_batch_ingest_dag \
+           db_backup_dag; do
   docker exec airflow-airflow-webserver-1 airflow dags pause $dag
   echo "Paused: $dag"
 done
