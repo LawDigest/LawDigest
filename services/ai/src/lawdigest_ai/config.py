@@ -16,3 +16,6 @@ def get_openai_api_key() -> str:
     if not key:
         raise ValueError("OPENAI_API_KEY 또는 APIKEY_OPENAI 환경변수가 설정되어야 합니다.")
     return key
+
+SUMMARY_STRUCTURED_MODEL = os.getenv("SUMMARY_STRUCTURED_MODEL", "openai:gpt-4o-mini")
+SUMMARY_STRUCTURED_FALLBACK_MODEL = os.getenv("SUMMARY_STRUCTURED_FALLBACK_MODEL", "openai:gpt-4o-mini")

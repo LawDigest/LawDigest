@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from typing import Any, Dict, List, Optional
+
+from lawdigest_ai.config import SUMMARY_STRUCTURED_MODEL, SUMMARY_STRUCTURED_FALLBACK_MODEL
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -24,8 +25,8 @@ class AISummarizer:
     def __init__(self):
         self.failed_bills: List[dict] = []
         self.logger = logging.getLogger(__name__)
-        self.primary_model = os.environ.get("SUMMARY_STRUCTURED_MODEL", "openai:gpt-4o-mini")
-        self.fallback_model = os.environ.get("SUMMARY_STRUCTURED_FALLBACK_MODEL", "openai:gpt-4o-mini")
+        self.primary_model = SUMMARY_STRUCTURED_MODEL
+        self.fallback_model = SUMMARY_STRUCTURED_FALLBACK_MODEL
         self.style_prompt = (
             "법률개정안 텍스트에서 달라지는 핵심 내용을 항목별로 정리하세요. "
             "각 항목은 이해하기 쉬운 공식 문체로 작성하고, 3~7개 항목을 권장합니다."
