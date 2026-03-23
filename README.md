@@ -66,33 +66,55 @@
 ## 아키텍처
 
 ```mermaid
-flowchart TB
-    Browser["🌐 사용자 브라우저"]
-    Web["services/web\nNext.js 13"]
-    Backend["services/backend\nSpring Boot 3.1"]
-    DB[("MySQL RDS")]
-    Redis[("Redis")]
-    Data["services/data\n데이터 수집 파이프라인"]
-    AI["services/ai\nAI 요약 / RAG 챗봇"]
-    OpenAPI["🏛️ 국회 Open API"]
-    OpenAI["🤖 OpenAI GPT-5"]
-    Qdrant[("Qdrant\n벡터 DB")]
-    Airflow["⚙️ Apache Airflow 3.1"]
+graph LR
+    subgraph CLIENT["Client"]
+        Browser["🌐 Browser"]
+    end
 
-    Browser -->|"HTTPS"| Web
-    Web -->|"REST API"| Backend
-    Backend --> DB
-    Backend --> Redis
+    subgraph FRONTEND["services/web"]
+        Web["Next.js 13"]
+    end
 
-    Airflow -->|"법안 수집 DAG"| Data
-    Airflow -->|"AI 요약 DAG"| AI
+    subgraph BACKEND["services/backend"]
+        API["Spring Boot 3.1\n법안 · 의원 · 유저 API"]
+    end
 
-    Data -->|"수집 → 정제 → 적재"| DB
+    subgraph STORAGE["Storage"]
+        DB[("MySQL RDS")]
+        Redis[("Redis")]
+        Qdrant[("Qdrant\n벡터 DB")]
+    end
+
+    subgraph PIPELINE["services/data"]
+        Data["데이터 수집\nDataFetcher · DataProcessor"]
+    end
+
+    subgraph AI_SERVICE["services/ai"]
+        Processor["processor/\nAI 요약 배치"]
+        RAG["rag/\nRAG 챗봇"]
+    end
+
+    subgraph EXTERNAL["External"]
+        OpenAPI["🏛️ 국회 Open API"]
+        OpenAI["🤖 OpenAI GPT-5"]
+        Airflow["⚙️ Airflow 3.1"]
+    end
+
+    Browser --> Web
+    Web -->|"REST"| API
+    API --> DB
+    API --> Redis
+
+    Airflow -->|"수집 DAG"| Data
+    Airflow -->|"요약 DAG"| Processor
+
     OpenAPI -->|"법안 데이터"| Data
+    Data -->|"적재"| DB
 
-    AI -->|"요약 결과 업데이트"| DB
-    AI -->|"임베딩 / 요약"| OpenAI
-    AI <-->|"벡터 검색"| Qdrant
+    Processor -->|"요약 결과"| DB
+    Processor -->|"GPT 호출"| OpenAI
+    RAG -->|"임베딩 / 생성"| OpenAI
+    RAG <-->|"벡터 검색"| Qdrant
 ```
 
 <br>
