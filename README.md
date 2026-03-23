@@ -7,8 +7,8 @@
 [![Next.js](https://img.shields.io/badge/Next.js-13-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.1-6DB33F?style=flat-square&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com/)
-[![Apache Airflow](https://img.shields.io/badge/Apache_Airflow-2.10-017CEE?style=flat-square&logo=apacheairflow&logoColor=white)](https://airflow.apache.org/)
+[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com/)
+[![Apache Airflow](https://img.shields.io/badge/Apache_Airflow-3.1-017CEE?style=flat-square&logo=apacheairflow&logoColor=white)](https://airflow.apache.org/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql&logoColor=white)](https://www.mysql.com/)
 
 </div>
