@@ -66,9 +66,9 @@
 ## 아키텍처
 
 ```mermaid
-graph LR
-    subgraph CLIENT["Client"]
-        Browser["🌐 Browser"]
+graph TB
+    subgraph CLIENT["🌐 Client"]
+        Browser["Browser"]
     end
 
     subgraph FRONTEND["services/web"]
@@ -77,40 +77,41 @@ graph LR
 
     subgraph BACKEND["services/backend"]
         API["Spring Boot 3.1\n법안 · 의원 · 유저 API"]
+        Redis[("Redis")]
     end
 
-    subgraph STORAGE["Storage"]
+    subgraph DB_LAYER["Storage"]
         DB[("MySQL RDS")]
-        Redis[("Redis")]
-        Qdrant[("Qdrant\n벡터 DB")]
+        Qdrant[("Qdrant 벡터 DB")]
     end
 
     subgraph PIPELINE["services/data"]
-        Data["데이터 수집\nDataFetcher · DataProcessor"]
+        OpenAPI["🏛️ 국회 Open API"]
+        Data["DataFetcher · DataProcessor"]
+        OpenAPI -->|"법안 데이터"| Data
     end
 
     subgraph AI_SERVICE["services/ai"]
-        Processor["processor/\nAI 요약 배치"]
-        RAG["rag/\nRAG 챗봇"]
+        Processor["processor/  AI 요약"]
+        RAG["rag/  RAG 챗봇"]
     end
 
-    subgraph EXTERNAL["External"]
-        OpenAPI["🏛️ 국회 Open API"]
-        OpenAI["🤖 OpenAI GPT-5"]
-        Airflow["⚙️ Airflow 3.1"]
+    subgraph ORCHESTRATION["⚙️ Apache Airflow 3.1"]
+        DAG_DATA["수집 DAG"]
+        DAG_AI["요약 DAG"]
     end
+
+    OpenAI["🤖 OpenAI GPT-5"]
 
     Browser --> Web
     Web -->|"REST"| API
     API --> DB
-    API --> Redis
+    API --- Redis
 
-    Airflow -->|"수집 DAG"| Data
-    Airflow -->|"요약 DAG"| Processor
+    DAG_DATA --> Data
+    DAG_AI --> Processor
 
-    OpenAPI -->|"법안 데이터"| Data
     Data -->|"적재"| DB
-
     Processor -->|"요약 결과"| DB
     Processor -->|"GPT 호출"| OpenAI
     RAG -->|"임베딩 / 생성"| OpenAI
