@@ -3,7 +3,8 @@
         build-web build-backend \
         install-web install-data \
         lint-web lint-data \
-        test-backend test-data
+        test-backend test-data \
+        deploy-test-web
 
 help:
 	@echo "LawDigest 모노레포 명령어"
@@ -27,6 +28,9 @@ help:
 	@echo "  린트"
 	@echo "    make lint-web      ESLint (web)"
 	@echo "    make lint-data     ruff (data)"
+	@echo ""
+	@echo "  배포"
+	@echo "    make deploy-test-web  테스트 환경 프론트 배포 (개발 모드, test.lawdigest.net)"
 
 # ── Web (Next.js) ──────────────────────────────────────────
 dev-web:
@@ -60,3 +64,7 @@ test-data:
 
 lint-data:
 	cd services/data && uv run ruff check .
+
+# ── Deploy ─────────────────────────────────────────────────
+deploy-test-web:
+	bash deploy/deploy-test-web.sh
