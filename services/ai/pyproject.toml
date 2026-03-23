@@ -4,18 +4,26 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lawdigest-ai"
-version = "0.1.0"
-description = "모두의입법 프로젝트를 위한 AI 요약 전용 서비스"
+version = "0.2.0"
+description = "모두의입법 AI 서비스 - 데이터 AI 가공 및 RAG 챗봇 파이프라인"
 readme = "README.md"
 authors = [
   { name = "Minjae Park", email = "parkmj9260@gmail.com" }
 ]
 requires-python = ">=3.10"
 dependencies = [
-  "pandas",
+  "pandas>=2.2.0",
   "python-dotenv",
-  "pydantic",
-  "pydantic-ai-slim[openai]",
+  "pydantic>=2.0",
+  "pydantic-ai-slim[openai]>=0.7.0",
+  "openai>=1.50.0",
+  "pymysql>=1.1.0",
+  "requests>=2.31.0",
+  "qdrant-client>=1.12.0",
+  "sentence-transformers",
+  "langchain>=0.3.0",
+  "langchain-openai>=0.2.0",
+  "langchain-community>=0.3.0",
 ]
 
 [tool.setuptools]
@@ -23,3 +31,6 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
