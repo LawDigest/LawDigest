@@ -30,9 +30,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--mode",
-        choices=["remote", "db", "ai_test", "dry-run"],
+        choices=["remote", "db", "dry-run"],
         default="remote",
-        help="실행 모드 (default: remote). remote=운영, ai_test=5건 요약 테스트, dry-run=적재 생략",
+        help="실행 모드 (default: remote). remote=운영, dry-run=적재 생략",
     )
     parser.add_argument("--start-date", help="수집 시작일 (YYYY-MM-DD)")
     parser.add_argument("--end-date", help="수집 종료일 (YYYY-MM-DD)")
@@ -92,7 +92,8 @@ def _run_step(wfm: Any, step: str, args: argparse.Namespace) -> None:
 
     if step == "bills_summarize":
         input_data = json.loads(args.input_json) if args.input_json else []
-        summarized = wfm.summarize_bill_step(input_data)
+        from lawdigest_ai.processor.instant_summarizer import summarize_bills
+        summarized = summarize_bills(input_data if isinstance(input_data, list) else [input_data])
         print(json.dumps(summarized, ensure_ascii=False))
         return
 
