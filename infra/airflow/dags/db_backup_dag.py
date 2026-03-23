@@ -16,7 +16,7 @@ sys.path.append('/opt/airflow/project')
 from jobs.database_backup import main as db_backup_main
 
 with DAG(
-    dag_id="lawdigest_daily_db_backup_dag",
+    dag_id="db_backup_dag",
     schedule="0 0 * * *",  # 매일 자정 실행
     start_date=pendulum.datetime(2024, 1, 1, tz="Asia/Seoul"),
     catchup=False,

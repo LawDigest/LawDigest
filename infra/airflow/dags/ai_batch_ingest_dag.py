@@ -29,7 +29,7 @@ def poll_and_ingest_batch_results(**context):
 
 
 with DAG(
-    dag_id="lawdigest_ai_batch_ingest_dag",
+    dag_id="ai_batch_ingest_dag",
     schedule="*/10 * * * *",
     start_date=pendulum.datetime(2024, 1, 1, tz="Asia/Seoul"),
     catchup=False,

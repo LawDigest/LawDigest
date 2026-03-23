@@ -30,7 +30,7 @@ def submit_ai_batch(**context):
 
 
 with DAG(
-    dag_id="lawdigest_ai_batch_submit_dag",
+    dag_id="ai_batch_submit_dag",
     schedule="10 * * * *",
     start_date=pendulum.datetime(2024, 1, 1, tz="Asia/Seoul"),
     catchup=False,

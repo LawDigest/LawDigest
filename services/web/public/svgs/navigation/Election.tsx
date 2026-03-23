@@ -10,14 +10,14 @@ export default function IconElection({ isActive }: NavIconProps) {
         cy="15.5"
         r="12"
         stroke="currentColor"
-        strokeWidth="2.2"
+        strokeWidth="2"
         fill={isActive ? 'currentColor' : 'none'}
         fillOpacity={isActive ? 0.12 : 0}
       />
       {/* 세로선 (중앙, 원 내부 상단~하단) */}
       <line x1="15" y1="3.5" x2="15" y2="27.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      {/* 우하향 대각선 (세로선 중간~우하단) */}
-      <line x1="15" y1="15.5" x2="26.2" y2="26.2" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      {/* 우하향 대각선 (세로선 중간~우하단, 원 테두리에 맞게 길이 조정) */}
+      <line x1="15" y1="15.5" x2="23.49" y2="23.99" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
     </svg>
   );
 }

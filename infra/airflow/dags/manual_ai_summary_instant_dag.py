@@ -81,7 +81,7 @@ def run_instant_ai_summary(**context):
 
 
 with DAG(
-    dag_id="lawdigest_ai_summary_instant_dag",
+    dag_id="manual_ai_summary_instant_dag",
     schedule=None,
     start_date=pendulum.datetime(2024, 1, 1, tz="Asia/Seoul"),
     catchup=False,

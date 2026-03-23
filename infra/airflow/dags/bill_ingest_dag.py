@@ -42,16 +42,17 @@ def ingest_bills_from_api(**context):
         return {"fetched": 0, "upserted": 0, "mode": mode}
 
     # 중복 제거 및 의원 발의 법안 보강
-    if "billId" in df_bills.columns:
-        df_bills = df_bills.drop_duplicates(subset=["billId"], keep="last")
+    # DataFetcher가 billId -> bill_id, billName -> bill_name 등으로 rename하므로 변환 후 컬럼명 사용
+    if "bill_id" in df_bills.columns:
+        df_bills = df_bills.drop_duplicates(subset=["bill_id"], keep="last")
     processor = DataProcessor(fetcher)
     df_cong = processor.process_congressman_bills(df_bills.copy())
-    if df_cong is not None and not df_cong.empty and "billId" in df_cong.columns:
-        merge_cols = [c for c in ["billId", "billName", "proposers", "publicProposerIdList", "rstProposerIdList"] if c in df_cong.columns]
+    if df_cong is not None and not df_cong.empty and "bill_id" in df_cong.columns:
+        merge_cols = [c for c in ["bill_id", "bill_name", "proposers", "publicProposerIdList", "rstProposerIdList"] if c in df_cong.columns]
         if len(merge_cols) > 1:
-            df_map = df_cong[merge_cols].drop_duplicates(subset=["billId"], keep="last")
-            df_bills = df_bills.merge(df_map, on="billId", how="left", suffixes=("", "_enriched"))
-            for col in ["billName", "proposers", "publicProposerIdList", "rstProposerIdList"]:
+            df_map = df_cong[merge_cols].drop_duplicates(subset=["bill_id"], keep="last")
+            df_bills = df_bills.merge(df_map, on="bill_id", how="left", suffixes=("", "_enriched"))
+            for col in ["bill_name", "proposers", "publicProposerIdList", "rstProposerIdList"]:
                 enriched = f"{col}_enriched"
                 if enriched in df_bills.columns:
                     df_bills[col] = df_bills[enriched].where(df_bills[enriched].notna(), df_bills.get(col))
@@ -69,11 +70,11 @@ def ingest_bills_from_api(**context):
     _KIND_MAP = {"의원": "CONGRESSMAN", "위원장": "CHAIRMAN", "정부": "GOVERNMENT"}
     mapped = [
         {
-            "bill_id": row.get("billId"),
-            "bill_name": row.get("billName"),
+            "bill_id": row.get("bill_id"),
+            "bill_name": row.get("bill_name"),
             "committee": row.get("committee"),
             "gpt_summary": None,
-            "propose_date": row.get("proposeDate"),
+            "propose_date": row.get("propose_date") or row.get("proposeDate"),
             "summary": row.get("summary"),
             "stage": row.get("stage"),
             "proposers": row.get("proposers"),
@@ -83,12 +84,12 @@ def ingest_bills_from_api(**context):
             "bill_number": int(row.get("billNumber") or 0),
             "bill_link": row.get("bill_link") or row.get("billLink"),
             "bill_result": row.get("billResult"),
-            "proposer_kind": _KIND_MAP.get(str(row.get("proposerKind") or "").strip(), "CONGRESSMAN"),
+            "proposer_kind": _KIND_MAP.get(str(row.get("proposer_kind") or row.get("proposerKind") or "").strip(), "CONGRESSMAN"),
             "public_proposer_ids": row.get("publicProposerIdList") or [],
             "rst_proposer_ids": row.get("rstProposerIdList") or [],
         }
         for row in rows
-        if row.get("billId")
+        if row.get("bill_id")
     ]
 
     if mode == "prod":
@@ -112,7 +113,7 @@ def ingest_bills_from_api(**context):
 
 
 with DAG(
-    dag_id="lawdigest_bill_ingest_dag",
+    dag_id="bill_ingest_dag",
     schedule="0 * * * *",
     start_date=pendulum.datetime(2024, 1, 1, tz="Asia/Seoul"),
     catchup=False,

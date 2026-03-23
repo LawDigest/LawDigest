@@ -32,7 +32,7 @@ def collect_bills_task(**context):
 
 # --- DAG Definition ---
 with DAG(
-    dag_id="manual_collect_bills",
+    dag_id="manual_bill_collect_dag",
     schedule=None,  # 수동 실행 전용
     start_date=pendulum.datetime(2024, 1, 1, tz="Asia/Seoul"),
     catchup=False,
