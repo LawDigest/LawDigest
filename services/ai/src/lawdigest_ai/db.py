@@ -62,3 +62,23 @@ def get_db_connection(mode: str = "test") -> pymysql.connections.Connection:
         charset="utf8mb4", cursorclass=pymysql.cursors.DictCursor,
         autocommit=False,
     )
+
+
+def update_bill_summary(
+    bill_id: str,
+    brief_summary: str | None,
+    gpt_summary: str | None,
+    summary_tags: str | None,
+    mode: str = "test",
+) -> None:
+    """Bill 테이블의 AI 요약 컬럼을 업데이트합니다."""
+    conn = get_db_connection(mode=mode)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE Bill SET brief_summary=%s, gpt_summary=%s, summary_tags=%s WHERE bill_id=%s",
+                (brief_summary, gpt_summary, summary_tags, bill_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()

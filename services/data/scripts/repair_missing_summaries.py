@@ -28,7 +28,7 @@ from typing import List, Dict
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from lawdigest_data_pipeline.DatabaseManager import DatabaseManager
-from lawdigest_data_pipeline.AISummarizer import AISummarizer
+from lawdigest_ai.processor.summarizer import AISummarizer
 
 
 def repair_missing_summaries(

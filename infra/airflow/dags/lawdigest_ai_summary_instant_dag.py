@@ -58,30 +58,20 @@ def run_instant_ai_summary(**context):
     result = summarize_single_bill(bill_data)
 
     if mode != "dry_run" and _as_bool(params.get("upsert", True)):
-        from src.lawdigest_data_pipeline.DatabaseManager import DatabaseManager
-        from lawdigest_ai.db import get_prod_db_config, get_test_db_config
+        from lawdigest_ai.db import update_bill_summary
 
         if mode == "prod":
-            db_cfg = get_prod_db_config()
             print("[ai-summary-instant] Using PRODUCTION database")
         else:
-            db_cfg = get_test_db_config()
             print("[ai-summary-instant] Using TEST database")
 
-        db = DatabaseManager(
-            host=db_cfg["host"],
-            port=db_cfg["port"],
-            username=db_cfg["user"],
-            password=db_cfg["password"],
-            database=db_cfg["database"],
+        update_bill_summary(
+            bill_id=result["bill_id"],
+            brief_summary=result.get("brief_summary"),
+            gpt_summary=result.get("gpt_summary"),
+            summary_tags=result.get("summary_tags"),
+            mode=mode,
         )
-        bill_row = {
-            "bill_id": result.get("bill_id"),
-            "brief_summary": result.get("brief_summary"),
-            "gpt_summary": result.get("gpt_summary"),
-            "summary_tags": result.get("summary_tags"),
-        }
-        db.insert_bill_info([bill_row])
         print(f"[ai-summary-instant] [{mode}] DB upsert completed.")
     else:
         print(f"[ai-summary-instant] [{mode}] DB upsert skipped.")
