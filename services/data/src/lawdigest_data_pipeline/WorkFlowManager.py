@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 
 from .DataFetcher import DataFetcher
 from .DataProcessor import DataProcessor
-from .AISummarizer import AISummarizer
 from .APISender import APISender
 from .DatabaseManager import DatabaseManager
 from .Notifier import Notifier
@@ -28,12 +27,11 @@ class WorkFlowManager:
         ----------
         mode: str, optional
             실행 모드.
-            - remote: 운영 모드. AI 요약 및 DB 직접 적재.
-            - ai_test: 테스트 모드. 상위 5건 AI 요약 수행 (DB 적재 없음).
-            - dry-run: 데이터 수집 확인용 (요약/적재 생략).
+            - remote: 운영 모드. DB 직접 적재.
+            - dry-run: 데이터 수집 확인용 (적재 생략).
             - db: (구) DB 직접 적재 모드 (remote와 동일하게 동작 가능).
         """
-        self.mode_list = ['remote', 'local', 'test', 'save', 'fetch', 'ai_test', 'db', 'dry-run']
+        self.mode_list = ['remote', 'local', 'test', 'save', 'fetch', 'db', 'dry-run']
         if mode not in self.mode_list:
             raise ValueError(
                 f"올바른 모드를 선택해주세요. {self.mode_list}"
@@ -235,7 +233,7 @@ class WorkFlowManager:
             return None
 
         processor = DataProcessor(fetcher)
-        if self.mode not in {"fetch", "ai_test", "dry-run"}:
+        if self.mode not in {"fetch", "dry-run"}:
             df_bills = processor.remove_duplicates(df_bills, DatabaseManager())
 
         if df_bills is not None and not df_bills.empty:
@@ -250,11 +248,11 @@ class WorkFlowManager:
         if start_date is not None:
             return start_date
 
-        # ai_test/fetch/dry-run는 DB 조회 없이 최근 1일 데이터를 테스트/조회 대상으로 처리
-        if self.mode in {"ai_test", "fetch", "dry-run"}:
+        # fetch/dry-run는 DB 조회 없이 최근 1일 데이터를 테스트/조회 대상으로 처리
+        if self.mode in {"fetch", "dry-run"}:
             fallback_start_date = datetime.now().strftime('%Y-%m-%d')
             print(
-                "[INFO] ai_test/fetch/dry-run 모드: 시작일이 지정되지 않았습니다. "
+                "[INFO] fetch/dry-run 모드: 시작일이 지정되지 않았습니다. "
                 f"{fallback_start_date}를 시작일로 사용합니다. (DB 조회 생략)"
             )
             return fallback_start_date
@@ -265,13 +263,6 @@ class WorkFlowManager:
         if start_date is None:
             raise ValueError("DB에서 최신 법안 날짜를 가져올 수 없습니다.")
         return start_date
-
-    def summarize_bill_step(self, bill_data: dict):
-        """단일 법안 또는 소량의 법안에 대해 AI 요약 수행"""
-        df_bill = pd.DataFrame([bill_data]) if isinstance(bill_data, dict) else pd.DataFrame(bill_data)
-        summarizer = AISummarizer()
-        summarizer.AI_structured_summarize(df_bill)
-        return df_bill.to_dict('records')
 
     def upsert_bill_step(self, bill_data: dict | List[dict]):
         """단일 법안 또는 리스트를 DB에 직접 적재"""
@@ -284,19 +275,18 @@ class WorkFlowManager:
         return 0
 
     def update_bills_data(self, start_date=None, end_date=None, age=None, run_stats: bool = True):
-        """법안 데이터를 수집해 AI 요약 후 모드에 따라 적재/전송하는 함수
+        """법안 데이터를 수집해 모드에 따라 DB 적재하는 함수
 
         Args:
             start_date (str, optional): 시작 날짜 (YYYY-MM-DD 형식). Defaults to None.
             end_date (str, optional): 종료 날짜 (YYYY-MM-DD 형식). Defaults to None.
             age (str, optional): 국회 데이터 수집 대수
             run_stats (bool, optional): ``db`` 및 ``remote`` 모드에서 적재 후 통계 갱신 여부. Defaults to True.
-            
+
         Note:
             실행 모드는 클래스 생성 시 설정한 ``self.mode`` 값을 사용합니다.
-            - remote: 운영 모드. AI 요약 및 DB 직접 적재.
-            - ai_test: 테스트 모드. 상위 5건 AI 요약 수행 (DB 적재 없음).
-            - dry-run: 수집 확인 모드. 요약 및 적재 모두 수행하지 않음.
+            - remote: 운영 모드. DB 직접 적재.
+            - dry-run: 수집 확인 모드. 적재 생략.
 
         Returns:
             pd.DataFrame: 수집 및 처리된 데이터프레임
@@ -325,8 +315,8 @@ class WorkFlowManager:
         # 2. 데이터 전처리
         processor = DataProcessor(fetcher)
 
-        # 중복 데이터 제거 (fetch, ai_test, dry-run 모드에서는 수행하지 않음)
-        if mode not in {"fetch", "ai_test", "dry-run"}:
+        # 중복 데이터 제거 (fetch, dry-run 모드에서는 수행하지 않음)
+        if mode not in {"fetch", "dry-run"}:
             df_bills = processor.remove_duplicates(df_bills, DatabaseManager())
 
         if df_bills is None or len(df_bills) == 0:
@@ -340,7 +330,7 @@ class WorkFlowManager:
 
         # 의원 데이터 처리
         df_bills = processor.process_congressman_bills(df_bills)
-        
+
         # committee 컬럼 보완
         if 'committee' not in df_bills.columns:
             df_bills['committee'] = None
@@ -349,27 +339,10 @@ class WorkFlowManager:
             print("처리 가능한 법안 데이터가 없습니다.")
             return None
 
-        # 3. AI 요약 수행 (모드별 분기)
-        summerizer = AISummarizer()
-        
-        if mode == 'remote':
-            print("[운영 모드: AI 요약 진행]")
-            all_summarized_bills = []
-            for propose_date, group in df_bills.groupby('proposeDate'):
-                print(f"\n--- 처리 날짜: {propose_date} ---")
-                summerizer.AI_structured_summarize(group)
-                all_summarized_bills.append(group)
-            df_bills = pd.concat(all_summarized_bills, ignore_index=True)
+        if mode == 'dry-run':
+            print("[드라이 런 모드: 적재를 생략합니다]")
 
-        elif mode == 'ai_test':
-            print("[AI 테스트 모드: 상위 5건 요약 진행]")
-            df_bills = df_bills[:5]
-            summerizer.AI_structured_summarize(df_bills)
-
-        elif mode == 'dry-run':
-            print("[드라이 런 모드: 요약 및 적재를 생략합니다]")
-        
-        # 4. DB 적재 (모드별 분기)
+        # 3. DB 적재 (모드별 분기)
         if mode in {'remote', 'db'}:
             print(f"[{mode.upper()} 모드: DB 직접 적재 진행]")
             db_conn = DatabaseManager()

@@ -12,7 +12,6 @@ from airflow.operators.python import PythonOperator
 
 def poll_and_ingest_batch_results(**context):
     params = context.get("params", {})
-    max_jobs = int(params.get("max_jobs") or 20)
     mode = params.get("execution_mode") or "dry_run"
 
     print(f"[batch-ingest] Current Mode: {mode}")
@@ -21,74 +20,12 @@ def poll_and_ingest_batch_results(**context):
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.ai_batch_pipeline_utils import (
-        apply_batch_results,
-        ensure_status_tables,
-        fetch_jobs_for_polling,
-        get_db_connection,
-        openai_download_file_content,
-        openai_get_batch,
-        update_job_status,
+    from lawdigest_ai.processor.batch_ingest import ingest_batch_results
+
+    return ingest_batch_results(
+        max_jobs=int(params.get("max_jobs") or 10),
+        mode=mode,
     )
-
-    conn = get_db_connection(mode=mode if mode == "prod" else "test")
-    processed_jobs = 0
-    total_success = 0
-    total_failed = 0
-
-    try:
-        ensure_status_tables(conn)
-        jobs = fetch_jobs_for_polling(conn, max_jobs=max_jobs)
-        if not jobs:
-            print("[batch-ingest] 처리할 진행 중 batch가 없습니다.")
-            return {"jobs": 0, "success": 0, "failed": 0, "mode": mode}
-
-        for job in jobs:
-            processed_jobs += 1
-            batch = openai_get_batch(job["batch_id"])
-            status = (batch.get("status") or "UNKNOWN").upper()
-            output_file_id = batch.get("output_file_id")
-            error_file_id = batch.get("error_file_id")
-
-            if mode == "dry_run":
-                print(f"[batch-ingest] [DRY_RUN] job_id={job['id']} status={status} (DB 업데이트 안 함)")
-                continue
-
-            update_job_status(
-                conn=conn,
-                job_id=job["id"],
-                status=status,
-                output_file_id=output_file_id,
-                error_file_id=error_file_id,
-                error_message=None,
-            )
-
-            if status != "COMPLETED" or not output_file_id:
-                print(f"[batch-ingest] job_id={job['id']} status={status} (skip)")
-                continue
-
-            output_jsonl = openai_download_file_content(output_file_id)
-            success, failed = apply_batch_results(conn, job_id=job["id"], output_jsonl=output_jsonl)
-            total_success += success
-            total_failed += failed
-
-            final_status = "COMPLETED" if failed == 0 else "FAILED"
-            update_job_status(
-                conn=conn,
-                job_id=job["id"],
-                status=final_status,
-                output_file_id=output_file_id,
-                error_file_id=error_file_id,
-                error_message=None if failed == 0 else f"{failed}건 처리 실패",
-            )
-            print(
-                f"[batch-ingest] [{mode}] job_id={job['id']} batch_id={job['batch_id']} "
-                f"success={success} failed={failed}"
-            )
-
-        return {"jobs": processed_jobs, "success": total_success, "failed": total_failed, "mode": mode}
-    finally:
-        conn.close()
 
 
 with DAG(

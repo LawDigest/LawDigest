@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 from src.lawdigest_data_pipeline.DataFetcher import DataFetcher
 from src.lawdigest_data_pipeline.DataProcessor import DataProcessor
-from src.lawdigest_data_pipeline.AISummarizer import AISummarizer
+from lawdigest_ai.processor.summarizer import AISummarizer
 from src.lawdigest_data_pipeline.APISender import APISender
 from src.lawdigest_data_pipeline.DatabaseManager import DatabaseManager
 
