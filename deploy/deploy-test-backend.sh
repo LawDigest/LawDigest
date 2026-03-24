@@ -25,6 +25,12 @@ if [ ! -d "$TARGET_BACKEND_DIR" ]; then
   exit 1
 fi
 
+SOURCE_ENV_FILE="$SHARED_REPO_ROOT/services/backend/.env"
+if [ ! -f "$SOURCE_ENV_FILE" ]; then
+  echo "✗ services/backend/.env 파일을 찾을 수 없습니다: $SOURCE_ENV_FILE"
+  exit 1
+fi
+
 load_env_file() {
   local env_file="$1"
 
@@ -61,32 +67,24 @@ load_env_file() {
 load_env_file "$TARGET_ROOT/.env.preview"
 load_env_file "$TARGET_BACKEND_DIR/.env.preview"
 
-PORT="${PORT:-18080}"
-PM2_NAME="${PM2_NAME:-lawdigest-backend-test}"
-RUNTIME_ROOT="${RUNTIME_ROOT:-$SHARED_REPO_ROOT/.runtime/test-backend}"
-RELEASES_DIR="$RUNTIME_ROOT/releases"
-CURRENT_LINK="$RUNTIME_ROOT/current"
-TMP_LINK="$RUNTIME_ROOT/.current.tmp"
+HOST_PORT="${PORT:-808}"
+CONTAINER_NAME="${CONTAINER_NAME:-lawdigest-backend-test}"
+IMAGE_NAME="${IMAGE_NAME:-lawdigest-backend-test}"
+DOCKER_NETWORK="${DOCKER_NETWORK:-law_prod_network}"
 ACTIVE="${ACTIVE:-test}"
 
 BRANCH_NAME="$(git -C "$TARGET_ROOT" branch --show-current)"
 COMMIT_SHA="$(git -C "$TARGET_ROOT" rev-parse --short HEAD)"
-RELEASE_ID="$(date +%Y%m%d%H%M%S)-${COMMIT_SHA}"
-RELEASE_DIR="$RELEASES_DIR/$RELEASE_ID"
-BACKEND_ENV_FILE="$RELEASE_DIR/backend.env"
-LAUNCHER_FILE="$RELEASE_DIR/run.sh"
-JAR_FILE="$RELEASE_DIR/app.jar"
 
-echo "▶ 테스트 백엔드 배포 시작 (release/symlink)"
+echo "▶ 테스트 백엔드 배포 시작 (docker)"
 echo "  target: $TARGET_ROOT"
 echo "  branch: $BRANCH_NAME"
 echo "  commit: $COMMIT_SHA"
-echo "  release: $RELEASE_ID"
-echo "  port: $PORT"
-echo "  pm2: $PM2_NAME"
+echo "  host port: $HOST_PORT"
+echo "  container: $CONTAINER_NAME"
+echo "  image: $IMAGE_NAME"
+echo "  network: $DOCKER_NETWORK"
 echo "  active profile: $ACTIVE"
-
-mkdir -p "$RELEASES_DIR"
 
 echo "▶ Gradle 빌드"
 cd "$TARGET_BACKEND_DIR"
@@ -98,92 +96,37 @@ if [ -z "$JAR_SOURCE" ]; then
   exit 1
 fi
 
-echo "▶ release 디렉터리 생성"
-mkdir -p "$RELEASE_DIR"
+echo "▶ Docker 이미지 빌드"
+docker build -t "$IMAGE_NAME" -f Dockerfile .
 
-echo "▶ 실행 파일 복사"
-cp "$JAR_SOURCE" "$JAR_FILE"
+echo "▶ 기존 컨테이너 정리"
+docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
-if [ -f "$TARGET_BACKEND_DIR/.env" ]; then
-  cp "$TARGET_BACKEND_DIR/.env" "$BACKEND_ENV_FILE"
-else
-  : > "$BACKEND_ENV_FILE"
-fi
+echo "▶ 테스트 백엔드 컨테이너 실행"
+docker run -d \
+  --name "$CONTAINER_NAME" \
+  --network "$DOCKER_NETWORK" \
+  --env-file "$SOURCE_ENV_FILE" \
+  -e ACTIVE="$ACTIVE" \
+  -p "$HOST_PORT:8080" \
+  -v "$SHARED_REPO_ROOT/.runtime/test-backend/logs:/logs" \
+  -v /usr/share/zoneinfo/Asia/Seoul:/etc/localtime:ro \
+  "$IMAGE_NAME" >/dev/null
 
-{
-  printf '\n'
-  printf 'ACTIVE=%s\n' "$ACTIVE"
-  printf 'SERVER_PORT=%s\n' "$PORT"
-  printf 'DB_HOSTNAME=127.0.0.1\n'
-  printf 'BIN_LOG_HOST=127.0.0.1\n'
-  printf 'ELASTIC_CACHE_HOST=127.0.0.1\n'
-} >> "$BACKEND_ENV_FILE"
-
-cat > "$LAUNCHER_FILE" <<'EOF'
-#!/bin/bash
-
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/backend.env"
-
-load_env_file() {
-  local env_file="$1"
-
-  if [ ! -f "$env_file" ]; then
-    return 0
+echo "▶ 기동 확인"
+for _ in $(seq 1 30); do
+  if curl -sSI "http://127.0.0.1:$HOST_PORT/" >/dev/null 2>&1; then
+    break
   fi
+  sleep 2
+done
 
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in
-      ''|'#'*) continue ;;
-    esac
-
-    case "$line" in
-      *=*)
-        local key="${line%%=*}"
-        local value="${line#*=}"
-        ;;
-      *)
-        continue
-        ;;
-    esac
-
-    case "$key" in
-      ''|*[!A-Za-z0-9_]*)
-        continue
-        ;;
-    esac
-
-    printf -v "$key" '%s' "$value"
-    export "$key"
-  done < "$env_file"
-}
-
-load_env_file "$ENV_FILE"
-
-JAVA_BIN="java"
-if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
-  JAVA_BIN="$JAVA_HOME/bin/java"
+if ! curl -sSI "http://127.0.0.1:$HOST_PORT/" >/dev/null 2>&1; then
+  echo "✗ 백엔드 응답 확인 실패"
+  docker logs --tail 100 "$CONTAINER_NAME" || true
+  exit 1
 fi
-
-exec "$JAVA_BIN" -jar "$SCRIPT_DIR/app.jar"
-EOF
-chmod +x "$LAUNCHER_FILE"
-
-echo "▶ current 심링크 전환"
-ln -sfn "$RELEASE_DIR" "$TMP_LINK"
-mv -Tf "$TMP_LINK" "$CURRENT_LINK"
-
-echo "▶ PM2 재기동"
-if pm2 describe "$PM2_NAME" > /dev/null 2>&1; then
-  pm2 delete "$PM2_NAME"
-fi
-
-cd "$CURRENT_LINK"
-pm2 start "$LAUNCHER_FILE" --name "$PM2_NAME"
-pm2 save
 
 echo "✓ 배포 완료"
-echo "  url: http://127.0.0.1:$PORT"
-echo "  runtime: $CURRENT_LINK"
+echo "  url: http://127.0.0.1:$HOST_PORT"
+echo "  runtime: docker container $CONTAINER_NAME"
