@@ -12,10 +12,8 @@ import { BaseResponse } from '@/types';
 import qs from 'qs';
 import { handleSuccessReissueToken, handleFailReissueToken } from '../auth';
 
-const serverApiBaseUrl = process.env.NEXT_PUBLIC_URL ?? 'https://api.lawdigest.net/';
-
 const axiosInstance: AxiosInstance = axios.create({
-  baseURL: typeof window === 'undefined' ? `${serverApiBaseUrl}v1` : '/v1',
+  baseURL: typeof window === 'undefined' ? `${process.env.NEXT_PUBLIC_URL}v1` : '/v1',
   headers: {
     'Content-Type': 'application/json',
   },
