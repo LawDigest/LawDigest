@@ -81,6 +81,8 @@ x-airflow-common:
     AIRFLOW__WEBSERVER__BASE_URL: https://airflow.lawdigest.cloud
     AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: 'True'
     AIRFLOW__WEBSERVER__WARN_DEPLOYMENT_EXPOSURE: 'False'
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: 'airflow:ADMIN'
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: '/opt/airflow/config/simple_auth_manager_passwords.json'
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
     PYTHONPATH: /opt/airflow/project:/opt/airflow/project/services/data:/opt/airflow/project/services/ai/src
     AIRFLOW_DOTENV_PATH: /opt/airflow/project/services/data/.env
