@@ -4,7 +4,7 @@
         install-web install-data \
         lint-web lint-data \
         test-backend test-data \
-        deploy-test-web
+        deploy-test-web deploy-test-backend
 
 help:
 	@echo "LawDigest 모노레포 명령어"
@@ -31,6 +31,7 @@ help:
 	@echo ""
 	@echo "  배포"
 	@echo "    make deploy-test-web  테스트 환경 프론트 배포 (개발 모드, test.lawdigest.net)"
+	@echo "    make deploy-test-backend 테스트 환경 백엔드 배포 (release/symlink)"
 
 # ── Web (Next.js) ──────────────────────────────────────────
 dev-web:
@@ -68,3 +69,6 @@ lint-data:
 # ── Deploy ─────────────────────────────────────────────────
 deploy-test-web:
 	bash deploy/deploy-test-web.sh
+
+deploy-test-backend:
+	bash deploy/deploy-test-backend.sh
