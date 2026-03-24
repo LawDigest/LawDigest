@@ -1,16 +1,20 @@
 /** @type {import('next').NextConfig} */
+const imageHostname = process.env.NEXT_PUBLIC_HOSTNAME;
+
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: process.env.NEXT_PUBLIC_HOSTNAME,
-        port: '',
-        pathname: '/**',
-      },
-    ],
-    domains: [process.env.NEXT_PUBLIC_HOSTNAME],
+    remotePatterns: imageHostname
+      ? [
+          {
+            protocol: 'https',
+            hostname: imageHostname,
+            port: '',
+            pathname: '/**',
+          },
+        ]
+      : [],
+    domains: imageHostname ? [imageHostname] : [],
   },
   experimental: {
     serverActions: {
