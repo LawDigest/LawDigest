@@ -31,7 +31,7 @@ help:
 	@echo ""
 	@echo "  배포"
 	@echo "    make deploy-test-web  테스트 환경 프론트 배포 (개발 모드, test.lawdigest.net)"
-	@echo "    make deploy-test-backend 테스트 환경 백엔드 배포 (release/symlink)"
+	@echo "    make deploy-test-backend 테스트 환경 백엔드 배포 (Docker, test.api.lawdigest.net)"
 
 # ── Web (Next.js) ──────────────────────────────────────────
 dev-web:
