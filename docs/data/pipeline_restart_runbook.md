@@ -1,20 +1,18 @@
 # 데이터 파이프라인 재가동 런북
 
 > 작성일: 2026-03-23
-> 현재 상태: Airflow 실행 중, **모든 DAG 일시정지(paused=True)** 상태
+> 현재 상태: Airflow 실행 중, 주요 DAG는 일시정지 상태일 수 있습니다.
 
 ---
 
 ## 현재 상태 요약
 
 ```
-마지막 성공 실행: 2025-12-22 (lawdigest_hourly_update_dag - success 1회)
-마지막 실패 원인: update_bills 태스크 반복 실패 (2025-12-21~22)
-현재 queued 상태: lawdigest_bill_ingest_dag (2026-03-22 12:34 UTC)
-                  lawdigest_hourly_update (2026-03-22, 구 DAG ID)
+마지막 성공 실행: Airflow UI에서 가장 최근 성공 DAGRun 기준 확인
+현재 queued 상태: Airflow 메타DB 또는 UI에서 확인
 ```
 
-**모든 DAG은 현재 일시정지 상태입니다. 재가동 전 아래 체크리스트를 확인하세요.**
+**재가동 전 아래 체크리스트를 확인하세요.**
 
 ---
 
@@ -76,6 +74,9 @@ docker exec airflow-airflow-webserver-1 airflow dags unpause bill_ingest_dag
 
 # 1-2. 법안 상태 동기화 DAG 활성화 (의원/타임라인/결과/표결)
 docker exec airflow-airflow-webserver-1 airflow dags unpause bill_status_sync_dag
+
+# 1-3. 수동 수집 DAG는 필요할 때만 UI에서 트리거
+# manual_bill_collect_dag
 ```
 
 ### 단계 2: AI 배치 DAG 활성화
@@ -94,7 +95,7 @@ docker exec airflow-airflow-webserver-1 airflow dags unpause ai_batch_ingest_dag
 docker exec airflow-airflow-webserver-1 airflow dags unpause db_backup_dag
 ```
 
-> **수동 실행 DAG** (`lawdigest_ai_summary_batch_dag`, `lawdigest_ai_summary_instant_dag`, `manual_collect_bills`)은 스케줄 없이 필요 시 수동 트리거하므로 별도 활성화 불필요.
+> **수동 실행 DAG** (`manual_bill_collect_dag`, `manual_ai_summary_repair_dag`, `manual_ai_summary_instant_dag`)은 스케줄 없이 필요 시 수동 트리거하므로 별도 활성화 불필요.
 
 ---
 
@@ -106,6 +107,11 @@ docker exec airflow-airflow-webserver-1 airflow dags unpause db_backup_dag
 # 법안 수집 dry-run 테스트 (DB 저장 없이 수집만)
 docker exec airflow-airflow-webserver-1 airflow dags trigger \
   bill_ingest_dag \
+  --conf '{"execution_mode": "dry_run", "start_date": "2026-03-22", "end_date": "2026-03-23"}'
+
+# 상태 동기화 dry-run 테스트
+docker exec airflow-airflow-webserver-1 airflow dags trigger \
+  bill_status_sync_dag \
   --conf '{"execution_mode": "dry_run", "start_date": "2026-03-22", "end_date": "2026-03-23"}'
 ```
 
@@ -121,21 +127,21 @@ docker exec airflow-postgres-1 psql -U airflow -d airflow -c \
 
 ### 4.1 update_bills 태스크 반복 실패 (2025-12-21~22)
 
-**증상**: `lawdigest_hourly_update_dag`의 `update_bills` 태스크가 약 50초 후 실패
-**후속 태스크**: `update_timeline`, `update_results`, `update_votes` → `upstream_failed`
+**증상**: 구형 시간별 동기화 DAG의 법안 수집 단계가 약 50초 후 실패
+**후속 태스크**: 타임라인/결과/표결 단계가 연쇄적으로 `upstream_failed`
 
 **확인 방법**:
 
 ```bash
 # 실패 태스크 로그 확인
 docker exec airflow-airflow-webserver-1 airflow tasks logs \
-  lawdigest_hourly_update_dag update_bills <실행_날짜>
+  <구형 DAG ID> update_bills <실행_날짜>
 ```
 
 **가능한 원인**:
 1. DB 연결 타임아웃 (DB 서버 재시작/점검)
 2. 국회 Open API 응답 오류 또는 변경
-3. WorkFlowManager 코드 오류
+3. `pipeline_jobs.py` 내부 매핑/적재 오류
 
 ---
 

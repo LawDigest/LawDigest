@@ -21,7 +21,6 @@ __all__ = [
     "DataProcessor",
     "AISummarizer",
     "APISender",
-    "WorkFlowManager",
     "Notifier",
     "ReportManager",
 ]
@@ -32,7 +31,6 @@ _CLASS_TO_MODULE = {
     "DataProcessor": "DataProcessor",
     "AISummarizer": "AISummarizer",
     "APISender": "APISender",
-    "WorkFlowManager": "WorkFlowManager",
     "Notifier": "Notifier",
     "ReportManager": "ReportManager",
 }

@@ -14,6 +14,7 @@ Usage:
   scripts/airflow_control.sh unpause-main
   scripts/airflow_control.sh pause-main
   scripts/airflow_control.sh trigger-hourly [start_date] [end_date] [age]
+  scripts/airflow_control.sh trigger-status-sync [start_date] [end_date] [age]
 
 Examples:
   scripts/airflow_control.sh up
@@ -64,15 +65,21 @@ case "${cmd}" in
     ;;
   unpause-main)
     require_compose_file
-    "${DC[@]}" exec airflow-webserver airflow dags unpause lawdigest_hourly_update_dag
-    "${DC[@]}" exec airflow-webserver airflow dags unpause lawdigest_daily_db_backup_dag
+    "${DC[@]}" exec airflow-webserver airflow dags unpause bill_ingest_dag
+    "${DC[@]}" exec airflow-webserver airflow dags unpause bill_status_sync_dag
+    "${DC[@]}" exec airflow-webserver airflow dags unpause ai_batch_submit_dag
+    "${DC[@]}" exec airflow-webserver airflow dags unpause ai_batch_ingest_dag
+    "${DC[@]}" exec airflow-webserver airflow dags unpause db_backup_dag
     ;;
   pause-main)
     require_compose_file
-    "${DC[@]}" exec airflow-webserver airflow dags pause lawdigest_hourly_update_dag
-    "${DC[@]}" exec airflow-webserver airflow dags pause lawdigest_daily_db_backup_dag
+    "${DC[@]}" exec airflow-webserver airflow dags pause bill_ingest_dag
+    "${DC[@]}" exec airflow-webserver airflow dags pause bill_status_sync_dag
+    "${DC[@]}" exec airflow-webserver airflow dags pause ai_batch_submit_dag
+    "${DC[@]}" exec airflow-webserver airflow dags pause ai_batch_ingest_dag
+    "${DC[@]}" exec airflow-webserver airflow dags pause db_backup_dag
     ;;
-  trigger-hourly)
+  trigger-hourly|trigger-bill-ingest)
     require_compose_file
     start_date="${2:-}"
     end_date="${3:-}"
@@ -81,7 +88,18 @@ case "${cmd}" in
       "$(json_string_or_null "${start_date}")" \
       "$(json_string_or_null "${end_date}")" \
       "$(json_escape "${age}")")
-    "${DC[@]}" exec airflow-webserver airflow dags trigger lawdigest_hourly_update_dag --conf "${conf}"
+    "${DC[@]}" exec airflow-webserver airflow dags trigger bill_ingest_dag --conf "${conf}"
+    ;;
+  trigger-status-sync)
+    require_compose_file
+    start_date="${2:-}"
+    end_date="${3:-}"
+    age="${4:-22}"
+    conf=$(printf '{"start_date":%s,"end_date":%s,"age":"%s"}' \
+      "$(json_string_or_null "${start_date}")" \
+      "$(json_string_or_null "${end_date}")" \
+      "$(json_escape "${age}")")
+    "${DC[@]}" exec airflow-webserver airflow dags trigger bill_status_sync_dag --conf "${conf}"
     ;;
   ""|-h|--help|help)
     usage

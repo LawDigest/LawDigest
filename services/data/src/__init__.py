@@ -9,7 +9,6 @@ __all__ = [
     "DataProcessor",
     "AISummarizer",
     "APISender",
-    "WorkFlowManager",
     "Notifier",
 ]
 
