@@ -17,9 +17,12 @@
 Airflow 웹 UI는 `http://localhost:8081`에서 확인할 수 있습니다.
 
 ## 주요 DAG
-- `lawdigest_hourly_update_dag`: 시간 단위 의원/법안/타임라인/결과/표결 업데이트
-- `manual_collect_bills`: 기간 파라미터 기반 수동 법안 수집
-- `lawdigest_daily_db_backup_dag`: 일일 DB 백업
+- `bill_ingest_dag`: 국회 API 기반 법안 수집 및 DB upsert
+- `bill_status_sync_dag`: 의원/타임라인/결과/표결 상태 동기화
+- `manual_bill_collect_dag`: 기간 파라미터 기반 수동 법안 수집
+- `ai_batch_submit_dag`: 미요약 법안 배치 제출
+- `ai_batch_ingest_dag`: AI 배치 결과 반영
+- `db_backup_dag`: 일일 DB 백업
 
 ## 복귀 가이드
 - 상세 롤백 절차: `docs/airflow_rollback_runbook.md`

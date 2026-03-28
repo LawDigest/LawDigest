@@ -1,7 +1,7 @@
 # Lawdigest 데이터 파이프라인 아키텍처
 
 > 작성일: 2026-03-23
-> 현재 상태: **Airflow 실행 중, 모든 DAG 일시정지(paused) 상태**
+> 현재 상태: **Airflow 실행 중, 주요 DAG 기반 운영**
 
 ---
 
@@ -24,17 +24,20 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
         │
         ▼
   DatabaseManager (저장) ──────────────→ MySQL RDS (lawDB / lawTestDB)
-        │                                       │
-        ▼                                       │
-  WorkFlowManager (오케스트레이션)               │
-        │                                       ▼
-        ▼                             AI Processor
-  APISender ──→ Spring Boot API        ├── Batch Submit (OpenAI Batch API)
-                                       ├── Batch Ingest (결과 수신)
-                                       └── Instant Summarizer (즉시 요약)
-                                               │
-                                               ▼
-                                         Qdrant (Vector DB / RAG)
+        │
+        ├── WorkFlowManager (오케스트레이션)
+        │       ├── bill_ingest_dag
+        │       ├── bill_status_sync_dag
+        │       └── manual_bill_collect_dag
+        │
+        ▼
+  AI Processor
+        ├── Batch Submit (OpenAI Batch API)
+        ├── Batch Ingest (결과 수신)
+        └── Instant Summarizer (즉시 요약)
+                │
+                ▼
+          Qdrant (Vector DB / RAG)
 ```
 
 ---
@@ -91,6 +94,7 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 |--------|--------|------|
 | `bill_ingest_dag` | `0 * * * *` (매 정시) | 국회 API → DB 수집 |
 | `bill_status_sync_dag` | `0 * * * *` (매 정시) | 법안 의원/타임라인/결과/표결 동기화 |
+| `manual_bill_collect_dag` | 수동 | 기간 지정 법안 수집 |
 | `ai_batch_submit_dag` | `10 * * * *` (매 정시 10분) | 미요약 법안 → OpenAI Batch 제출 |
 | `ai_batch_ingest_dag` | `*/10 * * * *` (10분마다) | OpenAI 배치 결과 수신 → DB |
 | `db_backup_dag` | `0 0 * * *` (매일 자정) | 전체 DB 백업 |
@@ -110,12 +114,17 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 ### 6.1 bill_ingest_dag (매 정시)
 
 ```
-DataFetcher.fetch_bills_data()
+fetch_bills_from_api
     ↓
-DataProcessor.process_congressman_bills()
-    ↓ (중복 제거, 의원 ID 매핑)
-DatabaseManager.upsert_bill() x 1000개 청크
+process_bills
+    ↓
+upsert_bills
 ```
+
+**WorkFlowManager 내부 단계**:
+- `fetch_bills_data_step()` : 원천 법안 수집 후 아티팩트 저장
+- `process_bills_data_step()` : 의원 발의자 가공 및 DB 적재용 row 생성
+- `upsert_bills_data_step()` : 최종 DB 반영
 
 **실행 모드**: `dry_run` | `test` | `prod`
 **파라미터**: `start_date`, `end_date`, `age`(기본: 22대)
@@ -127,14 +136,12 @@ DatabaseManager.upsert_bill() x 1000개 청크
 ```
 update_lawmakers
     ↓
-update_bills
-    ↓ (병렬)
 update_timeline ─┐
 update_results  ─┤ 동시 실행
 update_votes    ─┘
 ```
 
-**태스크 함수**: `WorkFlowManager.update_*_data()`
+**태스크 함수**: `WorkFlowManager.update_lawmakers_data()`, `update_bills_timeline()`, `update_bills_result()`, `update_bills_vote()`
 
 ---
 
@@ -202,13 +209,12 @@ update_votes    ─┘
 
 ### 7.4 WorkFlowManager
 
-**경로**: `services/data/src/lawdigest_data_pipeline/WorkFlowManager.py` (857줄)
+**경로**: `services/data/src/lawdigest_data_pipeline/WorkFlowManager.py`
 
-**실행 모드**:
-- `remote`: 운영 모드 (DB 직접 적재)
-- `test`: 테스트 DB 사용
-- `dry-run`: 수집만, 저장 없음
-- `local`: 로컬 개발 모드
+**책임**:
+- Airflow DAG가 호출하는 법안 파이프라인 오케스트레이션 담당
+- `DataFetcher` / `DataProcessor` / `DatabaseManager`를 조합해 수집, 가공, 저장 흐름을 실행
+- 실행 모드: `dry_run`, `test_db`/`test`, `prod`
 
 ---
 

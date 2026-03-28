@@ -99,13 +99,12 @@ def run_upload_job(target_db='test', dry_run=True, start_date=None, end_date=Non
     df_chair, df_alternatives = processor.process_chairman_bills(df_targets)
     if not df_chair.empty:
         print(f"   - 위원장안 처리 완료: {len(df_chair)}건")
-        # 'proposers' 컬럼이 없으면 에러가 날 수 있으므로 기본값 설정 (WorkFlowManager 로직 보완)
+        # 'proposers' 컬럼이 없으면 에러가 날 수 있으므로 기본값 설정
         if 'proposers' not in df_chair.columns:
              df_chair['proposers'] = df_chair['billName'].apply(lambda x: '위원장' if '위원장' in x else '') # 임시 로직
         processed_list.append(df_chair)
         
         # 대안 정보(alternatives)는 별도로 저장하거나 전송해야 함
-        # 현재는 Alternatives 전송 로직이 WorkFlowManager에 별도로 있음.
         # 이 스크립트에서는 법안(Bills) 업로드에 집중하되, Alternatives도 필요하면 전송
         if not df_alternatives.empty:
              print(f"   - 대안 관계 정보 수집됨: {len(df_alternatives)}건 (전송 대기)")
@@ -124,7 +123,7 @@ def run_upload_job(target_db='test', dry_run=True, start_date=None, end_date=Non
 
     df_final = pd.concat(processed_list, ignore_index=True)
     
-    # 공통: commitee 컬럼 추가 (WorkFlowManager 참조)
+    # 공통: commitee 컬럼 추가
     df_final['commitee'] = None
     
     print(f"   - 최종 업로드 대상 법안 수: {len(df_final)}")

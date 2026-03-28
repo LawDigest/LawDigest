@@ -147,12 +147,12 @@ graph LR
 
 | DAG | 주기 | 역할 |
 |-----|------|------|
-| `lawdigest_bill_ingest_dag` | 매시간 | 국회 API → DB 법안 수집 |
-| `lawdigest_hourly_update_dag` | 매시간 | 법안 단계·결과 업데이트 |
-| `lawdigest_ai_summary_instant_dag` | 수동 | 단일 법안 즉시 AI 요약 |
-| `lawdigest_ai_batch_submit_dag` | 수동 | OpenAI Batch 요약 제출 |
-| `lawdigest_ai_batch_ingest_dag` | 수동 | 배치 요약 결과 반영 |
-| `lawdigest_daily_db_backup_dag` | 매일 | DB 백업 |
+| `bill_ingest_dag` | 매시간 | 국회 API → DB 법안 수집 |
+| `bill_status_sync_dag` | 매시간 | 의원·타임라인·결과·표결 동기화 |
+| `manual_bill_collect_dag` | 수동 | 기간 지정 법안 수집 |
+| `ai_batch_submit_dag` | 매시간 10분 | OpenAI Batch 요약 제출 |
+| `ai_batch_ingest_dag` | 10분마다 | 배치 요약 결과 반영 |
+| `db_backup_dag` | 매일 | DB 백업 |
 
 <br>
 

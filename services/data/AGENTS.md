@@ -7,7 +7,7 @@
   - Airflow (legacy): `airflow/dags/`
   - Runtime jobs: `jobs/`
   - Manual/utility scripts: `tools/`, `scripts/`
-- Tests and fixtures: `tests/`, `tests/legacy/`
+- Tests and fixtures: `tests/`
 - Operational artifacts: `data/`, `log/`, `reports/`, `backup/`
 
 ## Build, Test, and Development Commands
@@ -16,12 +16,11 @@
   - `pip install -r requirements.txt`
   - `pip install -r requirements_test.txt`
 - Run pipeline scripts:
-  - `python tools/collect_bills.py --start-date YYYY-MM-DD --end-date YYYY-MM-DD --age 22`
-  - `python tools/collect_lawmakers.py`
-  - `python tools/collect_timeline.py --start-date YYYY-MM-DD --end-date YYYY-MM-DD --age 22`
-  - `python tools/collect_results.py --start-date YYYY-MM-DD --end-date YYYY-MM-DD --age 22`
-  - `python tools/collect_votes.py --start-date YYYY-MM-DD --end-date YYYY-MM-DD --age 22`
-  - `python scripts/run_n8n_db_pipeline.py --step all --start-date YYYY-MM-DD --end-date YYYY-MM-DD --age 22`
+  - `python scripts/airflow_control.sh up`
+  - `python scripts/airflow_control.sh list-dags`
+  - `python scripts/airflow_control.sh unpause-main`
+  - `python scripts/airflow_control.sh trigger-hourly YYYY-MM-DD YYYY-MM-DD 22`
+  - `python scripts/airflow_control.sh trigger-status-sync YYYY-MM-DD YYYY-MM-DD 22`
 - Tests:
   - `python -m pytest tests`
   - `python -m pytest tests/test_data_fetcher_integration.py`

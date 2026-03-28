@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import sys
-from datetime import datetime
 
 import pendulum
 
@@ -11,105 +10,56 @@ from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
 
 
-def ingest_bills_from_api(**context):
-    params = context.get("params", {})
-    start_date = params.get("start_date")
-    end_date = params.get("end_date")
-    age = str(params.get("age") or "22")
-    mode = params.get("execution_mode") or "dry_run"
-
-    print(f"[ingest] Current Mode: {mode}")
-
-    today = datetime.now().strftime("%Y-%m-%d")
-    start_date = start_date or today
-    end_date = end_date or today
-
+def fetch_bills_from_api(**context):
     project_root = "/opt/airflow/project"
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.DataFetcher import DataFetcher
-    from src.lawdigest_data_pipeline.DataProcessor import DataProcessor
-    from src.lawdigest_data_pipeline.DatabaseManager import DatabaseManager
-    from lawdigest_ai.db import get_prod_db_config, get_test_db_config
+    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
 
-    print(f"[ingest] Fetching data for {start_date} to {end_date}, age={age}")
-    fetcher = DataFetcher()
-    df_bills = fetcher.fetch_bills_data(start_date=start_date, end_date=end_date, age=age)
-
-    if df_bills is None or df_bills.empty:
-        print("[ingest] 수집된 법안이 없습니다.")
-        return {"fetched": 0, "upserted": 0, "mode": mode}
-
-    # 중복 제거 및 의원 발의 법안 보강
-    # DataFetcher가 billId -> bill_id, billName -> bill_name 등으로 rename하므로 변환 후 컬럼명 사용
-    if "bill_id" in df_bills.columns:
-        df_bills = df_bills.drop_duplicates(subset=["bill_id"], keep="last")
-    processor = DataProcessor(fetcher)
-    df_cong = processor.process_congressman_bills(df_bills.copy())
-    if df_cong is not None and not df_cong.empty and "bill_id" in df_cong.columns:
-        merge_cols = [c for c in ["bill_id", "bill_name", "proposers", "publicProposerIdList", "rstProposerIdList"] if c in df_cong.columns]
-        if len(merge_cols) > 1:
-            df_map = df_cong[merge_cols].drop_duplicates(subset=["bill_id"], keep="last")
-            df_bills = df_bills.merge(df_map, on="bill_id", how="left", suffixes=("", "_enriched"))
-            for col in ["bill_name", "proposers", "publicProposerIdList", "rstProposerIdList"]:
-                enriched = f"{col}_enriched"
-                if enriched in df_bills.columns:
-                    df_bills[col] = df_bills[enriched].where(df_bills[enriched].notna(), df_bills.get(col))
-                    df_bills.drop(columns=[enriched], inplace=True)
-
-    rows = df_bills.to_dict(orient="records")
-    if not rows:
-        print("[ingest] 수집된 법안이 없습니다.")
-        return {"fetched": 0, "upserted": 0, "mode": mode}
-
-    if mode == "dry_run":
-        print(f"[ingest] [DRY_RUN] {len(rows)}개의 법안을 수집했으나 DB에 반영하지 않습니다.")
-        return {"fetched": len(rows), "upserted": 0, "mode": "dry_run"}
-
-    _KIND_MAP = {"의원": "CONGRESSMAN", "위원장": "CHAIRMAN", "정부": "GOVERNMENT"}
-    mapped = [
-        {
-            "bill_id": row.get("bill_id"),
-            "bill_name": row.get("bill_name"),
-            "committee": row.get("committee"),
-            "gpt_summary": None,
-            "propose_date": row.get("propose_date") or row.get("proposeDate"),
-            "summary": row.get("summary"),
-            "stage": row.get("stage"),
-            "proposers": row.get("proposers"),
-            "bill_pdf_url": row.get("billPdfUrl"),
-            "brief_summary": None,
-            "summary_tags": None,
-            "bill_number": int(row.get("billNumber") or 0),
-            "bill_link": row.get("bill_link") or row.get("billLink"),
-            "bill_result": row.get("billResult"),
-            "proposer_kind": _KIND_MAP.get(str(row.get("proposer_kind") or row.get("proposerKind") or "").strip(), "CONGRESSMAN"),
-            "public_proposer_ids": row.get("publicProposerIdList") or [],
-            "rst_proposer_ids": row.get("rstProposerIdList") or [],
-        }
-        for row in rows
-        if row.get("bill_id")
-    ]
-
-    if mode == "prod":
-        db_cfg = get_prod_db_config()
-        print("[ingest] Using PRODUCTION database")
-    else:
-        db_cfg = get_test_db_config()
-        print("[ingest] Using TEST database")
-
-    db = DatabaseManager(
-        host=db_cfg["host"],
-        port=db_cfg["port"],
-        username=db_cfg["user"],
-        password=db_cfg["password"],
-        database=db_cfg["database"],
+    params = context.get("params", {})
+    manager = WorkFlowManager(params.get("execution_mode") or "dry_run")
+    return manager.fetch_bills_data_step(
+        start_date=params.get("start_date"),
+        end_date=params.get("end_date"),
+        age=params.get("age"),
     )
-    db.insert_bill_info(mapped)
 
-    print(f"[ingest] [{mode}] fetched={len(rows)} upserted={len(mapped)}")
-    return {"fetched": len(rows), "upserted": len(mapped), "mode": mode}
+
+def process_fetched_bills(**context):
+    project_root = "/opt/airflow/project"
+    if project_root not in sys.path:
+        sys.path.append(project_root)
+
+    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+
+    params = context.get("params", {})
+    task_instance = context["ti"]
+    fetched = task_instance.xcom_pull(task_ids="fetch_bills_from_api") or {}
+    artifact_path = fetched.get("artifact_path")
+    if not artifact_path:
+        return {"mode": params.get("execution_mode") or "dry_run", "processed": 0, "artifact_path": None}
+
+    manager = WorkFlowManager(params.get("execution_mode") or "dry_run")
+    return manager.process_bills_data_step(artifact_path)
+
+
+def upsert_processed_bills(**context):
+    project_root = "/opt/airflow/project"
+    if project_root not in sys.path:
+        sys.path.append(project_root)
+
+    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+
+    params = context.get("params", {})
+    task_instance = context["ti"]
+    processed = task_instance.xcom_pull(task_ids="process_bills") or {}
+    artifact_path = processed.get("artifact_path")
+    if not artifact_path:
+        return {"mode": params.get("execution_mode") or "dry_run", "upserted": 0}
+
+    manager = WorkFlowManager(params.get("execution_mode") or "dry_run")
+    return manager.upsert_bills_data_step(artifact_path)
 
 
 with DAG(
@@ -162,10 +112,22 @@ with DAG(
     - `age`: 수집 대상 국회 대수 (기본값: 22)
 
     ---
-    *주의: 수집된 법안은 원문 그대로 저장되며, AI 요약은 `lawdigest_ai_summary_batch_dag` 등에 의해 별도로 수행됩니다.*
+    *주의: 수집된 법안은 원문 그대로 저장되며, AI 요약은 별도 DAG에서 수행됩니다.*
     """,
 ) as dag:
-    ingest_bills = PythonOperator(
-        task_id="ingest_bills_from_api",
-        python_callable=ingest_bills_from_api,
+    fetch_bills = PythonOperator(
+        task_id="fetch_bills_from_api",
+        python_callable=fetch_bills_from_api,
     )
+
+    process_bills = PythonOperator(
+        task_id="process_bills",
+        python_callable=process_fetched_bills,
+    )
+
+    upsert_bills = PythonOperator(
+        task_id="upsert_bills",
+        python_callable=upsert_processed_bills,
+    )
+
+    fetch_bills >> process_bills >> upsert_bills
