@@ -114,12 +114,17 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 ### 6.1 bill_ingest_dag (매 정시)
 
 ```
-DataFetcher.fetch_bills_data()
+fetch_bills_from_api
     ↓
-DataProcessor.process_congressman_bills()
-    ↓ (중복 제거, 의원 ID 매핑)
-DatabaseManager.upsert_bill() x 1000개 청크
+process_bills
+    ↓
+upsert_bills
 ```
+
+**WorkFlowManager 내부 단계**:
+- `fetch_bills_data_step()` : 원천 법안 수집 후 아티팩트 저장
+- `process_bills_data_step()` : 의원 발의자 가공 및 DB 적재용 row 생성
+- `upsert_bills_data_step()` : 최종 DB 반영
 
 **실행 모드**: `dry_run` | `test` | `prod`
 **파라미터**: `start_date`, `end_date`, `age`(기본: 22대)

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 import pandas as pd
 
@@ -97,6 +100,23 @@ class WorkFlowManager:
     @staticmethod
     def _default_end_date() -> str:
         return datetime.now().strftime("%Y-%m-%d")
+
+    @staticmethod
+    def _artifact_dir() -> Path:
+        artifact_dir = Path(__file__).resolve().parents[4] / ".airflow_artifacts"
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        return artifact_dir
+
+    def _write_artifact(self, prefix: str, payload: Any) -> str:
+        path = self._artifact_dir() / f"{prefix}_{uuid4().hex}.json"
+        with path.open("w", encoding="utf-8") as fp:
+            json.dump(payload, fp, ensure_ascii=False)
+        return str(path)
+
+    @staticmethod
+    def _read_artifact(artifact_path: str) -> Any:
+        with open(artifact_path, "r", encoding="utf-8") as fp:
+            return json.load(fp)
 
     @staticmethod
     def _build_db_manager(execution_mode: str) -> DatabaseManager:
@@ -263,21 +283,53 @@ class WorkFlowManager:
         end_date: str | None = None,
         age: str | None = None,
     ) -> Dict[str, Any]:
+        fetched = self.fetch_bills_data_step(start_date=start_date, end_date=end_date, age=age)
+        if fetched["fetched"] == 0:
+            return {"mode": self.mode, "fetched": 0, "upserted": 0}
+
+        processed = self.process_bills_data_step(fetched["artifact_path"])
+        result = self.upsert_bills_data_step(processed["artifact_path"])
+        return {
+            "mode": self.mode,
+            "fetched": fetched["fetched"],
+            "processed": processed["processed"],
+            "upserted": result["upserted"],
+        }
+
+    def fetch_bills_data_step(
+        self,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        age: str | None = None,
+    ) -> Dict[str, Any]:
         start_date = start_date or self._default_bill_start_date()
         end_date = end_date or self._default_end_date()
         age = str(age or "22")
 
-        print(f"[bill_ingest] mode={self.mode} start={start_date} end={end_date} age={age}")
+        print(f"[bill_ingest.fetch] mode={self.mode} start={start_date} end={end_date} age={age}")
 
         fetcher = DataFetcher()
         df_bills = fetcher.fetch_bills_data(start_date=start_date, end_date=end_date, age=age)
         if df_bills is None or df_bills.empty:
-            print("[bill_ingest] 수집된 법안이 없습니다.")
-            return {"mode": self.mode, "fetched": 0, "upserted": 0}
+            print("[bill_ingest.fetch] 수집된 법안이 없습니다.")
+            return {"mode": self.mode, "fetched": 0, "artifact_path": None}
 
         if "bill_id" in df_bills.columns:
             df_bills = df_bills.drop_duplicates(subset=["bill_id"], keep="last")
 
+        artifact_path = self._write_artifact("bill_ingest_fetch", df_bills.to_dict(orient="records"))
+        return {"mode": self.mode, "fetched": len(df_bills), "artifact_path": artifact_path}
+
+    def process_bills_data_step(self, artifact_path: str) -> Dict[str, Any]:
+        print(f"[bill_ingest.process] mode={self.mode} artifact={artifact_path}")
+
+        records = self._read_artifact(artifact_path)
+        if not records:
+            print("[bill_ingest.process] 처리할 법안이 없습니다.")
+            return {"mode": self.mode, "processed": 0, "artifact_path": None}
+
+        df_bills = pd.DataFrame(records)
+        fetcher = DataFetcher()
         processor = DataProcessor(fetcher)
         df_congressman_bills = processor.process_congressman_bills(df_bills.copy())
 
@@ -309,18 +361,29 @@ class WorkFlowManager:
                         df_bills.drop(columns=[enriched], inplace=True)
 
         rows = self._build_bill_rows(df_bills)
+        processed_artifact_path = self._write_artifact("bill_ingest_process", rows)
+        return {
+            "mode": self.mode,
+            "processed": len(rows),
+            "artifact_path": processed_artifact_path,
+        }
+
+    def upsert_bills_data_step(self, artifact_path: str) -> Dict[str, Any]:
+        print(f"[bill_ingest.upsert] mode={self.mode} artifact={artifact_path}")
+
+        rows = self._read_artifact(artifact_path)
         if not rows:
-            print("[bill_ingest] 수집된 법안이 없습니다.")
-            return {"mode": self.mode, "fetched": 0, "upserted": 0}
+            print("[bill_ingest.upsert] 적재할 법안이 없습니다.")
+            return {"mode": self.mode, "upserted": 0}
 
         if self.mode == "dry_run":
-            print(f"[bill_ingest] [DRY_RUN] {len(rows)}개의 법안을 수집했으나 DB에 반영하지 않습니다.")
-            return {"mode": self.mode, "fetched": len(rows), "upserted": 0}
+            print(f"[bill_ingest.upsert] [DRY_RUN] {len(rows)}개의 법안을 수집했으나 DB에 반영하지 않습니다.")
+            return {"mode": self.mode, "upserted": 0}
 
         db = self._build_db_manager(self.mode)
         db.insert_bill_info(rows)
-        print(f"[bill_ingest] [{self.mode}] fetched={len(rows)} upserted={len(rows)}")
-        return {"mode": self.mode, "fetched": len(rows), "upserted": len(rows)}
+        print(f"[bill_ingest.upsert] [{self.mode}] upserted={len(rows)}")
+        return {"mode": self.mode, "upserted": len(rows)}
 
     def update_lawmakers_data(self) -> Dict[str, Any]:
         print(f"[bill_status_sync] step=update_lawmakers_data mode={self.mode}")

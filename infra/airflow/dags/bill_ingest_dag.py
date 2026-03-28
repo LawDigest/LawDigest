@@ -10,7 +10,7 @@ from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
 
 
-def ingest_bills_from_api(**context):
+def fetch_bills_from_api(**context):
     project_root = "/opt/airflow/project"
     if project_root not in sys.path:
         sys.path.append(project_root)
@@ -19,11 +19,47 @@ def ingest_bills_from_api(**context):
 
     params = context.get("params", {})
     manager = WorkFlowManager(params.get("execution_mode") or "dry_run")
-    return manager.update_bills_data(
+    return manager.fetch_bills_data_step(
         start_date=params.get("start_date"),
         end_date=params.get("end_date"),
         age=params.get("age"),
     )
+
+
+def process_fetched_bills(**context):
+    project_root = "/opt/airflow/project"
+    if project_root not in sys.path:
+        sys.path.append(project_root)
+
+    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+
+    params = context.get("params", {})
+    task_instance = context["ti"]
+    fetched = task_instance.xcom_pull(task_ids="fetch_bills_from_api") or {}
+    artifact_path = fetched.get("artifact_path")
+    if not artifact_path:
+        return {"mode": params.get("execution_mode") or "dry_run", "processed": 0, "artifact_path": None}
+
+    manager = WorkFlowManager(params.get("execution_mode") or "dry_run")
+    return manager.process_bills_data_step(artifact_path)
+
+
+def upsert_processed_bills(**context):
+    project_root = "/opt/airflow/project"
+    if project_root not in sys.path:
+        sys.path.append(project_root)
+
+    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+
+    params = context.get("params", {})
+    task_instance = context["ti"]
+    processed = task_instance.xcom_pull(task_ids="process_bills") or {}
+    artifact_path = processed.get("artifact_path")
+    if not artifact_path:
+        return {"mode": params.get("execution_mode") or "dry_run", "upserted": 0}
+
+    manager = WorkFlowManager(params.get("execution_mode") or "dry_run")
+    return manager.upsert_bills_data_step(artifact_path)
 
 
 with DAG(
@@ -79,7 +115,19 @@ with DAG(
     *주의: 수집된 법안은 원문 그대로 저장되며, AI 요약은 별도 DAG에서 수행됩니다.*
     """,
 ) as dag:
-    ingest_bills = PythonOperator(
-        task_id="ingest_bills_from_api",
-        python_callable=ingest_bills_from_api,
+    fetch_bills = PythonOperator(
+        task_id="fetch_bills_from_api",
+        python_callable=fetch_bills_from_api,
     )
+
+    process_bills = PythonOperator(
+        task_id="process_bills",
+        python_callable=process_fetched_bills,
+    )
+
+    upsert_bills = PythonOperator(
+        task_id="upsert_bills",
+        python_callable=upsert_processed_bills,
+    )
+
+    fetch_bills >> process_bills >> upsert_bills

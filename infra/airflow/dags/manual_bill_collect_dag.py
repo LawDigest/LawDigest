@@ -10,7 +10,7 @@ from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
 
 
-def manual_bill_collect_task(**context):
+def fetch_manual_bills(**context):
     project_root = "/opt/airflow/project"
     if project_root not in sys.path:
         sys.path.append(project_root)
@@ -23,17 +23,52 @@ def manual_bill_collect_task(**context):
     age = params.get("age")
     execution_mode = params.get("execution_mode") or "prod"
 
+    manager = WorkFlowManager(execution_mode)
     print(
         "Airflow-triggered execution with params: "
         f"start_date={start_date}, end_date={end_date}, age={age}, execution_mode={execution_mode}"
     )
-
-    manager = WorkFlowManager(execution_mode)
-    return manager.update_bills_data(
+    return manager.fetch_bills_data_step(
         start_date=start_date,
         end_date=end_date,
         age=age,
     )
+
+
+def process_manual_bills(**context):
+    project_root = "/opt/airflow/project"
+    if project_root not in sys.path:
+        sys.path.append(project_root)
+
+    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+
+    params = context.get("params", {})
+    task_instance = context["ti"]
+    fetched = task_instance.xcom_pull(task_ids="fetch_manual_bills") or {}
+    artifact_path = fetched.get("artifact_path")
+    if not artifact_path:
+        return {"mode": params.get("execution_mode") or "prod", "processed": 0, "artifact_path": None}
+
+    manager = WorkFlowManager(params.get("execution_mode") or "prod")
+    return manager.process_bills_data_step(artifact_path)
+
+
+def upsert_manual_bills(**context):
+    project_root = "/opt/airflow/project"
+    if project_root not in sys.path:
+        sys.path.append(project_root)
+
+    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+
+    params = context.get("params", {})
+    task_instance = context["ti"]
+    processed = task_instance.xcom_pull(task_ids="process_manual_bills") or {}
+    artifact_path = processed.get("artifact_path")
+    if not artifact_path:
+        return {"mode": params.get("execution_mode") or "prod", "upserted": 0}
+
+    manager = WorkFlowManager(params.get("execution_mode") or "prod")
+    return manager.upsert_bills_data_step(artifact_path)
 
 
 with DAG(
@@ -93,7 +128,19 @@ with DAG(
     *주의: 대량 데이터를 수집할 때는 API 속도 제한이나 DB 부하를 고려하여 적절한 기간으로 나누어 실행하십시오.*
     """,
 ) as dag:
-    manual_collect_task = PythonOperator(
-        task_id="manual_bill_collect_with_params",
-        python_callable=manual_bill_collect_task,
+    fetch_bills = PythonOperator(
+        task_id="fetch_manual_bills",
+        python_callable=fetch_manual_bills,
     )
+
+    process_bills = PythonOperator(
+        task_id="process_manual_bills",
+        python_callable=process_manual_bills,
+    )
+
+    upsert_bills = PythonOperator(
+        task_id="upsert_manual_bills",
+        python_callable=upsert_manual_bills,
+    )
+
+    fetch_bills >> process_bills >> upsert_bills
