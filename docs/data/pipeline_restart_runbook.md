@@ -121,6 +121,8 @@ docker exec airflow-postgres-1 psql -U airflow -d airflow -c \
   "SELECT dag_id, state, logical_date FROM dag_run ORDER BY logical_date DESC LIMIT 5;"
 ```
 
+> 코드 반영이 필요하면 먼저 [Airflow 배포 문서](../../deploy/AIRFLOW_DEPLOY.md) 절차로 `git pull`과 컨테이너 재기동을 수행한 뒤 여기 절차를 진행하세요.
+
 ---
 
 ## 4. 이전 실패 원인 분석 및 조치
