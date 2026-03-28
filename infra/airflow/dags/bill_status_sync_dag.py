@@ -15,7 +15,7 @@ def run_status_step(method_name, **context):
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.pipeline_jobs import run_bill_status_sync_step
+    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
 
     params = context.get("params", {})
     start_date = params.get("start_date")
@@ -29,12 +29,11 @@ def run_status_step(method_name, **context):
     else:
         print("No custom range detected. Using default scheduling/latest data logic.")
 
-    result = run_bill_status_sync_step(
-        method_name=method_name,
+    manager = WorkFlowManager(execution_mode)
+    result = getattr(manager, method_name)(
         start_date=start_date,
         end_date=end_date,
         age=age,
-        execution_mode=execution_mode,
     )
 
     print(f"--- Finished {method_name} ---")

@@ -15,14 +15,14 @@ def ingest_bills_from_api(**context):
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.pipeline_jobs import run_bill_ingest_job
+    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
 
     params = context.get("params", {})
-    return run_bill_ingest_job(
+    manager = WorkFlowManager(params.get("execution_mode") or "dry_run")
+    return manager.update_bills_data(
         start_date=params.get("start_date"),
         end_date=params.get("end_date"),
         age=params.get("age"),
-        execution_mode=params.get("execution_mode") or "dry_run",
     )
 
 

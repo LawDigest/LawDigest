@@ -25,7 +25,7 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
         ▼
   DatabaseManager (저장) ──────────────→ MySQL RDS (lawDB / lawTestDB)
         │
-        ├── Airflow DAG helper (`pipeline_jobs.py`)
+        ├── WorkFlowManager (오케스트레이션)
         │       ├── bill_ingest_dag
         │       ├── bill_status_sync_dag
         │       └── manual_bill_collect_dag
@@ -136,7 +136,7 @@ update_results  ─┤ 동시 실행
 update_votes    ─┘
 ```
 
-**태스크 함수**: `pipeline_jobs.run_bill_status_sync_step()`
+**태스크 함수**: `WorkFlowManager.update_lawmakers_data()`, `update_bills_timeline()`, `update_bills_result()`, `update_bills_vote()`
 
 ---
 
@@ -202,13 +202,13 @@ update_votes    ─┘
 
 ---
 
-### 7.4 Airflow Job Helpers
+### 7.4 WorkFlowManager
 
-**경로**: `services/data/src/lawdigest_data_pipeline/pipeline_jobs.py`
+**경로**: `services/data/src/lawdigest_data_pipeline/WorkFlowManager.py`
 
 **책임**:
-- Airflow DAG에서 공용으로 쓰는 직접 수집/적재 로직을 제공
-- `bill_ingest_dag`, `bill_status_sync_dag`, `manual_bill_collect_dag`가 여기의 helper를 호출
+- Airflow DAG가 호출하는 법안 파이프라인 오케스트레이션 담당
+- `DataFetcher` / `DataProcessor` / `DatabaseManager`를 조합해 수집, 가공, 저장 흐름을 실행
 - 실행 모드: `dry_run`, `test_db`/`test`, `prod`
 
 ---

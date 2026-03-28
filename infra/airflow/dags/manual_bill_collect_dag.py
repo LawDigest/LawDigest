@@ -15,7 +15,7 @@ def manual_bill_collect_task(**context):
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.pipeline_jobs import run_manual_bill_collect_job
+    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
 
     params = context.get("params", {})
     start_date = params.get("start_date")
@@ -28,11 +28,11 @@ def manual_bill_collect_task(**context):
         f"start_date={start_date}, end_date={end_date}, age={age}, execution_mode={execution_mode}"
     )
 
-    return run_manual_bill_collect_job(
+    manager = WorkFlowManager(execution_mode)
+    return manager.update_bills_data(
         start_date=start_date,
         end_date=end_date,
         age=age,
-        execution_mode=execution_mode,
     )
 
 

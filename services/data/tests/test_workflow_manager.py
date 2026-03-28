@@ -8,23 +8,19 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.lawdigest_data_pipeline.DataFetcher import DataFetcher  # noqa: E402
 from src.lawdigest_data_pipeline.DataProcessor import DataProcessor  # noqa: E402
-from src.lawdigest_data_pipeline.pipeline_jobs import (  # noqa: E402
-    run_bill_ingest_job,
-    run_bill_status_sync_step,
-)
+from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager  # noqa: E402
 
 
 def test_normalize_execution_mode_aliases():
-    from src.lawdigest_data_pipeline.pipeline_jobs import _normalize_execution_mode
+    assert WorkFlowManager.normalize_execution_mode("dry_run") == "dry_run"
+    assert WorkFlowManager.normalize_execution_mode("dry-run") == "dry_run"
+    assert WorkFlowManager.normalize_execution_mode("test_db") == "test_db"
+    assert WorkFlowManager.normalize_execution_mode("test") == "test_db"
+    assert WorkFlowManager.normalize_execution_mode("prod") == "prod"
+    assert WorkFlowManager.normalize_execution_mode("remote") == "prod"
 
-    assert _normalize_execution_mode("dry_run") == "dry_run"
-    assert _normalize_execution_mode("test_db") == "test"
-    assert _normalize_execution_mode("test") == "test"
-    assert _normalize_execution_mode("prod") == "prod"
-    assert _normalize_execution_mode("remote") == "prod"
 
-
-def test_run_bill_ingest_job_dry_run_does_not_build_db():
+def test_update_bills_data_dry_run_does_not_build_db():
     df_bills = pd.DataFrame(
         {
             "bill_id": ["BILL-1"],
@@ -42,10 +38,16 @@ def test_run_bill_ingest_job_dry_run_does_not_build_db():
         }
     )
 
-    with patch.object(DataFetcher, "fetch_bills_data", return_value=df_bills), \
-        patch.object(DataProcessor, "process_congressman_bills", return_value=df_bills.copy()), \
-        patch("src.lawdigest_data_pipeline.pipeline_jobs._build_db_manager") as mock_db_builder:
-        result = run_bill_ingest_job(start_date="2026-01-01", end_date="2026-01-01", age="22", execution_mode="dry_run")
+    manager = WorkFlowManager("dry_run")
+
+    with patch.object(DataFetcher, "fetch_bills_data", return_value=df_bills), patch.object(
+        DataProcessor, "process_congressman_bills", return_value=df_bills.copy()
+    ), patch.object(WorkFlowManager, "_build_db_manager") as mock_db_builder:
+        result = manager.update_bills_data(
+            start_date="2026-01-01",
+            end_date="2026-01-01",
+            age="22",
+        )
 
     assert result["mode"] == "dry_run"
     assert result["fetched"] == 1
@@ -53,7 +55,7 @@ def test_run_bill_ingest_job_dry_run_does_not_build_db():
     mock_db_builder.assert_not_called()
 
 
-def test_run_bill_status_sync_step_lawmakers_dry_run():
+def test_update_lawmakers_data_dry_run():
     df_lawmakers = pd.DataFrame(
         {
             "MONA_CD": ["M1"],
@@ -82,9 +84,12 @@ def test_run_bill_status_sync_step_lawmakers_dry_run():
         }
     )
 
-    with patch.object(DataFetcher, "fetch_lawmakers_data", return_value=df_lawmakers), \
-        patch("src.lawdigest_data_pipeline.pipeline_jobs._build_db_manager") as mock_db_builder:
-        result = run_bill_status_sync_step("update_lawmakers_data", execution_mode="dry_run")
+    manager = WorkFlowManager("dry_run")
+
+    with patch.object(DataFetcher, "fetch_lawmakers_data", return_value=df_lawmakers), patch.object(
+        WorkFlowManager, "_build_db_manager"
+    ) as mock_db_builder:
+        result = manager.update_lawmakers_data()
 
     assert result["mode"] == "dry_run"
     assert result["count"] == 1

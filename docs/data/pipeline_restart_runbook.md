@@ -141,7 +141,7 @@ docker exec airflow-airflow-webserver-1 airflow tasks logs \
 **가능한 원인**:
 1. DB 연결 타임아웃 (DB 서버 재시작/점검)
 2. 국회 Open API 응답 오류 또는 변경
-3. `pipeline_jobs.py` 내부 매핑/적재 오류
+3. `WorkFlowManager.py` 내부 매핑/적재 오류
 
 ---
 
