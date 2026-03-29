@@ -349,7 +349,7 @@ export default function KoreaMap({
       d3.select(zoomG)
         .transition()
         .duration(TRANSITION_DURATION)
-        .ease(d3.easeQuintInOut)
+        .ease(d3.easeCubicInOut)
         .attr('transform', `translate(${tx},${ty}) scale(${scale})`);
 
       // 3. 시도 스타일 업데이트
@@ -360,7 +360,7 @@ export default function KoreaMap({
         .selectAll<SVGPathElement, Feature<Geometry>>('path.province')
         .transition()
         .duration(TRANSITION_DURATION)
-        .ease(d3.easeQuintInOut)
+        .ease(d3.easeCubicInOut)
         .attr('fill', (f) => {
           const name = getProvinceName(f);
           const info = ELECTION_INFO[name];
@@ -393,7 +393,7 @@ export default function KoreaMap({
         .attr('opacity', 0)
         .transition()
         .duration(TRANSITION_DURATION)
-        .ease(d3.easeQuintInOut)
+        .ease(d3.easeCubicInOut)
         .attr('opacity', 1);
 
       // 5. 레이블: transition 완료 후 화면 좌표로 배치
