@@ -47,6 +47,12 @@ export interface RegionCentroidInfo {
   x: number;
   /** 전국 뷰 기준 화면 좌표 y */
   y: number;
+  /** 권역 내 리딩 정당명 */
+  leadingParty: string;
+  /** 리딩 정당 색상 */
+  leadingColor: string;
+  /** 권역 내 리딩 정당 평균 득표율 */
+  leadingPct: number;
 }
 
 export const ELECTION_INFO: Record<string, ProvinceElectionInfo> = {
@@ -374,10 +380,15 @@ export default function KoreaMap({
         .attr('stroke-width', () => 0.6 / scale);
 
       // 4. 사전 계산된 아웃라인 적용 (DOM remove/add 없이 d 속성만 교체)
-      const outlinePath = region.provinces !== null ? mergedPathsRef.current.get(regionIndex) ?? '' : '';
+      const outlinePath =
+        region.provinces !== null
+          ? mergedPathsRef.current.get(regionIndex) ?? ''
+          : MAP_REGIONS.map((_, idx) => mergedPathsRef.current.get(idx) ?? '')
+              .filter((p) => p)
+              .join(' ');
       d3.select(outlineEl)
         .attr('d', outlinePath)
-        .attr('stroke-width', region.provinces !== null ? 1.8 / scale : 0);
+        .attr('stroke-width', region.provinces !== null ? 1.8 / scale : 1.0 / scale);
 
       // 5. 레이블: transition 완료 후 화면 좌표로 배치
       d3.select(labelsG).selectAll('*').remove();
@@ -404,12 +415,17 @@ export default function KoreaMap({
         onCentroidsReady?.([]);
         labelTimer = setTimeout(() => {
           // 각 권역의 중심 = 소속 시도 바운딩박스 중심의 면적 가중 평균
+          // 당선 정보 = 권역 내 국힘/민주 평균 득표율 비교
           const regionCentroidsOut: RegionCentroidInfo[] = [];
           MAP_REGIONS.forEach((r, idx) => {
             if (r.provinces === null) return;
             let totalArea = 0;
             let wcx = 0;
             let wcy = 0;
+            let gukHimSum = 0;
+            let minJuSum = 0;
+            let pollCount = 0;
+            const seen = new Set<string>();
             geo.features.forEach((f) => {
               const name = getProvinceName(f);
               if (!isProvinceInRegion(name, r.provinces!)) return;
@@ -419,13 +435,31 @@ export default function KoreaMap({
               wcx += area * c[0];
               wcy += area * c[1];
               totalArea += area;
+              if (!seen.has(name)) {
+                seen.add(name);
+                const info = ELECTION_INFO[name];
+                const poll = MOCK_POLL_DATA[name];
+                if (info && poll) {
+                  gukHimSum += info.c1.party === '국힘' ? poll.c1Pct : poll.c2Pct;
+                  minJuSum += info.c1.party === '민주' ? poll.c1Pct : poll.c2Pct;
+                  pollCount += 1;
+                }
+              }
             });
             if (totalArea > 0) {
+              const gukHimAvg = pollCount > 0 ? gukHimSum / pollCount : 0;
+              const minJuAvg = pollCount > 0 ? minJuSum / pollCount : 0;
+              const leadingParty = gukHimAvg >= minJuAvg ? '국힘' : '민주';
+              const leadingColor = gukHimAvg >= minJuAvg ? '#e61e2b' : '#152484';
+              const leadingPct = Math.max(gukHimAvg, minJuAvg);
               regionCentroidsOut.push({
                 regionIndex: idx,
                 label: r.label,
                 x: tx + scale * (wcx / totalArea),
                 y: ty + scale * (wcy / totalArea),
+                leadingParty,
+                leadingColor,
+                leadingPct,
               });
             }
           });

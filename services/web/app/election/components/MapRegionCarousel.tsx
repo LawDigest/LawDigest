@@ -195,6 +195,16 @@ export default function MapRegionCarousel() {
           </div>
         )}
 
+        {/* 전국 뷰 돌아가기 버튼 */}
+        {regionIndex !== 0 && (
+          <button
+            type="button"
+            onClick={() => goToRegion(0)}
+            className="absolute top-1.5 left-1/2 -translate-x-1/2 z-30 pointer-events-auto text-[9px] font-medium text-gray-500 bg-white/80 backdrop-blur-sm rounded-full px-2.5 py-0.5">
+            ← 전국
+          </button>
+        )}
+
         {/* 권역 바로가기 좌 */}
         {showRegionShortcuts && leftRegions.length > 0 && (
           <div className="absolute left-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10">
@@ -207,8 +217,13 @@ export default function MapRegionCarousel() {
                 }}
                 type="button"
                 onClick={() => goToRegion(rInfo.regionIndex)}
-                className="pointer-events-auto text-[9px] font-bold text-gray-700 bg-white/85 backdrop-blur-sm border border-gray-200 rounded px-1.5 py-0.5 text-left leading-tight">
-                {rInfo.label}
+                className="pointer-events-auto bg-white/85 backdrop-blur-sm rounded px-1.5 py-0.5 text-left leading-tight">
+                <span className="block text-[11px] font-bold text-gray-800">{rInfo.label}</span>
+                {rInfo.leadingPct > 0 && (
+                  <span className="block text-[9px] font-semibold" style={{ color: rInfo.leadingColor }}>
+                    {rInfo.leadingParty} {rInfo.leadingPct.toFixed(1)}%
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -226,8 +241,13 @@ export default function MapRegionCarousel() {
                 }}
                 type="button"
                 onClick={() => goToRegion(rInfo.regionIndex)}
-                className="pointer-events-auto text-[9px] font-bold text-gray-700 bg-white/85 backdrop-blur-sm border border-gray-200 rounded px-1.5 py-0.5 text-right leading-tight">
-                {rInfo.label}
+                className="pointer-events-auto bg-white/85 backdrop-blur-sm rounded px-1.5 py-0.5 text-right leading-tight">
+                <span className="block text-[11px] font-bold text-gray-800">{rInfo.label}</span>
+                {rInfo.leadingPct > 0 && (
+                  <span className="block text-[9px] font-semibold" style={{ color: rInfo.leadingColor }}>
+                    {rInfo.leadingParty} {rInfo.leadingPct.toFixed(1)}%
+                  </span>
+                )}
               </button>
             ))}
           </div>
