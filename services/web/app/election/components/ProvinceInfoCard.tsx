@@ -43,52 +43,48 @@ function shortenProvinceName(name: string): string {
     .replace(/도$/, '');
 }
 
-const ProvinceInfoCard = forwardRef<HTMLDivElement, ProvinceInfoCardProps>(
-  ({ provinceName, info, side }, ref) => {
-    const poll = MOCK_POLL_DATA[provinceName];
-    const c1Leading = !poll || poll.c1Pct >= poll.c2Pct;
-    const leadingColor = c1Leading ? info.c1.color : info.c2.color;
+const ProvinceInfoCard = forwardRef<HTMLDivElement, ProvinceInfoCardProps>(({ provinceName, info, side }, ref) => {
+  const poll = MOCK_POLL_DATA[provinceName];
+  const c1Leading = !poll || poll.c1Pct >= poll.c2Pct;
+  const leadingColor = c1Leading ? info.c1.color : info.c2.color;
 
-    const c1Pct = poll?.c1Pct ?? 50;
-    const c2Pct = poll?.c2Pct ?? 50;
-    const otherPct = poll?.otherPct ?? 0;
+  const c1Pct = poll?.c1Pct ?? 50;
+  const c2Pct = poll?.c2Pct ?? 50;
+  const otherPct = poll?.otherPct ?? 0;
 
-    return (
-      <div
-        ref={ref}
-        className={[
-          'bg-white rounded-lg shadow-sm border border-gray-100 p-1.5',
-          'flex flex-col gap-1 w-[105px]',
-          side === 'left' ? 'border-r-2' : 'border-l-2',
-        ].join(' ')}
-        style={{
-          borderRightColor: side === 'left' ? leadingColor : undefined,
-          borderLeftColor: side === 'right' ? leadingColor : undefined,
-        }}>
-        {/* 지역명 + 선거직 */}
-        <div>
-          <p className="text-[10px] font-bold text-gray-800 leading-tight">
-            {shortenProvinceName(provinceName)}
-          </p>
-          <p className="text-[8px] text-gray-400 leading-tight truncate">{info.title}</p>
-        </div>
-
-        {/* 후보 2명 */}
-        <div className="flex flex-col gap-0.5">
-          <CandidateRow candidate={info.c1} pct={c1Pct} />
-          <CandidateRow candidate={info.c2} pct={c2Pct} />
-        </div>
-
-        {/* 수평 바 차트 */}
-        <div className="h-1.5 rounded-full overflow-hidden flex">
-          <div style={{ width: `${c1Pct}%`, backgroundColor: info.c1.color }} />
-          <div style={{ width: `${otherPct}%`, backgroundColor: '#D1D5DB' }} />
-          <div style={{ width: `${c2Pct}%`, backgroundColor: info.c2.color }} />
-        </div>
+  return (
+    <div
+      ref={ref}
+      className={[
+        'bg-white rounded-lg shadow-sm border border-gray-100 p-1.5',
+        'flex flex-col gap-1 w-[105px]',
+        side === 'left' ? 'border-r-2' : 'border-l-2',
+      ].join(' ')}
+      style={{
+        borderRightColor: side === 'left' ? leadingColor : undefined,
+        borderLeftColor: side === 'right' ? leadingColor : undefined,
+      }}>
+      {/* 지역명 + 선거직 */}
+      <div>
+        <p className="text-[10px] font-bold text-gray-800 leading-tight">{shortenProvinceName(provinceName)}</p>
+        <p className="text-[8px] text-gray-400 leading-tight truncate">{info.title}</p>
       </div>
-    );
-  },
-);
+
+      {/* 후보 2명 */}
+      <div className="flex flex-col gap-0.5">
+        <CandidateRow candidate={info.c1} pct={c1Pct} />
+        <CandidateRow candidate={info.c2} pct={c2Pct} />
+      </div>
+
+      {/* 수평 바 차트 */}
+      <div className="h-1.5 rounded-full overflow-hidden flex">
+        <div style={{ width: `${c1Pct}%`, backgroundColor: info.c1.color }} />
+        <div style={{ width: `${otherPct}%`, backgroundColor: '#D1D5DB' }} />
+        <div style={{ width: `${c2Pct}%`, backgroundColor: info.c2.color }} />
+      </div>
+    </div>
+  );
+});
 ProvinceInfoCard.displayName = 'ProvinceInfoCard';
 
 export default ProvinceInfoCard;

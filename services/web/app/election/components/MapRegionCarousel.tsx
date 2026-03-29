@@ -15,10 +15,7 @@ interface LeaderLine {
 }
 
 /** centroid x 기준으로 시도를 좌/우 사이드바에 분배 */
-function splitProvinces(
-  provinces: string[],
-  centroids: CentroidInfo[],
-): { left: string[]; right: string[] } {
+function splitProvinces(provinces: string[], centroids: CentroidInfo[]): { left: string[]; right: string[] } {
   if (provinces.length === 0) return { left: [], right: [] };
 
   const centroidMap = new Map(centroids.map((c) => [c.provinceName, c.x]));
@@ -51,9 +48,7 @@ export default function MapRegionCarousel() {
   }, []);
 
   // 표시할 시도 목록 (중복 제거 + ELECTION_INFO 존재 여부 필터)
-  const allProvinces = (region.provinces ?? []).filter(
-    (p, i, arr) => arr.indexOf(p) === i && ELECTION_INFO[p] != null,
-  );
+  const allProvinces = (region.provinces ?? []).filter((p, i, arr) => arr.indexOf(p) === i && ELECTION_INFO[p] != null);
 
   // centroid가 있으면 x 기준 분배, 없으면 단순 반분
   const { left: leftProvinces, right: rightProvinces } =
@@ -76,16 +71,13 @@ export default function MapRegionCarousel() {
         if (!cardEl || !centroid) return;
 
         const cardRect = cardEl.getBoundingClientRect();
-        const x1 =
-          side === 'left'
-            ? cardRect.right - containerRect.left
-            : cardRect.left - containerRect.left;
+        const x1 = side === 'left' ? cardRect.right - containerRect.left : cardRect.left - containerRect.left;
         const y1 = (cardRect.top + cardRect.bottom) / 2 - containerRect.top;
 
         const info = ELECTION_INFO[pName];
         const poll = MOCK_POLL_DATA[pName];
         const c1Leads = !poll || poll.c1Pct >= poll.c2Pct;
-        const color = c1Leads ? (info?.c1.color ?? '#999') : (info?.c2.color ?? '#999');
+        const color = c1Leads ? info?.c1.color ?? '#999' : info?.c2.color ?? '#999';
 
         leaderLines.push({ x1, y1, x2: centroid.x, y2: centroid.y, color });
       });
@@ -162,11 +154,11 @@ export default function MapRegionCarousel() {
             width="100%"
             height={MAP_HEIGHT}
             style={{ overflow: 'visible' }}>
-            {leaderLines.map((line, i) => {
+            {leaderLines.map((line) => {
               const cpx = (line.x1 + line.x2) / 2;
               return (
                 <path
-                  key={i}
+                  key={`${line.x1}-${line.y1}-${line.x2}-${line.y2}`}
                   d={`M${line.x1},${line.y1} C${cpx},${line.y1} ${cpx},${line.y2} ${line.x2},${line.y2}`}
                   fill="none"
                   stroke={line.color}

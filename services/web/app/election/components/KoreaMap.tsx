@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
-import { MOCK_POLL_DATA } from '../data/mockPollData';
 import type { FeatureCollection, Feature, Geometry } from 'geojson';
 import type {
   Topology,
@@ -11,14 +10,13 @@ import type {
   Polygon as TopoPolygon,
   MultiPolygon as TopoMultiPolygon,
 } from 'topojson-specification';
+import { MOCK_POLL_DATA } from '../data/mockPollData';
 
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
 const TOPO_OBJECT_KEY = 'skorea_provinces_geo';
 const TRANSITION_DURATION = 500;
 const SWIPE_THRESHOLD = 40;
-/** 이 값(screen px²) 미만이면 지시선 레이블을 사용 */
-const SMALL_AREA_THRESHOLD = 2800;
 
 // ─── 선거 데이터 (제9회 전국동시지방선거 mock – 8회 결과 기준) ─────────────────
 
@@ -138,40 +136,6 @@ export const ELECTION_INFO: Record<string, ProvinceElectionInfo> = {
     c1: { name: '오영훈', party: '민주', color: '#152484' },
     c2: { name: '허향진', party: '국힘', color: '#e61e2b' },
   },
-};
-
-const PROVINCE_SHORT_NAME: Record<string, string> = {
-  서울특별시: '서울',
-  부산광역시: '부산',
-  대구광역시: '대구',
-  인천광역시: '인천',
-  광주광역시: '광주',
-  대전광역시: '대전',
-  울산광역시: '울산',
-  세종특별자치시: '세종',
-  경기도: '경기',
-  강원도: '강원',
-  강원특별자치도: '강원',
-  충청북도: '충북',
-  충청남도: '충남',
-  전라북도: '전북',
-  전북특별자치도: '전북',
-  전라남도: '전남',
-  경상북도: '경북',
-  경상남도: '경남',
-  제주특별자치도: '제주',
-};
-
-/** 소규모 시도 지시선 오프셋 [dx, dy] (screen px) */
-const LEADER_OFFSET: Record<string, [number, number]> = {
-  서울특별시: [0, -38],
-  인천광역시: [-52, 8],
-  세종특별자치시: [30, -22],
-  대전광역시: [-52, 0],
-  광주광역시: [-52, 0],
-  대구광역시: [40, -28],
-  부산광역시: [40, 26],
-  울산광역시: [50, -5],
 };
 
 // ─── 권역 정의 ────────────────────────────────────────────────────────────────
@@ -379,7 +343,7 @@ export default function KoreaMap({ regionIndex, onRegionChange, onCentroidsReady
           if (!info || !poll) return '#F0F4FF';
           const c1Leads = poll.c1Pct >= poll.c2Pct;
           const leadingColor = c1Leads ? info.c1.color : info.c2.color;
-          return leadingColor + '26'; // 약 15% 불투명도
+          return `${leadingColor}26`; // 약 15% 불투명도
         })
         .attr('stroke', (f) => (inRegion(f) ? '#CCCCCC' : '#E8E8E8'))
         .attr('stroke-width', () => 0.6 / scale);
