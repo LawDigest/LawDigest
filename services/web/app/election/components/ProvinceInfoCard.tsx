@@ -24,11 +24,14 @@ const ProvinceInfoCard = forwardRef<HTMLDivElement, ProvinceInfoCardProps>(({ pr
       ref={ref}
       className={[
         'flex flex-col gap-[2px] w-[84px]',
-        side === 'left' ? 'border-r-[2px] pr-1' : 'border-l-[2px] pl-1',
+        'bg-white/70 backdrop-blur-md rounded-lg shadow-sm',
+        'border border-white/60',
+        side === 'left' ? 'border-r-[2px] pl-1.5 pr-1 py-1' : 'border-l-[2px] pr-1.5 pl-1 py-1',
       ].join(' ')}
       style={{
         borderRightColor: side === 'left' ? leadingColor : undefined,
         borderLeftColor: side === 'right' ? leadingColor : undefined,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
       }}>
       {/* 직책명 */}
       <p className="text-[7px] font-bold text-black leading-tight truncate">{info.title}</p>
