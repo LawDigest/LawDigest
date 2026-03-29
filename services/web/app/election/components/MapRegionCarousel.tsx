@@ -51,7 +51,32 @@ function leaderLinePath(line: LeaderLine): string {
   return `M${line.x1},${line.y1} H${bendX} L${line.x2},${line.y2}`;
 }
 
+/** centroid y 기준으로 카드를 배치하되 겹침을 피하고 컨테이너 범위 내에 클램핑 */
+function avoidCollisions(
+  items: Array<{ name: string; y: number }>,
+  cardH: number,
+  containerH: number,
+  gap: number,
+): Array<{ name: string; y: number }> {
+  if (items.length === 0) return [];
+  const sorted = [...items].sort((a, b) => a.y - b.y);
+  const placed = sorted.map((item) => ({ name: item.name, y: item.y - cardH / 2 }));
+
+  // 아래 방향 패스: 겹치면 아래로 밀기
+  for (let i = 1; i < placed.length; i += 1) {
+    placed[i].y = Math.max(placed[i].y, placed[i - 1].y + cardH + gap);
+  }
+  // 위 방향 패스: 아래 넘침 시 위로 밀기
+  for (let i = placed.length - 2; i >= 0; i -= 1) {
+    placed[i].y = Math.min(placed[i].y, placed[i + 1].y - cardH - gap);
+  }
+  // 컨테이너 범위 클램핑
+  return placed.map((p) => ({ ...p, y: Math.max(0, Math.min(containerH - cardH, p.y)) }));
+}
+
 const MAP_HEIGHT = 280;
+/** 충돌 회피 계산에 쓰이는 카드 높이 추정값 (px) — ProvinceInfoCard 크기에 맞춰 조정 */
+const CARD_HEIGHT = 72;
 
 export default function MapRegionCarousel() {
   const [regionIndex, setRegionIndex] = useState(0);
@@ -112,6 +137,30 @@ export default function MapRegionCarousel() {
   // ── 권역 분배 ────────────────────────────────────────────────────────────────
   const { left: leftRegions, right: rightRegions } = splitByX(regionCentroids);
 
+  // centroid 준비 전에 마운트하면 좌/우 재배치 시 remount로 애니메이션이 2회 재생되므로
+  // centroids 데이터가 도착한 이후에만 사이드바를 표시
+  const showSidebars = regionIndex !== 0 && region.provinces !== null && centroids.length > 0;
+  const showRegionShortcuts = regionIndex === 0 && regionCentroids.length > 0;
+
+  // ── 시도 카드 동적 배치 (centroid y 기준, 겹침 방지) ───────────────────────
+  const centroidYMap = new Map(centroids.map((c) => [c.provinceName, c.y]));
+  const leftPositioned = showSidebars
+    ? avoidCollisions(
+        leftProvinces.map((name) => ({ name, y: centroidYMap.get(name) ?? MAP_HEIGHT / 2 })),
+        CARD_HEIGHT,
+        MAP_HEIGHT,
+        4,
+      )
+    : [];
+  const rightPositioned = showSidebars
+    ? avoidCollisions(
+        rightProvinces.map((name) => ({ name, y: centroidYMap.get(name) ?? MAP_HEIGHT / 2 })),
+        CARD_HEIGHT,
+        MAP_HEIGHT,
+        4,
+      )
+    : [];
+
   // ── 지시선 계산 ──────────────────────────────────────────────────────────────
   const leaderLines: LeaderLine[] = [];
   const regionLeaderLines: LeaderLine[] = [];
@@ -160,11 +209,6 @@ export default function MapRegionCarousel() {
     }
   }
 
-  // centroid 준비 전에 마운트하면 좌/우 재배치 시 remount로 애니메이션이 2회 재생되므로
-  // centroids 데이터가 도착한 이후에만 사이드바를 표시
-  const showSidebars = regionIndex !== 0 && region.provinces !== null && centroids.length > 0;
-  const showRegionShortcuts = regionIndex === 0 && regionCentroids.length > 0;
-
   return (
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex
     <div
@@ -194,17 +238,17 @@ export default function MapRegionCarousel() {
           onRegionCentroidsReady={handleRegionCentroidsReady}
         />
 
-        {/* 시도 좌 사이드바 */}
-        {showSidebars && leftProvinces.length > 0 && (
-          <div
-            key={`left-${regionIndex}`}
-            className="absolute left-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10 animate-slide-in-left">
-            {leftProvinces.map((pName) => {
-              const info = ELECTION_INFO[pName];
-              if (!info) return null;
-              return (
+        {/* 시도 좌 사이드바 — centroid y 기준 동적 배치 */}
+        {showSidebars &&
+          leftPositioned.map(({ name: pName, y }) => {
+            const info = ELECTION_INFO[pName];
+            if (!info) return null;
+            return (
+              <div
+                key={pName}
+                className="absolute left-1 z-10 pointer-events-none animate-slide-in-left"
+                style={{ top: y }}>
                 <ProvinceInfoCard
-                  key={pName}
                   ref={(el) => {
                     if (el) cardRefs.current.set(pName, el);
                     else cardRefs.current.delete(pName);
@@ -213,22 +257,21 @@ export default function MapRegionCarousel() {
                   info={info}
                   side="left"
                 />
-              );
-            })}
-          </div>
-        )}
+              </div>
+            );
+          })}
 
-        {/* 시도 우 사이드바 */}
-        {showSidebars && rightProvinces.length > 0 && (
-          <div
-            key={`right-${regionIndex}`}
-            className="absolute right-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10 animate-slide-in-right">
-            {rightProvinces.map((pName) => {
-              const info = ELECTION_INFO[pName];
-              if (!info) return null;
-              return (
+        {/* 시도 우 사이드바 — centroid y 기준 동적 배치 */}
+        {showSidebars &&
+          rightPositioned.map(({ name: pName, y }) => {
+            const info = ELECTION_INFO[pName];
+            if (!info) return null;
+            return (
+              <div
+                key={pName}
+                className="absolute right-1 z-10 pointer-events-none animate-slide-in-right"
+                style={{ top: y }}>
                 <ProvinceInfoCard
-                  key={pName}
                   ref={(el) => {
                     if (el) cardRefs.current.set(pName, el);
                     else cardRefs.current.delete(pName);
@@ -237,10 +280,9 @@ export default function MapRegionCarousel() {
                   info={info}
                   side="right"
                 />
-              );
-            })}
-          </div>
-        )}
+              </div>
+            );
+          })}
 
         {/* 전국 뷰 돌아가기 버튼 */}
         {regionIndex !== 0 && (
