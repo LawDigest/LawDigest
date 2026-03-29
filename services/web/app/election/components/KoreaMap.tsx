@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
+import { MOCK_POLL_DATA } from '../data/mockPollData';
 import type { FeatureCollection, Feature, Geometry } from 'geojson';
 import type {
   Topology,
@@ -21,19 +22,27 @@ const SMALL_AREA_THRESHOLD = 2800;
 
 // ─── 선거 데이터 (제9회 전국동시지방선거 mock – 8회 결과 기준) ─────────────────
 
-interface CandidateInfo {
+export interface CandidateInfo {
   name: string;
   party: string;
   color: string;
 }
 
-interface ProvinceElectionInfo {
+export interface ProvinceElectionInfo {
   title: string;
   c1: CandidateInfo;
   c2: CandidateInfo;
 }
 
-const ELECTION_INFO: Record<string, ProvinceElectionInfo> = {
+export interface CentroidInfo {
+  provinceName: string;
+  /** SVG 좌표계 기준 x (줌 변환 적용 후, = 컨테이너 상대 좌표) */
+  x: number;
+  /** SVG 좌표계 기준 y */
+  y: number;
+}
+
+export const ELECTION_INFO: Record<string, ProvinceElectionInfo> = {
   서울특별시: {
     title: '서울특별시장',
     c1: { name: '오세훈', party: '국힘', color: '#e61e2b' },
@@ -210,9 +219,10 @@ function getProvinceName(f: Feature<Geometry>): string {
 interface KoreaMapProps {
   regionIndex: number;
   onRegionChange: (index: number) => void;
+  onCentroidsReady?: (centroids: CentroidInfo[]) => void;
 }
 
-export default function KoreaMap({ regionIndex, onRegionChange }: KoreaMapProps) {
+export default function KoreaMap({ regionIndex, onRegionChange, onCentroidsReady }: KoreaMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomGRef = useRef<SVGGElement | null>(null);
@@ -361,7 +371,16 @@ export default function KoreaMap({ regionIndex, onRegionChange }: KoreaMapProps)
         .selectAll<SVGPathElement, Feature<Geometry>>('path.province')
         .transition()
         .duration(TRANSITION_DURATION)
-        .attr('fill', (f) => (inRegion(f) ? '#F0F4FF' : 'white'))
+        .attr('fill', (f) => {
+          const name = getProvinceName(f);
+          if (!inRegion(f)) return region.provinces === null ? '#F8F8F8' : 'white';
+          const info = ELECTION_INFO[name];
+          const poll = MOCK_POLL_DATA[name];
+          if (!info || !poll) return '#F0F4FF';
+          const c1Leads = poll.c1Pct >= poll.c2Pct;
+          const leadingColor = c1Leads ? info.c1.color : info.c2.color;
+          return leadingColor + '26'; // 약 15% 불투명도
+        })
         .attr('stroke', (f) => (inRegion(f) ? '#CCCCCC' : '#E8E8E8'))
         .attr('stroke-width', () => 0.6 / scale);
 
@@ -378,62 +397,21 @@ export default function KoreaMap({ regionIndex, onRegionChange }: KoreaMapProps)
         labelTimer = setTimeout(() => {
           d3.select(labelsG).selectAll('*').remove();
 
+          // 사이드바에서 렌더링하므로 SVG 레이블 대신 centroid 위치만 콜백으로 전달
+          const centroidsOut: CentroidInfo[] = [];
           targetFeatures.forEach((f) => {
             const name = getProvinceName(f);
-            const info = ELECTION_INFO[name];
-            const shortName = PROVINCE_SHORT_NAME[name] ?? name;
-            if (!info) return;
-
-            // 사전 계산된 centroid / 면적 사용
             const centroid = centroidsRef.current.get(name);
             if (!centroid) return;
             const screenCx = tx + scale * centroid[0];
             const screenCy = ty + scale * centroid[1];
-
-            const projArea = projAreasRef.current.get(name) ?? 0;
-            const needsLeader = projArea * scale * scale < SMALL_AREA_THRESHOLD;
-            const offset = needsLeader ? LEADER_OFFSET[name] ?? [0, 0] : [0, 0];
-            const textX = screenCx + offset[0];
-            const textY = screenCy + offset[1];
-
-            const lg = d3.select(labelsG).append('g').attr('class', 'label-group');
-
-            // 지시선
-            if (needsLeader && (offset[0] !== 0 || offset[1] !== 0)) {
-              lg.append('line')
-                .attr('x1', screenCx)
-                .attr('y1', screenCy)
-                .attr('x2', textX)
-                .attr('y2', textY)
-                .attr('stroke', '#9CA3AF')
-                .attr('stroke-width', 0.8)
-                .attr('stroke-dasharray', '2,1.5');
-
-              lg.append('circle').attr('cx', screenCx).attr('cy', screenCy).attr('r', 2).attr('fill', '#9CA3AF');
-            }
-
-            const textG = lg.append('g').attr('transform', `translate(${textX},${textY})`);
-
-            const addText = (textDy: number, fontSize: number, fontWeight: string, fill: string, content: string) => {
-              textG
-                .append('text')
-                .attr('dy', textDy)
-                .attr('font-size', fontSize)
-                .attr('font-weight', fontWeight)
-                .attr('fill', fill)
-                .attr('text-anchor', 'middle')
-                .attr('stroke', 'rgba(255,255,255,0.9)')
-                .attr('stroke-width', 3)
-                .attr('paint-order', 'stroke')
-                .attr('stroke-linejoin', 'round')
-                .text(content);
-            };
-
-            addText(0, 10, '700', '#1A202C', shortName);
-            addText(14, 8.5, '400', info.c1.color, `${info.c1.name}(${info.c1.party})`);
-            addText(26, 8.5, '400', info.c2.color, `${info.c2.name}(${info.c2.party})`);
+            centroidsOut.push({ provinceName: name, x: screenCx, y: screenCy });
           });
+          onCentroidsReady?.(centroidsOut);
         }, TRANSITION_DURATION + 50);
+      } else {
+        // 전체 보기: 지시선 초기화
+        onCentroidsReady?.([]);
       }
     }
 
