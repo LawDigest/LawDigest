@@ -2,28 +2,12 @@
 
 import React, { forwardRef } from 'react';
 import { MOCK_POLL_DATA } from '../data/mockPollData';
-import type { CandidateInfo, ProvinceElectionInfo } from './KoreaMap';
+import type { ProvinceElectionInfo } from './KoreaMap';
 
 interface ProvinceInfoCardProps {
   provinceName: string;
   info: ProvinceElectionInfo;
   side: 'left' | 'right';
-}
-
-function CandidateRow({ candidate, pct }: { candidate: CandidateInfo; pct: number }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      <span
-        className="inline-flex items-center justify-center w-3 h-3 rounded-full text-white shrink-0"
-        style={{ backgroundColor: candidate.color, fontSize: 5, fontWeight: 700 }}>
-        {candidate.party.slice(0, 1)}
-      </span>
-      <span className="text-[7px] text-gray-700 flex-1 truncate">{candidate.name}</span>
-      <span className="text-[7px] font-bold shrink-0" style={{ color: candidate.color }}>
-        {pct.toFixed(0)}%
-      </span>
-    </div>
-  );
 }
 
 const ProvinceInfoCard = forwardRef<HTMLDivElement, ProvinceInfoCardProps>(({ provinceName, info, side }, ref) => {
@@ -39,7 +23,7 @@ const ProvinceInfoCard = forwardRef<HTMLDivElement, ProvinceInfoCardProps>(({ pr
     <div
       ref={ref}
       className={[
-        'flex flex-col gap-0.5 w-[80px]',
+        'flex flex-col gap-[2px] w-[84px]',
         side === 'left' ? 'border-r-[2px] pr-1' : 'border-l-[2px] pl-1',
       ].join(' ')}
       style={{
@@ -47,17 +31,29 @@ const ProvinceInfoCard = forwardRef<HTMLDivElement, ProvinceInfoCardProps>(({ pr
         borderLeftColor: side === 'right' ? leadingColor : undefined,
       }}>
       {/* 직책명 */}
-      <p className="text-[7px] text-gray-500 leading-tight truncate">{info.title}</p>
+      <p className="text-[7px] font-bold text-black leading-tight truncate">{info.title}</p>
 
-      {/* 후보 2명 */}
-      <CandidateRow candidate={info.c1} pct={c1Pct} />
-      <CandidateRow candidate={info.c2} pct={c2Pct} />
+      {/* 후보명 행 */}
+      <div className="flex justify-between gap-1">
+        <span className="text-[7px] text-gray-700 truncate">{info.c1.name}</span>
+        <span className="text-[7px] text-gray-700 truncate">{info.c2.name}</span>
+      </div>
 
       {/* 수평 바 차트 */}
-      <div className="h-1 rounded-full overflow-hidden flex">
+      <div className="h-[5px] rounded-full overflow-hidden flex">
         <div style={{ width: `${c1Pct}%`, backgroundColor: info.c1.color }} />
         <div style={{ width: `${otherPct}%`, backgroundColor: '#D1D5DB' }} />
         <div style={{ width: `${c2Pct}%`, backgroundColor: info.c2.color }} />
+      </div>
+
+      {/* 지지율 행 */}
+      <div className="flex justify-between gap-1">
+        <span className="text-[7px] font-bold" style={{ color: info.c1.color }}>
+          {c1Pct.toFixed(0)}%
+        </span>
+        <span className="text-[7px] font-bold" style={{ color: info.c2.color }}>
+          {c2Pct.toFixed(0)}%
+        </span>
       </div>
     </div>
   );
