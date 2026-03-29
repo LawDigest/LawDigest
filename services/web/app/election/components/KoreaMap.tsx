@@ -40,6 +40,15 @@ export interface CentroidInfo {
   y: number;
 }
 
+export interface RegionCentroidInfo {
+  regionIndex: number;
+  label: string;
+  /** 전국 뷰 기준 화면 좌표 x */
+  x: number;
+  /** 전국 뷰 기준 화면 좌표 y */
+  y: number;
+}
+
 export const ELECTION_INFO: Record<string, ProvinceElectionInfo> = {
   서울특별시: {
     title: '서울특별시장',
@@ -184,9 +193,15 @@ interface KoreaMapProps {
   regionIndex: number;
   onRegionChange: (index: number) => void;
   onCentroidsReady?: (centroids: CentroidInfo[]) => void;
+  onRegionCentroidsReady?: (centroids: RegionCentroidInfo[]) => void;
 }
 
-export default function KoreaMap({ regionIndex, onRegionChange, onCentroidsReady }: KoreaMapProps) {
+export default function KoreaMap({
+  regionIndex,
+  onRegionChange,
+  onCentroidsReady,
+  onRegionCentroidsReady,
+}: KoreaMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomGRef = useRef<SVGGElement | null>(null);
@@ -382,10 +397,40 @@ export default function KoreaMap({ regionIndex, onRegionChange, onCentroidsReady
             centroidsOut.push({ provinceName: name, x: screenCx, y: screenCy });
           });
           onCentroidsReady?.(centroidsOut);
+          onRegionCentroidsReady?.([]); // 권역 바로가기 숨김
         }, TRANSITION_DURATION + 50);
       } else {
-        // 전체 보기: 지시선 초기화
+        // 전체 보기: 시도 지시선 초기화 후 권역 중심 계산
         onCentroidsReady?.([]);
+        labelTimer = setTimeout(() => {
+          // 각 권역의 중심 = 소속 시도 바운딩박스 중심의 면적 가중 평균
+          const regionCentroidsOut: RegionCentroidInfo[] = [];
+          MAP_REGIONS.forEach((r, idx) => {
+            if (r.provinces === null) return;
+            let totalArea = 0;
+            let wcx = 0;
+            let wcy = 0;
+            geo.features.forEach((f) => {
+              const name = getProvinceName(f);
+              if (!isProvinceInRegion(name, r.provinces!)) return;
+              const area = projAreasRef.current.get(name) ?? 0;
+              const c = centroidsRef.current.get(name);
+              if (!c) return;
+              wcx += area * c[0];
+              wcy += area * c[1];
+              totalArea += area;
+            });
+            if (totalArea > 0) {
+              regionCentroidsOut.push({
+                regionIndex: idx,
+                label: r.label,
+                x: tx + scale * (wcx / totalArea),
+                y: ty + scale * (wcy / totalArea),
+              });
+            }
+          });
+          onRegionCentroidsReady?.(regionCentroidsOut);
+        }, TRANSITION_DURATION + 50);
       }
     }
 

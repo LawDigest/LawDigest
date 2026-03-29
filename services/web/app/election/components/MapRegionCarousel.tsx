@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import KoreaMap, { MAP_REGIONS, ELECTION_INFO } from './KoreaMap';
-import type { CentroidInfo } from './KoreaMap';
+import type { CentroidInfo, RegionCentroidInfo } from './KoreaMap';
 import ProvinceInfoCard from './ProvinceInfoCard';
 import { MOCK_POLL_DATA } from '../data/mockPollData';
 
@@ -34,24 +34,49 @@ function splitProvinces(provinces: string[], centroids: CentroidInfo[]): { left:
   };
 }
 
+/** x 기준으로 항목을 좌/우로 분배 */
+function splitByX<T extends { x: number }>(items: T[]): { left: T[]; right: T[] } {
+  const sorted = [...items].sort((a, b) => a.x - b.x);
+  const half = Math.ceil(sorted.length / 2);
+  return { left: sorted.slice(0, half), right: sorted.slice(half) };
+}
+
+/** 지시선 path 계산: 수평 후 대각선, bend는 항상 카드 바깥 방향 */
+function leaderLinePath(line: LeaderLine): string {
+  const rawBend = line.x1 + (line.x2 - line.x1) * 0.45;
+  const bendX = line.side === 'left' ? Math.max(line.x1, rawBend) : Math.min(line.x1, rawBend);
+  return `M${line.x1},${line.y1} H${bendX} L${line.x2},${line.y2}`;
+}
+
 const MAP_HEIGHT = 280;
 
 export default function MapRegionCarousel() {
   const [regionIndex, setRegionIndex] = useState(0);
   const [centroids, setCentroids] = useState<CentroidInfo[]>([]);
+  const [regionCentroids, setRegionCentroids] = useState<RegionCentroidInfo[]>([]);
   const region = MAP_REGIONS[regionIndex];
 
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const regionLabelRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
 
   const handleCentroidsReady = useCallback((incoming: CentroidInfo[]) => {
     setCentroids(incoming);
   }, []);
 
-  // 표시할 시도 목록 (중복 제거 + ELECTION_INFO 존재 여부 필터)
+  const handleRegionCentroidsReady = useCallback((incoming: RegionCentroidInfo[]) => {
+    setRegionCentroids(incoming);
+  }, []);
+
+  const goToRegion = useCallback((idx: number) => {
+    setRegionIndex(idx);
+    setCentroids([]);
+    setRegionCentroids([]);
+  }, []);
+
+  // ── 시도 분배 ────────────────────────────────────────────────────────────────
   const allProvinces = (region.provinces ?? []).filter((p, i, arr) => arr.indexOf(p) === i && ELECTION_INFO[p] != null);
 
-  // centroid가 있으면 x 기준 분배, 없으면 단순 반분
   const { left: leftProvinces, right: rightProvinces } =
     centroids.length > 0
       ? splitProvinces(allProvinces, centroids)
@@ -60,51 +85,73 @@ export default function MapRegionCarousel() {
           right: allProvinces.slice(Math.ceil(allProvinces.length / 2)),
         };
 
-  // 지시선 계산 (centroid 준비 후 DOM 위치 기반)
+  // ── 권역 분배 ────────────────────────────────────────────────────────────────
+  const { left: leftRegions, right: rightRegions } = splitByX(regionCentroids);
+
+  // ── 지시선 계산 ──────────────────────────────────────────────────────────────
   const leaderLines: LeaderLine[] = [];
-  if (centroids.length > 0 && containerRef.current) {
+  const regionLeaderLines: LeaderLine[] = [];
+
+  if (containerRef.current) {
     const containerRect = containerRef.current.getBoundingClientRect();
 
-    const computeLines = (provinces: string[], side: 'left' | 'right') => {
-      provinces.forEach((pName) => {
-        const cardEl = cardRefs.current.get(pName);
-        const centroid = centroids.find((c) => c.provinceName === pName);
-        if (!cardEl || !centroid) return;
+    // 시도 지시선
+    if (centroids.length > 0) {
+      const computeLines = (provinces: string[], side: 'left' | 'right') => {
+        provinces.forEach((pName) => {
+          const cardEl = cardRefs.current.get(pName);
+          const centroid = centroids.find((c) => c.provinceName === pName);
+          if (!cardEl || !centroid) return;
 
-        const cardRect = cardEl.getBoundingClientRect();
-        const x1 = side === 'left' ? cardRect.right - containerRect.left : cardRect.left - containerRect.left;
-        const y1 = (cardRect.top + cardRect.bottom) / 2 - containerRect.top;
+          const cardRect = cardEl.getBoundingClientRect();
+          const x1 = side === 'left' ? cardRect.right - containerRect.left : cardRect.left - containerRect.left;
+          const y1 = (cardRect.top + cardRect.bottom) / 2 - containerRect.top;
 
-        const info = ELECTION_INFO[pName];
-        const poll = MOCK_POLL_DATA[pName];
-        const c1Leads = !poll || poll.c1Pct >= poll.c2Pct;
-        const color = c1Leads ? info?.c1.color ?? '#999' : info?.c2.color ?? '#999';
+          const info = ELECTION_INFO[pName];
+          const poll = MOCK_POLL_DATA[pName];
+          const c1Leads = !poll || poll.c1Pct >= poll.c2Pct;
+          const color = c1Leads ? info?.c1.color ?? '#999' : info?.c2.color ?? '#999';
 
-        leaderLines.push({ x1, y1, x2: centroid.x, y2: centroid.y, color, side });
-      });
-    };
+          leaderLines.push({ x1, y1, x2: centroid.x, y2: centroid.y, color, side });
+        });
+      };
+      computeLines(leftProvinces, 'left');
+      computeLines(rightProvinces, 'right');
+    }
 
-    computeLines(leftProvinces, 'left');
-    computeLines(rightProvinces, 'right');
+    // 권역 지시선
+    if (regionCentroids.length > 0) {
+      const computeRegionLines = (regions: RegionCentroidInfo[], side: 'left' | 'right') => {
+        regions.forEach((rInfo) => {
+          const labelEl = regionLabelRefs.current.get(rInfo.regionIndex);
+          if (!labelEl) return;
+          const labelRect = labelEl.getBoundingClientRect();
+          const x1 = side === 'left' ? labelRect.right - containerRect.left : labelRect.left - containerRect.left;
+          const y1 = (labelRect.top + labelRect.bottom) / 2 - containerRect.top;
+          regionLeaderLines.push({ x1, y1, x2: rInfo.x, y2: rInfo.y, color: '#9CA3AF', side });
+        });
+      };
+      computeRegionLines(leftRegions, 'left');
+      computeRegionLines(rightRegions, 'right');
+    }
   }
 
   const showSidebars = regionIndex !== 0 && region.provinces !== null;
+  const showRegionShortcuts = regionIndex === 0 && regionCentroids.length > 0;
 
   return (
     <div className="flex flex-col gap-3">
-      {/* 지도 + 사이드바 컨테이너 */}
+      {/* 지도 + 오버레이 컨테이너 */}
       <div ref={containerRef} className="relative w-full" style={{ height: MAP_HEIGHT }}>
         {/* 지도 */}
         <KoreaMap
           regionIndex={regionIndex}
-          onRegionChange={(idx) => {
-            setRegionIndex(idx);
-            setCentroids([]); // 권역 변경 시 지시선 초기화
-          }}
+          onRegionChange={goToRegion}
           onCentroidsReady={handleCentroidsReady}
+          onRegionCentroidsReady={handleRegionCentroidsReady}
         />
 
-        {/* 좌 사이드바 */}
+        {/* 시도 좌 사이드바 */}
         {showSidebars && leftProvinces.length > 0 && (
           <div className="absolute left-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10">
             {leftProvinces.map((pName) => {
@@ -126,7 +173,7 @@ export default function MapRegionCarousel() {
           </div>
         )}
 
-        {/* 우 사이드바 */}
+        {/* 시도 우 사이드바 */}
         {showSidebars && rightProvinces.length > 0 && (
           <div className="absolute right-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10">
             {rightProvinces.map((pName) => {
@@ -148,29 +195,75 @@ export default function MapRegionCarousel() {
           </div>
         )}
 
+        {/* 권역 바로가기 좌 */}
+        {showRegionShortcuts && leftRegions.length > 0 && (
+          <div className="absolute left-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10">
+            {leftRegions.map((rInfo) => (
+              <button
+                key={rInfo.regionIndex}
+                ref={(el) => {
+                  if (el) regionLabelRefs.current.set(rInfo.regionIndex, el);
+                  else regionLabelRefs.current.delete(rInfo.regionIndex);
+                }}
+                type="button"
+                onClick={() => goToRegion(rInfo.regionIndex)}
+                className="pointer-events-auto text-[9px] font-bold text-gray-700 bg-white/85 backdrop-blur-sm border border-gray-200 rounded px-1.5 py-0.5 text-left leading-tight">
+                {rInfo.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* 권역 바로가기 우 */}
+        {showRegionShortcuts && rightRegions.length > 0 && (
+          <div className="absolute right-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10">
+            {rightRegions.map((rInfo) => (
+              <button
+                key={rInfo.regionIndex}
+                ref={(el) => {
+                  if (el) regionLabelRefs.current.set(rInfo.regionIndex, el);
+                  else regionLabelRefs.current.delete(rInfo.regionIndex);
+                }}
+                type="button"
+                onClick={() => goToRegion(rInfo.regionIndex)}
+                className="pointer-events-auto text-[9px] font-bold text-gray-700 bg-white/85 backdrop-blur-sm border border-gray-200 rounded px-1.5 py-0.5 text-right leading-tight">
+                {rInfo.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* 지시선 overlay SVG */}
-        {showSidebars && leaderLines.length > 0 && (
+        {(leaderLines.length > 0 || regionLeaderLines.length > 0) && (
           <svg
             className="absolute inset-0 pointer-events-none z-20"
             width="100%"
             height={MAP_HEIGHT}
             style={{ overflow: 'visible' }}>
-            {leaderLines.map((line) => {
-              // bendX는 항상 카드 바깥 방향(left카드→오른쪽, right카드→왼쪽)을 보장
-              const rawBend = line.x1 + (line.x2 - line.x1) * 0.45;
-              const bendX = line.side === 'left' ? Math.max(line.x1, rawBend) : Math.min(line.x1, rawBend);
-              return (
-                <path
-                  key={`${line.x1}-${line.y1}-${line.x2}-${line.y2}`}
-                  d={`M${line.x1},${line.y1} H${bendX} L${line.x2},${line.y2}`}
-                  fill="none"
-                  stroke={line.color}
-                  strokeWidth={1.2}
-                  strokeDasharray="3,2"
-                  opacity={0.7}
-                />
-              );
-            })}
+            {/* 권역 지시선 */}
+            {regionLeaderLines.map((line) => (
+              <path
+                key={`r-${line.x1}-${line.y1}-${line.x2}-${line.y2}`}
+                d={leaderLinePath(line)}
+                fill="none"
+                stroke={line.color}
+                strokeWidth={1.0}
+                strokeDasharray="3,2"
+                opacity={0.55}
+              />
+            ))}
+            {/* 시도 지시선 */}
+            {leaderLines.map((line) => (
+              <path
+                key={`${line.x1}-${line.y1}-${line.x2}-${line.y2}`}
+                d={leaderLinePath(line)}
+                fill="none"
+                stroke={line.color}
+                strokeWidth={1.2}
+                strokeDasharray="3,2"
+                opacity={0.7}
+              />
+            ))}
           </svg>
         )}
       </div>
@@ -190,10 +283,7 @@ export default function MapRegionCarousel() {
               key={r.key}
               type="button"
               aria-label={r.label}
-              onClick={() => {
-                setRegionIndex(i);
-                setCentroids([]);
-              }}
+              onClick={() => goToRegion(i)}
               className={[
                 'rounded-full transition-all',
                 i === regionIndex ? 'w-4 h-1.5 bg-gray-4 dark:bg-white' : 'w-1.5 h-1.5 bg-gray-1 dark:bg-dark-l',
