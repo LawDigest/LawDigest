@@ -19,10 +19,20 @@ module.exports = {
           '0%': { opacity: '0', transform: 'translateY(6px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        slideInLeft: {
+          '0%': { opacity: '0', transform: 'translateX(-10px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        slideInRight: {
+          '0%': { opacity: '0', transform: 'translateX(10px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
       },
       animation: {
         'fade-in': 'fadeIn 0.35s ease-out both',
         'fade-up': 'fadeUp 0.35s ease-out both',
+        'slide-in-left': 'slideInLeft 0.3s ease-out both',
+        'slide-in-right': 'slideInRight 0.3s ease-out both',
       },
       colors: {
         // Gray color

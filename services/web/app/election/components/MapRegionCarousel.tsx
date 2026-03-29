@@ -1,6 +1,9 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+/* eslint-disable jsx-a11y/no-noninteractive-element-interactions */
+/* eslint-disable jsx-a11y/no-noninteractive-tabindex */
+
+import { useState, useRef, useCallback, useReducer, useLayoutEffect } from 'react';
 import KoreaMap, { MAP_REGIONS, ELECTION_INFO } from './KoreaMap';
 import type { CentroidInfo, RegionCentroidInfo } from './KoreaMap';
 import ProvinceInfoCard from './ProvinceInfoCard';
@@ -74,6 +77,24 @@ export default function MapRegionCarousel() {
     setRegionCentroids([]);
   }, []);
 
+  const goNext = useCallback(() => {
+    setRegionIndex((i) => (i + 1) % MAP_REGIONS.length);
+    setCentroids([]);
+    setRegionCentroids([]);
+  }, []);
+
+  const goPrev = useCallback(() => {
+    setRegionIndex((i) => (i - 1 + MAP_REGIONS.length) % MAP_REGIONS.length);
+    setCentroids([]);
+    setRegionCentroids([]);
+  }, []);
+
+  // 권역 바로가기 버튼 ref가 commit 단계에서 채워진 후 지시선을 그리기 위해 강제 리렌더
+  const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
+  useLayoutEffect(() => {
+    if (regionCentroids.length > 0) forceUpdate();
+  }, [regionCentroids]);
+
   // ── 시도 분배 ────────────────────────────────────────────────────────────────
   const allProvinces = (region.provinces ?? []).filter((p, i, arr) => arr.indexOf(p) === i && ELECTION_INFO[p] != null);
 
@@ -140,7 +161,24 @@ export default function MapRegionCarousel() {
   const showRegionShortcuts = regionIndex === 0 && regionCentroids.length > 0;
 
   return (
-    <div className="flex flex-col gap-3">
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/no-noninteractive-tabindex
+    <div
+      className="flex flex-col gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-2 rounded-lg"
+      tabIndex={0}
+      role="region"
+      aria-label="대한민국 선거 지도"
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          goPrev();
+        } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          goNext();
+        } else if (e.key === 'Escape' && regionIndex !== 0) {
+          e.preventDefault();
+          goToRegion(0);
+        }
+      }}>
       {/* 지도 + 오버레이 컨테이너 */}
       <div ref={containerRef} className="relative w-full" style={{ height: MAP_HEIGHT }}>
         {/* 지도 */}
@@ -153,7 +191,9 @@ export default function MapRegionCarousel() {
 
         {/* 시도 좌 사이드바 */}
         {showSidebars && leftProvinces.length > 0 && (
-          <div className="absolute left-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10 animate-fade-in">
+          <div
+            key={`left-${regionIndex}`}
+            className="absolute left-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10 animate-slide-in-left">
             {leftProvinces.map((pName) => {
               const info = ELECTION_INFO[pName];
               if (!info) return null;
@@ -175,7 +215,9 @@ export default function MapRegionCarousel() {
 
         {/* 시도 우 사이드바 */}
         {showSidebars && rightProvinces.length > 0 && (
-          <div className="absolute right-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10 animate-fade-in">
+          <div
+            key={`right-${regionIndex}`}
+            className="absolute right-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10 animate-slide-in-right">
             {rightProvinces.map((pName) => {
               const info = ELECTION_INFO[pName];
               if (!info) return null;

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
-import type { FeatureCollection, Feature, Geometry } from 'geojson';
+import type { FeatureCollection, Feature, Geometry, Position } from 'geojson';
 import type {
   Topology,
   GeometryCollection as TopoGeomCollection,
@@ -193,6 +193,45 @@ function getProvinceName(f: Feature<Geometry>): string {
   return (f.properties as Record<string, string>)?.name ?? '';
 }
 
+/** 작은 외딴 섬 제외 — MultiPolygon을 개별 폴리곤으로 분해 후 최대 면적 대비 2% 미만 폴리곤을 제외하고 경계 상자를 반환 */
+function getBoundsMainland(features: Feature<Geometry>[], path: d3.GeoPath): [[number, number], [number, number]] {
+  const polys: { b: [[number, number], [number, number]]; area: number }[] = [];
+
+  const processRings = (coords: Position[][]) => {
+    const poly: Feature<Geometry> = {
+      type: 'Feature',
+      properties: null,
+      geometry: { type: 'Polygon', coordinates: coords },
+    };
+    const b = path.bounds(poly as Parameters<typeof path.bounds>[0]);
+    const area = (b[1][0] - b[0][0]) * (b[1][1] - b[0][1]);
+    if (area > 0) polys.push({ b, area });
+  };
+
+  features.forEach((f) => {
+    const g = f.geometry;
+    if (g.type === 'Polygon') {
+      processRings(g.coordinates);
+    } else if (g.type === 'MultiPolygon') {
+      g.coordinates.forEach(processRings);
+    }
+  });
+
+  if (polys.length === 0) {
+    const fc: FeatureCollection<Geometry> = { type: 'FeatureCollection', features };
+    return path.bounds(fc as Parameters<typeof path.bounds>[0]) as [[number, number], [number, number]];
+  }
+
+  const maxArea = Math.max(...polys.map((p) => p.area));
+  const main = polys.filter((p) => p.area >= maxArea * 0.02);
+  const use = main.length > 0 ? main : polys;
+
+  return [
+    [Math.min(...use.map((p) => p.b[0][0])), Math.min(...use.map((p) => p.b[0][1]))],
+    [Math.max(...use.map((p) => p.b[1][0])), Math.max(...use.map((p) => p.b[1][1]))],
+  ];
+}
+
 // ─── 컴포넌트 ─────────────────────────────────────────────────────────────────
 
 interface KoreaMapProps {
@@ -222,6 +261,16 @@ export default function KoreaMap({
   /** 시도명 → projection 좌표 기준 bounding box 면적 */
   const projAreasRef = useRef<Map<string, number>>(new Map());
   const [ready, setReady] = useState(false);
+
+  // 클릭 핸들러에서 최신 값에 접근하기 위한 refs
+  const regionIndexRef = useRef(regionIndex);
+  const onRegionChangeRef = useRef(onRegionChange);
+  useEffect(() => {
+    regionIndexRef.current = regionIndex;
+  }, [regionIndex]);
+  useEffect(() => {
+    onRegionChangeRef.current = onRegionChange;
+  }, [onRegionChange]);
 
   // ── 초기화 (1회) ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -279,7 +328,16 @@ export default function KoreaMap({
           .attr('fill', 'white')
           .attr('stroke', '#C8C8C8')
           .attr('stroke-width', 0.8)
-          .attr('stroke-linejoin', 'round');
+          .attr('stroke-linejoin', 'round')
+          .on('click', (_event, f) => {
+            // 전국 뷰에서만: 클릭한 시도가 속한 권역으로 이동
+            if (regionIndexRef.current !== 0) return;
+            const name = getProvinceName(f);
+            const idx = MAP_REGIONS.findIndex(
+              (r, i) => i !== 0 && r.provinces !== null && isProvinceInRegion(name, r.provinces),
+            );
+            if (idx !== -1) onRegionChangeRef.current(idx);
+          });
 
         // ── 사전 계산 ────────────────────────────────────────────────────────
         const topoObj = topo.objects[TOPO_OBJECT_KEY] as TopoGeomCollection;
@@ -333,9 +391,8 @@ export default function KoreaMap({
           ? geo.features
           : geo.features.filter((f) => isProvinceInRegion(getProvinceName(f), region.provinces!));
 
-      // 1. 줌 변환 계산
-      const collection: FeatureCollection<Geometry> = { type: 'FeatureCollection', features: targetFeatures };
-      const bounds = path.bounds(collection as Parameters<typeof path.bounds>[0]);
+      // 1. 줌 변환 계산 (원거리 섬 제외)
+      const bounds = getBoundsMainland(targetFeatures, path);
       const bdx = bounds[1][0] - bounds[0][0];
       const bdy = bounds[1][1] - bounds[0][1];
       const cx = (bounds[0][0] + bounds[1][0]) / 2;
@@ -377,8 +434,16 @@ export default function KoreaMap({
           const leadingColor = c1Leads ? info.c1.color : info.c2.color;
           return `${leadingColor}26`;
         })
-        .attr('stroke', (f) => (inRegion(f) ? '#CCCCCC' : '#E8E8E8'))
+        .attr('stroke', (f) => {
+          if (region.provinces === null) return 'none'; // 전국 뷰: 시도 경계 숨김
+          return inRegion(f) ? '#CCCCCC' : '#E8E8E8';
+        })
         .attr('stroke-width', () => 0.6 / scale);
+
+      // 커서 스타일: 전국 뷰에서 pointer, 권역 뷰에서 default
+      d3.select(zoomG)
+        .selectAll<SVGPathElement, Feature<Geometry>>('path.province')
+        .style('cursor', region.provinces === null ? 'pointer' : 'default');
 
       // 4. 사전 계산된 아웃라인 적용 — path는 즉시 교체, opacity만 페이드인
       const outlinePath =
@@ -389,7 +454,7 @@ export default function KoreaMap({
               .join(' ');
       d3.select(outlineEl)
         .attr('d', outlinePath)
-        .attr('stroke-width', region.provinces !== null ? 1.8 / scale : 1.0 / scale)
+        .attr('stroke-width', region.provinces !== null ? 1.8 / scale : 2.2 / scale)
         .attr('opacity', 0)
         .transition()
         .duration(TRANSITION_DURATION)
