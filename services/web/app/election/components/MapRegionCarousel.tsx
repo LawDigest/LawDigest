@@ -12,6 +12,7 @@ interface LeaderLine {
   x2: number;
   y2: number;
   color: string;
+  side: 'left' | 'right';
 }
 
 /** centroid x 기준으로 시도를 좌/우 사이드바에 분배 */
@@ -79,7 +80,7 @@ export default function MapRegionCarousel() {
         const c1Leads = !poll || poll.c1Pct >= poll.c2Pct;
         const color = c1Leads ? info?.c1.color ?? '#999' : info?.c2.color ?? '#999';
 
-        leaderLines.push({ x1, y1, x2: centroid.x, y2: centroid.y, color });
+        leaderLines.push({ x1, y1, x2: centroid.x, y2: centroid.y, color, side });
       });
     };
 
@@ -155,7 +156,9 @@ export default function MapRegionCarousel() {
             height={MAP_HEIGHT}
             style={{ overflow: 'visible' }}>
             {leaderLines.map((line) => {
-              const bendX = line.x1 + (line.x2 - line.x1) * 0.45;
+              // bendX는 항상 카드 바깥 방향(left카드→오른쪽, right카드→왼쪽)을 보장
+              const rawBend = line.x1 + (line.x2 - line.x1) * 0.45;
+              const bendX = line.side === 'left' ? Math.max(line.x1, rawBend) : Math.min(line.x1, rawBend);
               return (
                 <path
                   key={`${line.x1}-${line.y1}-${line.x2}-${line.y2}`}
