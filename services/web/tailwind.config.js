@@ -27,12 +27,17 @@ module.exports = {
           '0%': { opacity: '0', transform: 'translateX(10px)' },
           '100%': { opacity: '1', transform: 'translateX(0)' },
         },
+        barGrow: {
+          '0%': { transform: 'scaleX(0)' },
+          '100%': { transform: 'scaleX(1)' },
+        },
       },
       animation: {
         'fade-in': 'fadeIn 0.35s ease-out both',
         'fade-up': 'fadeUp 0.35s ease-out both',
         'slide-in-left': 'slideInLeft 0.3s ease-out both',
         'slide-in-right': 'slideInRight 0.3s ease-out both',
+        'bar-grow': 'barGrow 0.4s ease-out 0.28s both',
       },
       colors: {
         // Gray color

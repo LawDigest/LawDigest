@@ -41,9 +41,15 @@ const ProvinceInfoCard = forwardRef<HTMLDivElement, ProvinceInfoCardProps>(({ pr
 
       {/* 수평 바 차트 */}
       <div className="h-[5px] rounded-full overflow-hidden flex">
-        <div style={{ width: `${c1Pct}%`, backgroundColor: info.c1.color }} />
-        <div style={{ width: `${otherPct}%`, backgroundColor: '#D1D5DB' }} />
-        <div style={{ width: `${c2Pct}%`, backgroundColor: info.c2.color }} />
+        <div
+          className="rounded-full origin-left animate-bar-grow"
+          style={{ width: `${c1Pct}%`, backgroundColor: info.c1.color }}
+        />
+        {otherPct > 0 && <div style={{ width: `${otherPct}%`, backgroundColor: '#D1D5DB' }} />}
+        <div
+          className="rounded-full origin-right animate-bar-grow"
+          style={{ width: `${c2Pct}%`, backgroundColor: info.c2.color }}
+        />
       </div>
 
       {/* 지지율 행 */}

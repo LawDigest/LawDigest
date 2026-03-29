@@ -445,21 +445,20 @@ export default function KoreaMap({
         .selectAll<SVGPathElement, Feature<Geometry>>('path.province')
         .style('cursor', region.provinces === null ? 'pointer' : 'default');
 
-      // 4. 사전 계산된 아웃라인 적용 — path는 즉시 교체, opacity만 페이드인
-      const outlinePath =
-        region.provinces !== null
-          ? mergedPathsRef.current.get(regionIndex) ?? ''
-          : MAP_REGIONS.map((_, idx) => mergedPathsRef.current.get(idx) ?? '')
-              .filter((p) => p)
-              .join(' ');
-      d3.select(outlineEl)
-        .attr('d', outlinePath)
-        .attr('stroke-width', region.provinces !== null ? 1.8 / scale : 2.2 / scale)
-        .attr('opacity', 0)
-        .transition()
-        .duration(TRANSITION_DURATION)
-        .ease(d3.easeCubicInOut)
-        .attr('opacity', 1);
+      // 4. 아웃라인 — 권역 뷰에서만 표시, 전국 뷰에서는 숨김
+      if (region.provinces !== null) {
+        const outlinePath = mergedPathsRef.current.get(regionIndex) ?? '';
+        d3.select(outlineEl)
+          .attr('d', outlinePath)
+          .attr('stroke-width', 1.8 / scale)
+          .attr('opacity', 0)
+          .transition()
+          .duration(TRANSITION_DURATION)
+          .ease(d3.easeCubicInOut)
+          .attr('opacity', 1);
+      } else {
+        d3.select(outlineEl).attr('opacity', 0);
+      }
 
       // 5. 레이블: transition 완료 후 화면 좌표로 배치
       d3.select(labelsG).selectAll('*').remove();
@@ -592,7 +591,7 @@ export default function KoreaMap({
     <div
       ref={containerRef}
       className="relative w-full select-none overflow-hidden"
-      style={{ touchAction: 'pan-y' }}
+      style={{ touchAction: 'pan-y', WebkitTapHighlightColor: 'transparent' }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       onPointerDown={handlePointerDown}
