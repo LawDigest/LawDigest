@@ -14,10 +14,10 @@ import type {
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
 const TOPO_OBJECT_KEY = 'skorea_provinces_geo';
-const TRANSITION_DURATION = 600;
+const TRANSITION_DURATION = 500;
 const SWIPE_THRESHOLD = 40;
 /** 이 값(screen px²) 미만이면 지시선 레이블을 사용 */
-const SMALL_AREA_THRESHOLD = 3000;
+const SMALL_AREA_THRESHOLD = 2800;
 
 // ─── 선거 데이터 (제9회 전국동시지방선거 mock – 8회 결과 기준) ─────────────────
 
@@ -33,7 +33,6 @@ interface ProvinceElectionInfo {
   c2: CandidateInfo;
 }
 
-/** 시도명 → 시도지사 선거 mock 데이터 */
 const ELECTION_INFO: Record<string, ProvinceElectionInfo> = {
   서울특별시: {
     title: '서울특별시장',
@@ -154,10 +153,7 @@ const PROVINCE_SHORT_NAME: Record<string, string> = {
   제주특별자치도: '제주',
 };
 
-/**
- * 소규모 시도에 사용하는 지시선 오프셋 [dx, dy] in screen px.
- * 값이 없으면 centroid에 직접 레이블을 표시.
- */
+/** 소규모 시도 지시선 오프셋 [dx, dy] (screen px) */
 const LEADER_OFFSET: Record<string, [number, number]> = {
   서울특별시: [0, -38],
   인천광역시: [-52, 8],
@@ -220,14 +216,19 @@ export default function KoreaMap({ regionIndex, onRegionChange }: KoreaMapProps)
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const zoomGRef = useRef<SVGGElement | null>(null);
+  const outlineElRef = useRef<SVGPathElement | null>(null);
   const labelsGRef = useRef<SVGGElement | null>(null);
-  const projectionRef = useRef<d3.GeoProjection | null>(null);
   const pathRef = useRef<d3.GeoPath | null>(null);
-  const topoRef = useRef<Topology | null>(null);
   const geoRef = useRef<FeatureCollection<Geometry> | null>(null);
+  /** 각 권역 index → 사전 계산된 SVG path 문자열 */
+  const mergedPathsRef = useRef<Map<number, string>>(new Map());
+  /** 시도명 → projection 좌표 centroid */
+  const centroidsRef = useRef<Map<string, [number, number]>>(new Map());
+  /** 시도명 → projection 좌표 기준 bounding box 면적 */
+  const projAreasRef = useRef<Map<string, number>>(new Map());
   const [ready, setReady] = useState(false);
 
-  // ── 초기화 ──────────────────────────────────────────────────────────────────
+  // ── 초기화 (1회) ───────────────────────────────────────────────────────────
   useEffect(() => {
     const svg = svgRef.current;
     const container = containerRef.current;
@@ -245,26 +246,36 @@ export default function KoreaMap({ regionIndex, onRegionChange }: KoreaMapProps)
       .scale(w * 5.0)
       .translate([w / 2, h / 2]);
     const path = d3.geoPath().projection(projection);
-    projectionRef.current = projection;
     pathRef.current = path;
 
-    // SVG 레이어 생성 – zoomG: 줌 대상, labelsG: 고정 레이블
     const zoomG = d3.select(svg).append('g').attr('class', 'zoom-layer');
     const labelsG = d3.select(svg).append('g').attr('class', 'labels-layer');
     zoomGRef.current = zoomG.node();
     labelsGRef.current = labelsG.node();
 
-    fetch('/geo/korea-provinces-topo.json')
+    // 아웃라인 엘리먼트 고정 생성 (d만 교체)
+    const outlineEl = zoomG
+      .append('path')
+      .attr('class', 'region-outline')
+      .attr('fill', 'none')
+      .attr('stroke', '#2D3748')
+      .attr('stroke-linejoin', 'round')
+      .attr('pointer-events', 'none')
+      .attr('d', '');
+    outlineElRef.current = outlineEl.node();
+
+    fetch('/geo/korea-provinces-topo-simple.json')
       .then((r) => r.json())
       .then((topo: Topology) => {
-        topoRef.current = topo;
         const fc = topojson.feature(
           topo,
           topo.objects[TOPO_OBJECT_KEY] as TopoGeomCollection,
         ) as FeatureCollection<Geometry>;
         geoRef.current = fc;
 
+        // 시도 path 그리기
         zoomG
+          .insert('g', '.region-outline') // 아웃라인 아래에 삽입
           .selectAll<SVGPathElement, Feature<Geometry>>('path.province')
           .data(fc.features)
           .join('path')
@@ -275,6 +286,28 @@ export default function KoreaMap({ regionIndex, onRegionChange }: KoreaMapProps)
           .attr('stroke-width', 0.8)
           .attr('stroke-linejoin', 'round');
 
+        // ── 사전 계산 ────────────────────────────────────────────────────────
+        const topoObj = topo.objects[TOPO_OBJECT_KEY] as TopoGeomCollection;
+
+        // 1) 권역별 merged outline path 문자열
+        MAP_REGIONS.forEach((region, idx) => {
+          if (region.provinces === null) return;
+          const selectedGeoms = topoObj.geometries.filter((g) => {
+            const name = (g.properties as Record<string, string>)?.name ?? '';
+            return isProvinceInRegion(name, region.provinces!);
+          }) as Array<TopoPolygon | TopoMultiPolygon>;
+          const merged = topojson.merge(topo, selectedGeoms);
+          mergedPathsRef.current.set(idx, path(merged as Geometry) ?? '');
+        });
+
+        // 2) 각 시도 centroid + projected bounding area
+        fc.features.forEach((f) => {
+          const name = getProvinceName(f);
+          centroidsRef.current.set(name, path.centroid(f) as [number, number]);
+          const b = path.bounds(f);
+          projAreasRef.current.set(name, (b[1][0] - b[0][0]) * (b[1][1] - b[0][1]));
+        });
+
         setReady(true);
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -284,13 +317,13 @@ export default function KoreaMap({ regionIndex, onRegionChange }: KoreaMapProps)
     let labelTimer: ReturnType<typeof setTimeout> | null = null;
 
     const geo = geoRef.current;
-    const topo = topoRef.current;
     const path = pathRef.current;
     const zoomG = zoomGRef.current;
     const labelsG = labelsGRef.current;
+    const outlineEl = outlineElRef.current;
     const container = containerRef.current;
 
-    if (ready && geo && topo && path && zoomG && labelsG && container) {
+    if (ready && geo && path && zoomG && labelsG && outlineEl && container) {
       const { width, height } = container.getBoundingClientRect();
       const w = width || 320;
       const h = height || 280;
@@ -332,27 +365,11 @@ export default function KoreaMap({ regionIndex, onRegionChange }: KoreaMapProps)
         .attr('stroke', (f) => (inRegion(f) ? '#CCCCCC' : '#E8E8E8'))
         .attr('stroke-width', () => 0.6 / scale);
 
-      // 4. 권역 외곽선 (topojson.merge → 내부선 없는 단일 외곽)
-      d3.select(zoomG).select('path.region-outline').remove();
-
-      if (region.provinces !== null) {
-        const topoObj = topo.objects[TOPO_OBJECT_KEY] as TopoGeomCollection;
-        const selectedGeoms = topoObj.geometries.filter((g) => {
-          const name = (g.properties as Record<string, string>)?.name ?? '';
-          return isProvinceInRegion(name, region.provinces!);
-        }) as Array<TopoPolygon | TopoMultiPolygon>;
-        const merged = topojson.merge(topo, selectedGeoms);
-        d3.select(zoomG)
-          .append('path')
-          .attr('class', 'region-outline')
-          .datum(merged)
-          .attr('d', path as unknown as string)
-          .attr('fill', 'none')
-          .attr('stroke', '#2D3748')
-          .attr('stroke-width', 1.8 / scale)
-          .attr('stroke-linejoin', 'round')
-          .attr('pointer-events', 'none');
-      }
+      // 4. 사전 계산된 아웃라인 적용 (DOM remove/add 없이 d 속성만 교체)
+      const outlinePath = region.provinces !== null ? mergedPathsRef.current.get(regionIndex) ?? '' : '';
+      d3.select(outlineEl)
+        .attr('d', outlinePath)
+        .attr('stroke-width', region.provinces !== null ? 1.8 / scale : 0);
 
       // 5. 레이블: transition 완료 후 화면 좌표로 배치
       d3.select(labelsG).selectAll('*').remove();
@@ -367,14 +384,14 @@ export default function KoreaMap({ regionIndex, onRegionChange }: KoreaMapProps)
             const shortName = PROVINCE_SHORT_NAME[name] ?? name;
             if (!info) return;
 
-            const centroid = path.centroid(f);
+            // 사전 계산된 centroid / 면적 사용
+            const centroid = centroidsRef.current.get(name);
+            if (!centroid) return;
             const screenCx = tx + scale * centroid[0];
             const screenCy = ty + scale * centroid[1];
 
-            // 면적으로 소규모 시도 판별
-            const bds = path.bounds(f);
-            const screenArea = (bds[1][0] - bds[0][0]) * scale * ((bds[1][1] - bds[0][1]) * scale);
-            const needsLeader = screenArea < SMALL_AREA_THRESHOLD;
+            const projArea = projAreasRef.current.get(name) ?? 0;
+            const needsLeader = projArea * scale * scale < SMALL_AREA_THRESHOLD;
             const offset = needsLeader ? LEADER_OFFSET[name] ?? [0, 0] : [0, 0];
             const textX = screenCx + offset[0];
             const textY = screenCy + offset[1];
@@ -416,7 +433,7 @@ export default function KoreaMap({ regionIndex, onRegionChange }: KoreaMapProps)
             addText(14, 8.5, '400', info.c1.color, `${info.c1.name}(${info.c1.party})`);
             addText(26, 8.5, '400', info.c2.color, `${info.c2.name}(${info.c2.party})`);
           });
-        }, TRANSITION_DURATION + 60);
+        }, TRANSITION_DURATION + 50);
       }
     }
 
