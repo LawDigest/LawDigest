@@ -8,7 +8,7 @@ import ElectionMapTabView from './ElectionMapTabView';
 
 // 2026 전국동시지방선거
 const LOCAL_ELECTION_DATE = new Date('2026-06-03');
-const LOCAL_ELECTION_NAME = '제8회 전국동시지방선거';
+const LOCAL_ELECTION_NAME = '제9회 전국동시지방선거';
 
 export default function ElectionMapShell() {
   const [activeTab, setActiveTab] = useState<ElectionInnerTab>('map');
