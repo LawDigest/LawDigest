@@ -154,20 +154,17 @@ export default function MapRegionCarousel() {
             width="100%"
             height={MAP_HEIGHT}
             style={{ overflow: 'visible' }}>
-            {leaderLines.map((line) => {
-              const cpx = (line.x1 + line.x2) / 2;
-              return (
-                <path
-                  key={`${line.x1}-${line.y1}-${line.x2}-${line.y2}`}
-                  d={`M${line.x1},${line.y1} C${cpx},${line.y1} ${cpx},${line.y2} ${line.x2},${line.y2}`}
-                  fill="none"
-                  stroke={line.color}
-                  strokeWidth={1.2}
-                  strokeDasharray="3,2"
-                  opacity={0.65}
-                />
-              );
-            })}
+            {leaderLines.map((line) => (
+              <path
+                key={`${line.x1}-${line.y1}-${line.x2}-${line.y2}`}
+                d={`M${line.x1},${line.y1} H${line.x2} V${line.y2}`}
+                fill="none"
+                stroke={line.color}
+                strokeWidth={1.2}
+                strokeDasharray="3,2"
+                opacity={0.7}
+              />
+            ))}
           </svg>
         )}
       </div>

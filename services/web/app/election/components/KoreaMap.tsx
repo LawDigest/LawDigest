@@ -337,13 +337,19 @@ export default function KoreaMap({ regionIndex, onRegionChange, onCentroidsReady
         .duration(TRANSITION_DURATION)
         .attr('fill', (f) => {
           const name = getProvinceName(f);
-          if (!inRegion(f)) return region.provinces === null ? '#F8F8F8' : 'white';
           const info = ELECTION_INFO[name];
           const poll = MOCK_POLL_DATA[name];
+          if (!inRegion(f)) {
+            if (region.provinces === null && info && poll) {
+              const c1Leads = poll.c1Pct >= poll.c2Pct;
+              return `${c1Leads ? info.c1.color : info.c2.color}26`;
+            }
+            return region.provinces === null ? '#F8F8F8' : 'white';
+          }
           if (!info || !poll) return '#F0F4FF';
           const c1Leads = poll.c1Pct >= poll.c2Pct;
           const leadingColor = c1Leads ? info.c1.color : info.c2.color;
-          return `${leadingColor}26`; // 약 15% 불투명도
+          return `${leadingColor}26`;
         })
         .attr('stroke', (f) => (inRegion(f) ? '#CCCCCC' : '#E8E8E8'))
         .attr('stroke-width', () => 0.6 / scale);
