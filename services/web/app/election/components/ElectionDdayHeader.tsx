@@ -15,6 +15,18 @@ function calcDday(electionDate: Date): number {
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function getDdayLabel(dday: number): string {
+  if (dday === 0) return 'D-DAY';
+  if (dday > 0) return `D-${dday}`;
+  return `D+${Math.abs(dday)}`;
+}
+
+function getDdayColor(dday: number): string {
+  if (dday <= 0) return 'bg-theme-alert text-white';
+  if (dday <= 7) return 'bg-primary-2 text-white';
+  return 'bg-gray-1 text-gray-4';
+}
+
 function formatDate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -26,13 +38,8 @@ export default function ElectionDdayHeader({ electionName, electionDate }: Elect
   const dday = useMemo(() => calcDday(electionDate), [electionDate]);
   const dateLabel = useMemo(() => formatDate(electionDate), [electionDate]);
 
-  const ddayLabel = dday === 0 ? 'D-DAY' : dday > 0 ? `D-${dday}` : `D+${Math.abs(dday)}`;
-  const ddayColor =
-    dday <= 0
-      ? 'bg-theme-alert text-white'
-      : dday <= 7
-        ? 'bg-primary-2 text-white'
-        : 'bg-gray-1 text-gray-4';
+  const ddayLabel = getDdayLabel(dday);
+  const ddayColor = getDdayColor(dday);
 
   return (
     <header className="flex items-start justify-between gap-4 px-5 pt-6 pb-4">

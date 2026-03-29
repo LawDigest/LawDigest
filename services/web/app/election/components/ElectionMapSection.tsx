@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { Button, ButtonGroup } from '@nextui-org/button';
+import { Loading } from '@/components/common';
 import { ElectionId, ElectionRegionType, ElectionRegionCode, ElectionViewMode } from '@/types';
 import { useGetElectionMap } from '../apis/queries';
-import { Loading } from '@/components/common';
 
 const GEO_VIEW_MODE = 'RESULT' as ElectionViewMode;
 const CARTOGRAM_VIEW_MODE = 'HEX' as ElectionViewMode;
@@ -15,13 +15,9 @@ interface ElectionMapSectionProps {
   regionCode: ElectionRegionCode;
 }
 
-export default function ElectionMapSection({
-  electionId,
-  depth,
-  regionCode,
-}: ElectionMapSectionProps) {
+export default function ElectionMapSection({ electionId, depth, regionCode }: ElectionMapSectionProps) {
   const [viewMode, setViewMode] = useState<ElectionViewMode>(GEO_VIEW_MODE);
-  const { data: mapData, isLoading } = useGetElectionMap(electionId, depth, regionCode, viewMode);
+  const { isLoading } = useGetElectionMap(electionId, depth, regionCode, viewMode);
 
   return (
     <section className="flex flex-col gap-4 w-full h-full min-h-[400px] lg:min-h-[600px] bg-white dark:bg-dark-b rounded-lg border dark:border-dark-l p-4">

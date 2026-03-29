@@ -35,9 +35,7 @@ export default function ElectionInnerTabBar({ activeTab, onChange }: ElectionInn
             onClick={() => onChange(key)}
             className={[
               'relative flex-1 min-w-[72px] py-3 text-sm font-semibold transition-colors whitespace-nowrap',
-              isActive
-                ? 'text-gray-4 dark:text-white'
-                : 'text-gray-2 hover:text-gray-3 dark:hover:text-gray-1',
+              isActive ? 'text-gray-4 dark:text-white' : 'text-gray-2 hover:text-gray-3 dark:hover:text-gray-1',
             ].join(' ')}>
             {label}
             {isActive && (

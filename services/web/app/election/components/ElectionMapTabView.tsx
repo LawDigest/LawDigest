@@ -13,18 +13,90 @@ const MOCK_PARTIES = [
 ];
 
 const MOCK_REGIONS = [
-  { regionName: '서울', leadingParty: '더불어민주당', leadingPartyShort: '민주', percentage: 51.8, partyColorClass: 'bg-party-minjoo' },
-  { regionName: '경기', leadingParty: '더불어민주당', leadingPartyShort: '민주', percentage: 54.2, partyColorClass: 'bg-party-minjoo' },
-  { regionName: '인천', leadingParty: '더불어민주당', leadingPartyShort: '민주', percentage: 52.1, partyColorClass: 'bg-party-minjoo' },
-  { regionName: '부산', leadingParty: '국민의힘', leadingPartyShort: '국힘', percentage: 58.3, partyColorClass: 'bg-party-ppp' },
-  { regionName: '경남', leadingParty: '국민의힘', leadingPartyShort: '국힘', percentage: 60.4, partyColorClass: 'bg-party-ppp' },
-  { regionName: '대구', leadingParty: '국민의힘', leadingPartyShort: '국힘', percentage: 66.1, partyColorClass: 'bg-party-ppp' },
-  { regionName: '경북', leadingParty: '국민의힘', leadingPartyShort: '국힘', percentage: 72.1, partyColorClass: 'bg-party-ppp' },
-  { regionName: '강원', leadingParty: '국민의힘', leadingPartyShort: '국힘', percentage: 64.2, partyColorClass: 'bg-party-ppp' },
-  { regionName: '대전', leadingParty: '더불어민주당', leadingPartyShort: '민주', percentage: 49.7, partyColorClass: 'bg-party-minjoo' },
-  { regionName: '충남', leadingParty: '더불어민주당', leadingPartyShort: '민주', percentage: 48.3, partyColorClass: 'bg-party-minjoo' },
-  { regionName: '전남', leadingParty: '더불어민주당', leadingPartyShort: '민주', percentage: 67.5, partyColorClass: 'bg-party-minjoo' },
-  { regionName: '전북', leadingParty: '더불어민주당', leadingPartyShort: '민주', percentage: 65.9, partyColorClass: 'bg-party-minjoo' },
+  {
+    regionName: '서울',
+    leadingParty: '더불어민주당',
+    leadingPartyShort: '민주',
+    percentage: 51.8,
+    partyColorClass: 'bg-party-minjoo',
+  },
+  {
+    regionName: '경기',
+    leadingParty: '더불어민주당',
+    leadingPartyShort: '민주',
+    percentage: 54.2,
+    partyColorClass: 'bg-party-minjoo',
+  },
+  {
+    regionName: '인천',
+    leadingParty: '더불어민주당',
+    leadingPartyShort: '민주',
+    percentage: 52.1,
+    partyColorClass: 'bg-party-minjoo',
+  },
+  {
+    regionName: '부산',
+    leadingParty: '국민의힘',
+    leadingPartyShort: '국힘',
+    percentage: 58.3,
+    partyColorClass: 'bg-party-ppp',
+  },
+  {
+    regionName: '경남',
+    leadingParty: '국민의힘',
+    leadingPartyShort: '국힘',
+    percentage: 60.4,
+    partyColorClass: 'bg-party-ppp',
+  },
+  {
+    regionName: '대구',
+    leadingParty: '국민의힘',
+    leadingPartyShort: '국힘',
+    percentage: 66.1,
+    partyColorClass: 'bg-party-ppp',
+  },
+  {
+    regionName: '경북',
+    leadingParty: '국민의힘',
+    leadingPartyShort: '국힘',
+    percentage: 72.1,
+    partyColorClass: 'bg-party-ppp',
+  },
+  {
+    regionName: '강원',
+    leadingParty: '국민의힘',
+    leadingPartyShort: '국힘',
+    percentage: 64.2,
+    partyColorClass: 'bg-party-ppp',
+  },
+  {
+    regionName: '대전',
+    leadingParty: '더불어민주당',
+    leadingPartyShort: '민주',
+    percentage: 49.7,
+    partyColorClass: 'bg-party-minjoo',
+  },
+  {
+    regionName: '충남',
+    leadingParty: '더불어민주당',
+    leadingPartyShort: '민주',
+    percentage: 48.3,
+    partyColorClass: 'bg-party-minjoo',
+  },
+  {
+    regionName: '전남',
+    leadingParty: '더불어민주당',
+    leadingPartyShort: '민주',
+    percentage: 67.5,
+    partyColorClass: 'bg-party-minjoo',
+  },
+  {
+    regionName: '전북',
+    leadingParty: '더불어민주당',
+    leadingPartyShort: '민주',
+    percentage: 65.9,
+    partyColorClass: 'bg-party-minjoo',
+  },
 ];
 
 export default function ElectionMapTabView() {
@@ -32,11 +104,7 @@ export default function ElectionMapTabView() {
 
   return (
     <div className="flex flex-col gap-5 pb-32">
-      <SeatSummaryCard
-        totalSeats={300}
-        countRate={98.2}
-        parties={MOCK_PARTIES}
-      />
+      <SeatSummaryCard totalSeats={300} countRate={98.2} parties={MOCK_PARTIES} />
 
       {/* 지도 영역 */}
       <section className="mx-5 flex flex-col gap-3">
@@ -54,9 +122,7 @@ export default function ElectionMapTabView() {
               <rect x="4" y="22" width="14" height="14" rx="3" fill="currentColor" />
               <rect x="22" y="22" width="14" height="14" rx="3" fill="currentColor" />
             </svg>
-            <span>
-              {viewMode === 'geographic' ? '실제 지도' : '카토그램'} 렌더링 영역
-            </span>
+            <span>{viewMode === 'geographic' ? '실제 지도' : '카토그램'} 렌더링 영역</span>
             <span className="text-xs text-gray-2 opacity-60">D3 시각화 연동 예정</span>
           </div>
         </div>

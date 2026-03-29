@@ -16,10 +16,7 @@ export default function ElectionMapShell() {
   return (
     <Layout nav logo>
       <div className="flex flex-col w-full md:max-w-[768px] mx-auto">
-        <ElectionDdayHeader
-          electionName={LOCAL_ELECTION_NAME}
-          electionDate={LOCAL_ELECTION_DATE}
-        />
+        <ElectionDdayHeader electionName={LOCAL_ELECTION_NAME} electionDate={LOCAL_ELECTION_DATE} />
 
         <ElectionInnerTabBar activeTab={activeTab} onChange={setActiveTab} />
 
@@ -30,8 +27,7 @@ export default function ElectionMapShell() {
             <p className="text-sm">
               {activeTab === 'feed' && '피드'}
               {activeTab === 'poll' && '여론조사'}
-              {activeTab === 'district' && '내 지역구'}
-              {' '}탭은 준비 중입니다.
+              {activeTab === 'district' && '내 지역구'} 탭은 준비 중입니다.
             </p>
           </div>
         )}

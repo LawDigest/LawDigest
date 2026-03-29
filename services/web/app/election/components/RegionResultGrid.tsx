@@ -25,9 +25,7 @@ export default function RegionResultGrid({ regions, onRegionClick }: RegionResul
             onClick={() => onRegionClick?.(region.regionName)}
             className="flex flex-col gap-2 rounded-xl bg-gray-0.5 dark:bg-dark-pb p-3.5 text-left transition hover:bg-gray-1 dark:hover:bg-dark-l active:scale-[0.97]">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-bold text-gray-4 dark:text-white leading-tight">
-                {region.regionName}
-              </span>
+              <span className="text-sm font-bold text-gray-4 dark:text-white leading-tight">{region.regionName}</span>
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold text-white ${region.partyColorClass}`}>
                 {region.leadingPartyShort}
