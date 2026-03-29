@@ -23,7 +23,7 @@ export default function RegionResultGrid({ regions, onRegionClick }: RegionResul
             key={region.regionName}
             type="button"
             onClick={() => onRegionClick?.(region.regionName)}
-            className="flex flex-col gap-2 rounded-xl bg-gray-0.5 dark:bg-dark-pb p-3.5 text-left transition hover:bg-gray-1 dark:hover:bg-dark-l active:scale-[0.97]">
+            className="flex flex-col gap-2 rounded-xl bg-white dark:bg-dark-pb border border-gray-1 dark:border-dark-l shadow-sm p-3.5 text-left transition hover:shadow-md hover:border-gray-2 dark:hover:border-dark-l active:scale-[0.97]">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-bold text-gray-4 dark:text-white leading-tight">{region.regionName}</span>
               <span

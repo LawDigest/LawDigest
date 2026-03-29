@@ -9,7 +9,7 @@ interface MapViewToggleProps {
 
 export default function MapViewToggle({ value, onChange }: MapViewToggleProps) {
   return (
-    <div className="flex items-center self-end rounded-full bg-gray-0.5 dark:bg-dark-pb p-1">
+    <div className="flex items-center self-end rounded-full bg-white dark:bg-dark-pb border border-gray-1 dark:border-dark-l shadow-sm p-1">
       {(['geographic', 'cartogram'] as const).map((mode) => {
         const isActive = value === mode;
         return (

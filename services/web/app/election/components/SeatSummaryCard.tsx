@@ -16,7 +16,7 @@ export default function SeatSummaryCard({ totalSeats, countRate, parties }: Seat
   const seatsAllocated = parties.reduce((sum, p) => sum + p.seats, 0);
 
   return (
-    <section className="mx-5 rounded-2xl bg-gray-0.5 dark:bg-dark-pb p-4 flex flex-col gap-3">
+    <section className="mx-5 rounded-2xl bg-white dark:bg-dark-pb border border-gray-1 dark:border-dark-l shadow-sm p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold tracking-widest text-gray-2 uppercase">의석 현황</p>
         <span className="text-xs text-gray-2">

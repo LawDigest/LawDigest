@@ -113,7 +113,7 @@ export default function ElectionMapTabView() {
           <MapViewToggle value={viewMode} onChange={setViewMode} />
         </div>
 
-        <div className="relative flex min-h-[240px] items-center justify-center rounded-2xl bg-gray-0.5 dark:bg-dark-pb overflow-hidden">
+        <div className="relative flex min-h-[240px] items-center justify-center rounded-2xl bg-white dark:bg-dark-pb border border-gray-1 dark:border-dark-l shadow-sm overflow-hidden">
           {/* 실제 지도 / 카토그램 렌더링 영역 (추후 D3 연동 예정) */}
           <div className="flex flex-col items-center gap-2 text-gray-2 text-sm">
             <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className="opacity-30">
