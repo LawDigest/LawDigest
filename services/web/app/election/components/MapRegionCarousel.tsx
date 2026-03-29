@@ -247,7 +247,7 @@ export default function MapRegionCarousel() {
           <button
             type="button"
             onClick={() => goToRegion(0)}
-            className="absolute top-1.5 left-1/2 -translate-x-1/2 z-30 pointer-events-auto text-[9px] font-medium text-gray-500 bg-white/80 backdrop-blur-sm rounded-full px-2.5 py-0.5 animate-fade-up">
+            className="absolute top-1.5 left-1/2 -translate-x-1/2 z-30 pointer-events-auto text-[9px] font-medium text-gray-500 bg-white/80 backdrop-blur-sm rounded-full px-2.5 py-0.5 border border-gray-1 animate-fade-up">
             ← 전국
           </button>
         )}
