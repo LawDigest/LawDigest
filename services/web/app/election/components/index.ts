@@ -6,6 +6,8 @@ export { default as ElectionMapTabView } from './ElectionMapTabView';
 export { default as SeatSummaryCard } from './SeatSummaryCard';
 export { default as RegionResultGrid } from './RegionResultGrid';
 export { default as MapViewToggle } from './MapViewToggle';
+export { default as KoreaMap } from './KoreaMap';
+export { default as MapRegionCarousel } from './MapRegionCarousel';
 export { default as ElectionSelector } from './ElectionSelector';
 export { default as ElectionModeTabs } from './ElectionModeTabs';
 export { default as EmptyRegionState } from './EmptyRegionState';

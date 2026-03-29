@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import MapViewToggle, { MapViewMode } from './MapViewToggle';
 import SeatSummaryCard from './SeatSummaryCard';
 import RegionResultGrid from './RegionResultGrid';
+import MapRegionCarousel from './MapRegionCarousel';
 
 // 프로토타입용 목업 데이터
 const MOCK_PARTIES = [
@@ -100,31 +99,15 @@ const MOCK_REGIONS = [
 ];
 
 export default function ElectionMapTabView() {
-  const [viewMode, setViewMode] = useState<MapViewMode>('geographic');
-
   return (
     <div className="flex flex-col gap-5 pb-32">
       <SeatSummaryCard totalSeats={300} countRate={98.2} parties={MOCK_PARTIES} />
 
       {/* 지도 영역 */}
       <section className="mx-5 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold tracking-widest text-gray-2 uppercase">선거 지도</p>
-          <MapViewToggle value={viewMode} onChange={setViewMode} />
-        </div>
-
-        <div className="relative flex min-h-[240px] items-center justify-center rounded-2xl bg-white dark:bg-dark-pb border border-gray-1 dark:border-dark-l shadow-sm overflow-hidden">
-          {/* 실제 지도 / 카토그램 렌더링 영역 (추후 D3 연동 예정) */}
-          <div className="flex flex-col items-center gap-2 text-gray-2 text-sm">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" className="opacity-30">
-              <rect x="4" y="4" width="14" height="14" rx="3" fill="currentColor" />
-              <rect x="22" y="4" width="14" height="14" rx="3" fill="currentColor" />
-              <rect x="4" y="22" width="14" height="14" rx="3" fill="currentColor" />
-              <rect x="22" y="22" width="14" height="14" rx="3" fill="currentColor" />
-            </svg>
-            <span>{viewMode === 'geographic' ? '실제 지도' : '카토그램'} 렌더링 영역</span>
-            <span className="text-xs text-gray-2 opacity-60">D3 시각화 연동 예정</span>
-          </div>
+        <p className="text-xs font-semibold tracking-widest text-gray-2 uppercase">선거 지도</p>
+        <div className="rounded-2xl bg-white dark:bg-dark-pb border border-gray-1 dark:border-dark-l shadow-sm overflow-hidden px-3 pt-3 pb-4">
+          <MapRegionCarousel />
         </div>
       </section>
 
