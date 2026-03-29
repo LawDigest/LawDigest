@@ -274,11 +274,15 @@ export default function KoreaMap({ regionIndex, onRegionChange, onCentroidsReady
           mergedPathsRef.current.set(idx, path(merged as Geometry) ?? '');
         });
 
-        // 2) 각 시도 centroid + projected bounding area
+        // 2) 각 시도 centroid(바운딩박스 중심) + projected bounding area
+        // path.centroid()는 오목 도형(경기도 등)에서 실제 영역 밖에 위치할 수 있으므로
+        // bounding box 중심점을 사용해 안정적인 지시선 끝점을 확보한다.
         fc.features.forEach((f) => {
           const name = getProvinceName(f);
-          centroidsRef.current.set(name, path.centroid(f) as [number, number]);
           const b = path.bounds(f);
+          const cx = (b[0][0] + b[1][0]) / 2;
+          const cy = (b[0][1] + b[1][1]) / 2;
+          centroidsRef.current.set(name, [cx, cy]);
           projAreasRef.current.set(name, (b[1][0] - b[0][0]) * (b[1][1] - b[0][1]));
         });
 
