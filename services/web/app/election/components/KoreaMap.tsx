@@ -4,7 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
 import type { FeatureCollection, Feature, Geometry } from 'geojson';
-import type { Topology, GeometryCollection as TopoGeomCollection } from 'topojson-specification';
+import type {
+  Topology,
+  GeometryCollection as TopoGeomCollection,
+  Polygon as TopoPolygon,
+  MultiPolygon as TopoMultiPolygon,
+} from 'topojson-specification';
 
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
@@ -332,14 +337,11 @@ export default function KoreaMap({ regionIndex, onRegionChange }: KoreaMapProps)
 
       if (region.provinces !== null) {
         const topoObj = topo.objects[TOPO_OBJECT_KEY] as TopoGeomCollection;
-        const selectedCollection: TopoGeomCollection = {
-          type: 'GeometryCollection',
-          geometries: topoObj.geometries.filter((g) => {
-            const name = (g.properties as Record<string, string>)?.name ?? '';
-            return isProvinceInRegion(name, region.provinces!);
-          }),
-        };
-        const merged = topojson.merge(topo, selectedCollection);
+        const selectedGeoms = topoObj.geometries.filter((g) => {
+          const name = (g.properties as Record<string, string>)?.name ?? '';
+          return isProvinceInRegion(name, region.provinces!);
+        }) as Array<TopoPolygon | TopoMultiPolygon>;
+        const merged = topojson.merge(topo, selectedGeoms);
         d3.select(zoomG)
           .append('path')
           .attr('class', 'region-outline')
