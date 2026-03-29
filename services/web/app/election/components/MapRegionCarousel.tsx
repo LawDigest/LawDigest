@@ -89,11 +89,14 @@ export default function MapRegionCarousel() {
     setRegionCentroids([]);
   }, []);
 
-  // 권역 바로가기 버튼 ref가 commit 단계에서 채워진 후 지시선을 그리기 위해 강제 리렌더
+  // DOM commit 이후 ref가 채워진 다음 리렌더 — 지시선(시도·권역 모두) 정상 표시에 필요
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0);
   useLayoutEffect(() => {
     if (regionCentroids.length > 0) forceUpdate();
   }, [regionCentroids]);
+  useLayoutEffect(() => {
+    if (centroids.length > 0) forceUpdate();
+  }, [centroids]);
 
   // ── 시도 분배 ────────────────────────────────────────────────────────────────
   const allProvinces = (region.provinces ?? []).filter((p, i, arr) => arr.indexOf(p) === i && ELECTION_INFO[p] != null);
@@ -157,7 +160,9 @@ export default function MapRegionCarousel() {
     }
   }
 
-  const showSidebars = regionIndex !== 0 && region.provinces !== null;
+  // centroid 준비 전에 마운트하면 좌/우 재배치 시 remount로 애니메이션이 2회 재생되므로
+  // centroids 데이터가 도착한 이후에만 사이드바를 표시
+  const showSidebars = regionIndex !== 0 && region.provinces !== null && centroids.length > 0;
   const showRegionShortcuts = regionIndex === 0 && regionCentroids.length > 0;
 
   return (
