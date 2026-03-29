@@ -153,7 +153,7 @@ export default function MapRegionCarousel() {
 
         {/* 시도 좌 사이드바 */}
         {showSidebars && leftProvinces.length > 0 && (
-          <div className="absolute left-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10">
+          <div className="absolute left-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10 animate-fade-in">
             {leftProvinces.map((pName) => {
               const info = ELECTION_INFO[pName];
               if (!info) return null;
@@ -175,7 +175,7 @@ export default function MapRegionCarousel() {
 
         {/* 시도 우 사이드바 */}
         {showSidebars && rightProvinces.length > 0 && (
-          <div className="absolute right-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10">
+          <div className="absolute right-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10 animate-fade-in">
             {rightProvinces.map((pName) => {
               const info = ELECTION_INFO[pName];
               if (!info) return null;
@@ -200,14 +200,14 @@ export default function MapRegionCarousel() {
           <button
             type="button"
             onClick={() => goToRegion(0)}
-            className="absolute top-1.5 left-1/2 -translate-x-1/2 z-30 pointer-events-auto text-[9px] font-medium text-gray-500 bg-white/80 backdrop-blur-sm rounded-full px-2.5 py-0.5">
+            className="absolute top-1.5 left-1/2 -translate-x-1/2 z-30 pointer-events-auto text-[9px] font-medium text-gray-500 bg-white/80 backdrop-blur-sm rounded-full px-2.5 py-0.5 animate-fade-up">
             ← 전국
           </button>
         )}
 
         {/* 권역 바로가기 좌 */}
         {showRegionShortcuts && leftRegions.length > 0 && (
-          <div className="absolute left-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10">
+          <div className="absolute left-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10 animate-fade-in">
             {leftRegions.map((rInfo) => (
               <button
                 key={rInfo.regionIndex}
@@ -217,10 +217,10 @@ export default function MapRegionCarousel() {
                 }}
                 type="button"
                 onClick={() => goToRegion(rInfo.regionIndex)}
-                className="pointer-events-auto bg-white/85 backdrop-blur-sm rounded px-1.5 py-0.5 text-left leading-tight">
-                <span className="block text-[11px] font-bold text-gray-800">{rInfo.label}</span>
+                className="pointer-events-auto bg-white/85 backdrop-blur-sm rounded px-1.5 py-1 text-left leading-tight">
+                <span className="block text-sm font-bold text-gray-800">{rInfo.label}</span>
                 {rInfo.leadingPct > 0 && (
-                  <span className="block text-[9px] font-semibold" style={{ color: rInfo.leadingColor }}>
+                  <span className="block text-[10px] font-semibold" style={{ color: rInfo.leadingColor }}>
                     {rInfo.leadingParty} {rInfo.leadingPct.toFixed(1)}%
                   </span>
                 )}
@@ -231,7 +231,7 @@ export default function MapRegionCarousel() {
 
         {/* 권역 바로가기 우 */}
         {showRegionShortcuts && rightRegions.length > 0 && (
-          <div className="absolute right-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10">
+          <div className="absolute right-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10 animate-fade-in">
             {rightRegions.map((rInfo) => (
               <button
                 key={rInfo.regionIndex}
@@ -241,10 +241,10 @@ export default function MapRegionCarousel() {
                 }}
                 type="button"
                 onClick={() => goToRegion(rInfo.regionIndex)}
-                className="pointer-events-auto bg-white/85 backdrop-blur-sm rounded px-1.5 py-0.5 text-right leading-tight">
-                <span className="block text-[11px] font-bold text-gray-800">{rInfo.label}</span>
+                className="pointer-events-auto bg-white/85 backdrop-blur-sm rounded px-1.5 py-1 text-right leading-tight">
+                <span className="block text-sm font-bold text-gray-800">{rInfo.label}</span>
                 {rInfo.leadingPct > 0 && (
-                  <span className="block text-[9px] font-semibold" style={{ color: rInfo.leadingColor }}>
+                  <span className="block text-[10px] font-semibold" style={{ color: rInfo.leadingColor }}>
                     {rInfo.leadingParty} {rInfo.leadingPct.toFixed(1)}%
                   </span>
                 )}
@@ -256,7 +256,7 @@ export default function MapRegionCarousel() {
         {/* 지시선 overlay SVG */}
         {(leaderLines.length > 0 || regionLeaderLines.length > 0) && (
           <svg
-            className="absolute inset-0 pointer-events-none z-20"
+            className="absolute inset-0 pointer-events-none z-20 animate-fade-in"
             width="100%"
             height={MAP_HEIGHT}
             style={{ overflow: 'visible' }}>

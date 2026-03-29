@@ -15,7 +15,7 @@ import { MOCK_POLL_DATA } from '../data/mockPollData';
 // ─── 상수 ─────────────────────────────────────────────────────────────────────
 
 const TOPO_OBJECT_KEY = 'skorea_provinces_geo';
-const TRANSITION_DURATION = 500;
+const TRANSITION_DURATION = 750;
 const SWIPE_THRESHOLD = 40;
 
 // ─── 선거 데이터 (제9회 전국동시지방선거 mock – 8회 결과 기준) ─────────────────
@@ -349,7 +349,7 @@ export default function KoreaMap({
       d3.select(zoomG)
         .transition()
         .duration(TRANSITION_DURATION)
-        .ease(d3.easeCubicInOut)
+        .ease(d3.easeQuintInOut)
         .attr('transform', `translate(${tx},${ty}) scale(${scale})`);
 
       // 3. 시도 스타일 업데이트
@@ -360,6 +360,7 @@ export default function KoreaMap({
         .selectAll<SVGPathElement, Feature<Geometry>>('path.province')
         .transition()
         .duration(TRANSITION_DURATION)
+        .ease(d3.easeQuintInOut)
         .attr('fill', (f) => {
           const name = getProvinceName(f);
           const info = ELECTION_INFO[name];
@@ -379,7 +380,7 @@ export default function KoreaMap({
         .attr('stroke', (f) => (inRegion(f) ? '#CCCCCC' : '#E8E8E8'))
         .attr('stroke-width', () => 0.6 / scale);
 
-      // 4. 사전 계산된 아웃라인 적용 (DOM remove/add 없이 d 속성만 교체)
+      // 4. 사전 계산된 아웃라인 적용 — path는 즉시 교체, opacity만 페이드인
       const outlinePath =
         region.provinces !== null
           ? mergedPathsRef.current.get(regionIndex) ?? ''
@@ -388,7 +389,12 @@ export default function KoreaMap({
               .join(' ');
       d3.select(outlineEl)
         .attr('d', outlinePath)
-        .attr('stroke-width', region.provinces !== null ? 1.8 / scale : 1.0 / scale);
+        .attr('stroke-width', region.provinces !== null ? 1.8 / scale : 1.0 / scale)
+        .attr('opacity', 0)
+        .transition()
+        .duration(TRANSITION_DURATION)
+        .ease(d3.easeQuintInOut)
+        .attr('opacity', 1);
 
       // 5. 레이블: transition 완료 후 화면 좌표로 배치
       d3.select(labelsG).selectAll('*').remove();
