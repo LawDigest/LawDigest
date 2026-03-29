@@ -16,3 +16,4 @@ export { default as ManualRegionPicker } from './ManualRegionPicker';
 export { default as RegionalElectionView } from './RegionalElectionView';
 export { default as ElectionDetailPanel } from './ElectionDetailPanel';
 export { default as PresidentialElectionView } from './PresidentialElectionView';
+export { default as ProvinceInfoCard } from './ProvinceInfoCard';
