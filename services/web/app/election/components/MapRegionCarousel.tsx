@@ -378,7 +378,7 @@ export default function MapRegionCarousel() {
       </div>
 
       {/* 권역 라벨 + 네비게이션 + 페이지 인디케이터 */}
-      <div className="flex items-center justify-between px-1">
+      <div className="grid grid-cols-3 items-center px-1">
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-gray-4 dark:text-white">{region.label}</span>
           <span className="text-xs text-gray-2">
@@ -433,7 +433,7 @@ export default function MapRegionCarousel() {
         </div>
 
         {/* 도트 인디케이터 */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-end gap-1">
           {MAP_REGIONS.map((r, i) => (
             <button
               key={r.key}
