@@ -72,6 +72,50 @@ CONTAINER_NAME="${CONTAINER_NAME:-lawdigest-backend-test}"
 IMAGE_NAME="${IMAGE_NAME:-lawdigest-backend-test}"
 DOCKER_NETWORK="${DOCKER_NETWORK:-law_prod_network}"
 ACTIVE="${ACTIVE:-test}"
+STAGING_PORT="${STAGING_PORT:-$((HOST_PORT + 10000))}"
+STAGING_CONTAINER_NAME="${STAGING_CONTAINER_NAME:-${CONTAINER_NAME}.staging}"
+ROLLBACK_CONTAINER_NAME="${ROLLBACK_CONTAINER_NAME:-${CONTAINER_NAME}.rollback}"
+HEALTHCHECK_PATH="${HEALTHCHECK_PATH:-/}"
+
+container_exists() {
+  docker inspect "$1" >/dev/null 2>&1
+}
+
+remove_container_if_exists() {
+  local container_name="$1"
+
+  if container_exists "$container_name"; then
+    docker rm -f "$container_name" >/dev/null
+  fi
+}
+
+start_container() {
+  local container_name="$1"
+  local host_port="$2"
+
+  docker run -d \
+    --name "$container_name" \
+    --network "$DOCKER_NETWORK" \
+    --env-file "$SOURCE_ENV_FILE" \
+    -e ACTIVE="$ACTIVE" \
+    -p "$host_port:8080" \
+    -v "$SHARED_REPO_ROOT/.runtime/test-backend/logs:/logs" \
+    -v /usr/share/zoneinfo/Asia/Seoul:/etc/localtime:ro \
+    "$IMAGE_NAME" >/dev/null
+}
+
+check_health() {
+  local host_port="$1"
+
+  for _ in $(seq 1 30); do
+    if curl -fsSI "http://127.0.0.1:${host_port}${HEALTHCHECK_PATH}" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
+
+  return 1
+}
 
 BRANCH_NAME="$(git -C "$TARGET_ROOT" branch --show-current)"
 COMMIT_SHA="$(git -C "$TARGET_ROOT" rev-parse --short HEAD)"
@@ -99,33 +143,76 @@ fi
 echo "▶ Docker 이미지 빌드"
 docker build -t "$IMAGE_NAME" -f Dockerfile .
 
-echo "▶ 기존 컨테이너 정리"
-docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+echo "▶ staging 컨테이너 실행"
+remove_container_if_exists "$STAGING_CONTAINER_NAME"
+start_container "$STAGING_CONTAINER_NAME" "$STAGING_PORT"
 
-echo "▶ 테스트 백엔드 컨테이너 실행"
-docker run -d \
-  --name "$CONTAINER_NAME" \
-  --network "$DOCKER_NETWORK" \
-  --env-file "$SOURCE_ENV_FILE" \
-  -e ACTIVE="$ACTIVE" \
-  -p "$HOST_PORT:8080" \
-  -v "$SHARED_REPO_ROOT/.runtime/test-backend/logs:/logs" \
-  -v /usr/share/zoneinfo/Asia/Seoul:/etc/localtime:ro \
-  "$IMAGE_NAME" >/dev/null
-
-echo "▶ 기동 확인"
-for _ in $(seq 1 30); do
-  if curl -sSI "http://127.0.0.1:$HOST_PORT/" >/dev/null 2>&1; then
-    break
-  fi
-  sleep 2
-done
-
-if ! curl -sSI "http://127.0.0.1:$HOST_PORT/" >/dev/null 2>&1; then
-  echo "✗ 백엔드 응답 확인 실패"
-  docker logs --tail 100 "$CONTAINER_NAME" || true
+echo "▶ staging 헬스체크"
+if ! check_health "$STAGING_PORT"; then
+  echo "✗ staging 헬스체크 실패"
+  docker logs --tail 100 "$STAGING_CONTAINER_NAME" || true
+  remove_container_if_exists "$STAGING_CONTAINER_NAME"
   exit 1
 fi
+
+echo "▶ live 컨테이너 전환"
+HAD_LIVE_CONTAINER=0
+if container_exists "$CONTAINER_NAME"; then
+  HAD_LIVE_CONTAINER=1
+  docker stop "$CONTAINER_NAME" >/dev/null
+  remove_container_if_exists "$ROLLBACK_CONTAINER_NAME"
+  docker rename "$CONTAINER_NAME" "$ROLLBACK_CONTAINER_NAME"
+fi
+
+remove_container_if_exists "$CONTAINER_NAME"
+if ! start_container "$CONTAINER_NAME" "$HOST_PORT"; then
+  echo "✗ live 컨테이너 실행 실패"
+  remove_container_if_exists "$CONTAINER_NAME"
+  if [ "$HAD_LIVE_CONTAINER" -eq 1 ] && container_exists "$ROLLBACK_CONTAINER_NAME"; then
+    echo "▶ 이전 live 컨테이너 복구"
+    docker rename "$ROLLBACK_CONTAINER_NAME" "$CONTAINER_NAME"
+    if ! docker start "$CONTAINER_NAME" >/dev/null; then
+      echo "✗ 이전 live 컨테이너 복구 기동 실패"
+      remove_container_if_exists "$STAGING_CONTAINER_NAME"
+      exit 1
+    fi
+    if ! check_health "$HOST_PORT"; then
+      echo "✗ 이전 live 컨테이너 복구 헬스체크 실패"
+      docker logs --tail 100 "$CONTAINER_NAME" || true
+      remove_container_if_exists "$STAGING_CONTAINER_NAME"
+      exit 1
+    fi
+  fi
+  remove_container_if_exists "$STAGING_CONTAINER_NAME"
+  exit 1
+fi
+
+echo "▶ live 헬스체크"
+if ! check_health "$HOST_PORT"; then
+  echo "✗ live 헬스체크 실패"
+  docker logs --tail 100 "$CONTAINER_NAME" || true
+  remove_container_if_exists "$CONTAINER_NAME"
+  if [ "$HAD_LIVE_CONTAINER" -eq 1 ] && container_exists "$ROLLBACK_CONTAINER_NAME"; then
+    echo "▶ 이전 live 컨테이너 복구"
+    docker rename "$ROLLBACK_CONTAINER_NAME" "$CONTAINER_NAME"
+    if ! docker start "$CONTAINER_NAME" >/dev/null; then
+      echo "✗ 이전 live 컨테이너 복구 기동 실패"
+      remove_container_if_exists "$STAGING_CONTAINER_NAME"
+      exit 1
+    fi
+    if ! check_health "$HOST_PORT"; then
+      echo "✗ 이전 live 컨테이너 복구 헬스체크 실패"
+      docker logs --tail 100 "$CONTAINER_NAME" || true
+      remove_container_if_exists "$STAGING_CONTAINER_NAME"
+      exit 1
+    fi
+  fi
+  remove_container_if_exists "$STAGING_CONTAINER_NAME"
+  exit 1
+fi
+
+remove_container_if_exists "$STAGING_CONTAINER_NAME"
+remove_container_if_exists "$ROLLBACK_CONTAINER_NAME"
 
 echo "✓ 배포 완료"
 echo "  url: http://127.0.0.1:$HOST_PORT"
