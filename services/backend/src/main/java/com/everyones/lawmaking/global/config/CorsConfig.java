@@ -31,6 +31,8 @@ public class CorsConfig implements WebMvcConfigurer {
                 "https://lawdigest.net",
                 "https://www.lawdigest.net",
                 "https://api.lawdigest.net",
+                "https://dev.lawdigest.net",
+                "https://*.lawdigest.net",
                 "https://law-digest-fe-test.vercel.app",
                 "https://test.lawdigest.cloud",
                 "https://*.lawdigest.cloud"

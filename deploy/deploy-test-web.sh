@@ -30,7 +30,7 @@ TMP_LINK="$RUNTIME_ROOT/.current.tmp"
 NEXT_PUBLIC_URL="${NEXT_PUBLIC_URL:-https://api.lawdigest.net/}"
 NEXT_PUBLIC_IMAGE_URL="${NEXT_PUBLIC_IMAGE_URL:-https://api.lawdigest.net}"
 NEXT_PUBLIC_HOSTNAME="${NEXT_PUBLIC_HOSTNAME:-api.lawdigest.net}"
-NEXT_PUBLIC_DOMAIN="${NEXT_PUBLIC_DOMAIN:-https://test.lawdigest.net}"
+NEXT_PUBLIC_DOMAIN="${NEXT_PUBLIC_DOMAIN:-https://dev.lawdigest.net}"
 
 if [ -f "$TARGET_ROOT/.env.preview" ]; then
   # shellcheck disable=SC1090
@@ -89,5 +89,5 @@ pm2 start npm --name "$PM2_NAME" -- run start
 pm2 save
 
 echo "✓ 배포 완료"
-echo "  url: https://test.lawdigest.net"
+echo "  url: https://dev.lawdigest.net"
 echo "  runtime: $CURRENT_LINK"
