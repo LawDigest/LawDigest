@@ -402,9 +402,33 @@ export default function MapRegionCarousel() {
         </div>
       </div>
 
-      {/* 스와이프 힌트 */}
+      {/* 스와이프 힌트 + 데스크톱 네비게이션 */}
       {regionIndex === 0 && (
-        <p className="text-center text-xs text-gray-2 opacity-60">← 좌우로 밀어 권역을 이동하세요 →</p>
+        <div className="flex items-center justify-center gap-4">
+          {/* 데스크톱 좌측 화살표 버튼 */}
+          <button
+            type="button"
+            onClick={goPrev}
+            className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-gray-1 hover:bg-gray-2 transition-colors"
+            aria-label="이전 권역">
+            ←
+          </button>
+
+          {/* 모바일 힌트 텍스트 */}
+          <p className="text-center text-xs text-gray-2 opacity-60">
+            <span className="md:hidden">← 좌우로 밀어 권역을 이동하세요 →</span>
+            <span className="hidden md:inline">권역 이동</span>
+          </p>
+
+          {/* 데스크톱 우측 화살표 버튼 */}
+          <button
+            type="button"
+            onClick={goNext}
+            className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-gray-1 hover:bg-gray-2 transition-colors"
+            aria-label="다음 권역">
+            →
+          </button>
+        </div>
       )}
     </div>
   );
