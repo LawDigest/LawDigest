@@ -23,6 +23,8 @@ harness
 # 캐시
 .ruff_cache
 
+.airflow_artifacts
+
 # =====================
 # Java / Spring Boot (services/backend)
 # =====================
