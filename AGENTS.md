@@ -32,6 +32,7 @@
 - 기능 구현에 대한 모든 작업이 완료되었다고 판단되면 PR을 작성할지 사용자에게 질문한다.
 - 작업 과정에서 식별한 이슈 중 추가적인 대응이 필요한 이슈는 GitHub 리포지토리에 이슈를 작성하여 추가한다.
 - GitHub 이슈 및 PR을 생성할 때는 제목과 본문을 반드시 한글로 작성한다.
+- GitHub PR 본문은 셸에서 해석되지 않도록 반드시 파일로 작성한 뒤 `gh pr create --body-file <file>` 또는 `gh pr edit --body-file <file>` 형태로 전달한다. 인라인 `--body` 문자열, 명령 치환, heredoc 미인용 구문, 백틱/달러 확장에 의존한 전달은 사용하지 않는다.
 - 머지 과정에서 충돌이 발생한 경우 어떤 내용이 서로 충돌하는지 파악한 후 사용자에게 설명하고, 처리 방안 3가지를 제안한다.
 - PR 작성 이후 `main` 브랜치에 사용자가 머지했다고 알리면, 사용했던 전용 `git worktree`를 `git worktree remove <path>`로 제거하고, 작업에 사용된 로컬 및 원격 브랜치도 함께 삭제하여 환경을 청결하게 유지한다.
 - `test.lawdigest.net` 테스트 웹 배포는 직접 `pm2` 또는 `nginx` 설정을 임의 변경하지 말고, 반드시 `deploy/deploy-test-web.sh <target-worktree>`를 통해 수행한다.
