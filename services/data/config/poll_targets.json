@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "description": "수집 대상 선거 목록. polls_catalog_dag 실행 후 생성되는 catalog.json의 election_types/regions/election_names/pollsters 목록을 참고하여 값을 지정하세요.",
+  "targets": [
+    {
+      "_comment": "이 예시 항목을 삭제하고 실제 수집 대상을 추가하세요",
+      "slug": "example_remove_this",
+      "election_type": "제9회 전국동시지방선거",
+      "search_keyword": "전라남도",
+      "region": "전라남도 전체",
+      "election_names": ["광역단체장선거", "정당지지도"],
+      "pollsters": null
+    }
+  ]
+}
