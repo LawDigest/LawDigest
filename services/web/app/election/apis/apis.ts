@@ -27,9 +27,12 @@ import {
   postMockElectionRegionResolve,
 } from './mock';
 
-const testDomain = process.env.NEXT_PUBLIC_DOMAIN ?? '';
+const publicDomain = process.env.NEXT_PUBLIC_DOMAIN ?? '';
 const shouldUseElectionFallback =
-  testDomain.includes('test.lawdigest.net') || testDomain.includes('127.0.0.1') || testDomain.includes('localhost');
+  publicDomain.includes('dev.lawdigest.net') ||
+  publicDomain.includes('test.lawdigest.net') ||
+  publicDomain.includes('127.0.0.1') ||
+  publicDomain.includes('localhost');
 
 const shouldRecoverWithMock = (error: unknown) => {
   if (!shouldUseElectionFallback) {

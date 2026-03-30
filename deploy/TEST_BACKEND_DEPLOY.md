@@ -96,7 +96,7 @@ docker logs -f lawdigest-backend-test
 - `.env` 안의 `mysql` / `redis` 호스트명은 `law_prod_network`에서 해석된다.
 - `mysql` / `redis` 컨테이너는 이미 `law_prod_network`에 붙어 있어야 한다.
 - host의 `127.0.0.1:808`는 nginx가 바라보는 진입점이다.
-- `test.lawdigest.net`은 프론트엔드 도메인이고, 백엔드 진입점은 `test.api.lawdigest.net`이다.
+- `dev.lawdigest.net`은 프론트엔드 도메인이고, 백엔드 진입점은 `test.api.lawdigest.net`이다.
 - `.runtime/`은 git 추적 대상이 아니다.
 
 ## 권장 운영 방식
