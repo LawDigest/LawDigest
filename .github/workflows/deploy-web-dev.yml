@@ -57,109 +57,64 @@ jobs:
             echo "backend_changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-  build-and-deploy-web:
+  deploy:
     needs: detect-changes
-    if: needs.detect-changes.outputs.web_changed == 'true'
+    if: needs.detect-changes.outputs.web_changed == 'true' || needs.detect-changes.outputs.backend_changed == 'true'
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: services/web/package-lock.json
-
-      - name: Install web dependencies
-        working-directory: services/web
-        run: npm ci
-
-      - name: Verify web build
-        working-directory: services/web
-        env:
-          NEXT_PUBLIC_URL: https://api.lawdigest.net/
-          NEXT_PUBLIC_IMAGE_URL: https://api.lawdigest.net
-          NEXT_PUBLIC_HOSTNAME: api.lawdigest.net
-          NEXT_PUBLIC_DOMAIN: https://dev.lawdigest.net
-        run: npm run build
-
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          WEB_CHANGED: ${{ needs.detect-changes.outputs.web_changed }}
+          BACKEND_CHANGED: ${{ needs.detect-changes.outputs.backend_changed }}
         with:
-          host: ${{ secrets.PROD_HOST }}
+          host: ${{ secrets.SSH_HOST }}
           username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: WEB_CHANGED,BACKEND_CHANGED
           script: |
             set -euo pipefail
-
             REPO_ROOT=/home/ubuntu/project/Lawdigest
-            DEPLOY_ROOT="$REPO_ROOT/.worktrees/dev-web-release"
 
-            if [ ! -d "$DEPLOY_ROOT/.git" ] && [ ! -f "$DEPLOY_ROOT/.git" ]; then
-              git -C "$REPO_ROOT" fetch origin main
-              git -C "$REPO_ROOT" worktree add --detach "$DEPLOY_ROOT" origin/main
+            deploy_web() {
+              DEPLOY_ROOT="$REPO_ROOT/.worktrees/dev-web-release"
+
+              if [ ! -d "$DEPLOY_ROOT/.git" ] && [ ! -f "$DEPLOY_ROOT/.git" ]; then
+                git -C "$REPO_ROOT" fetch origin main
+                git -C "$REPO_ROOT" worktree add --detach "$DEPLOY_ROOT" origin/main
+              fi
+
+              git -C "$DEPLOY_ROOT" fetch origin main
+              git -C "$DEPLOY_ROOT" reset --hard origin/main
+
+              cd "$REPO_ROOT"
+              PORT=3010 \
+              PM2_NAME=lawdigest-web \
+              ./deploy/deploy-test-web.sh "$DEPLOY_ROOT"
+            }
+
+            deploy_backend() {
+              DEPLOY_ROOT="$REPO_ROOT/.worktrees/dev-backend-release"
+
+              if [ ! -d "$DEPLOY_ROOT/.git" ] && [ ! -f "$DEPLOY_ROOT/.git" ]; then
+                git -C "$REPO_ROOT" fetch origin main
+                git -C "$REPO_ROOT" worktree add --detach "$DEPLOY_ROOT" origin/main
+              fi
+
+              git -C "$DEPLOY_ROOT" fetch origin main
+              git -C "$DEPLOY_ROOT" reset --hard origin/main
+
+              cd "$REPO_ROOT"
+              PORT=808 \
+              ACTIVE=test \
+              ./deploy/deploy-test-backend.sh "$DEPLOY_ROOT"
+            }
+
+            if [ "$WEB_CHANGED" = "true" ]; then
+              deploy_web
             fi
 
-            git -C "$DEPLOY_ROOT" fetch origin main
-            git -C "$DEPLOY_ROOT" reset --hard origin/main
-
-            cd "$REPO_ROOT"
-            PORT=3010 \
-            PM2_NAME=lawdigest-web \
-            NEXT_PUBLIC_DOMAIN=https://dev.lawdigest.net \
-            NEXT_PUBLIC_URL=https://api.lawdigest.net/ \
-            NEXT_PUBLIC_IMAGE_URL=https://api.lawdigest.net \
-            NEXT_PUBLIC_HOSTNAME=api.lawdigest.net \
-            ./deploy/deploy-test-web.sh "$DEPLOY_ROOT"
-
-  build-and-deploy-backend:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.backend_changed == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 17 and build cache
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: 'gradle'
-
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
-
-      - name: Make gradlew executable
-        run: chmod +x services/backend/gradlew
-
-      - name: Execute Gradle build
-        working-directory: services/backend
-        run: ./gradlew build -x test
-
-      - name: Deploy backend to server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script: |
-            set -euo pipefail
-
-            REPO_ROOT=/home/ubuntu/project/Lawdigest
-            DEPLOY_ROOT="$REPO_ROOT/.worktrees/dev-backend-release"
-
-            if [ ! -d "$DEPLOY_ROOT/.git" ] && [ ! -f "$DEPLOY_ROOT/.git" ]; then
-              git -C "$REPO_ROOT" fetch origin main
-              git -C "$REPO_ROOT" worktree add --detach "$DEPLOY_ROOT" origin/main
+            if [ "$BACKEND_CHANGED" = "true" ]; then
+              deploy_backend
             fi
-
-            git -C "$DEPLOY_ROOT" fetch origin main
-            git -C "$DEPLOY_ROOT" reset --hard origin/main
-
-            cd "$REPO_ROOT"
-            PORT=808 \
-            ACTIVE=test \
-            ./deploy/deploy-test-backend.sh "$DEPLOY_ROOT"

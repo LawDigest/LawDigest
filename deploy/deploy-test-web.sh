@@ -19,6 +19,45 @@ if [ ! -d "$TARGET_WEB_DIR" ]; then
   exit 1
 fi
 
+SOURCE_ENV_FILE="$SHARED_REPO_ROOT/services/web/.env"
+if [ ! -f "$SOURCE_ENV_FILE" ]; then
+  echo "✗ services/web/.env 파일을 찾을 수 없습니다: $SOURCE_ENV_FILE"
+  exit 1
+fi
+
+load_env_file() {
+  local env_file="$1"
+
+  if [ ! -f "$env_file" ]; then
+    return 0
+  fi
+
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ''|'#'*) continue ;;
+    esac
+
+    case "$line" in
+      *=*)
+        local key="${line%%=*}"
+        local value="${line#*=}"
+        ;;
+      *)
+        continue
+        ;;
+    esac
+
+    case "$key" in
+      ''|*[!A-Za-z0-9_]*)
+        continue
+        ;;
+    esac
+
+    printf -v "$key" '%s' "$value"
+    export "$key"
+  done < "$env_file"
+}
+
 PORT="${PORT:-3010}"
 APP_HOST="${APP_HOST:-0.0.0.0}"
 PM2_NAME="${PM2_NAME:-lawdigest-web}"
@@ -30,12 +69,16 @@ TMP_LINK="$RUNTIME_ROOT/.current.tmp"
 NEXT_PUBLIC_URL="${NEXT_PUBLIC_URL:-https://api.lawdigest.net/}"
 NEXT_PUBLIC_IMAGE_URL="${NEXT_PUBLIC_IMAGE_URL:-https://api.lawdigest.net}"
 NEXT_PUBLIC_HOSTNAME="${NEXT_PUBLIC_HOSTNAME:-api.lawdigest.net}"
-NEXT_PUBLIC_DOMAIN="${NEXT_PUBLIC_DOMAIN:-https://dev.lawdigest.net}"
 
+load_env_file "$SOURCE_ENV_FILE"
 if [ -f "$TARGET_ROOT/.env.preview" ]; then
   # shellcheck disable=SC1090
   . "$TARGET_ROOT/.env.preview"
 fi
+
+load_env_file "$TARGET_WEB_DIR/.env.preview"
+
+NEXT_PUBLIC_DOMAIN="${NEXT_PUBLIC_DOMAIN:-https://dev.lawdigest.net}"
 
 BRANCH_NAME="$(git -C "$TARGET_ROOT" branch --show-current)"
 COMMIT_SHA="$(git -C "$TARGET_ROOT" rev-parse --short HEAD)"
