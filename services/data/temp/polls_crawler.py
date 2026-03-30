@@ -123,6 +123,27 @@ class PollDetail:
     raw_text: str = ""
 
 
+@dataclass
+class QuestionResult:
+    """여론조사 결과표 PDF에서 파싱한 개별 설문 항목의 결과."""
+    question_number: int
+    question_title: str           # 예: "시흥시장 후보 여야 지지도"
+    question_text: str            # 예: "Q1. 올해 6월 시흥시장 선거에 출마가..."
+    response_options: List[str]   # 응답 선택지 이름 목록 (best-effort)
+    overall_n_completed: Optional[int]   # 전체 조사완료 사례수
+    overall_n_weighted: Optional[int]    # 전체 가중값 적용 사례수
+    overall_percentages: List[float]     # 전체 행의 응답 비율 (response_options 순)
+
+
+@dataclass
+class PollResultSet:
+    """한 여론조사의 결과표 PDF에서 추출한 전체 결과."""
+    registration_number: str
+    source_url: str
+    pdf_path: str
+    questions: List[QuestionResult] = field(default_factory=list)
+
+
 class NesdcCrawler:
     def __init__(
         self,
@@ -408,6 +429,72 @@ class NesdcCrawler:
         output = [asdict(detail) for detail in details]
         Path(path).write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def download_result_pdf(self, detail: PollDetail, destination: Path) -> bool:
+        """결과분석 자료 PDF를 다운로드한다.
+
+        공표 전이거나 URL이 없으면 False를 반환한다.
+        세션이 이미 해당 상세 페이지를 방문한 뒤여야 쿠키가 유효하다.
+        """
+        if not detail.analysis_download_url:
+            return False
+        # 쿠키 확보를 위해 상세 페이지 선방문
+        self._get(detail.source_url)
+        response = self._get(detail.analysis_download_url, stream=True)
+        if b"%PDF" not in response.content[:10]:
+            self.logger.warning("결과 PDF 다운로드 실패 (PDF 시그니처 없음): %s", detail.source_url)
+            return False
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(response.content)
+        return True
+
+    def crawl_results(
+        self,
+        details: List[PollDetail],
+        pdf_dir: str | Path = "./pdfs",
+        skip_errors: bool = True,
+    ) -> List["PollResultSet"]:
+        """결과분석 자료 PDF를 다운로드하고 파싱하여 PollResultSet 목록을 반환한다."""
+        parser = PollResultParser()
+        pdf_dir = Path(pdf_dir)
+        result_sets: List[PollResultSet] = []
+        for detail in details:
+            if not detail.analysis_download_url:
+                self.logger.info("결과 URL 없음(공표 전?): %s", detail.registration_number)
+                continue
+            filename = safe_filename(
+                detail.analysis_filename,
+                f"{detail.registration_number or 'result'}.pdf",
+            )
+            if not filename.endswith(".pdf"):
+                filename += ".pdf"
+            pdf_path = pdf_dir / filename
+            try:
+                if not pdf_path.exists():
+                    ok = self.download_result_pdf(detail, pdf_path)
+                    if not ok:
+                        continue
+                questions = parser.parse_pdf(pdf_path)
+                result_sets.append(PollResultSet(
+                    registration_number=detail.registration_number,
+                    source_url=detail.source_url,
+                    pdf_path=str(pdf_path),
+                    questions=questions,
+                ))
+                self.logger.info(
+                    "결과 파싱 완료: %s, 질문 %d개",
+                    detail.registration_number, len(questions),
+                )
+            except Exception as exc:
+                if skip_errors:
+                    self.logger.exception("결과 파싱 실패: %s", exc)
+                else:
+                    raise
+        return result_sets
+
+    def save_results_json(self, result_sets: List["PollResultSet"], path: str | Path) -> None:
+        output = [asdict(rs) for rs in result_sets]
+        Path(path).write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
+
 
 # ── HTML 파싱 헬퍼 ─────────────────────────────────────────────────────────────
 
@@ -636,63 +723,305 @@ def _int_from_prefix(table: Tag, th_prefix: str) -> Optional[int]:
 
 
 def _extract_questionnaire(soup: BeautifulSoup, meta_table: Tag) -> Tuple[str, str]:
-    """전체질문지 자료 파일명과 다운로드 URL 추출.
+    """전체질문지 자료(설문지) 파일명과 다운로드 URL 추출.
 
-    NESDC는 파일 다운로드에 JavaScript onclick(view 함수)을 사용한다.
-    onclick 파라미터를 추출하여 /portal/nsr/result/FileDown.do 형태로 변환하거나,
-    파일명만 반환하여 수동 다운로드를 지원한다.
+    NESDC 첨부파일은 realfile_N div 안에 순서대로 나열된다.
+    질문지는 파일명에 '설문지' 또는 '질문지'가 포함된 첫 번째 파일이다.
+    없으면 첫 번째 파일을 질문지로 간주한다.
     """
-    # 첨부파일 링크: <a class="ico_pdf" onclick="javascript:view(...)">파일명</a>
-    for anchor in soup.select("a.ico_pdf, a[onclick*='view(']"):
-        text = _cell_text(anchor)
-        if not text:
-            continue
-        onclick = anchor.get("onclick", "")
-        download_url = _build_file_download_url(onclick)
-        return text, download_url
-    # onclick 없이 직접 href로 연결된 경우
+    file_anchors = _collect_file_anchors(soup)
+    for text, onclick in file_anchors:
+        if any(k in text for k in ("설문지", "질문지")):
+            return text, _build_file_download_url(onclick)
+    # 키워드 없으면 첫 번째 파일
+    if file_anchors:
+        text, onclick = file_anchors[0]
+        return text, _build_file_download_url(onclick)
     td_text = _td_for_th(meta_table, "전체질문지 자료")
-    for anchor in soup.find_all("a", href=True):
-        href = anchor["href"]
-        if href.lower().endswith(".pdf") or "download" in href.lower():
-            return _cell_text(anchor) or td_text, urljoin(BASE_URL, href)
     return td_text, ""
 
 
 def _extract_analysis(soup: BeautifulSoup, meta_table: Tag) -> Tuple[str, str]:
-    """결과분석 자료 파일명과 다운로드 URL 추출.
+    """결과분석 자료(결과표) 파일명과 다운로드 URL 추출.
 
     결과분석 자료는 공표 지정일 이후에만 다운로드 링크가 활성화된다.
-    파일 다운로드 onclick이 있는 경우에만 URL을 반환하고,
-    메뉴 탐색 링크(view.do, content 등)는 무시한다.
+    파일명에 '결과표', '결과분석', '분석' 등이 포함된 파일을 우선 반환한다.
+    없으면 두 번째 파일(설문지 다음)을 결과표로 간주한다.
+    활성화 전(공표 전)에는 빈 URL을 반환한다.
     """
-    for anchor in soup.select("a.ico_hwp, a.ico_xls, a.ico_xlsx, a[onclick*='view(']"):
-        onclick = anchor.get("onclick", "")
-        # 질문지용 onclick은 이미 questionnaire에서 처리되었으므로 제외
-        text = _cell_text(anchor)
-        href = anchor.get("href", "")
-        if "pdf" in text.lower() or "질문" in text:
-            continue
-        download_url = _build_file_download_url(onclick) if onclick else urljoin(BASE_URL, href)
-        if download_url:
-            return text, download_url
-    # 다운로드 링크가 없으면 td 텍스트만 반환 (공표 전 또는 미첨부)
+    file_anchors = _collect_file_anchors(soup)
+    for text, onclick in file_anchors:
+        if any(k in text for k in ("결과표", "결과분석", "분석")):
+            return text, _build_file_download_url(onclick)
+    # 키워드 없으면 두 번째 파일 (첫 번째가 설문지라고 가정)
+    if len(file_anchors) >= 2:
+        text, onclick = file_anchors[1]
+        return text, _build_file_download_url(onclick)
     td_text = _td_for_th(meta_table, "결과분석 자료")
     return td_text, ""
+
+
+def _collect_file_anchors(soup: BeautifulSoup) -> List[Tuple[str, str]]:
+    """페이지의 모든 첨부파일 링크를 (파일명, onclick) 형태로 순서대로 반환."""
+    results = []
+    for anchor in soup.select("a[onclick*='view(']"):
+        text = _cell_text(anchor)
+        onclick = anchor.get("onclick", "")
+        if text and onclick:
+            results.append((text, onclick))
+    return results
 
 
 def _build_file_download_url(onclick: str) -> str:
     """onclick 문자열에서 NESDC 파일 다운로드 URL 구성.
 
-    onclick 형식: javascript:view('encodedFileId', 'encodedNttId', 'bbsId', 'encodedMenuNo')
+    NESDC view() 함수 정의:
+      location.href = '/portal/cmm/fms/FileDown.do
+        ?atchFileId='+atchFileId+'&fileSn='+fileSn+'&bbsId='+bbsId+'&bbsKey='+bbsKey
+
+    onclick 형식: view('atchFileId', 'fileSn', 'bbsId', 'bbsKey')
     파라미터는 이미 URL 인코딩된 상태이므로 그대로 쿼리스트링에 삽입한다.
     """
     m = re.search(r"view\('([^']+)',\s*'([^']+)',\s*'([^']+)',\s*'([^']+)'\)", onclick)
     if not m:
         return ""
-    file_id, ntt_id, bbs_id, menu_no = m.group(1), m.group(2), m.group(3), m.group(4)
-    params = f"atchFileId={file_id}&fileSn={ntt_id}&bbsId={bbs_id}&menuNo={menu_no}"
-    return f"{BASE_URL}/portal/bbs/{bbs_id}/fileDown.do?{params}"
+    atch_file_id, file_sn, bbs_id, bbs_key = m.group(1), m.group(2), m.group(3), m.group(4)
+    params = f"atchFileId={atch_file_id}&fileSn={file_sn}&bbsId={bbs_id}&bbsKey={bbs_key}"
+    return f"{BASE_URL}/portal/cmm/fms/FileDown.do?{params}"
+
+
+# ── PDF 결과 파서 ──────────────────────────────────────────────────────────────
+
+class PollResultParser:
+    """결과표 PDF에서 설문 항목별 응답 결과를 추출하는 파서.
+
+    NESDC에 등록된 결과표 PDF는 조사기관마다 레이아웃이 다르므로,
+    PDF 내용을 분석하여 아래 두 가지 하위 파서 중 하나를 선택한다.
+
+    [텍스트 형식] 데일리리서치 등
+      'N) 섹션명'으로 섹션이 시작되고, 각 옵션이 '선택지명 X.X' 형태로 나열된다.
+
+    [테이블 형식] 조원씨앤아이 등
+      각 페이지의 테이블 첫 번째 '전체' 행에 '▣ 전체 ▣'가 있으며,
+      해당 행의 각 셀이 선택지별 전체 비율이다.
+    """
+
+    def parse_pdf(self, pdf_path: Path) -> List[QuestionResult]:
+        """PDF 파일을 파싱하여 QuestionResult 목록을 반환한다."""
+        try:
+            import pdfplumber
+        except ImportError as exc:
+            raise RuntimeError(
+                "PDF 파싱을 위해 pdfplumber가 필요합니다: uv add pdfplumber"
+            ) from exc
+
+        pages_data: List[Tuple[str, List]] = []
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                text = page.extract_text() or ""
+                tables = page.extract_tables() or []
+                pages_data.append((text, tables))
+
+        full_text = "\n".join(t for t, _ in pages_data)
+
+        if "▣ 전체 ▣" in full_text:
+            return _TableFormatParser().parse(pages_data)
+        else:
+            return _TextFormatParser().parse(full_text)
+
+
+class _TextFormatParser:
+    """텍스트 형식 파서 – 데일리리서치 등.
+
+    섹션 헤더: 'N) 섹션명'
+    질문 텍스트: 헤더 직후 '?' 까지 (없으면 섹션명으로 대체)
+    결과 행: '선택지명 X.X' (☞ 소계는 제외)
+    """
+
+    _SECTION_NUM_TITLE_RE = re.compile(r"^(\d+)\)\s+(.+)$", re.MULTILINE)
+    _OPTION_PCT_RE = re.compile(r"^(.+?)\s+([\d.]+)$")
+    # 교차분석 시작 마커 (이 이후는 교차표이므로 파싱 중단)
+    _CROSSTAB_MARKERS = ["자료 처리 방법", "교차분석", "교차 분석", "Ⅱ. 조사"]
+    # 결과 섹션 시작 마커
+    _RESULTS_MARKERS = ["설문 항목별 결과", "조사결과", "제2장 조사결과"]
+
+    def parse(self, full_text: str) -> List[QuestionResult]:
+        text = self._extract_results_section(full_text)
+        sections = list(self._SECTION_NUM_TITLE_RE.finditer(text))
+        results: List[QuestionResult] = []
+        for i, m in enumerate(sections):
+            q_num = int(m.group(1))
+            q_title = m.group(2).strip()
+
+            block_start = m.end()
+            block_end = sections[i + 1].start() if i + 1 < len(sections) else len(text)
+            block = text[block_start:block_end].strip()
+
+            # 질문 텍스트: ? 까지
+            q_text_m = re.search(r"[?？]", block)
+            if q_text_m:
+                q_text = block[: q_text_m.end()].strip()
+                options_block = block[q_text_m.end():]
+            else:
+                q_text = q_title
+                options_block = block
+
+            options: List[str] = []
+            percentages: List[float] = []
+            for line in options_block.splitlines():
+                line = line.strip()
+                if not line or line.startswith("☞") or line.startswith("-"):
+                    continue
+                om = self._OPTION_PCT_RE.match(line)
+                if om:
+                    opt = om.group(1).strip()
+                    pct = float(om.group(2))
+                    # 교차표 행 감지: 텍스트에 3자리 이상 정수가 2개 이상이면 사례수 행
+                    has_sample_counts = len(re.findall(r"(?<!\w)\d{3,}(?!\w)", opt)) >= 2
+                    # 숫자·기호만이거나 너무 길거나 교차표 행이면 제외
+                    if (
+                        1 < len(opt) <= 60
+                        and not re.fullmatch(r"[\d().%\-\s]+", opt)
+                        and not has_sample_counts
+                    ):
+                        options.append(opt)
+                        percentages.append(pct)
+
+            if not percentages:
+                continue
+
+            results.append(QuestionResult(
+                question_number=q_num,
+                question_title=q_title,
+                question_text=q_text,
+                response_options=options,
+                overall_n_completed=None,
+                overall_n_weighted=None,
+                overall_percentages=percentages,
+            ))
+        return results
+
+    def _extract_results_section(self, text: str) -> str:
+        """설문 결과 섹션만 추출한다 (교차분석 섹션 이전까지)."""
+        # 시작점: 결과 섹션 마커 중 가장 먼저 나타나는 위치
+        start = 0
+        for marker in self._RESULTS_MARKERS:
+            pos = text.find(marker)
+            if pos != -1:
+                start = pos
+                break
+
+        # 종료점: 교차분석 마커 중 가장 먼저 나타나는 위치
+        end = len(text)
+        for marker in self._CROSSTAB_MARKERS:
+            pos = text.find(marker, start)
+            if pos != -1 and pos < end:
+                end = pos
+
+        return text[start:end]
+
+
+class _TableFormatParser:
+    """테이블 형식 파서 – 조원씨앤아이 등.
+
+    각 페이지에 교차표 형태의 테이블이 있으며 구조는 다음과 같다:
+      row[0]: 열 헤더 (col[0]='(단위:%)', col[2]=조사완료사례수,
+                       col[3..N-2]=선택지명, col[-1]=가중값적용사례수)
+      row[1]: 전체 행 ('▣ 전체 ▣' / None / (N완료) / X.X / ... / (N가중))
+      row[2+]: 교차 세부 집단 행
+
+    섹션 제목은 페이지 텍스트에서 'N. 제목' 또는 'N. 제목' 패턴으로 추출한다.
+    """
+
+    _SECTION_RE = re.compile(r"^(\d+)[.)]\s+([^\n]+)$", re.MULTILINE)
+    _N_RE = re.compile(r"\((\d+)\)")
+
+    def parse(self, pages_data: List[Tuple[str, List]]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        for page_text, page_tables in pages_data:
+            for table in page_tables:
+                result = self._parse_table(table, page_text)
+                if result is not None:
+                    results.append(result)
+        # 번호가 중복될 수 있으므로 순서대로 재할당
+        for i, r in enumerate(results):
+            r.question_number = i + 1
+        return results
+
+    def _parse_table(
+        self, table: List[List], page_text: str
+    ) -> Optional[QuestionResult]:
+        if not table or len(table) < 2:
+            return None
+
+        # '전체' 키워드가 포함된 행을 전체 결과 행으로 사용
+        total_row: Optional[List] = None
+        for row in table[1:]:
+            if row and row[0] and "전체" in str(row[0]):
+                total_row = row
+                break
+        if total_row is None:
+            return None
+
+        header_row = table[0]
+
+        # 사례수
+        n_completed = self._extract_n(str(total_row[2] if len(total_row) > 2 else ""))
+        n_weighted = self._extract_n(str(total_row[-1]))
+
+        # 선택지 이름과 퍼센트를 함께 파싱 (col[3..N-2])
+        # 중간합계 열 제거: 헤더에 "(합)" / "합계" / "소계" 포함된 열은 스킵
+        _SUBTOTAL_RE = re.compile(r"\(합\)|합계|소계")
+        options: List[str] = []
+        percentages: List[float] = []
+        for header_cell, value_cell in zip(header_row[3:-1], total_row[3:-1]):
+            opt = str(header_cell or "").replace("\n", " ").strip()
+            if not opt or opt.lower() == "none" or _SUBTOTAL_RE.search(opt):
+                continue
+            try:
+                pct = float(str(value_cell or "").strip())
+            except ValueError:
+                continue
+            options.append(opt)
+            percentages.append(pct)
+
+        if not percentages:
+            return None
+
+        # 동일한 옵션명+퍼센트 중복 제거 (예: 모름이 중간합계 제거 후 중복되는 경우)
+        seen: set = set()
+        deduped_options: List[str] = []
+        deduped_pcts: List[float] = []
+        for opt, pct in zip(options, percentages):
+            key = (opt, pct)
+            if key not in seen:
+                seen.add(key)
+                deduped_options.append(opt)
+                deduped_pcts.append(pct)
+        options, percentages = deduped_options, deduped_pcts
+
+        # 페이지 텍스트에서 섹션 제목 추출 (첫 번째 매치 사용)
+        section_matches = list(self._SECTION_RE.finditer(page_text))
+        if section_matches:
+            q_num = int(section_matches[0].group(1))
+            q_title = section_matches[0].group(2).strip()
+        else:
+            q_num = 0
+            q_title = ""
+
+        return QuestionResult(
+            question_number=q_num,
+            question_title=q_title,
+            question_text="",
+            response_options=options,
+            overall_n_completed=n_completed,
+            overall_n_weighted=n_weighted,
+            overall_percentages=percentages,
+        )
+
+    def _extract_n(self, text: str) -> Optional[int]:
+        m = self._N_RE.search(text)
+        return int(m.group(1)) if m else None
 
 
 # ── 공통 유틸리티 ──────────────────────────────────────────────────────────────
@@ -772,6 +1101,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--backoff-factor", type=float, default=1.0, help="재시도 백오프 계수")
     parser.add_argument("--skip-errors", action="store_true", help="일부 요청 실패 시 계속 진행")
     parser.add_argument("--download-attachments", action="store_true", help="질문지 PDF 다운로드")
+    parser.add_argument("--crawl-results", action="store_true", help="결과분석 PDF 다운로드 및 파싱")
+    parser.add_argument("--pdf-dir", default="./pdfs", help="결과 PDF 저장 디렉터리")
     parser.add_argument("--no-connectivity-check", action="store_true", help="초기 연결 검사를 건너뜀")
     parser.add_argument("--run-tests", action="store_true", help="내장 단위 테스트 실행")
     return parser.parse_args(argv)
@@ -818,6 +1149,16 @@ def run(argv: Optional[List[str]] = None) -> int:
                         f"{detail.registration_number or 'questionnaire'}.pdf",
                     )
                     crawler.download_attachment(detail.questionnaire_download_url, attachment_dir / filename)
+
+        if args.crawl_results:
+            result_sets = crawler.crawl_results(
+                detail_records,
+                pdf_dir=args.pdf_dir,
+                skip_errors=args.skip_errors,
+            )
+            crawler.save_results_json(result_sets, Path(args.output_dir) / "nesdc_results.json")
+            total_questions = sum(len(rs.questions) for rs in result_sets)
+            print(f"결과 파싱: {len(result_sets)}건, 총 질문 {total_questions}개")
 
         print(f"목록 {len(list_records)}건, 상세 {len(detail_records)}건 저장 완료")
         return 0
@@ -949,8 +1290,10 @@ class ParserTests(unittest.TestCase):
     def test_build_file_download_url(self) -> None:
         onclick = "javascript:view('abc%3D', 'def%3D', 'B0000005', 'ghi%3D')"
         url = _build_file_download_url(onclick)
-        self.assertIn("fileDown.do", url)
-        self.assertIn("B0000005", url)
+        # 엔드포인트: /portal/cmm/fms/FileDown.do, 파라미터: bbsKey
+        self.assertIn("FileDown.do", url)
+        self.assertIn("bbsKey=ghi%3D", url)
+        self.assertIn("atchFileId=abc%3D", url)
 
     def test_get_wraps_connection_error(self) -> None:
         crawler = NesdcCrawler(verify_connectivity=False, min_delay=0, max_delay=0)
