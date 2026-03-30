@@ -9,6 +9,16 @@ on:
       - 'deploy/deploy-test-web.sh'
       - 'deploy/deploy-test-backend.sh'
   workflow_dispatch:
+    inputs:
+      target:
+        description: 배포 대상 선택
+        required: true
+        default: both
+        type: choice
+        options:
+          - web
+          - backend
+          - both
 
 permissions:
   contents: read
@@ -33,8 +43,24 @@ jobs:
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "web_changed=true" >> "$GITHUB_OUTPUT"
-            echo "backend_changed=true" >> "$GITHUB_OUTPUT"
+            case "${{ inputs.target }}" in
+              web)
+                echo "web_changed=true" >> "$GITHUB_OUTPUT"
+                echo "backend_changed=false" >> "$GITHUB_OUTPUT"
+                ;;
+              backend)
+                echo "web_changed=false" >> "$GITHUB_OUTPUT"
+                echo "backend_changed=true" >> "$GITHUB_OUTPUT"
+                ;;
+              both)
+                echo "web_changed=true" >> "$GITHUB_OUTPUT"
+                echo "backend_changed=true" >> "$GITHUB_OUTPUT"
+                ;;
+              *)
+                echo "Unsupported target: ${{ inputs.target }}" >&2
+                exit 1
+                ;;
+            esac
             exit 0
           fi
 
@@ -88,9 +114,9 @@ jobs:
       - name: Deploy to server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.PROD_HOST }}
+          host: ${{ secrets.SSH_HOST }}
           username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_KEY }}
           script: |
             set -euo pipefail
 
@@ -142,9 +168,9 @@ jobs:
       - name: Deploy backend to server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.PROD_HOST }}
+          host: ${{ secrets.SSH_HOST }}
           username: ubuntu
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_KEY }}
           script: |
             set -euo pipefail
 
@@ -161,5 +187,8 @@ jobs:
 
             cd "$REPO_ROOT"
             PORT=808 \
+            CONTAINER_NAME=lawmaking-test-back \
+            IMAGE_NAME=lawmaking-test-back \
+            DOCKER_NETWORK=law_test_network \
             ACTIVE=test \
             ./deploy/deploy-test-backend.sh "$DEPLOY_ROOT"
