@@ -22,17 +22,19 @@
 - 런타임 루트: `/home/ubuntu/project/Lawdigest/.runtime/test-web`
 - release 디렉터리: `/home/ubuntu/project/Lawdigest/.runtime/test-web/releases/<release-id>`
 - 현재 활성 release 심링크: `/home/ubuntu/project/Lawdigest/.runtime/test-web/current`
+- 서버 환경 파일: `/home/ubuntu/project/Lawdigest/services/web/.env`
 
 ## 동작 방식
 스크립트는 아래 순서로 동작한다.
 
 1. 배포 대상 워크트리 경로를 입력받는다.
-2. 해당 워크트리의 `services/web`에서 `npm install`을 수행한다.
-3. 해당 워크트리 기준으로 `npm run build`를 수행한다.
-4. 새 release 디렉터리를 생성한다.
-5. 대상 워크트리의 `services/web`를 release 디렉터리 아래로 복사한다.
-6. `current` 심링크를 새 release로 원자적으로 전환한다.
-7. PM2 `lawdigest-web`를 새 release 기준으로 재기동한다.
+2. 서버의 `services/web/.env`를 읽어 공통 환경값을 로드한다.
+3. 해당 워크트리의 `services/web`에서 `npm install`을 수행한다.
+4. 해당 워크트리 기준으로 `npm run build`를 수행한다.
+5. 새 release 디렉터리를 생성한다.
+6. 대상 워크트리의 `services/web`를 release 디렉터리 아래로 복사한다.
+7. `current` 심링크를 새 release로 원자적으로 전환한다.
+8. PM2 `lawdigest-web`를 새 release 기준으로 재기동한다.
 
 이 구조 때문에 nginx 설정을 건드리지 않고도 test 웹의 기준 상태를 바꿀 수 있다.
 
@@ -82,7 +84,7 @@ PORT=3010 PM2_NAME=lawdigest-web ./deploy/deploy-test-web.sh /home/ubuntu/projec
 - `NEXT_PUBLIC_DOMAIN`
   - 기본값: `https://dev.lawdigest.net`
 
-필요하면 배포 대상 워크트리 루트에 `.env.preview`를 두고 값을 override할 수 있다.
+필요하면 배포 대상 워크트리 루트나 `services/web/.env.preview`를 두고 값을 override할 수 있다.
 
 ## 배포 확인
 배포 후 아래 순서로 확인한다.
