@@ -1118,7 +1118,7 @@ class _TableFormatParser:
     섹션 제목은 페이지 텍스트에서 'N. 제목' 또는 'N. 제목' 패턴으로 추출한다.
     """
 
-    _SECTION_RE = re.compile(r"^(\d+)[.)]\s+([^\n]+)$", re.MULTILINE)
+    _SECTION_RE = re.compile(r"^문?(\d+)[.)]\s+([^\n]+)$", re.MULTILINE)
     _N_RE = re.compile(r"\((\d+)\)")
 
     def parse(self, pages_data: List[Tuple[str, List]]) -> List[QuestionResult]:
@@ -1160,7 +1160,8 @@ class _TableFormatParser:
         options: List[str] = []
         percentages: List[float] = []
         for header_cell, value_cell in zip(header_row[3:-1], total_row[3:-1]):
-            opt = str(header_cell or "").replace("\n", " ").strip()
+            # 줄바꿈/null 바이트 제거 후 연결 (공백 없이) → "더불\n어민\n주당" → "더불어민주당"
+            opt = re.sub(r"[\n\x00]", "", str(header_cell or "")).strip()
             if not opt or opt.lower() == "none" or _SUBTOTAL_RE.search(opt):
                 continue
             try:
@@ -1185,8 +1186,8 @@ class _TableFormatParser:
                 deduped_pcts.append(pct)
         options, percentages = deduped_options, deduped_pcts
 
-        # 페이지 텍스트에서 섹션 제목 추출 (첫 번째 매치 사용)
-        section_matches = list(self._SECTION_RE.finditer(page_text))
+        # 페이지 텍스트에서 섹션 제목 추출 (null 바이트 제거 후 첫 번째 매치 사용)
+        section_matches = list(self._SECTION_RE.finditer(page_text.replace("\x00", "")))
         if section_matches:
             q_num = int(section_matches[0].group(1))
             q_title = section_matches[0].group(2).strip()
@@ -1205,8 +1206,15 @@ class _TableFormatParser:
         )
 
     def _extract_n(self, text: str) -> Optional[int]:
+        # "(N)" 형식 우선, 없으면 순수 정수 문자열 시도
+        text = text.strip()
         m = self._N_RE.search(text)
-        return int(m.group(1)) if m else None
+        if m:
+            return int(m.group(1))
+        try:
+            return int(text)
+        except ValueError:
+            return None
 
 
 # 파서 클래스 정의 완료 후 레지스트리 초기화 (forward reference 방지)
@@ -1222,6 +1230,20 @@ _PARSER_REGISTRY.extend([
         pollster_keywords=("데일리리서치",),
         content_probe=None,
         priority=10,
+    ),
+    # 메타서치: 크로스탭 테이블 기반 (조원씨앤아이와 동일한 _TableFormatParser)
+    ParserRegistryEntry(
+        parser_class=_TableFormatParser,
+        pollster_keywords=("메타서치",),
+        content_probe=None,
+        priority=10,
+    ),
+    # content_probe 기반 fallback — "가중값적용사례수"는 한국 여론조사 크로스탭 PDF 범용 마커
+    ParserRegistryEntry(
+        parser_class=_TableFormatParser,
+        pollster_keywords=(),
+        content_probe="가중값적용사례수",
+        priority=5,
     ),
     # content_probe 기반 fallback (기관 무관)
     ParserRegistryEntry(
@@ -1747,6 +1769,39 @@ class ParserTests(unittest.TestCase):
         )
         target = PollTarget(search_keyword="경기도", region=None, election_names=None)
         self.assertTrue(matches_target(record, target))
+
+    def test_select_parser_metasearch(self) -> None:
+        """메타서치 기관명 힌트 → _TableFormatParser 선택."""
+        parser = PollResultParser()
+        selected = parser._select_parser("임의 텍스트", "주)메타서치")
+        self.assertIs(selected, _TableFormatParser)
+
+    def test_table_parser_section_re_mun_prefix(self) -> None:
+        """_TableFormatParser._SECTION_RE가 '문N)' 형식을 인식한다."""
+        m = _TableFormatParser._SECTION_RE.search("문1) 지지정당 교차분석")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), "1")
+        self.assertEqual(m.group(2), "지지정당 교차분석")
+
+    def test_table_parser_metasearch_style(self) -> None:
+        """메타서치 스타일 크로스탭 테이블 → 옵션·퍼센트 정상 추출."""
+        header = ["구분", None, "조사완료사례수", "더불어민주당", "국민의힘", "잘모름", "가중값적용사례수"]
+        total  = ["전체", None, "(505)", "52.8", "28.5", "5.2", "(505)"]
+        table  = [header, total]
+        page_text = "문1) 지지정당 교차분석"
+        pages_data = [(page_text, [table])]
+        results = _TableFormatParser().parse(pages_data)
+        self.assertEqual(len(results), 1)
+        q = results[0]
+        self.assertEqual(q.question_title, "지지정당 교차분석")
+        self.assertIn("더불어민주당", q.response_options)
+        self.assertAlmostEqual(q.overall_percentages[0], 52.8)
+
+    def test_select_parser_gaajungsaesus_probe(self) -> None:
+        """'가중값적용사례수' content_probe → _TableFormatParser 선택 (미등록 기관)."""
+        parser = PollResultParser()
+        selected = parser._select_parser("가중값적용사례수가 포함된 PDF 텍스트", None)
+        self.assertIs(selected, _TableFormatParser)
 
 
 if __name__ == "__main__":
