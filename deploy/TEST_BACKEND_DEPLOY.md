@@ -2,6 +2,8 @@
 
 `test.api.lawdigest.net`용 백엔드 테스트 배포 절차 문서다.
 
+운영 전체 기준은 [DEPLOY_OPERATIONS.md](./DEPLOY_OPERATIONS.md)를 먼저 참고한다.
+
 이 테스트 백엔드는 host에서 직접 `java -jar`로 띄우지 않는다.
 대신 `services/backend/.env`를 그대로 읽어서 Docker 컨테이너를 올리고,
 컨테이너를 `law_prod_network`에 붙인 뒤 host 808 포트로 노출한다.

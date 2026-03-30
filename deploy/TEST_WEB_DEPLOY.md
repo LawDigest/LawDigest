@@ -2,6 +2,8 @@
 
 `dev.lawdigest.net` 프론트엔드 배포 절차 문서다.
 
+운영 전체 기준은 [DEPLOY_OPERATIONS.md](./DEPLOY_OPERATIONS.md)를 먼저 참고한다.
+
 현재 dev 웹은 `release/symlink` 구조로 배포된다.
 즉, 특정 브랜치나 워크트리의 `services/web`를 직접 서비스하지 않고,
 배포 시점에 빌드된 결과를 고정 런타임 디렉터리로 옮긴 뒤 `current` 심링크만 전환한다.
@@ -137,8 +139,6 @@ pm2 save
 5. 문제 없으면 PR 또는 merge 진행
 
 ## 후속 개선 제안
-- `rollback-test-web.sh` 추가
 - release 보존 개수 제한
-- 배포 후 헬스체크 실패 시 자동 롤백
 - `.env.preview.example` 추가
 - PM2 ecosystem 파일로 test 배포 설정 코드화
