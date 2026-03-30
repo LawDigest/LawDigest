@@ -24,6 +24,8 @@ __all__ = [
     "APISender",
     "Notifier",
     "ReportManager",
+    "PollsDatabaseManager",
+    "PollsWorkflowManager",
 ]
 
 _CLASS_TO_MODULE = {
@@ -35,6 +37,8 @@ _CLASS_TO_MODULE = {
     "APISender": "APISender",
     "Notifier": "Notifier",
     "ReportManager": "ReportManager",
+    "PollsDatabaseManager": "PollsDatabaseManager",
+    "PollsWorkflowManager": "polls.workflow",
 }
 
 

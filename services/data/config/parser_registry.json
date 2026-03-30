@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "description": "조사기관별 파서 지정. pollster_assignments 키는 여론조사기관명의 일부와 매칭됩니다. catalog_scan 실행 후 catalog.json의 pollsters 목록을 참고해 추가하세요.",
+  "parsers": {
+    "table_format": {
+      "class": "_TableFormatParser",
+      "description": "크로스탭 테이블 기반 파서 (조원씨앤아이, 메타서치 등)",
+      "content_probes": ["▣ 전체 ▣", "가중값적용사례수"]
+    },
+    "text_format": {
+      "class": "_TextFormatParser",
+      "description": "텍스트 섹션 기반 파서 (데일리리서치 등)",
+      "content_probes": []
+    }
+  },
+  "pollster_assignments": {
+    "조원씨앤아이": "table_format",
+    "메타서치": "table_format",
+    "데일리리서치": "text_format"
+  },
+  "fallback_parser": "text_format"
+}
