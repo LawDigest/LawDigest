@@ -386,55 +386,51 @@ export default function MapRegionCarousel() {
           </span>
         </div>
 
-        {/* 가운데: 권역 네비게이션 (전국 뷰에서만) */}
-        {regionIndex === 0 && (
-          <div className="flex items-center justify-center gap-2 md:gap-3">
-            {/* 좌측 화살표 */}
-            <button
-              type="button"
-              onClick={goPrev}
-              className="flex items-center justify-center w-5 h-5 md:w-6 md:h-6 text-gray-4 hover:text-gray-3 transition-colors flex-shrink-0"
-              aria-label="이전 권역">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 21 21"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="rotate-180">
-                <path
-                  d="M7.79688 17.4301L13.5019 11.7251C14.1756 11.0513 14.1756 9.94882 13.5019 9.27507L7.79688 3.57007"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeMiterlimit="10"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-            {/* 텍스트 */}
-            <p className="text-center text-xs text-gray-2 opacity-60 whitespace-nowrap hidden md:block">
-              좌우로 밀어 권역을 이동하세요
-            </p>
-            {/* 우측 화살표 */}
-            <button
-              type="button"
-              onClick={goNext}
-              className="flex items-center justify-center w-5 h-5 md:w-6 md:h-6 text-gray-4 hover:text-gray-3 transition-colors flex-shrink-0"
-              aria-label="다음 권역">
-              <svg width="16" height="16" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M7.79688 17.4301L13.5019 11.7251C14.1756 11.0513 14.1756 9.94882 13.5019 9.27507L7.79688 3.57007"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeMiterlimit="10"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
-          </div>
-        )}
+        {/* 가운데: 권역 네비게이션 */}
+        <div className="flex items-center justify-center gap-2 md:gap-3">
+          {/* 좌측 화살표 */}
+          <button
+            type="button"
+            onClick={goPrev}
+            className="flex items-center justify-center w-5 h-5 md:w-6 md:h-6 text-gray-4 hover:text-gray-3 transition-colors flex-shrink-0"
+            aria-label="이전 권역">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 21 21"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="rotate-180">
+              <path
+                d="M7.79688 17.4301L13.5019 11.7251C14.1756 11.0513 14.1756 9.94882 13.5019 9.27507L7.79688 3.57007"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeMiterlimit="10"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          {/* 텍스트 */}
+          <p className="text-center text-xs text-gray-2 opacity-60 whitespace-nowrap">좌우로 밀어 권역을 이동하세요</p>
+          {/* 우측 화살표 */}
+          <button
+            type="button"
+            onClick={goNext}
+            className="flex items-center justify-center w-5 h-5 md:w-6 md:h-6 text-gray-4 hover:text-gray-3 transition-colors flex-shrink-0"
+            aria-label="다음 권역">
+            <svg width="16" height="16" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M7.79688 17.4301L13.5019 11.7251C14.1756 11.0513 14.1756 9.94882 13.5019 9.27507L7.79688 3.57007"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeMiterlimit="10"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
 
         {/* 도트 인디케이터 */}
         <div className="flex items-center gap-1">
