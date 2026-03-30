@@ -377,7 +377,7 @@ export default function MapRegionCarousel() {
         )}
       </div>
 
-      {/* 권역 라벨 + 페이지 인디케이터 */}
+      {/* 권역 라벨 + 네비게이션 + 페이지 인디케이터 */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <span className="text-sm font-bold text-gray-4 dark:text-white">{region.label}</span>
@@ -385,6 +385,57 @@ export default function MapRegionCarousel() {
             {regionIndex === 0 ? '전국' : `${regionIndex} / ${MAP_REGIONS.length - 1}`}
           </span>
         </div>
+
+        {/* 가운데: 권역 네비게이션 (전국 뷰에서만) */}
+        {regionIndex === 0 && (
+          <div className="flex items-center justify-center gap-2 md:gap-3">
+            {/* 좌측 화살표 */}
+            <button
+              type="button"
+              onClick={goPrev}
+              className="flex items-center justify-center w-5 h-5 md:w-6 md:h-6 text-gray-4 hover:text-gray-3 transition-colors flex-shrink-0"
+              aria-label="이전 권역">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 21 21"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="rotate-180">
+                <path
+                  d="M7.79688 17.4301L13.5019 11.7251C14.1756 11.0513 14.1756 9.94882 13.5019 9.27507L7.79688 3.57007"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeMiterlimit="10"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+            {/* 텍스트 */}
+            <p className="text-center text-xs text-gray-2 opacity-60 whitespace-nowrap hidden md:block">
+              좌우로 밀어 권역을 이동하세요
+            </p>
+            {/* 우측 화살표 */}
+            <button
+              type="button"
+              onClick={goNext}
+              className="flex items-center justify-center w-5 h-5 md:w-6 md:h-6 text-gray-4 hover:text-gray-3 transition-colors flex-shrink-0"
+              aria-label="다음 권역">
+              <svg width="16" height="16" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M7.79688 17.4301L13.5019 11.7251C14.1756 11.0513 14.1756 9.94882 13.5019 9.27507L7.79688 3.57007"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeMiterlimit="10"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* 도트 인디케이터 */}
         <div className="flex items-center gap-1">
           {MAP_REGIONS.map((r, i) => (
@@ -401,35 +452,6 @@ export default function MapRegionCarousel() {
           ))}
         </div>
       </div>
-
-      {/* 스와이프 힌트 + 데스크톱 네비게이션 */}
-      {regionIndex === 0 && (
-        <div className="flex items-center justify-center gap-4">
-          {/* 데스크톱 좌측 화살표 버튼 */}
-          <button
-            type="button"
-            onClick={goPrev}
-            className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-gray-1 hover:bg-gray-2 transition-colors"
-            aria-label="이전 권역">
-            ←
-          </button>
-
-          {/* 모바일 힌트 텍스트 */}
-          <p className="text-center text-xs text-gray-2 opacity-60">
-            <span className="md:hidden">← 좌우로 밀어 권역을 이동하세요 →</span>
-            <span className="hidden md:inline">권역 이동</span>
-          </p>
-
-          {/* 데스크톱 우측 화살표 버튼 */}
-          <button
-            type="button"
-            onClick={goNext}
-            className="hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-gray-1 hover:bg-gray-2 transition-colors"
-            aria-label="다음 권역">
-            →
-          </button>
-        </div>
-      )}
     </div>
   );
 }
