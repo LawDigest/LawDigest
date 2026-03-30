@@ -61,6 +61,35 @@ class ListRecord:
     ntt_id: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class PollTarget:
+    """수집 대상 선거를 정의하는 불변 데이터클래스.
+
+    search_keyword로 NESDC searchWrd 검색을 수행한 뒤,
+    region / election_names 조건으로 클라이언트 사이드 필터링한다.
+    election_type은 상세 페이지 수준에서 사용하는 추가 정보이며
+    목록 필터링에는 사용하지 않는다.
+    """
+    search_keyword: str                            # NESDC searchWrd에 사용할 검색어 (지역명 등)
+    region: Optional[str] = None                   # title_region의 지역 부분과 매칭
+    election_names: Optional[Tuple[str, ...]] = None  # 선거명 OR 매칭 (None = 전체)
+    election_type: Optional[str] = None            # 선거구분 (참고용, 로그/출력에 사용)
+    slug: str = ""                                 # 출력 디렉터리명 (빈 경우 search_keyword 사용)
+
+
+# 수집 대상 선거 목록 (필요에 따라 항목 추가)
+POLL_TARGETS: List[PollTarget] = [
+    # 예시 – 실제 수집 전 필요한 선거로 교체하세요
+    PollTarget(
+        search_keyword="전라남도",
+        region="전라남도 전체",
+        election_names=("광역단체장선거", "정당지지도"),
+        election_type="제9회 전국동시지방선거",
+        slug="9th_local_jeonnam_governor",
+    ),
+]
+
+
 @dataclass
 class MethodStats:
     method_index: int
@@ -473,7 +502,7 @@ class NesdcCrawler:
                     ok = self.download_result_pdf(detail, pdf_path)
                     if not ok:
                         continue
-                questions = parser.parse_pdf(pdf_path)
+                questions = parser.parse_pdf(pdf_path, pollster_hint=detail.pollster)
                 result_sets.append(PollResultSet(
                     registration_number=detail.registration_number,
                     source_url=detail.source_url,
@@ -494,6 +523,93 @@ class NesdcCrawler:
     def save_results_json(self, result_sets: List["PollResultSet"], path: str | Path) -> None:
         output = [asdict(rs) for rs in result_sets]
         Path(path).write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def crawl_for_targets(
+        self,
+        targets: List[PollTarget],
+        max_pages_per_target: int = 50,
+        skip_errors: bool = False,
+    ) -> Dict[str, List[ListRecord]]:
+        """타겟 목록별로 NESDC를 검색하고 매칭된 레코드를 반환한다.
+
+        동일 search_keyword를 가진 타겟은 한 번만 검색하여 네트워크 요청을 절약한다.
+        빈 페이지를 만나면 해당 키워드 수집을 중단한다.
+
+        Returns:
+            {target.slug or search_keyword: [매칭된 ListRecord, ...]}
+        """
+        def _slug(t: PollTarget) -> str:
+            return t.slug if t.slug else t.search_keyword
+
+        results: Dict[str, List[ListRecord]] = {_slug(t): [] for t in targets}
+
+        # 동일 keyword 타겟 묶기
+        keyword_to_targets: Dict[str, List[PollTarget]] = {}
+        for t in targets:
+            keyword_to_targets.setdefault(t.search_keyword, []).append(t)
+
+        for keyword, kw_targets in keyword_to_targets.items():
+            self.logger.info(
+                "검색어 '%s' 수집 시작 (타겟 %d개)", keyword, len(kw_targets)
+            )
+            search_params = build_search_params(search_wrd=keyword)
+
+            for page_index in range(1, max_pages_per_target + 1):
+                try:
+                    soup = self.fetch_list_page(
+                        page_index=page_index, extra_params=search_params
+                    )
+                    records = self.parse_list_page(soup)
+                except NesdcConnectionError:
+                    if skip_errors:
+                        self.logger.exception(
+                            "페이지 수집 실패: keyword=%s page=%d", keyword, page_index
+                        )
+                        break
+                    raise
+
+                if not records:
+                    self.logger.info(
+                        "빈 페이지, 수집 종료: keyword=%s page=%d", keyword, page_index
+                    )
+                    break
+
+                for record in records:
+                    for target in kw_targets:
+                        if matches_target(record, target):
+                            results[_slug(target)].append(record)
+
+            for t in kw_targets:
+                self.logger.info(
+                    "타겟 '%s' 매칭 완료: %d건", _slug(t), len(results[_slug(t)])
+                )
+
+        return results
+
+    def save_target_results(
+        self,
+        target_records: Dict[str, List[ListRecord]],
+        output_dir: str | Path,
+    ) -> None:
+        """타겟별 수집 결과를 output_dir/<slug>/list.csv로 저장한다.
+
+        list.csv에는 ListRecord 필드 외에 parsed_region, parsed_election_name 컬럼이 추가된다.
+        """
+        output_dir = Path(output_dir)
+        for slug, records in target_records.items():
+            target_dir = output_dir / slug
+            target_dir.mkdir(parents=True, exist_ok=True)
+            rows = []
+            for r in records:
+                row = asdict(r)
+                row["parsed_region"], row["parsed_election_name"] = parse_title_region(
+                    r.title_region
+                )
+                rows.append(row)
+            write_csv(target_dir / "list.csv", rows)
+            self.logger.info(
+                "저장 완료: %s (%d건)", target_dir / "list.csv", len(records)
+            )
 
 
 # ── HTML 파싱 헬퍼 ─────────────────────────────────────────────────────────────
@@ -792,6 +908,31 @@ def _build_file_download_url(onclick: str) -> str:
 
 # ── PDF 결과 파서 ──────────────────────────────────────────────────────────────
 
+@dataclass
+class ParserRegistryEntry:
+    """파서 레지스트리 항목.
+
+    pollster_keywords: 조사기관명에 포함될 키워드 (OR 매칭)
+    content_probe: PDF 전문에서 탐지할 문자열 (None = 탐지 없이 적용)
+    priority: 높을수록 먼저 적용
+    """
+    parser_class: type
+    pollster_keywords: Tuple[str, ...] = field(default_factory=tuple)
+    content_probe: Optional[str] = None
+    priority: int = 0
+
+
+def register_parser(entry: ParserRegistryEntry) -> None:
+    """외부에서 새로운 파서를 레지스트리에 등록한다."""
+    _PARSER_REGISTRY.append(entry)
+    _PARSER_REGISTRY.sort(key=lambda e: e.priority, reverse=True)
+
+
+# _PARSER_REGISTRY 는 _TextFormatParser / _TableFormatParser 정의 이후에 초기화됨
+# (모듈 하단 참조)
+_PARSER_REGISTRY: List[ParserRegistryEntry] = []
+
+
 class PollResultParser:
     """결과표 PDF에서 설문 항목별 응답 결과를 추출하는 파서.
 
@@ -806,8 +947,17 @@ class PollResultParser:
       해당 행의 각 셀이 선택지별 전체 비율이다.
     """
 
-    def parse_pdf(self, pdf_path: Path) -> List[QuestionResult]:
-        """PDF 파일을 파싱하여 QuestionResult 목록을 반환한다."""
+    def parse_pdf(
+        self,
+        pdf_path: Path,
+        pollster_hint: Optional[str] = None,
+    ) -> List[QuestionResult]:
+        """PDF 파일을 파싱하여 QuestionResult 목록을 반환한다.
+
+        Args:
+            pdf_path: 결과표 PDF 경로.
+            pollster_hint: 조사기관명 힌트. 레지스트리에서 기관별 파서를 우선 선택한다.
+        """
         try:
             import pdfplumber
         except ImportError as exc:
@@ -823,11 +973,46 @@ class PollResultParser:
                 pages_data.append((text, tables))
 
         full_text = "\n".join(t for t, _ in pages_data)
+        parser_class = self._select_parser(full_text, pollster_hint)
 
-        if "▣ 전체 ▣" in full_text:
-            return _TableFormatParser().parse(pages_data)
+        if issubclass(parser_class, _TableFormatParser):
+            return parser_class().parse(pages_data)
         else:
-            return _TextFormatParser().parse(full_text)
+            return parser_class().parse(full_text)
+
+    def _select_parser(
+        self,
+        full_text: str,
+        pollster_hint: Optional[str],
+    ) -> type:
+        """레지스트리에서 적합한 파서 클래스를 선택한다.
+
+        우선순위:
+        1. pollster_hint가 registry 항목의 pollster_keywords에 매칭
+           + (content_probe 없거나 전문에 존재)
+        2. content_probe가 전문에 존재 (기관 무관 항목)
+        3. fallback: content_probe=None인 첫 항목
+        """
+        # 1단계: pollster_hint 기반 매칭
+        if pollster_hint:
+            for entry in _PARSER_REGISTRY:
+                if entry.pollster_keywords and any(
+                    kw in pollster_hint for kw in entry.pollster_keywords
+                ):
+                    if entry.content_probe is None or entry.content_probe in full_text:
+                        return entry.parser_class
+
+        # 2단계: content_probe 기반 매칭
+        for entry in _PARSER_REGISTRY:
+            if entry.content_probe and entry.content_probe in full_text:
+                return entry.parser_class
+
+        # 3단계: fallback (content_probe=None인 첫 항목)
+        for entry in _PARSER_REGISTRY:
+            if entry.content_probe is None:
+                return entry.parser_class
+
+        return _TextFormatParser  # 최후 fallback
 
 
 class _TextFormatParser:
@@ -1024,7 +1209,115 @@ class _TableFormatParser:
         return int(m.group(1)) if m else None
 
 
+# 파서 클래스 정의 완료 후 레지스트리 초기화 (forward reference 방지)
+_PARSER_REGISTRY.extend([
+    ParserRegistryEntry(
+        parser_class=_TableFormatParser,
+        pollster_keywords=("조원씨앤아이",),
+        content_probe="▣ 전체 ▣",
+        priority=10,
+    ),
+    ParserRegistryEntry(
+        parser_class=_TextFormatParser,
+        pollster_keywords=("데일리리서치",),
+        content_probe=None,
+        priority=10,
+    ),
+    # content_probe 기반 fallback (기관 무관)
+    ParserRegistryEntry(
+        parser_class=_TableFormatParser,
+        pollster_keywords=(),
+        content_probe="▣ 전체 ▣",
+        priority=0,
+    ),
+    ParserRegistryEntry(
+        parser_class=_TextFormatParser,
+        pollster_keywords=(),
+        content_probe=None,
+        priority=0,
+    ),
+])
+_PARSER_REGISTRY.sort(key=lambda e: e.priority, reverse=True)
+
+
 # ── 공통 유틸리티 ──────────────────────────────────────────────────────────────
+
+# ── 타겟 매칭 유틸리티 ─────────────────────────────────────────────────────────
+
+
+_REGION_SUFFIX_RE = re.compile(r"[시군구읍면동리]$")
+
+
+def parse_title_region(title_region: str) -> Tuple[str, str]:
+    """ListRecord.title_region(col[5])에서 지역과 선거명을 분리한다.
+
+    NESDC title_region 형식: "<지역> <선거명>"
+
+    지역 끝 판별 규칙 (우선순위순):
+      1. "전국" 으로 시작하면 → region = "전국"
+      2. " 전체" 가 포함되면 → region = "... 전체" 까지
+      3. 두 번째 토큰이 시/군/구/읍/면/동/리 로 끝나면 → region = 첫 두 토큰
+      4. 그 외 → region = 첫 토큰
+
+    예:
+      "경기도 안산시 기초단체장선거 정당지지도"
+        → ("경기도 안산시", "기초단체장선거 정당지지도")
+      "전라남도 전체 광역단체장선거,정당지지도"
+        → ("전라남도 전체", "광역단체장선거,정당지지도")
+      "전국 대통령선거"
+        → ("전국", "대통령선거")
+    """
+    text = title_region.strip()
+    parts = text.split()
+
+    # 1. 전국
+    if parts and parts[0] == "전국":
+        return ("전국", " ".join(parts[1:]))
+
+    # 2. "... 전체" 패턴 (광역단위 전체)
+    idx = text.find(" 전체")
+    if idx != -1:
+        region = text[: idx + len(" 전체")].strip()
+        election_name = text[idx + len(" 전체"):].strip()
+        return (region, election_name)
+
+    # 3. 도 + 시/군/구 패턴 (두 번째 토큰이 지역 단위 접미사로 끝남)
+    if len(parts) >= 2 and _REGION_SUFFIX_RE.search(parts[1]):
+        region = f"{parts[0]} {parts[1]}"
+        election_name = " ".join(parts[2:])
+        return (region, election_name)
+
+    # 4. fallback: 첫 토큰만 지역으로
+    if len(parts) >= 2:
+        return (parts[0], " ".join(parts[1:]))
+    return ("", text)
+
+
+def matches_target(record: ListRecord, target: PollTarget) -> bool:
+    """ListRecord가 PollTarget의 기준을 충족하면 True를 반환한다.
+
+    region: title_region이 target.region으로 시작하는지 확인
+    election_names: 파싱된 선거명에 target.election_names 중 하나라도 포함되면 OK (OR 매칭)
+    None 기준은 와일드카드 (무조건 통과).
+    """
+    if target.region is None and target.election_names is None:
+        return True
+
+    region, election_name = parse_title_region(record.title_region)
+
+    if target.region is not None:
+        if region != target.region:
+            return False
+
+    if target.election_names is not None:
+        # title_region의 선거명은 콤마 또는 공백으로 구분될 수 있음
+        clean = election_name.replace("(", "").replace(")", "")
+        actual = {t for t in re.split(r"[,\s]+", clean) if t}
+        if not actual.intersection(set(target.election_names)):
+            return False
+
+    return True
+
 
 def deduplicate_list_records(records: List[ListRecord]) -> List[ListRecord]:
     unique: Dict[str, ListRecord] = {}
@@ -1078,6 +1371,29 @@ def build_search_params(
     return params
 
 
+def _build_targets_from_args(args: "argparse.Namespace") -> List[PollTarget]:
+    """CLI 인수에서 PollTarget 목록을 구성한다."""
+    if args.use_preset_targets:
+        return list(POLL_TARGETS)
+
+    election_names: Optional[Tuple[str, ...]] = None
+    if getattr(args, "target_election_names", None):
+        election_names = tuple(n.strip() for n in args.target_election_names.split(",") if n.strip())
+
+    keyword = getattr(args, "target_keyword", None) or ""
+    region = getattr(args, "target_region", None) or ""
+    if not keyword and region:
+        keyword = region.split()[0]
+
+    return [PollTarget(
+        search_keyword=keyword,
+        region=region or None,
+        election_names=election_names,
+        election_type=getattr(args, "target_election_type", None),
+        slug=safe_filename(region or keyword, "target"),
+    )]
+
+
 def configure_logging() -> None:
     logging.basicConfig(
         level=logging.INFO,
@@ -1105,6 +1421,17 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--pdf-dir", default="./pdfs", help="결과 PDF 저장 디렉터리")
     parser.add_argument("--no-connectivity-check", action="store_true", help="초기 연결 검사를 건너뜀")
     parser.add_argument("--run-tests", action="store_true", help="내장 단위 테스트 실행")
+    # 타겟 기반 수집 옵션
+    parser.add_argument("--use-preset-targets", action="store_true", help="POLL_TARGETS 전체 수집")
+    parser.add_argument("--target-region", metavar="REGION", help="수집할 지역 (예: '전라남도 전체')")
+    parser.add_argument(
+        "--target-election-names",
+        metavar="NAMES",
+        help="수집할 선거명, 콤마 구분 (예: '광역단체장선거,정당지지도')",
+    )
+    parser.add_argument("--target-election-type", metavar="TYPE", help="선거구분 (참고용)")
+    parser.add_argument("--target-keyword", metavar="KEYWORD", help="NESDC searchWrd 검색어 (미지정 시 region 첫 단어)")
+    parser.add_argument("--max-pages-per-target", type=int, default=50, help="타겟당 최대 수집 페이지 수")
     return parser.parse_args(argv)
 
 
@@ -1126,6 +1453,38 @@ def run(argv: Optional[List[str]] = None) -> int:
             verify_connectivity=not args.no_connectivity_check,
         )
 
+        # ── 타겟 기반 수집 모드 ──────────────────────────────────────────────────
+        use_targets = args.use_preset_targets or args.target_region or args.target_keyword
+        if use_targets:
+            targets = _build_targets_from_args(args)
+            target_records = crawler.crawl_for_targets(
+                targets,
+                max_pages_per_target=args.max_pages_per_target,
+                skip_errors=args.skip_errors,
+            )
+            crawler.save_target_results(target_records, args.output_dir)
+
+            for slug, records in target_records.items():
+                target_dir = Path(args.output_dir) / slug
+                detail_target = records[: args.detail_limit] if args.detail_limit >= 0 else records
+                detail_records = crawler.crawl_details(detail_target, skip_errors=args.skip_errors)
+                crawler.save_details_json(detail_records, target_dir / "details.json")
+
+                if args.crawl_results:
+                    result_sets = crawler.crawl_results(
+                        detail_records,
+                        pdf_dir=target_dir / "pdfs",
+                        skip_errors=args.skip_errors,
+                    )
+                    crawler.save_results_json(result_sets, target_dir / "results.json")
+                    total_q = sum(len(rs.questions) for rs in result_sets)
+                    print(f"[{slug}] 결과 파싱: {len(result_sets)}건, 질문 {total_q}개")
+
+                total = sum(len(v) for v in target_records.values())
+            print(f"타겟 수집 완료: 타겟 {len(target_records)}개, 총 목록 {total}건")
+            return 0
+
+        # ── 기존 전체 수집 모드 (하위 호환) ─────────────────────────────────────
         search_params = build_search_params()
         list_records = crawler.crawl_list_pages(
             start_page=args.start_page,
@@ -1308,6 +1667,86 @@ class ParserTests(unittest.TestCase):
         crawler.session = BrokenSession()  # type: ignore[assignment]
         with self.assertRaises(NesdcConnectionError):
             crawler._get(urljoin(BASE_URL, LIST_PATH), params={"menuNo": DEFAULT_MENU_NO})
+
+    def test_parse_title_region_standard(self) -> None:
+        """도+시/군 단위 포맷 파싱 (전체 없음)."""
+        region, election = parse_title_region("경기도 안산시 기초단체장선거 정당지지도")
+        self.assertEqual(region, "경기도 안산시")
+        self.assertEqual(election, "기초단체장선거 정당지지도")
+
+    def test_parse_title_region_with_jeonche(self) -> None:
+        """광역 전체 단위 포맷 파싱 (전체 포함)."""
+        region, election = parse_title_region("전라남도 전체 광역단체장선거,정당지지도")
+        self.assertEqual(region, "전라남도 전체")
+        self.assertEqual(election, "광역단체장선거,정당지지도")
+
+    def test_parse_title_region_nationwide(self) -> None:
+        """전국 단위 포맷 파싱."""
+        region, election = parse_title_region("전국 대통령선거")
+        self.assertEqual(region, "전국")
+        self.assertEqual(election, "대통령선거")
+
+    def test_parse_title_region_city(self) -> None:
+        """도+군 단위 포맷 파싱."""
+        region, election = parse_title_region("전라남도 해남군 기초단체장선거 정당지지도")
+        self.assertEqual(region, "전라남도 해남군")
+        self.assertEqual(election, "기초단체장선거 정당지지도")
+
+    def test_matches_target_hit(self) -> None:
+        """타겟 매칭 성공 케이스 (도+시 형식)."""
+        record = ListRecord(
+            registration_number="99",
+            pollster="테스트기관",
+            sponsor="테스트의뢰",
+            method="전화",
+            sample_frame="가상번호",
+            title_region="경기도 안산시 기초단체장선거 정당지지도",
+            registered_date="2026-01-01",
+            province="경기도",
+            detail_url="https://example.com",
+        )
+        target = PollTarget(
+            search_keyword="경기도",
+            region="경기도 안산시",
+            election_names=("기초단체장선거",),
+        )
+        self.assertTrue(matches_target(record, target))
+
+    def test_matches_target_miss_region(self) -> None:
+        """지역이 다른 경우 매칭 실패."""
+        record = ListRecord(
+            registration_number="99",
+            pollster="테스트기관",
+            sponsor="테스트의뢰",
+            method="전화",
+            sample_frame="가상번호",
+            title_region="경기도 수원시 기초단체장선거",
+            registered_date="2026-01-01",
+            province="경기도",
+            detail_url="https://example.com",
+        )
+        target = PollTarget(
+            search_keyword="경기도",
+            region="경기도 안산시",
+            election_names=("기초단체장선거",),
+        )
+        self.assertFalse(matches_target(record, target))
+
+    def test_matches_target_wildcard(self) -> None:
+        """region=None이면 지역 무관하게 매칭."""
+        record = ListRecord(
+            registration_number="1",
+            pollster="기관",
+            sponsor="의뢰",
+            method="전화",
+            sample_frame="가상번호",
+            title_region="경기도 안산시 기초단체장선거",
+            registered_date="2026-01-01",
+            province="경기도",
+            detail_url="https://example.com",
+        )
+        target = PollTarget(search_keyword="경기도", region=None, election_names=None)
+        self.assertTrue(matches_target(record, target))
 
 
 if __name__ == "__main__":
