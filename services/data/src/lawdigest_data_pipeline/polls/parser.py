@@ -43,6 +43,7 @@ class PollResultParser:
         parser_map = {
             "_TableFormatParser": _TableFormatParser,
             "_TextFormatParser": _TextFormatParser,
+            "_RealMeterParser": _RealMeterParser,
         }
         parsers_def = data.get("parsers", {})
         assignments = data.get("pollster_assignments", {})
@@ -316,3 +317,118 @@ class _TableFormatParser:
             return int(text)
         except ValueError:
             return None
+
+
+class _RealMeterParser(_TableFormatParser):
+    """리얼미터 크로스탭 PDF 파서.
+
+    PDF 구조:
+      - 각 질문은 새 페이지에서 시작: "N. [제목]" + "QN. [질문문]?"
+      - 테이블 헤더(row 0) col 4+에 선택지 이름
+      - 텍스트에서 "전체 (N완료) (N가중) pct1 pct2 ..." 패턴으로 전체 비율 추출
+      - 한 질문이 2페이지에 걸칠 수 있으므로 질문번호 중복 방지
+    """
+
+    # "N. 제목" 패턴 – 질문 섹션 시작 (숫자 + 점 + 공백 + 텍스트)
+    _Q_SECTION_RE = re.compile(r"(?m)^(\d+)\.\s+(.+)$")
+    # "QN. 질문문?" 패턴
+    _Q_TEXT_RE = re.compile(r"Q\d+\.\s+(.+?)(?:\?|？)", re.DOTALL)
+    # "전체 (N완료) (N가중) p1 p2 ..." 패턴
+    _TOTAL_ROW_RE = re.compile(
+        r"전체\s+\((\d+)\)\s+\((\d+)\)\s+((?:[\d.]+\s*)+)"
+    )
+    # 테이블 헤더에서 메타 컬럼 개수 (구분, None, 조사완료사례수, 가중값적용사례수)
+    _HEADER_META_COLS = 4
+    # 복합 요약행 패턴 – "잘함 ①+②", "잘못함 ③+④" 등 소계 행 제거
+    # 원형 숫자 두 개가 + 로 연결된 경우
+    _SUMMARY_OPT_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩]\s*\+\s*[①②③④⑤⑥⑦⑧⑨⑩]")
+
+    def parse(self, pages_data: List[Tuple[str, List]]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_q_nums: set = set()
+
+        for page_text, page_tables in pages_data:
+            # ── 질문 섹션 시작 확인 ─────────────────────────────────────────
+            q_section_match = self._Q_SECTION_RE.search(page_text)
+            if not q_section_match:
+                continue
+            q_num = int(q_section_match.group(1))
+            if q_num in seen_q_nums:
+                continue  # 연속 페이지의 크로스탭 반복 — 건너뜀
+
+            # ── 선택지 이름: 테이블 헤더에서 추출 ──────────────────────────
+            options = self._extract_options(page_tables)
+            if not options:
+                continue
+
+            # ── 전체 비율: 텍스트에서 추출 ──────────────────────────────────
+            total_match = self._TOTAL_ROW_RE.search(page_text)
+            if not total_match:
+                continue
+            n_completed = int(total_match.group(1))
+            n_weighted = int(total_match.group(2))
+            pct_str = total_match.group(3).strip()
+            percentages = [float(v) for v in pct_str.split()]
+
+            # 복합 요약행 제거 – 선택지와 비율을 함께 필터링
+            # (예: "잘함 ①+②", "잘못함 ③+④" 같은 소계 행)
+            raw_pairs = list(zip(options, percentages))
+            filtered = [(o, p) for o, p in raw_pairs
+                        if not self._SUMMARY_OPT_RE.search(o)]
+            if not filtered:
+                # 요약행만 있는 경우(비정상) → 원본 유지
+                filtered = raw_pairs
+            options, percentages = zip(*filtered) if filtered else ([], [])
+            options, percentages = list(options), list(percentages)
+
+            # 선택지 수와 비율 수를 맞춤 (짧은 쪽 기준 truncate)
+            min_len = min(len(options), len(percentages))
+            if min_len == 0:
+                continue
+            options = options[:min_len]
+            percentages = percentages[:min_len]
+
+            # ── 질문 제목 / 질문문 ─────────────────────────────────────────
+            q_title = q_section_match.group(2).strip()
+            q_text_match = self._Q_TEXT_RE.search(page_text)
+            q_text = (
+                re.sub(r"\s+", " ", q_text_match.group(1)).strip() + "?"
+                if q_text_match
+                else q_title
+            )
+
+            seen_q_nums.add(q_num)
+            results.append(QuestionResult(
+                question_number=q_num,
+                question_title=q_title,
+                question_text=q_text,
+                response_options=options,
+                overall_n_completed=n_completed,
+                overall_n_weighted=n_weighted,
+                overall_percentages=percentages,
+            ))
+
+        return results
+
+    def _extract_options(self, page_tables: List) -> List[str]:
+        """테이블 헤더 row 0의 col 4+ 에서 선택지 이름을 추출한다."""
+        for table in page_tables:
+            if not table or len(table) < 2:
+                continue
+            header = table[0]
+            if len(header) <= self._HEADER_META_COLS:
+                continue
+            # col 0에 "구" (구 분) 포함 여부로 크로스탭 테이블 식별
+            col0 = str(header[0] or "")
+            if "구" not in col0:
+                continue
+            options = []
+            for cell in header[self._HEADER_META_COLS:]:
+                if cell is None:
+                    continue
+                opt = re.sub(r"\n", " ", str(cell)).strip()
+                if opt and opt.lower() != "none":
+                    options.append(opt)
+            if options:
+                return options
+        return []
