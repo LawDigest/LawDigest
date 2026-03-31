@@ -339,6 +339,9 @@ class _RealMeterParser(_TableFormatParser):
     )
     # 테이블 헤더에서 메타 컬럼 개수 (구분, None, 조사완료사례수, 가중값적용사례수)
     _HEADER_META_COLS = 4
+    # 복합 요약행 패턴 – "잘함 ①+②", "잘못함 ③+④" 등 소계 행 제거
+    # 원형 숫자 두 개가 + 로 연결된 경우
+    _SUMMARY_OPT_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩]\s*\+\s*[①②③④⑤⑥⑦⑧⑨⑩]")
 
     def parse(self, pages_data: List[Tuple[str, List]]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
@@ -366,6 +369,17 @@ class _RealMeterParser(_TableFormatParser):
             n_weighted = int(total_match.group(2))
             pct_str = total_match.group(3).strip()
             percentages = [float(v) for v in pct_str.split()]
+
+            # 복합 요약행 제거 – 선택지와 비율을 함께 필터링
+            # (예: "잘함 ①+②", "잘못함 ③+④" 같은 소계 행)
+            raw_pairs = list(zip(options, percentages))
+            filtered = [(o, p) for o, p in raw_pairs
+                        if not self._SUMMARY_OPT_RE.search(o)]
+            if not filtered:
+                # 요약행만 있는 경우(비정상) → 원본 유지
+                filtered = raw_pairs
+            options, percentages = zip(*filtered) if filtered else ([], [])
+            options, percentages = list(options), list(percentages)
 
             # 선택지 수와 비율 수를 맞춤 (짧은 쪽 기준 truncate)
             min_len = min(len(options), len(percentages))
