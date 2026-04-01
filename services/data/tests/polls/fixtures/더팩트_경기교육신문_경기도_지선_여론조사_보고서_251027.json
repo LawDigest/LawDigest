@@ -1,0 +1,194 @@
+{
+  "pollster": "조원씨앤아이",
+  "pdf_filename": "더팩트 경기교육신문_경기도 지선 여론조사 보고서_251027.pdf",
+  "parsed_at": "2026-04-01T11:55:19.019541+00:00",
+  "elapsed_seconds": 33.6,
+  "question_count": 7,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_title": "정당 지지도",
+      "question_text": "",
+      "response_options": [
+        "더불어민주당",
+        "국민의힘",
+        "조국혁신당",
+        "진보당",
+        "개혁신당",
+        "기타정당",
+        "무당층(없음/모름)"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        46.2,
+        31.5,
+        1.4,
+        0.6,
+        3.1,
+        0.8,
+        16.5
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "이재명 대통령 국정 평가",
+      "question_text": "",
+      "response_options": [
+        "매우잘하고있다",
+        "잘하고있는편이다",
+        "잘못하는편이다",
+        "매우잘못하고있다",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        27.3,
+        30.8,
+        13.7,
+        21.6,
+        6.7
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "경기도지사 지지도 (자유응답)",
+      "question_text": "",
+      "response_options": [
+        "김동연",
+        "김은혜",
+        "김병주",
+        "김문수",
+        "나경원",
+        "추미애",
+        "유승민",
+        "이진숙",
+        "기타인물",
+        "없음/모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        5.5,
+        1.5,
+        1.0,
+        0.9,
+        0.5,
+        0.4,
+        0.4,
+        0.3,
+        3.3,
+        86.2
+      ]
+    },
+    {
+      "question_number": 4,
+      "question_title": "경기도지사 적합도",
+      "question_text": "",
+      "response_options": [
+        "김동연",
+        "추미애",
+        "김은혜",
+        "한동훈",
+        "원희룡",
+        "유승민",
+        "한준호",
+        "김병주",
+        "기타인물",
+        "없음/모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        19.1,
+        12.5,
+        10.5,
+        10.5,
+        8.5,
+        7.3,
+        7.1,
+        5.7,
+        0.6,
+        18.2
+      ]
+    },
+    {
+      "question_number": 5,
+      "question_title": "민주당 후보 적합도",
+      "question_text": "",
+      "response_options": [
+        "김동연",
+        "추미애",
+        "한준호",
+        "김병주",
+        "염태영",
+        "이언주",
+        "기타인물",
+        "없음/모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        29.9,
+        15.2,
+        8.3,
+        5.8,
+        2.2,
+        1.9,
+        0.5,
+        36.2
+      ]
+    },
+    {
+      "question_number": 6,
+      "question_title": "보수 야권 후보 적합도",
+      "question_text": "",
+      "response_options": [
+        "유승민",
+        "김은혜",
+        "한동훈",
+        "원희룡",
+        "원유철",
+        "기타인물",
+        "없음/모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        26.5,
+        14.2,
+        13.4,
+        11.3,
+        1.6,
+        0.9,
+        32.8
+      ]
+    },
+    {
+      "question_number": 7,
+      "question_title": "경기도 교육감 지지도",
+      "question_text": "",
+      "response_options": [
+        "임태희",
+        "유은혜",
+        "안민석",
+        "구희현",
+        "성기선",
+        "기타인물",
+        "없음/모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        14.6,
+        11.5,
+        11.4,
+        3.5,
+        2.6,
+        0.9,
+        55.5
+      ]
+    }
+  ]
+}

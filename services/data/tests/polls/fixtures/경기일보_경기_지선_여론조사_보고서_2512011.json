@@ -1,0 +1,209 @@
+{
+  "pollster": "조원씨앤아이",
+  "pdf_filename": "경기일보_경기 지선 여론조사 보고서_251201(1).pdf",
+  "parsed_at": "2026-04-01T11:55:52.364581+00:00",
+  "elapsed_seconds": 33.3,
+  "question_count": 8,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_title": "정당 지지도",
+      "question_text": "",
+      "response_options": [
+        "더불어민주당",
+        "국민의힘",
+        "조국혁신당",
+        "진보당",
+        "개혁신당",
+        "기타정당",
+        "무당층(없음/모름)"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        52.4,
+        27.8,
+        1.4,
+        0.8,
+        2.5,
+        0.8,
+        14.3
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "이재명 대통령 국정 평가",
+      "question_text": "",
+      "response_options": [
+        "매우잘하고있다",
+        "잘하고있는편이다",
+        "잘못하는편이다",
+        "매우잘못하고있다",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        34.0,
+        31.4,
+        11.3,
+        17.9,
+        5.3
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "김동연 지사 도정 평가",
+      "question_text": "",
+      "response_options": [
+        "매우잘하고있다",
+        "잘하고있는편이다",
+        "잘못하는편이다",
+        "매우잘못하고있다",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        5.2,
+        46.6,
+        21.0,
+        6.6,
+        20.6
+      ]
+    },
+    {
+      "question_number": 4,
+      "question_title": "지선프레임 공감도",
+      "question_text": "",
+      "response_options": [
+        "국정 지원을 위해여당에 힘을 실어줘야 한다",
+        "정권 견제를 위해야당에 힘을 실어줘야 한다",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        55.4,
+        35.2,
+        9.3
+      ]
+    },
+    {
+      "question_number": 5,
+      "question_title": "경기도지사 적합도",
+      "question_text": "",
+      "response_options": [
+        "김동연",
+        "추미애",
+        "한동훈",
+        "김은혜",
+        "원희룡",
+        "한준호",
+        "김용민",
+        "유승민",
+        "김병주",
+        "강득구",
+        "원유철",
+        "그외",
+        "없음/모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        20.2,
+        13.2,
+        10.7,
+        9.2,
+        6.2,
+        6.1,
+        5.4,
+        5.4,
+        4.7,
+        0.8,
+        0.5,
+        1.1,
+        16.5
+      ]
+    },
+    {
+      "question_number": 6,
+      "question_title": "민주당 후보 적합도",
+      "question_text": "",
+      "response_options": [
+        "김동연",
+        "추미애",
+        "한준호",
+        "김용민",
+        "김병주",
+        "강득구",
+        "그 외",
+        "없음/모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        35.0,
+        15.0,
+        9.2,
+        6.3,
+        6.3,
+        1.5,
+        0.4,
+        26.3
+      ]
+    },
+    {
+      "question_number": 7,
+      "question_title": "국민의힘 후보 적합도",
+      "question_text": "",
+      "response_options": [
+        "유승민",
+        "한동훈",
+        "김은혜",
+        "원희룡",
+        "원유철",
+        "그 외",
+        "없음/모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        26.8,
+        15.5,
+        14.3,
+        8.3,
+        1.5,
+        0.5,
+        33.2
+      ]
+    },
+    {
+      "question_number": 8,
+      "question_title": "경기도 교육감 지지도",
+      "question_text": "",
+      "response_options": [
+        "안민석",
+        "임태희",
+        "유은혜",
+        "구희현",
+        "성기선",
+        "박효진",
+        "그 외",
+        "없음/모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        17.0,
+        16.0,
+        13.9,
+        4.8,
+        3.3,
+        1.7,
+        0.7,
+        42.6
+      ]
+    }
+  ]
+}

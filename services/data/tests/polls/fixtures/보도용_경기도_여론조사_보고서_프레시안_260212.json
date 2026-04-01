@@ -1,0 +1,199 @@
+{
+  "pollster": "(주)시그널앤펄스",
+  "pdf_filename": "보도용_경기도 여론조사 보고서_프레시안_260212.pdf",
+  "parsed_at": "2026-04-01T12:01:34.048588+00:00",
+  "elapsed_seconds": 3.9,
+  "question_count": 8,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_title": "경기도지사 후보적합도 (더불어민주당 인물)",
+      "question_text": "",
+      "response_options": [
+        "김동연",
+        "추미애",
+        "한준호",
+        "김용민",
+        "김병주",
+        "양기대",
+        "기타",
+        "없음",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        23.1,
+        21.1,
+        13.0,
+        7.1,
+        4.8,
+        2.1,
+        6.7,
+        17.1,
+        5.0
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "경기도지사 후보적합도 (국민의힘 인물)",
+      "question_text": "",
+      "response_options": [
+        "유승민",
+        "김은혜",
+        "원유철",
+        "심재철",
+        "기타",
+        "없음",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        23.7,
+        17.0,
+        5.1,
+        3.7,
+        13.0,
+        31.0,
+        6.5
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "경기도교육감 진보진영 단일후보 적합도",
+      "question_text": "",
+      "response_options": [
+        "안민석",
+        "성기선",
+        "유은혜",
+        "박효진",
+        "기타",
+        "없음",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        16.1,
+        15.1,
+        14.1,
+        6.1,
+        12.8,
+        21.6,
+        14.3
+      ]
+    },
+    {
+      "question_number": 4,
+      "question_title": "경기도교육감 가상대결 [성기선 vs 임태희]",
+      "question_text": "",
+      "response_options": [
+        "성 기 선",
+        "임 태 희",
+        "기타",
+        "없음",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        29.5,
+        21.5,
+        15.4,
+        17.8,
+        15.7
+      ]
+    },
+    {
+      "question_number": 5,
+      "question_title": "경기도교육감 가상대결 [안민석 vs 임태희]",
+      "question_text": "",
+      "response_options": [
+        "안 민 석",
+        "임 태 희",
+        "기타",
+        "없음",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        31.2,
+        23.0,
+        14.8,
+        17.5,
+        13.5
+      ]
+    },
+    {
+      "question_number": 6,
+      "question_title": "경기도교육감 가상대결 [유은혜 vs 임태희]",
+      "question_text": "",
+      "response_options": [
+        "유 은 혜",
+        "임 태 희",
+        "기타",
+        "없음",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        24.1,
+        22.9,
+        17.4,
+        19.8,
+        15.9
+      ]
+    },
+    {
+      "question_number": 7,
+      "question_title": "정당지지도",
+      "question_text": "",
+      "response_options": [
+        "더불어민주당",
+        "국민의힘",
+        "조국혁신당",
+        "진보당",
+        "개혁신당",
+        "기타",
+        "없음",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        54.2,
+        23.6,
+        3.1,
+        1.1,
+        3.2,
+        3.2,
+        9.0,
+        2.5
+      ]
+    },
+    {
+      "question_number": 8,
+      "question_title": "국정지지도",
+      "question_text": "",
+      "response_options": [
+        "매우긍정",
+        "대체로긍정",
+        "대체로부정",
+        "매우부정",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        52.9,
+        13.6,
+        8.2,
+        19.3,
+        6.0
+      ]
+    }
+  ]
+}

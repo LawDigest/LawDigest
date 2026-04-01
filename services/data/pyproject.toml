@@ -43,3 +43,8 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+markers = [
+  "integration: 실제 파일/DB가 필요한 통합 테스트 (--run-integration 플래그로 실행)",
+]

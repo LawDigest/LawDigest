@@ -1,0 +1,149 @@
+{
+  "pollster": "(주)시그널앤펄스",
+  "pdf_filename": "보도용_경기도 여론조사 보고서_프레시안_251230(수정).pdf",
+  "parsed_at": "2026-04-01T12:01:36.231269+00:00",
+  "elapsed_seconds": 2.2,
+  "question_count": 6,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_title": "정당지지도",
+      "question_text": "",
+      "response_options": [
+        "더불어민주당",
+        "국민의힘",
+        "조국혁신당",
+        "진보당",
+        "개혁신당",
+        "기타",
+        "없음",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        52.4,
+        30.6,
+        1.6,
+        0.4,
+        2.5,
+        2.1,
+        9.4,
+        1.0
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "국정지지도",
+      "question_text": "",
+      "response_options": [
+        "매우잘함",
+        "잘하는편",
+        "잘못하는편",
+        "매우잘못함",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        48.6,
+        12.1,
+        10.0,
+        24.0,
+        5.2
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "경기도지사 더불어민주당 후보적합도",
+      "question_text": "",
+      "response_options": [
+        "김동연",
+        "추미애",
+        "한준호",
+        "김병주",
+        "김용민",
+        "기타",
+        "없음",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        20.9,
+        17.7,
+        10.5,
+        6.9,
+        6.6,
+        12.0,
+        20.2,
+        5.2
+      ]
+    },
+    {
+      "question_number": 4,
+      "question_title": "경기도지사 국민의힘 후보적합도",
+      "question_text": "",
+      "response_options": [
+        "유승민",
+        "김은혜",
+        "한동훈",
+        "기타",
+        "없음",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        20.2,
+        17.4,
+        13.4,
+        15.0,
+        26.7,
+        7.3
+      ]
+    },
+    {
+      "question_number": 5,
+      "question_title": "경기도교육감 민주진보진영 후보적합도",
+      "question_text": "",
+      "response_options": [
+        "안민석",
+        "성기선",
+        "유은혜",
+        "박효진",
+        "기타",
+        "없음",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        15.3,
+        13.7,
+        13.0,
+        7.2,
+        12.9,
+        22.6,
+        15.2
+      ]
+    },
+    {
+      "question_number": 6,
+      "question_title": "경기도교육감 재지지도",
+      "question_text": "",
+      "response_options": [
+        "지지의향 있음",
+        "지지의향 없음",
+        "모름"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        21.4,
+        50.4,
+        28.3
+      ]
+    }
+  ]
+}

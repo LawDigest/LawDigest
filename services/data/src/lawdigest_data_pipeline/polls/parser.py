@@ -194,10 +194,12 @@ class _TextFormatParser:
                     opt = om.group(1).strip()
                     pct = float(om.group(2))
                     has_sample_counts = len(re.findall(r"(?<!\w)\d{3,}(?!\w)", opt)) >= 2
+                    is_subtotal = opt.endswith(":") or opt.endswith(":")
                     if (
                         1 < len(opt) <= 60
                         and not re.fullmatch(r"[\d().%\-\s]+", opt)
                         and not has_sample_counts
+                        and not is_subtotal
                     ):
                         options.append(opt)
                         percentages.append(pct)
@@ -341,16 +343,14 @@ class _KoreanResearchParser(_TableFormatParser):
     _META_COLS = 3  # '전체', '사례수 (명)', None
 
     def parse(self, pages_data: List[Tuple[str, List]]) -> List[QuestionResult]:
-        results: List[QuestionResult] = []
-        seen_q_nums: set = set()
+        # q_num → QuestionResult (페이지 분할 표 merge 지원)
+        result_map: dict = {}
 
         for page_text, page_tables in pages_data:
             title_match = self._TABLE_TITLE_RE.search(page_text)
             if not title_match:
                 continue
             q_num = int(title_match.group(1))
-            if q_num in seen_q_nums:
-                continue
 
             options = self._extract_options_kr(page_tables)
             if not options:
@@ -377,6 +377,21 @@ class _KoreanResearchParser(_TableFormatParser):
             if min_len == 0:
                 continue
 
+            page_options = list(options_f[:min_len])
+            page_pcts = list(pcts_f[:min_len])
+
+            if q_num in result_map:
+                # 페이지 분할된 표의 속편 — 기존 결과에 옵션/비율 추가
+                existing = result_map[q_num]
+                # 마지막 컬럼이 합계(≈100)이면 제거
+                if page_pcts and abs(page_pcts[-1] - 100.0) < 1.0:
+                    page_options = page_options[:-1]
+                    page_pcts = page_pcts[:-1]
+                if page_options:
+                    existing.response_options = existing.response_options + page_options
+                    existing.overall_percentages = existing.overall_percentages + page_pcts
+                continue
+
             q_title = title_match.group(2).strip()
             q_text_match = self._Q_TEXT_RE.search(page_text)
             q_text = (
@@ -385,20 +400,17 @@ class _KoreanResearchParser(_TableFormatParser):
                 else q_title
             )
 
-            seen_q_nums.add(q_num)
-            results.append(
-                QuestionResult(
-                    question_number=q_num,
-                    question_title=q_title,
-                    question_text=q_text,
-                    response_options=list(options_f[:min_len]),
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=n_weighted,
-                    overall_percentages=list(pcts_f[:min_len]),
-                )
+            result_map[q_num] = QuestionResult(
+                question_number=q_num,
+                question_title=q_title,
+                question_text=q_text,
+                response_options=page_options,
+                overall_n_completed=n_completed,
+                overall_n_weighted=n_weighted,
+                overall_percentages=page_pcts,
             )
 
-        return results
+        return list(result_map.values())
 
     def _extract_options_kr(self, page_tables: List) -> List[str]:
         """헤더 row 0 col 3+ 에서 선택지 추출 (col 0 == '전체' 기준 식별)."""

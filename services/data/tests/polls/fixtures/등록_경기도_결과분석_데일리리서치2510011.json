@@ -1,0 +1,159 @@
+{
+  "pollster": "(주)데일리리서치",
+  "pdf_filename": "등록_경기도_결과분석_데일리리서치2510011.pdf",
+  "parsed_at": "2026-04-01T12:12:37.448120+00:00",
+  "elapsed_seconds": 47.5,
+  "question_count": 6,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_title": "더불어민주당 경기도지사 후보적합도",
+      "question_text": "내년 6월 경기도지사 선거에서 다음 일곱명중 더불어민주당 경기도지사 후보로 누가 가장 적합하다고\n생각하십니까?",
+      "response_options": [
+        "김동연 (현) 경기도지사",
+        "김병주 (현) 국회의원",
+        "김영진 (현) 국회의원",
+        "박광온 (전) 더불어민주당 원내대표",
+        "박정 (현) 국회의원",
+        "염태영 (현) 국회의원",
+        "추미애 (현) 법사위원장",
+        "기타후보",
+        "적합한 후보가 없다",
+        "잘 모르겠다"
+      ],
+      "overall_n_completed": null,
+      "overall_n_weighted": null,
+      "overall_percentages": [
+        21.7,
+        9.5,
+        2.7,
+        4.0,
+        1.7,
+        4.6,
+        20.6,
+        3.5,
+        21.5,
+        10.2
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "국민의힘 경기도지사 후보적합도",
+      "question_text": "그럼 다음 다섯명중에서 국민의힘 경기도지사 후보로 누가 가장 적합하다고 생각하십니까?",
+      "response_options": [
+        "김은혜 (현) 국회의원",
+        "나경원 (현) 국회의원",
+        "심재철 (전) 국회의원",
+        "안철수 (현) 국회의원",
+        "원유철 (전) 미래한국당 대표",
+        "기타후보",
+        "적합한 후보가 없다",
+        "잘 모르겠다"
+      ],
+      "overall_n_completed": null,
+      "overall_n_weighted": null,
+      "overall_percentages": [
+        12.9,
+        15.5,
+        3.7,
+        16.8,
+        4.5,
+        4.4,
+        35.8,
+        6.4
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "가상대결",
+      "question_text": "내년 경기도지사 선거가 만약 다음과 같이 치러진다면 누구에게 투표하시겠습니까?",
+      "response_options": [
+        "더불어민주당 후보",
+        "국민의힘 후보",
+        "기타정당 후보",
+        "무소속 후보",
+        "투표하지 않겠다",
+        "잘 모르겠다"
+      ],
+      "overall_n_completed": null,
+      "overall_n_weighted": null,
+      "overall_percentages": [
+        53.5,
+        33.8,
+        4.0,
+        0.7,
+        3.0,
+        4.9
+      ]
+    },
+    {
+      "question_number": 4,
+      "question_title": "국정평가",
+      "question_text": "선생님께서는 이재명 대통령의 국정운영에 대해서 어떻게 평가하십니까?",
+      "response_options": [
+        "아주 잘하고 있다",
+        "잘하고 있는 편이다",
+        "잘못하고 있는 편이다",
+        "아주 잘못하고 있다",
+        "잘 모르겠다"
+      ],
+      "overall_n_completed": null,
+      "overall_n_weighted": null,
+      "overall_percentages": [
+        44.9,
+        16.8,
+        8.5,
+        23.9,
+        5.9
+      ]
+    },
+    {
+      "question_number": 5,
+      "question_title": "지역현안",
+      "question_text": "경기도가 추진하고 있는 국내.외기업 100조원 투자유치 사업에 대해 어떻게 평가하십니까?",
+      "response_options": [
+        "아주 잘하고 있다",
+        "잘하는 편이다",
+        "잘못하는 편이다",
+        "아주 잘못하고 있다",
+        "잘 모르겠다"
+      ],
+      "overall_n_completed": null,
+      "overall_n_weighted": null,
+      "overall_percentages": [
+        27.3,
+        28.7,
+        9.4,
+        12.1,
+        22.6
+      ]
+    },
+    {
+      "question_number": 6,
+      "question_title": "정당지지도",
+      "question_text": "마지막으로 선생님께서는 어느 정당을 지지하십니까?",
+      "response_options": [
+        "더불어민주당",
+        "국민의힘",
+        "조국혁신당",
+        "진보당",
+        "개혁신당",
+        "기타정당",
+        "지지하는 정당이 없다",
+        "잘 모르겠다"
+      ],
+      "overall_n_completed": null,
+      "overall_n_weighted": null,
+      "overall_percentages": [
+        43.4,
+        25.8,
+        4.9,
+        1.4,
+        5.3,
+        2.7,
+        14.5,
+        2.0
+      ]
+    }
+  ]
+}
