@@ -16,13 +16,25 @@
       "class": "_RealMeterParser",
       "description": "리얼미터 크로스탭 PDF 파서 – 테이블 헤더 선택지 + 텍스트 전체 비율 혼합 방식",
       "content_probes": ["조사 가중값", "가중값\n적용\n사례수"]
+    },
+    "korean_research_format": {
+      "class": "_KoreanResearchParser",
+      "description": "한국리서치 크로스탭 PDF 파서 – [표N] 제목, ▣ 전체 ▣ 텍스트 기반 비율 추출",
+      "content_probes": ["▣ 전체 ▣"]
+    },
+    "signal_pulse_format": {
+      "class": "_SignalPulseParser",
+      "description": "시그널앤펄스 크로스탭 PDF 파서 – [표N]/[QN] 두 버전 지원, pollster 키워드 기반 선택",
+      "content_probes": []
     }
   },
   "pollster_assignments": {
     "조원씨앤아이": "table_format",
     "메타서치": "table_format",
     "데일리리서치": "text_format",
-    "리얼미터": "realmeter_format"
+    "리얼미터": "realmeter_format",
+    "한국리서치": "korean_research_format",
+    "시그널앤펄스": "signal_pulse_format"
   },
   "fallback_parser": "text_format"
 }

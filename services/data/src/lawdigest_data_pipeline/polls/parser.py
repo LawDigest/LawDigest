@@ -44,6 +44,8 @@ class PollResultParser:
             "_TableFormatParser": _TableFormatParser,
             "_TextFormatParser": _TextFormatParser,
             "_RealMeterParser": _RealMeterParser,
+            "_KoreanResearchParser": _KoreanResearchParser,
+            "_SignalPulseParser": _SignalPulseParser,
         }
         parsers_def = data.get("parsers", {})
         assignments = data.get("pollster_assignments", {})
@@ -317,6 +319,265 @@ class _TableFormatParser:
             return int(text)
         except ValueError:
             return None
+
+
+class _KoreanResearchParser(_TableFormatParser):
+    """한국리서치 크로스탭 PDF 파서.
+
+    PDF 구조:
+      - 질문 제목: '[표 N] 제목', 질문문: '[문N] 질문문?' 패턴
+      - 테이블 헤더 row 0: ['전체', '사례수 (명)', None, opt1, ..., '계']
+      - 전체 행 텍스트: '▣ 전체 ▣ (1,000) (1,000) p1 p2 ... 100'
+      - pdfplumber 셀 병합으로 테이블 % 컬럼이 None → 텍스트에서 비율 추출
+      - T2/B2/(1+2)/(3+4) 소계 컬럼 및 '계' 컬럼 제거
+    """
+
+    _TABLE_TITLE_RE = re.compile(r"\[표\s*(\d+)\]\s+(.+)")
+    _Q_TEXT_RE = re.compile(r"\[문\s*\d+\]\s+(.+?)(?:\?|？)", re.DOTALL)
+    _TOTAL_ROW_RE = re.compile(
+        r"▣ 전체 ▣\s+\(([\d,]+)\)\s+\(([\d,]+)\)\s+((?:[\d.]+\s*)+)"
+    )
+    _SUMMARY_COL_RE = re.compile(r"^T[12]|^B[12]|\(1\+2\)|\(3\+4\)|^계$")
+    _META_COLS = 3  # '전체', '사례수 (명)', None
+
+    def parse(self, pages_data: List[Tuple[str, List]]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_q_nums: set = set()
+
+        for page_text, page_tables in pages_data:
+            title_match = self._TABLE_TITLE_RE.search(page_text)
+            if not title_match:
+                continue
+            q_num = int(title_match.group(1))
+            if q_num in seen_q_nums:
+                continue
+
+            options = self._extract_options_kr(page_tables)
+            if not options:
+                continue
+
+            total_match = self._TOTAL_ROW_RE.search(page_text)
+            if not total_match:
+                continue
+
+            n_completed = int(total_match.group(1).replace(",", ""))
+            n_weighted = int(total_match.group(2).replace(",", ""))
+            raw_pcts = [float(v) for v in total_match.group(3).split()]
+
+            # 소계 컬럼 쌍 제거 후 길이 맞춤
+            pairs = [
+                (o, p)
+                for o, p in zip(options, raw_pcts)
+                if not self._SUMMARY_COL_RE.search(re.sub(r"\s+", "", o))
+            ]
+            if not pairs:
+                continue
+            options_f, pcts_f = zip(*pairs)
+            min_len = min(len(options_f), len(pcts_f))
+            if min_len == 0:
+                continue
+
+            q_title = title_match.group(2).strip()
+            q_text_match = self._Q_TEXT_RE.search(page_text)
+            q_text = (
+                re.sub(r"\s+", " ", q_text_match.group(1)).strip() + "?"
+                if q_text_match
+                else q_title
+            )
+
+            seen_q_nums.add(q_num)
+            results.append(
+                QuestionResult(
+                    question_number=q_num,
+                    question_title=q_title,
+                    question_text=q_text,
+                    response_options=list(options_f[:min_len]),
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=list(pcts_f[:min_len]),
+                )
+            )
+
+        return results
+
+    def _extract_options_kr(self, page_tables: List) -> List[str]:
+        """헤더 row 0 col 3+ 에서 선택지 추출 (col 0 == '전체' 기준 식별)."""
+        for table in page_tables:
+            if not table or len(table) < 2:
+                continue
+            header = table[0]
+            if not header or str(header[0] or "").strip() != "전체":
+                continue
+            options: List[str] = []
+            for cell in header[self._META_COLS :]:
+                opt = re.sub(r"[\n\x00]", "", str(cell or "")).strip()
+                if not opt or opt.lower() == "none":
+                    continue
+                options.append(opt)
+            if options:
+                return options
+        return []
+
+
+class _SignalPulseParser(_TableFormatParser):
+    """시그널앤펄스 크로스탭 PDF 파서.
+
+    두 가지 PDF 버전을 처리한다:
+      - 신버전 ([표N] 형식): 테이블 row 0 에 '[표N] 제목', 전체 비율은 텍스트에서 추출
+        '▣ 전 체 ▣ 1,000 1,000 p1 p2 ...'
+      - 구버전 ([QN] 형식): 테이블 row 0 에 '[QN] [제목]', 전체 행('합계')이 테이블에 있음
+    한 질문이 여러 페이지에 걸쳐 반복됨 → seen_q_nums 중복 방지
+    """
+
+    _PYO_TITLE_RE = re.compile(r"\[표\s*(\d+)\]\s+(.+)")   # 신버전: [표N] 제목
+    _Q_TITLE_RE = re.compile(r"\[Q(\d+)\]\s+\[(.+)\]")     # 구버전: [Q1] [제목]
+    _TOTAL_TEXT_RE = re.compile(                             # 신버전 전체 행 (텍스트)
+        r"▣ 전 체 ▣\s+([\d,]+)\s+([\d,]+)\s+((?:[\d.]+\s*)+)"
+    )
+    _SUMMARY_COL_RE = re.compile(r"\(합\)")                 # 소계 컬럼 필터
+    _META_COLS = 4  # col 0~3: 제목/None/조사완료/가중값적용
+
+    def parse(self, pages_data: List[Tuple[str, List]]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_q_nums: set = set()
+
+        for page_text, page_tables in pages_data:
+            for table in page_tables:
+                result = self._try_parse_table(table, page_text, seen_q_nums)
+                if result is not None:
+                    results.append(result)
+
+        return results
+
+    def _try_parse_table(
+        self, table: List, page_text: str, seen_q_nums: set
+    ) -> Optional[QuestionResult]:
+        if not table or len(table) < 2 or not table[0]:
+            return None
+        cell0 = str(table[0][0] or "").strip()
+
+        m_pyo = self._PYO_TITLE_RE.match(cell0)
+        if m_pyo:
+            return self._parse_pyo(table, page_text, m_pyo, seen_q_nums)
+
+        m_q = self._Q_TITLE_RE.match(cell0)
+        if m_q:
+            return self._parse_q(table, m_q, seen_q_nums)
+
+        return None
+
+    def _parse_pyo(
+        self, table: List, page_text: str, m: re.Match, seen_q_nums: set
+    ) -> Optional[QuestionResult]:
+        """신버전: [표N] – 텍스트에서 전체 비율 추출."""
+        q_num = int(m.group(1))
+        if q_num in seen_q_nums:
+            return None
+
+        options = self._extract_options(table)
+        if not options:
+            return None
+
+        total_match = self._TOTAL_TEXT_RE.search(page_text)
+        if not total_match:
+            return None
+
+        n_completed = int(total_match.group(1).replace(",", ""))
+        n_weighted = int(total_match.group(2).replace(",", ""))
+        raw_pcts = [float(v) for v in total_match.group(3).split()]
+
+        options_f, pcts_f = self._filter_summary(options, raw_pcts)
+        min_len = min(len(options_f), len(pcts_f))
+        if min_len == 0:
+            return None
+
+        seen_q_nums.add(q_num)
+        return QuestionResult(
+            question_number=q_num,
+            question_title=m.group(2).strip(),
+            question_text="",
+            response_options=options_f[:min_len],
+            overall_n_completed=n_completed,
+            overall_n_weighted=n_weighted,
+            overall_percentages=pcts_f[:min_len],
+        )
+
+    def _parse_q(
+        self, table: List, m: re.Match, seen_q_nums: set
+    ) -> Optional[QuestionResult]:
+        """구버전: [QN] – 테이블 '합계' 행에서 직접 비율 추출."""
+        q_num = int(m.group(1))
+        if q_num in seen_q_nums:
+            return None
+
+        options = self._extract_options(table)
+        if not options:
+            return None
+
+        # '합계' 행 탐색
+        total_row: Optional[List] = None
+        for row in table[2:]:
+            if row and str(row[0] or "").strip() == "합계":
+                total_row = row
+                break
+        if total_row is None:
+            return None
+
+        try:
+            n_completed = int(str(total_row[2] or "").replace(",", ""))
+            n_weighted = int(str(total_row[3] or "").replace(",", ""))
+        except (ValueError, IndexError):
+            return None
+
+        raw_pcts: List[float] = []
+        for cell in total_row[self._META_COLS :]:
+            try:
+                raw_pcts.append(float(str(cell or "").strip()))
+            except ValueError:
+                pass
+
+        options_f, pcts_f = self._filter_summary(options, raw_pcts)
+        min_len = min(len(options_f), len(pcts_f))
+        if min_len == 0:
+            return None
+
+        seen_q_nums.add(q_num)
+        return QuestionResult(
+            question_number=q_num,
+            question_title=m.group(2).strip(),
+            question_text="",
+            response_options=options_f[:min_len],
+            overall_n_completed=n_completed,
+            overall_n_weighted=n_weighted,
+            overall_percentages=pcts_f[:min_len],
+        )
+
+    def _extract_options(self, table: List) -> List[str]:
+        """row 1 col META_COLS+ 에서 선택지 추출."""
+        if len(table) < 2:
+            return []
+        option_row = table[1]
+        options: List[str] = []
+        for cell in option_row[self._META_COLS :]:
+            opt = re.sub(r"[\n\x00]", "", str(cell or "")).strip()
+            if not opt or opt.lower() == "none" or opt == "빈도":
+                continue
+            options.append(opt)
+        return options
+
+    def _filter_summary(
+        self, options: List[str], raw_pcts: List[float]
+    ) -> tuple:
+        """소계 컬럼 쌍 제거."""
+        pairs = [
+            (o, p)
+            for o, p in zip(options, raw_pcts)
+            if not self._SUMMARY_COL_RE.search(o)
+        ]
+        if not pairs:
+            return [], []
+        opts, pcts = zip(*pairs)
+        return list(opts), list(pcts)
 
 
 class _RealMeterParser(_TableFormatParser):
