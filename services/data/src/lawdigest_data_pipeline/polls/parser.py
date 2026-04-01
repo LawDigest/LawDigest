@@ -46,6 +46,7 @@ class PollResultParser:
             "_RealMeterParser": _RealMeterParser,
             "_KoreanResearchParser": _KoreanResearchParser,
             "_SignalPulseParser": _SignalPulseParser,
+            "_EmbrainPublicParser": _EmbrainPublicParser,
         }
         parsers_def = data.get("parsers", {})
         assignments = data.get("pollster_assignments", {})
@@ -530,6 +531,30 @@ class _SignalPulseParser(_TableFormatParser):
         total_row: Optional[List] = None
         for row in table[2:]:
             if row and str(row[0] or "").strip() == "합계":
+class _EmbrainPublicParser(_TableFormatParser):
+    """엠브레인퍼블릭 크로스탭 PDF 파서.
+
+    PDF 구조:
+      - 질문 제목: '[표N] 제목' 패턴
+      - 테이블 구조: col 0-3 메타(None/None/사례수/None), col 4+가 선택지
+      - 전체 행: '■ 전체 ■' 마커, col 2=N완료(조사), col 3=N가중(가중값적용)
+      - 【...】 패턴(소계 컬럼) 및 None 헤더 컬럼 제거
+    """
+
+    _TABLE_TITLE_RE = re.compile(r"\[표(\d+)\]\s+(.+)")
+    _SUMMARY_COL_RE = re.compile(r"【.+】")
+    _META_COLS = 4  # None, None, 사례수, None
+
+    def _parse_table(
+        self, table: List[List], page_text: str
+    ) -> Optional[QuestionResult]:
+        if not table or len(table) < 2:
+            return None
+
+        # 전체 행: '■ 전체 ■' 으로 시작하는 행
+        total_row: Optional[List] = None
+        for row in table[1:]:
+            if row and row[0] and str(row[0]).startswith("■") and "전체" in str(row[0]):
                 total_row = row
                 break
         if total_row is None:
@@ -590,6 +615,54 @@ class _SignalPulseParser(_TableFormatParser):
             return [], []
         opts, pcts = zip(*pairs)
         return list(opts), list(pcts)
+
+        header_row = table[0]
+        if len(header_row) <= self._META_COLS:
+            return None
+
+        # n_completed = col 2, n_weighted = col 3
+        n_completed = self._extract_n(str(total_row[2] if len(total_row) > 2 else ""))
+        n_weighted = self._extract_n(str(total_row[3] if len(total_row) > 3 else ""))
+
+        # 선택지 및 비율 추출: col 4+ (None/소계/【...】 제거)
+        options: List[str] = []
+        percentages: List[float] = []
+        for header_cell, value_cell in zip(
+            header_row[self._META_COLS:], total_row[self._META_COLS:]
+        ):
+            opt = re.sub(r"[\n\x00]", " ", str(header_cell or "")).strip()
+            if not opt or opt.lower() == "none":
+                continue
+            if self._SUMMARY_COL_RE.search(opt) or self._SUBTOTAL_RE.search(opt):
+                continue
+            try:
+                pct = float(str(value_cell or "").strip())
+            except ValueError:
+                continue
+            options.append(re.sub(r"\s+", "", opt))
+            percentages.append(pct)
+
+        if not percentages:
+            return None
+
+        # 질문 번호/제목: [표N] 패턴
+        title_match = self._TABLE_TITLE_RE.search(page_text)
+        if title_match:
+            q_num = int(title_match.group(1))
+            q_title = title_match.group(2).strip()
+        else:
+            q_num = 0
+            q_title = ""
+
+        return QuestionResult(
+            question_number=q_num,
+            question_title=q_title,
+            question_text="",
+            response_options=options,
+            overall_n_completed=n_completed,
+            overall_n_weighted=n_weighted,
+            overall_percentages=percentages,
+        )
 
 
 class _RealMeterParser(_TableFormatParser):
