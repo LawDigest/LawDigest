@@ -1,0 +1,105 @@
+{
+  "pollster": "(주)한국리서치",
+  "pdf_filename": "(경인일보)지방선거 경기도민 여론조사_결과표_2월 23일 보도용.pdf",
+  "parsed_at": "2026-04-01T12:13:07.447222+00:00",
+  "elapsed_seconds": 9.4,
+  "question_count": 4,
+  "questions": [
+    {
+      "question_number": 9,
+      "question_title": "경기도교육감 후보 지지도",
+      "question_text": "선생님께서는 6월 경기도교육감 선거 후보로 거론되는 다음 인물들 중 누구를 지지하겠습니까?",
+      "response_options": [
+        "성기선전2022년경기도교육감선거민주진보단일화후보(2022년경기교육혁신연대)",
+        "박효진전전교조경기지부장",
+        "안민석전국회의원(5선)",
+        "유은혜전사회부총리겸교육부장관",
+        "이해문전홍익대학교경영대학초빙교수",
+        "임태희현경기도교육감",
+        "다른후보",
+        "지지하는후보가없다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        4.0,
+        1.0,
+        10.0,
+        9.0,
+        1.0,
+        9.0,
+        0.0,
+        51.0,
+        15.0
+      ]
+    },
+    {
+      "question_number": 10,
+      "question_title": "경기도교육감 진보 후보 적합도",
+      "question_text": "6월 경기도교육감 선거에서 진보교육감 단일화를 추진한다면 진보교육감 후보로 누가 가장 적합하다고 생각하십니까?",
+      "response_options": [
+        "성기선 전2022년경기도교육감선거민주진보단일화후보(2022년경기교육혁신연대)",
+        "박효진전전교조경기지부장",
+        "안민석전국회의원(5선)",
+        "유은혜전사회부총리겸교육부장관",
+        "다른후보",
+        "적합한후보가없다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        5.0,
+        2.0,
+        13.0,
+        13.0,
+        0.0,
+        48.0,
+        19.0
+      ]
+    },
+    {
+      "question_number": 11,
+      "question_title": "경기도교육감 지지 후보 성향",
+      "question_text": "6월 교육감 선거에서 어떤 성향을 표방하는 후보를 지지하실 생각이십니까?",
+      "response_options": [
+        "진보",
+        "중도",
+        "보수",
+        "관계없음",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        29.0,
+        18.0,
+        17.0,
+        31.0,
+        5.0
+      ]
+    },
+    {
+      "question_number": 12,
+      "question_title": "경기도교육감 교육행정 평가",
+      "question_text": "선생님께서는 임태희 경기도교육감이 교육감으로서 일을 잘하고 있다고 생각하십니까?",
+      "response_options": [
+        "매우잘하고있다",
+        "잘하는편이다",
+        "잘못하는편이다",
+        "매우잘못하고있다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        3.0,
+        29.0,
+        24.0,
+        10.0,
+        34.0
+      ]
+    }
+  ]
+}
