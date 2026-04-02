@@ -25,6 +25,8 @@ harness
 
 .airflow_artifacts
 
+services/data/output
+
 # =====================
 # Java / Spring Boot (services/backend)
 # =====================
