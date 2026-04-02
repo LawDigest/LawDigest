@@ -26,6 +26,8 @@ harness
 .airflow_artifacts
 
 services/data/output
+services/data/.lawdigestenv
+services/data/.agent
 
 # =====================
 # Java / Spring Boot (services/backend)
