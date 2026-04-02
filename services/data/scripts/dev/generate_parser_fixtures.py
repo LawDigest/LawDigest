@@ -32,8 +32,8 @@ from lawdigest_data.polls.parser import PollResultParser  # noqa: E402
 # PDF는 main 프로젝트 경로에서 조회 (워크트리에는 output/ 없음)
 _MAIN_DATA = Path("/home/ubuntu/project/Lawdigest/services/data")
 _PDF_DIR = (
-    (_MAIN_DATA if (_MAIN_DATA / "output" / "polls").exists() else _BASE)
-    / "output" / "polls" / "pdfs" / "gyeonggi_governor"
+    (_MAIN_DATA if (_MAIN_DATA / "output" / "pdfs").exists() else _BASE)
+    / "output" / "pdfs" / "gyeonggi_governor"
 )
 _FIXTURE_DIR = _BASE / "tests" / "polls" / "fixtures"
 _REGISTRY = _BASE / "config" / "parser_registry.json"

@@ -13,6 +13,43 @@ from .models import QuestionResult
 _DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[4] / "config"
 
 
+def _extract_text_outside_tables(page: "fitz.Page", finder: "fitz.TableFinder") -> str:  # type: ignore[name-defined]
+    """테이블 영역을 제외한 페이지 텍스트를 줄 단위로 재구성한다.
+
+    PyMuPDF의 get_text()는 테이블 셀 내용까지 포함해 뒤섞이므로,
+    words 단위로 테이블 bbox 외부 단어만 추출해 라인을 재조합한다.
+    """
+    table_bboxes = [t.bbox for t in finder.tables]
+
+    def _in_table(wx0: float, wy0: float, wx1: float, wy1: float) -> bool:
+        return any(
+            wx0 >= tx0 - 3 and wy0 >= ty0 - 3 and wx1 <= tx1 + 3 and wy1 <= ty1 + 3
+            for tx0, ty0, tx1, ty1 in table_bboxes
+        )
+
+    words = [
+        w for w in page.get_text("words")
+        if not _in_table(w[0], w[1], w[2], w[3])
+    ]
+    words.sort(key=lambda w: (round(w[1]), w[0]))
+
+    lines: List[str] = []
+    current_y: Optional[float] = None
+    line_words: List[str] = []
+    for w in words:
+        y = round(w[1])
+        if current_y is None or abs(y - current_y) > 3:
+            if line_words:
+                lines.append(" ".join(line_words))
+            current_y, line_words = y, [w[4]]
+        else:
+            line_words.append(w[4])
+    if line_words:
+        lines.append(" ".join(line_words))
+
+    return "\n".join(lines)
+
+
 @dataclass
 class _RegistryEntry:
     parser_class: type
@@ -117,39 +154,45 @@ class PollResultParser:
     ) -> List[QuestionResult]:
         """PDF 파일을 파싱하여 QuestionResult 목록을 반환한다."""
         try:
-            import pdfplumber
+            import fitz  # PyMuPDF
         except ImportError as exc:
-            raise RuntimeError("PDF 파싱을 위해 pdfplumber가 필요합니다.") from exc
+            raise RuntimeError("PDF 파싱을 위해 pymupdf가 필요합니다.") from exc
 
-        pages_data: List[Tuple[str, List]] = []
-        with pdfplumber.open(pdf_path) as pdf:
-            for page in pdf.pages:
-                text = page.extract_text() or ""
-                tables = page.extract_tables() or []
-                pages_data.append((text, tables))
+        pages_data: List[Tuple[str, List, str]] = []
+        doc = fitz.open(pdf_path)
+        try:
+            for page in doc:
+                finder = page.find_tables()
+                tables = [t.extract() for t in finder.tables]
+                full_text = page.get_text() or ""
+                # 테이블 외부 텍스트: 섹션 제목 파싱 정확도 향상 (word 단위 재조합)
+                outside_text = _extract_text_outside_tables(page, finder) if tables else full_text
+                pages_data.append((outside_text, tables, full_text))
+        finally:
+            doc.close()
 
-        full_text = "\n".join(t for t, _ in pages_data)
-        parser_class = self._select_parser(full_text, pollster_hint)
+        parser_class = self._select_parser("", pollster_hint)
 
         if issubclass(parser_class, _TableFormatParser):
             return parser_class().parse(pages_data)
         else:
+            full_text = "\n".join(ft for _, _, ft in pages_data)
             return parser_class().parse(full_text)
 
     def _select_parser(self, full_text: str, pollster_hint: Optional[str]) -> type:
-        """레지스트리에서 적합한 파서 클래스를 선택한다."""
+        """레지스트리에서 적합한 파서 클래스를 선택한다.
+
+        pollster_hint가 있으면 pollster_assignments 기반으로만 선택한다.
+        수집 단계에서 여론조사기관이 항상 알려져 있으므로 content_probe fallback은 사용하지 않는다.
+        """
         if pollster_hint:
             for entry in self._registry:
                 if entry.pollster_keywords and any(
                     kw in pollster_hint for kw in entry.pollster_keywords
                 ):
-                    if entry.content_probe is None or entry.content_probe in full_text:
-                        return entry.parser_class
+                    return entry.parser_class
 
-        for entry in self._registry:
-            if entry.content_probe and entry.content_probe in full_text:
-                return entry.parser_class
-
+        # pollster_hint 없을 때만 fallback
         for entry in self._registry:
             if entry.content_probe is None:
                 return entry.parser_class
@@ -241,9 +284,9 @@ class _TableFormatParser:
     _N_RE = re.compile(r"\((\d+)\)")
     _SUBTOTAL_RE = re.compile(r"\(합\)|합계|소계")
 
-    def parse(self, pages_data: List[Tuple[str, List]]) -> List[QuestionResult]:
+    def parse(self, pages_data: List[Tuple[str, List, str]]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
-        for page_text, page_tables in pages_data:
+        for page_text, page_tables, _full_text in pages_data:
             for table in page_tables:
                 result = self._parse_table(table, page_text)
                 if result is not None:
@@ -331,7 +374,7 @@ class _KoreanResearchParser(_TableFormatParser):
       - 질문 제목: '[표 N] 제목', 질문문: '[문N] 질문문?' 패턴
       - 테이블 헤더 row 0: ['전체', '사례수 (명)', None, opt1, ..., '계']
       - 전체 행 텍스트: '▣ 전체 ▣ (1,000) (1,000) p1 p2 ... 100'
-      - pdfplumber 셀 병합으로 테이블 % 컬럼이 None → 텍스트에서 비율 추출
+      - PyMuPDF 테이블 추출 시 % 컬럼이 병합(None)될 수 있어 full_text에서 비율 추출
       - T2/B2/(1+2)/(3+4) 소계 컬럼 및 '계' 컬럼 제거
     """
 
@@ -343,11 +386,11 @@ class _KoreanResearchParser(_TableFormatParser):
     _SUMMARY_COL_RE = re.compile(r"^T[12]|^B[12]|\(1\+2\)|\(3\+4\)|^계$")
     _META_COLS = 3  # '전체', '사례수 (명)', None
 
-    def parse(self, pages_data: List[Tuple[str, List]]) -> List[QuestionResult]:
+    def parse(self, pages_data: List[Tuple[str, List, str]]) -> List[QuestionResult]:
         # q_num → QuestionResult (페이지 분할 표 merge 지원)
         result_map: dict = {}
 
-        for page_text, page_tables in pages_data:
+        for page_text, page_tables, full_text in pages_data:
             title_match = self._TABLE_TITLE_RE.search(page_text)
             if not title_match:
                 continue
@@ -357,7 +400,8 @@ class _KoreanResearchParser(_TableFormatParser):
             if not options:
                 continue
 
-            total_match = self._TOTAL_ROW_RE.search(page_text)
+            # 전체 행 비율은 테이블 셀 내부에 있으므로 full_text에서 검색
+            total_match = self._TOTAL_ROW_RE.search(full_text)
             if not total_match:
                 continue
 
@@ -450,11 +494,11 @@ class _SignalPulseParser(_TableFormatParser):
     _SUMMARY_COL_RE = re.compile(r"\(합\)")                 # 소계 컬럼 필터
     _META_COLS = 4  # col 0~3: 제목/None/조사완료/가중값적용
 
-    def parse(self, pages_data: List[Tuple[str, List]]) -> List[QuestionResult]:
+    def parse(self, pages_data: List[Tuple[str, List, str]]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
         seen_q_nums: set = set()
 
-        for page_text, page_tables in pages_data:
+        for page_text, page_tables, _full_text in pages_data:
             for table in page_tables:
                 result = self._try_parse_table(table, page_text, seen_q_nums)
                 if result is not None:
@@ -531,6 +575,39 @@ class _SignalPulseParser(_TableFormatParser):
         total_row: Optional[List] = None
         for row in table[2:]:
             if row and str(row[0] or "").strip() == "합계":
+                total_row = row
+                break
+        if total_row is None:
+            return None
+
+        options_f, pcts_f = self._filter_summary(
+            options,
+            [float(str(c or "").strip()) for c in total_row[self._META_COLS:] if self._is_float(str(c or "").strip())],
+        )
+        min_len = min(len(options_f), len(pcts_f))
+        if min_len == 0:
+            return None
+
+        seen_q_nums.add(q_num)
+        return QuestionResult(
+            question_number=q_num,
+            question_title=m.group(2).strip(),
+            question_text="",
+            response_options=options_f[:min_len],
+            overall_n_completed=None,
+            overall_n_weighted=None,
+            overall_percentages=pcts_f[:min_len],
+        )
+
+    @staticmethod
+    def _is_float(s: str) -> bool:
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
+
+
 class _EmbrainPublicParser(_TableFormatParser):
     """엠브레인퍼블릭 크로스탭 PDF 파서.
 
@@ -566,8 +643,10 @@ class _EmbrainPublicParser(_TableFormatParser):
         except (ValueError, IndexError):
             return None
 
+        options = self._extract_options(table)
+
         raw_pcts: List[float] = []
-        for cell in total_row[self._META_COLS :]:
+        for cell in total_row[self._META_COLS:]:
             try:
                 raw_pcts.append(float(str(cell or "").strip()))
             except ValueError:
@@ -578,10 +657,17 @@ class _EmbrainPublicParser(_TableFormatParser):
         if min_len == 0:
             return None
 
-        seen_q_nums.add(q_num)
+        title_match = self._TABLE_TITLE_RE.search(page_text)
+        if title_match:
+            q_num = int(title_match.group(1))
+            q_title = title_match.group(2).strip()
+        else:
+            q_num = 0
+            q_title = ""
+
         return QuestionResult(
             question_number=q_num,
-            question_title=m.group(2).strip(),
+            question_title=q_title,
             question_text="",
             response_options=options_f[:min_len],
             overall_n_completed=n_completed,
@@ -616,54 +702,6 @@ class _EmbrainPublicParser(_TableFormatParser):
         opts, pcts = zip(*pairs)
         return list(opts), list(pcts)
 
-        header_row = table[0]
-        if len(header_row) <= self._META_COLS:
-            return None
-
-        # n_completed = col 2, n_weighted = col 3
-        n_completed = self._extract_n(str(total_row[2] if len(total_row) > 2 else ""))
-        n_weighted = self._extract_n(str(total_row[3] if len(total_row) > 3 else ""))
-
-        # 선택지 및 비율 추출: col 4+ (None/소계/【...】 제거)
-        options: List[str] = []
-        percentages: List[float] = []
-        for header_cell, value_cell in zip(
-            header_row[self._META_COLS:], total_row[self._META_COLS:]
-        ):
-            opt = re.sub(r"[\n\x00]", " ", str(header_cell or "")).strip()
-            if not opt or opt.lower() == "none":
-                continue
-            if self._SUMMARY_COL_RE.search(opt) or self._SUBTOTAL_RE.search(opt):
-                continue
-            try:
-                pct = float(str(value_cell or "").strip())
-            except ValueError:
-                continue
-            options.append(re.sub(r"\s+", "", opt))
-            percentages.append(pct)
-
-        if not percentages:
-            return None
-
-        # 질문 번호/제목: [표N] 패턴
-        title_match = self._TABLE_TITLE_RE.search(page_text)
-        if title_match:
-            q_num = int(title_match.group(1))
-            q_title = title_match.group(2).strip()
-        else:
-            q_num = 0
-            q_title = ""
-
-        return QuestionResult(
-            question_number=q_num,
-            question_title=q_title,
-            question_text="",
-            response_options=options,
-            overall_n_completed=n_completed,
-            overall_n_weighted=n_weighted,
-            overall_percentages=percentages,
-        )
-
 
 class _RealMeterParser(_TableFormatParser):
     """리얼미터 크로스탭 PDF 파서.
@@ -689,11 +727,11 @@ class _RealMeterParser(_TableFormatParser):
     # 원형 숫자 두 개가 + 로 연결된 경우
     _SUMMARY_OPT_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩]\s*\+\s*[①②③④⑤⑥⑦⑧⑨⑩]")
 
-    def parse(self, pages_data: List[Tuple[str, List]]) -> List[QuestionResult]:
+    def parse(self, pages_data: List[Tuple[str, List, str]]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
         seen_q_nums: set = set()
 
-        for page_text, page_tables in pages_data:
+        for page_text, page_tables, full_text in pages_data:
             # ── 질문 섹션 시작 확인 ─────────────────────────────────────────
             q_section_match = self._Q_SECTION_RE.search(page_text)
             if not q_section_match:
@@ -707,8 +745,10 @@ class _RealMeterParser(_TableFormatParser):
             if not options:
                 continue
 
-            # ── 전체 비율: 텍스트에서 추출 ──────────────────────────────────
-            total_match = self._TOTAL_ROW_RE.search(page_text)
+            # ── 전체 비율: 전체 텍스트(테이블 셀 포함)에서 추출 ────────────
+            # 전체 행('전체 (N완료) (N가중) p1 p2 ...')은 테이블 내부에 있으므로
+            # page_text(테이블 외부 텍스트)가 아닌 full_text에서 검색한다.
+            total_match = self._TOTAL_ROW_RE.search(full_text)
             if not total_match:
                 continue
             n_completed = int(total_match.group(1))

@@ -30,7 +30,7 @@ dependencies = [
   "langchain-openai>=1.1.10",
   "langchain-google-genai>=4.2.1",
   "llama-index>=0.14.15",
-  "pdfplumber>=0.11.0",
+  "pymupdf>=1.26.0",
 ]
 
 [project.optional-dependencies]
