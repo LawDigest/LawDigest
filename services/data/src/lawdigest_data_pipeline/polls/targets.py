@@ -26,6 +26,7 @@ class PollTarget:
     election_type: Optional[str] = None
     pollsters: Optional[Tuple[str, ...]] = None  # 조사기관명 OR 필터 (None = 전체)
     slug: str = ""
+    poll_gubuncd: str = ""  # NESDC pollGubuncd 파라미터 (예: VT026)
 
 
 def load_targets(targets_path: Optional[Path] = None) -> List[PollTarget]:
@@ -50,6 +51,7 @@ def load_targets(targets_path: Optional[Path] = None) -> List[PollTarget]:
             election_type=item.get("election_type"),
             pollsters=tuple(pollsters) if pollsters else None,
             slug=item.get("slug", ""),
+            poll_gubuncd=item.get("poll_gubuncd", ""),
         ))
     return targets
 

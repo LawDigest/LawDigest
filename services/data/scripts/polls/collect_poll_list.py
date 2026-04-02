@@ -2,15 +2,20 @@
 
 사용법:
     cd services/data
+    # 기본 (poll_targets.json의 첫 번째 타겟)
     python scripts/polls/collect_poll_list.py
 
-출력:
-    output/polls/lists/9th_local.json   — 전체 레코드 (JSON)
-    output/polls/lists/9th_local.csv    — 전체 레코드 (CSV, 분석용)
-    output/polls/lists/9th_local.ckpt   — 페이지별 체크포인트 (재시작 지원)
+    # 특정 타겟 지정
+    python scripts/polls/collect_poll_list.py --target gyeonggi_governor_9th
+
+출력 (slug 기반):
+    output/polls/lists/{slug}.json   — 전체 레코드 (JSON)
+    output/polls/lists/{slug}.csv    — 전체 레코드 (CSV, 분석용)
+    output/polls/lists/{slug}.ckpt   — 페이지별 체크포인트 (재시작 지원)
 """
 from __future__ import annotations
 
+import argparse
 import csv
 import json
 import logging
@@ -27,9 +32,13 @@ from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+_BASE = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_BASE / "src"))
+
+from lawdigest_data_pipeline.polls.targets import load_targets  # noqa: E402
+
 # ── 설정 ────────────────────────────────────────────────────────────────────────
 
-POLL_GUBUNCD = "VT026"          # 제9회 전국동시지방선거
 BASE_URL = "https://www.nesdc.go.kr"
 LIST_PATH = "/portal/bbs/B0000005/list.do"
 MENU_NO = "200467"
@@ -40,12 +49,6 @@ MAX_DELAY = 4.0
 
 MAX_PAGES = 200          # 안전 상한 (실제 페이지 수 초과 시 자동 종료)
 CHECKPOINT_EVERY = 10    # N 페이지마다 중간 저장
-
-_BASE = Path(__file__).resolve().parents[2]
-OUTPUT_DIR = _BASE / "output" / "polls" / "lists"
-OUTPUT_JSON = OUTPUT_DIR / "9th_local.json"
-OUTPUT_CSV = OUTPUT_DIR / "9th_local.csv"
-CHECKPOINT_FILE = OUTPUT_DIR / "9th_local.ckpt"
 
 HEADERS = {
     "User-Agent": (
@@ -81,7 +84,7 @@ def _build_session() -> requests.Session:
         status=5,
         allowed_methods=frozenset(["GET", "HEAD"]),
         status_forcelist=[429, 500, 502, 503, 504],
-        backoff_factor=2.0,          # 2s → 4s → 8s … 지수 백오프
+        backoff_factor=2.0,
         respect_retry_after_header=True,
     )
     adapter = HTTPAdapter(max_retries=retry)
@@ -102,12 +105,10 @@ def _extract_query_param(url: str, key: str) -> Optional[str]:
 
 
 def _parse_total_count(soup: BeautifulSoup) -> Optional[int]:
-    """페이지 상단 '총 N건' 또는 '검색결과 N건' 텍스트에서 총 건수 추출."""
     for tag in soup.find_all(string=re.compile(r"총\s*[\d,]+")):
         m = re.search(r"총\s*([\d,]+)", tag)
         if m:
             return int(m.group(1).replace(",", ""))
-    # 대안: 숫자가 포함된 span/p 탐색
     for tag in soup.select(".total, .totalCnt, .search_result_count"):
         m = re.search(r"([\d,]+)", tag.get_text())
         if m:
@@ -140,12 +141,11 @@ def _parse_list_page(soup: BeautifulSoup) -> List[Dict]:
 
 # ── 체크포인트 ────────────────────────────────────────────────────────────────────
 
-def _load_checkpoint() -> tuple[int, List[Dict]]:
-    """저장된 체크포인트에서 (마지막_페이지, 누적_레코드) 반환."""
-    if not CHECKPOINT_FILE.exists():
+def _load_checkpoint(ckpt_path: Path) -> tuple[int, List[Dict]]:
+    if not ckpt_path.exists():
         return 0, []
     try:
-        data = json.loads(CHECKPOINT_FILE.read_text(encoding="utf-8"))
+        data = json.loads(ckpt_path.read_text(encoding="utf-8"))
         last_page = data.get("last_page", 0)
         records = data.get("records", [])
         log.info("체크포인트 로드: %d페이지까지 완료, %d건 누적", last_page, len(records))
@@ -155,8 +155,8 @@ def _load_checkpoint() -> tuple[int, List[Dict]]:
         return 0, []
 
 
-def _save_checkpoint(last_page: int, records: List[Dict]) -> None:
-    CHECKPOINT_FILE.write_text(
+def _save_checkpoint(ckpt_path: Path, last_page: int, records: List[Dict]) -> None:
+    ckpt_path.write_text(
         json.dumps({"last_page": last_page, "records": records}, ensure_ascii=False),
         encoding="utf-8",
     )
@@ -164,18 +164,15 @@ def _save_checkpoint(last_page: int, records: List[Dict]) -> None:
 
 # ── 저장 ─────────────────────────────────────────────────────────────────────────
 
-def _save_json(records: List[Dict]) -> None:
-    OUTPUT_JSON.write_text(
-        json.dumps(records, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
+def _save_json(path: Path, records: List[Dict]) -> None:
+    path.write_text(json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _save_csv(records: List[Dict]) -> None:
+def _save_csv(path: Path, records: List[Dict]) -> None:
     if not records:
         return
     fieldnames = list(records[0].keys())
-    with OUTPUT_CSV.open("w", newline="", encoding="utf-8-sig") as f:
+    with path.open("w", newline="", encoding="utf-8-sig") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(records)
@@ -195,7 +192,7 @@ def _progress_bar(current: int, total: int, width: int = 30) -> str:
 def _eta_str(elapsed: float, current: int, total: int) -> str:
     if current <= 0 or total <= 0:
         return "--:--"
-    rate = current / elapsed           # 페이지/초
+    rate = current / elapsed
     remaining = (total - current) / rate
     m, s = divmod(int(remaining), 60)
     return f"{m:02d}:{s:02d}"
@@ -204,17 +201,50 @@ def _eta_str(elapsed: float, current: int, total: int) -> str:
 # ── 메인 ─────────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    session = _build_session()
+    ap = argparse.ArgumentParser(description="NESDC 여론조사 목록 수집")
+    ap.add_argument(
+        "--target",
+        default=None,
+        help="poll_targets.json의 slug (미지정 시 첫 번째 타겟 사용)",
+    )
+    args = ap.parse_args()
 
-    # 체크포인트 확인
-    last_completed_page, all_records = _load_checkpoint()
+    # ── 타겟 로드 ──────────────────────────────────────────────────────────────
+    targets = load_targets(_BASE / "config" / "poll_targets.json")
+    if not targets:
+        log.error("poll_targets.json에 타겟이 없습니다.")
+        sys.exit(1)
+
+    if args.target:
+        matched = [t for t in targets if t.slug == args.target]
+        if not matched:
+            log.error("타겟을 찾을 수 없습니다: %s", args.target)
+            log.error("사용 가능한 slug: %s", [t.slug for t in targets])
+            sys.exit(1)
+        target = matched[0]
+    else:
+        target = targets[0]
+        log.info("타겟 미지정 — 첫 번째 타겟 사용: %s", target.slug)
+
+    if not target.poll_gubuncd:
+        log.error("poll_targets.json의 '%s' 타겟에 poll_gubuncd가 없습니다.", target.slug)
+        sys.exit(1)
+
+    # ── 경로 설정 ──────────────────────────────────────────────────────────────
+    output_dir = _BASE / "output" / "polls" / "lists"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_json  = output_dir / f"{target.slug}.json"
+    output_csv   = output_dir / f"{target.slug}.csv"
+    ckpt_file    = output_dir / f"{target.slug}.ckpt"
+
+    session = _build_session()
+    last_completed_page, all_records = _load_checkpoint(ckpt_file)
     start_page = last_completed_page + 1
 
     if last_completed_page > 0:
         log.info("이어서 수집합니다 (페이지 %d부터)", start_page)
     else:
-        log.info("제9회 전국동시지방선거 여론조사 목록 수집 시작")
+        log.info("여론조사 목록 수집 시작 — 타겟: %s (gubuncd=%s)", target.slug, target.poll_gubuncd)
 
     seen_ids = {r["ntt_id"] for r in all_records if r.get("ntt_id")}
 
@@ -228,18 +258,13 @@ def main() -> None:
     log.info("─" * 60)
 
     for page_index in range(start_page, MAX_PAGES + 1):
-        # ── 요청 ──────────────────────────────────────────────────────────────
         params = {
             "menuNo":      MENU_NO,
-            "pollGubuncd": POLL_GUBUNCD,
+            "pollGubuncd": target.poll_gubuncd,
             "pageIndex":   str(page_index),
         }
         try:
-            resp = session.get(
-                urljoin(BASE_URL, LIST_PATH),
-                params=params,
-                timeout=20,
-            )
+            resp = session.get(urljoin(BASE_URL, LIST_PATH), params=params, timeout=20)
             resp.raise_for_status()
             resp.encoding = resp.apparent_encoding or "utf-8"
         except requests.RequestException as exc:
@@ -250,17 +275,12 @@ def main() -> None:
 
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        # ── 총 건수 파악 (첫 페이지에서만) ────────────────────────────────────
         if total_records_known is None:
             total_records_known = _parse_total_count(soup)
             if total_records_known:
                 total_pages_known = (total_records_known + 9) // 10
-                log.info(
-                    "총 %d건 확인 → 예상 페이지 수: %d",
-                    total_records_known, total_pages_known,
-                )
+                log.info("총 %d건 확인 → 예상 페이지 수: %d", total_records_known, total_pages_known)
 
-        # ── 파싱 ──────────────────────────────────────────────────────────────
         page_records = _parse_list_page(soup)
 
         if not page_records:
@@ -274,7 +294,6 @@ def main() -> None:
         else:
             consecutive_empty = 0
 
-        # 중복 제거
         new_records = [r for r in page_records if r.get("ntt_id") not in seen_ids]
         for r in new_records:
             seen_ids.add(r["ntt_id"])
@@ -282,8 +301,6 @@ def main() -> None:
 
         pages_done_this_run += 1
         elapsed = time.monotonic() - start_ts
-
-        # ── 진행률 출력 ────────────────────────────────────────────────────────
         known_total_p = total_pages_known or MAX_PAGES
         bar = _progress_bar(page_index, known_total_p)
         eta = _eta_str(elapsed, pages_done_this_run, known_total_p - last_completed_page)
@@ -298,28 +315,24 @@ def main() -> None:
             eta,
         )
 
-        # ── 체크포인트 저장 ────────────────────────────────────────────────────
         if page_index % CHECKPOINT_EVERY == 0:
-            _save_checkpoint(page_index, all_records)
+            _save_checkpoint(ckpt_file, page_index, all_records)
             log.info("  → 체크포인트 저장 (%d페이지, %d건)", page_index, len(all_records))
 
-        # ── 딜레이 (서버 부하 방지) ────────────────────────────────────────────
-        delay = random.uniform(MIN_DELAY, MAX_DELAY)
-        time.sleep(delay)
+        time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
 
     # ── 최종 저장 ────────────────────────────────────────────────────────────────
     log.info("─" * 60)
     log.info("수집 완료: 총 %d건", len(all_records))
 
-    _save_json(all_records)
-    log.info("JSON 저장: %s", OUTPUT_JSON)
+    _save_json(output_json, all_records)
+    log.info("JSON 저장: %s", output_json)
 
-    _save_csv(all_records)
-    log.info("CSV  저장: %s", OUTPUT_CSV)
+    _save_csv(output_csv, all_records)
+    log.info("CSV  저장: %s", output_csv)
 
-    # 체크포인트 삭제 (정상 완료)
-    if CHECKPOINT_FILE.exists():
-        CHECKPOINT_FILE.unlink()
+    if ckpt_file.exists():
+        ckpt_file.unlink()
         log.info("체크포인트 파일 삭제 완료")
 
     # ── 간단 통계 출력 ────────────────────────────────────────────────────────────

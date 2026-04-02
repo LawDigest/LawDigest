@@ -26,6 +26,7 @@
       "class": "_SignalPulseParser",
       "description": "시그널앤펄스 크로스탭 PDF 파서 – [표N]/[QN] 두 버전 지원, pollster 키워드 기반 선택",
       "content_probes": []
+    },
     "embrain_format": {
       "class": "_EmbrainPublicParser",
       "description": "엠브레인퍼블릭 크로스탭 PDF 파서 – [표N] 제목, ■ 전체 ■ 마커, col4+가 선택지",
@@ -38,7 +39,7 @@
     "데일리리서치": "text_format",
     "리얼미터": "realmeter_format",
     "한국리서치": "korean_research_format",
-    "시그널앤펄스": "signal_pulse_format"
+    "시그널앤펄스": "signal_pulse_format",
     "엠브레인퍼블릭": "embrain_format"
   },
   "fallback_parser": "text_format"

@@ -1,14 +1,19 @@
 """여론조사 결과분석 PDF 전체 다운로드 스크립트.
 
-checks/gyeonggi_governor.json 에서 analysis_url을 읽어
-output/polls/pdfs/gyeonggi_governor/ 에 저장한다.
+output/polls/checks/{slug}.json 에서 analysis_url을 읽어
+output/polls/pdfs/{slug}/ 에 저장한다.
 
 사용법:
     cd services/data
+    # 기본 (poll_targets.json의 첫 번째 타겟)
     python scripts/polls/download_pdfs.py
+
+    # 특정 타겟 지정
+    python scripts/polls/download_pdfs.py --target gyeonggi_governor_9th
 """
 from __future__ import annotations
 
+import argparse
 import json
 import logging
 import random
@@ -21,10 +26,12 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+_BASE = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_BASE / "src"))
+
+from lawdigest_data_pipeline.polls.targets import load_targets  # noqa: E402
+
 BASE_URL = "https://www.nesdc.go.kr"
-_BASE     = Path(__file__).resolve().parents[2]
-CHECK_JSON = _BASE / "output" / "polls" / "checks" / "gyeonggi_governor.json"
-PDF_DIR    = _BASE / "output" / "polls" / "pdfs" / "gyeonggi_governor"
 
 MIN_DELAY = 2.0
 MAX_DELAY = 4.0
@@ -61,41 +68,69 @@ def _safe_filename(text: str, fallback: str) -> str:
 
 
 def main() -> None:
-    if not CHECK_JSON.exists():
-        log.error("check JSON 없음: %s", CHECK_JSON)
-        log.error("먼저 scripts/polls/check_pdfs.py 를 실행하세요.")
+    ap = argparse.ArgumentParser(description="NESDC 여론조사 PDF 다운로드")
+    ap.add_argument(
+        "--target",
+        default=None,
+        help="poll_targets.json의 slug (미지정 시 첫 번째 타겟 사용)",
+    )
+    args = ap.parse_args()
+
+    # ── 타겟 로드 ──────────────────────────────────────────────────────────────
+    targets = load_targets(_BASE / "config" / "poll_targets.json")
+    if not targets:
+        log.error("poll_targets.json에 타겟이 없습니다.")
         sys.exit(1)
 
-    records = json.loads(CHECK_JSON.read_text(encoding="utf-8"))
-    targets = [r for r in records if r.get("has_pdf") and r.get("analysis_url")]
-    log.info("다운로드 대상: %d건", len(targets))
-    log.info("저장 경로: %s", PDF_DIR)
+    if args.target:
+        matched = [t for t in targets if t.slug == args.target]
+        if not matched:
+            log.error("타겟을 찾을 수 없습니다: %s", args.target)
+            log.error("사용 가능한 slug: %s", [t.slug for t in targets])
+            sys.exit(1)
+        target = matched[0]
+    else:
+        target = targets[0]
+        log.info("타겟 미지정 — 첫 번째 타겟 사용: %s", target.slug)
+
+    # ── 경로 설정 ──────────────────────────────────────────────────────────────
+    check_json = _BASE / "output" / "polls" / "checks" / f"{target.slug}.json"
+    pdf_dir    = _BASE / "output" / "polls" / "pdfs" / target.slug
+
+    if not check_json.exists():
+        log.error("check JSON 없음: %s", check_json)
+        log.error("먼저 scripts/polls/check_pdfs.py --target %s 를 실행하세요.", target.slug)
+        sys.exit(1)
+
+    records = json.loads(check_json.read_text(encoding="utf-8"))
+    download_targets = [r for r in records if r.get("has_pdf") and r.get("analysis_url")]
+    log.info("다운로드 대상: %d건", len(download_targets))
+    log.info("저장 경로: %s", pdf_dir)
     log.info("딜레이: %.1f~%.1fs / 요청", MIN_DELAY, MAX_DELAY)
     log.info("─" * 65)
 
-    PDF_DIR.mkdir(parents=True, exist_ok=True)
+    pdf_dir.mkdir(parents=True, exist_ok=True)
     session = _build_session()
 
     ok = 0
     skip = 0
     fail = 0
 
-    for i, r in enumerate(targets, start=1):
+    for i, r in enumerate(download_targets, start=1):
         reg_no  = r["registration_number"]
         filename = _safe_filename(r.get("analysis_filename", ""), f"{reg_no}.pdf")
         if not filename.endswith(".pdf"):
             filename += ".pdf"
-        dest = PDF_DIR / filename
+        dest = pdf_dir / filename
 
         if dest.exists() and dest.stat().st_size > 1024:
-            log.info("[%2d/%2d] SKIP  %s (이미 존재)", i, len(targets), filename)
+            log.info("[%2d/%2d] SKIP  %s (이미 존재)", i, len(download_targets), filename)
             skip += 1
             continue
 
-        log.info("[%2d/%2d] %s", i, len(targets), reg_no)
+        log.info("[%2d/%2d] %s", i, len(download_targets), reg_no)
         log.info("         %s", filename)
 
-        # 상세 페이지에 먼저 GET (Referer 쿠키 획득)
         try:
             session.get(r["detail_url"], timeout=15)
         except requests.RequestException:
@@ -126,7 +161,7 @@ def main() -> None:
 
     log.info("─" * 65)
     log.info("완료: 성공 %d건 / 스킵 %d건 / 실패 %d건", ok, skip, fail)
-    log.info("저장 경로: %s", PDF_DIR)
+    log.info("저장 경로: %s", pdf_dir)
 
 
 if __name__ == "__main__":
