@@ -1,14 +1,14 @@
 {
   "pollster": "(주)리얼미터",
   "pdf_filename": "(리얼-오마이)결과표_경기도 지방선거 여론조사_최종.pdf",
-  "parsed_at": "2026-04-01T11:59:54.093748+00:00",
-  "elapsed_seconds": 51.1,
-  "question_count": 11,
+  "parsed_at": "2026-04-02T14:49:20.087286+00:00",
+  "elapsed_seconds": 41.2,
+  "question_count": 5,
   "questions": [
     {
       "question_number": 1,
       "question_title": "경기도지사 더불어민주당 후보 지지도",
-      "question_text": "귀하께서는 올해 6월 경기도지사 선거에 더불어민주당 후보로 출마가 거론되는 다음 인물 중, 누구를 가장 지지하십니까?",
+      "question_text": "귀하께서는 올해 6 월 경기도지사 선거에 더불어민주당 후보로 출마가 거론되는 다음 인물 중누구를 , 가장 지지하십니까?",
       "response_options": [
         "추미애",
         "김동연",
@@ -31,7 +31,7 @@
     {
       "question_number": 2,
       "question_title": "경기도지사 범야권 후보 지지도",
-      "question_text": "귀하께서는 경기도지사 범야권 후보로 출마가 거론되는 다음 인물 중, 누구를 가장 지지하십니까?",
+      "question_text": "귀하께서는 경기도지사 범야권 후보로 출마가 거론되는 다음 인물 중누구를 , 가장 지지하십니까?",
       "response_options": [
         "유승민",
         "이준석",
@@ -54,123 +54,9 @@
       ]
     },
     {
-      "question_number": 3,
-      "question_title": "가상대결 1 – 김동연 vs 유승민",
-      "question_text": "만약 다음 두 인물이 경기도지사 선거에 맞붙는다면, 귀하께서는 누구에게 투표하시겠습니까?",
-      "response_options": [
-        "더불어민주당 김동연",
-        "국민의힘 유승민",
-        "없음",
-        "잘 모름"
-      ],
-      "overall_n_completed": 802,
-      "overall_n_weighted": 802,
-      "overall_percentages": [
-        45.6,
-        24.7,
-        21.2,
-        8.5
-      ]
-    },
-    {
-      "question_number": 4,
-      "question_title": "가상대결 2 – 추미애 vs 유승민",
-      "question_text": "만약 다음 두 인물이 경기도지사 선거에 맞붙는다면, 귀하께서는 누구에게 투표하시겠습니까?",
-      "response_options": [
-        "더불어민주당 추미애",
-        "국민의힘 유승민",
-        "없음",
-        "잘 모름"
-      ],
-      "overall_n_completed": 802,
-      "overall_n_weighted": 802,
-      "overall_percentages": [
-        48.8,
-        27.7,
-        17.1,
-        6.4
-      ]
-    },
-    {
-      "question_number": 5,
-      "question_title": "가상대결 3 – 한준호 vs 유승민",
-      "question_text": "만약 다음 두 인물이 경기도지사 선거에 맞붙는다면, 귀하께서는 누구에게 투표하시겠습니까?",
-      "response_options": [
-        "더불어민주당 한준호",
-        "국민의힘 유승민",
-        "없음",
-        "잘 모름"
-      ],
-      "overall_n_completed": 802,
-      "overall_n_weighted": 802,
-      "overall_percentages": [
-        46.6,
-        27.5,
-        18.1,
-        7.8
-      ]
-    },
-    {
-      "question_number": 6,
-      "question_title": "가상대결 4 – 김동연 vs 이준석",
-      "question_text": "만약 다음 두 인물이 경기도지사 선거에 맞붙는다면, 귀하께서는 누구에게 투표하시겠습니까?",
-      "response_options": [
-        "더불어민주당 김동연",
-        "개혁신당 이준석",
-        "없음",
-        "잘 모름"
-      ],
-      "overall_n_completed": 802,
-      "overall_n_weighted": 802,
-      "overall_percentages": [
-        48.5,
-        17.3,
-        27.5,
-        6.6
-      ]
-    },
-    {
-      "question_number": 7,
-      "question_title": "가상대결 5 – 추미애 vs 이준석",
-      "question_text": "만약 다음 두 인물이 경기도지사 선거에 맞붙는다면, 귀하께서는 누구에게 투표하시겠습니까?",
-      "response_options": [
-        "더불어민주당 추미애",
-        "개혁신당 이준석",
-        "없음",
-        "잘 모름"
-      ],
-      "overall_n_completed": 802,
-      "overall_n_weighted": 802,
-      "overall_percentages": [
-        50.0,
-        19.9,
-        24.2,
-        5.9
-      ]
-    },
-    {
-      "question_number": 8,
-      "question_title": "가상대결 6 – 한준호 vs 이준석",
-      "question_text": "만약 다음 두 인물이 경기도지사 선거에 맞붙는다면, 귀하께서는 누구에게 투표하시겠습니까?",
-      "response_options": [
-        "더불어민주당 한준호",
-        "개혁신당 이준석",
-        "없음",
-        "잘 모름"
-      ],
-      "overall_n_completed": 802,
-      "overall_n_weighted": 802,
-      "overall_percentages": [
-        47.4,
-        19.5,
-        26.5,
-        6.6
-      ]
-    },
-    {
       "question_number": 9,
       "question_title": "경기도 교육감 지지도",
-      "question_text": "올해 6월 경기도교육감 선거에 출마가 거론되는 다음 인물 중 누구를 가장 지지하십니까?",
+      "question_text": "올해 6 월 경기도교육감 선거에 출마가 거론되는 다음 인물 중 누구를 가장 지지하십니까?",
       "response_options": [
         "안민석",
         "임태희",
