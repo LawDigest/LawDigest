@@ -1,20 +1,21 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- Core data pipeline: `src/lawdigest_data_pipeline/` (collect, process, persist).
-- API/DB/utility modules: `src/lawdigest_ai/`, `src/etc/`, `src/Lawbag/`.
-- Orchestration:
-  - Airflow (legacy): `airflow/dags/`
-  - Runtime jobs: `jobs/`
-  - Manual/utility scripts: `tools/`, `scripts/`
+- Core data pipeline: `src/lawdigest_data/` (collect, process, persist).
+  - `bills/` — 의안 데이터 수집/가공 (`DataFetcher`, `DataProcessor`, `constants`)
+  - `connectors/` — 외부 연동 (`DatabaseManager`, `APISender`, `Notifier`, `ReportManager`, `PollsDatabaseManager`)
+  - `core/` — 파이프라인 오케스트레이션 (`WorkFlowManager`)
+  - `polls/` — 여론조사 데이터 수집/파싱
+- Legacy/miscellaneous scripts: `src/lawdigest_data/etc/`
+- Runtime jobs: `jobs/`
+- Manual/utility scripts: `tools/`, `scripts/`
 - Tests and fixtures: `tests/`
 - Operational artifacts: `data/`, `log/`, `reports/`, `backup/`
 
 ## Build, Test, and Development Commands
 - Install dependencies:
   - `python -m venv .venv && source .venv/bin/activate`
-  - `pip install -r requirements.txt`
-  - `pip install -r requirements_test.txt`
+  - `pip install -e ".[dev]"` (pyproject.toml 기반)
 - Run pipeline scripts:
   - `python scripts/airflow_control.sh up`
   - `python scripts/airflow_control.sh list-dags`

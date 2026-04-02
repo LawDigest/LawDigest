@@ -9,11 +9,11 @@ from dotenv import load_dotenv
 # 프로젝트 루트 경로를 sys.path에 추가
 sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
-from src.lawdigest_data_pipeline.DataFetcher import DataFetcher
-from src.lawdigest_data_pipeline.DataProcessor import DataProcessor
+from lawdigest_data.bills.DataFetcher import DataFetcher
+from lawdigest_data.bills.DataProcessor import DataProcessor
 from lawdigest_ai.processor.summarizer import AISummarizer
-from src.lawdigest_data_pipeline.APISender import APISender
-from src.lawdigest_data_pipeline.DatabaseManager import DatabaseManager
+from lawdigest_data.connectors.APISender import APISender
+from lawdigest_data.connectors.DatabaseManager import DatabaseManager
 
 def run_upload_job(target_db='test', dry_run=True, start_date=None, end_date=None):
     """

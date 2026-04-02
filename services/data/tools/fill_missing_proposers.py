@@ -6,8 +6,8 @@ from datetime import datetime
 # src 모듈 임포트를 위한 경로 설정
 sys.path.append(os.path.join(os.path.dirname(__file__), '../src'))
 
-from lawdigest_data_pipeline.DatabaseManager import DatabaseManager
-from lawdigest_data_pipeline.DataFetcher import DataFetcher
+from lawdigest_data.connectors.DatabaseManager import DatabaseManager
+from lawdigest_data.bills.DataFetcher import DataFetcher
 
 # ==========================================
 # [TEST DB CONFIGURATION]

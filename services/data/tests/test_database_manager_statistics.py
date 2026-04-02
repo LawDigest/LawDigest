@@ -7,7 +7,7 @@ import pymysql
 # Add project root to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.lawdigest_data_pipeline.DatabaseManager import DatabaseManager
+from lawdigest_data.connectors.DatabaseManager import DatabaseManager
 
 class TestDatabaseManagerStatistics(unittest.TestCase):
     def setUp(self):

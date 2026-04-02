@@ -25,7 +25,7 @@ sys.path.insert(0, str(_BASE / "src"))
 
 from tqdm import tqdm  # noqa: E402
 
-from lawdigest_data_pipeline.polls.parser import PollResultParser  # noqa: E402
+from lawdigest_data.polls.parser import PollResultParser  # noqa: E402
 
 # ── 경로 ──────────────────────────────────────────────────────────────────────
 

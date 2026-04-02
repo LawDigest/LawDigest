@@ -7,7 +7,7 @@ from requests.adapters import HTTPAdapter
 from datetime import datetime, timedelta
 
 sys.path.append(os.path.join(os.path.dirname(__file__), '../src'))
-from lawdigest_data_pipeline.DataFetcher import DataFetcher
+from lawdigest_data.bills.DataFetcher import DataFetcher
 
 def reproduce_issue():
     """

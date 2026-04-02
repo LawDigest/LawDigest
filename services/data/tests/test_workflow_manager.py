@@ -7,9 +7,9 @@ import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.lawdigest_data_pipeline.DataFetcher import DataFetcher  # noqa: E402
-from src.lawdigest_data_pipeline.DataProcessor import DataProcessor  # noqa: E402
-from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager  # noqa: E402
+from lawdigest_data.bills.DataFetcher import DataFetcher  # noqa: E402
+from lawdigest_data.bills.DataProcessor import DataProcessor  # noqa: E402
+from lawdigest_data.core.WorkFlowManager import WorkFlowManager  # noqa: E402
 
 
 def test_normalize_execution_mode_aliases():

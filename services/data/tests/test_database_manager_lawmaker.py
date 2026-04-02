@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, patch, call
-from src.lawdigest_data_pipeline.DatabaseManager import DatabaseManager
+from lawdigest_data.connectors.DatabaseManager import DatabaseManager
 
 class TestDatabaseManagerLawmaker(unittest.TestCase):
     def setUp(self):

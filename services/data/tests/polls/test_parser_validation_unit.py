@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import pytest
 
-from lawdigest_data_pipeline.polls.models import QuestionResult
-from lawdigest_data_pipeline.polls.validation import (
+from lawdigest_data.polls.models import QuestionResult
+from lawdigest_data.polls.validation import (
     validate_parse_results,
     validate_question_result,
 )

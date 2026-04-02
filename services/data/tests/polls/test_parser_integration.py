@@ -14,8 +14,8 @@ from typing import Any
 
 import pytest
 
-from lawdigest_data_pipeline.polls.parser import QuestionResult
-from lawdigest_data_pipeline.polls.validation import validate_parse_results
+from lawdigest_data.polls.parser import QuestionResult
+from lawdigest_data.polls.validation import validate_parse_results
 
 # ── 경로 상수 ─────────────────────────────────────────────────────────────────
 

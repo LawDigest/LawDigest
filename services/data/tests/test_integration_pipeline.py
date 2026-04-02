@@ -7,7 +7,7 @@ import sys
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
-from lawdigest_data_pipeline.DatabaseManager import DatabaseManager
+from lawdigest_data.connectors.DatabaseManager import DatabaseManager
 
 class TestIntegrationPipeline(unittest.TestCase):
     @classmethod

@@ -1,7 +1,13 @@
-"""Lazy package exports for lawdigest_data_pipeline.
+"""Lazy package exports for lawdigest_data.
 
 초기 import 시점에 무거운 의존성(langchain 등) 로드로 실패하지 않도록
 필요한 클래스가 실제로 접근될 때 모듈을 import 한다.
+
+패키지 구조:
+  bills/        - 의안 데이터 수집/가공 (DataFetcher, DataProcessor, constants)
+  connectors/   - 외부 연동 (DatabaseManager, APISender, Notifier, ReportManager, PollsDatabaseManager)
+  core/         - 파이프라인 오케스트레이션 (WorkFlowManager)
+  polls/        - 여론조사 데이터 수집/파싱
 """
 
 from importlib import import_module
@@ -29,15 +35,15 @@ __all__ = [
 ]
 
 _CLASS_TO_MODULE = {
-    "DatabaseManager": "DatabaseManager",
-    "DataFetcher": "DataFetcher",
-    "DataProcessor": "DataProcessor",
-    "WorkFlowManager": "WorkFlowManager",
+    "DatabaseManager": "connectors.DatabaseManager",
+    "DataFetcher": "bills.DataFetcher",
+    "DataProcessor": "bills.DataProcessor",
+    "WorkFlowManager": "core.WorkFlowManager",
     "AISummarizer": "AISummarizer",
-    "APISender": "APISender",
-    "Notifier": "Notifier",
-    "ReportManager": "ReportManager",
-    "PollsDatabaseManager": "PollsDatabaseManager",
+    "APISender": "connectors.APISender",
+    "Notifier": "connectors.Notifier",
+    "ReportManager": "connectors.ReportManager",
+    "PollsDatabaseManager": "connectors.PollsDatabaseManager",
     "PollsWorkflowManager": "polls.workflow",
 }
 

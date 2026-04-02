@@ -1,5 +1,5 @@
 import pytest
-from lawdigest_data_pipeline.constants import BillStageType, ProposerKindType
+from lawdigest_data.bills.constants import BillStageType, ProposerKindType
 
 class TestBillStageType:
     def test_predefined_stages_order(self):
