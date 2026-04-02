@@ -1,14 +1,14 @@
 {
   "version": "1.0",
-  "description": "수집 대상 선거 목록. polls_catalog_dag 실행 후 생성되는 catalog.json의 election_types/regions/election_names/pollsters 목록을 참고하여 값을 지정하세요.",
+  "description": "수집 대상 선거 목록. poll_gubuncd는 NESDC pollGubuncd 파라미터 값입니다 (catalog_scan 결과의 election_types 참고). slug는 output 파일명에 사용됩니다.",
   "targets": [
     {
-      "_comment": "이 예시 항목을 삭제하고 실제 수집 대상을 추가하세요",
-      "slug": "example_remove_this",
+      "slug": "gyeonggi_governor_9th",
+      "poll_gubuncd": "VT026",
       "election_type": "제9회 전국동시지방선거",
-      "search_keyword": "전라남도",
-      "region": "전라남도 전체",
-      "election_names": ["광역단체장선거", "정당지지도"],
+      "search_keyword": "경기도",
+      "region": "경기도 전체",
+      "election_names": ["광역단체장선거"],
       "pollsters": null
     }
   ]

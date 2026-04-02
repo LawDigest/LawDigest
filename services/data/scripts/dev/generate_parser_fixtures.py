@@ -5,10 +5,10 @@ PDF를 파싱하여 결과를 JSON 픽스처 파일로 저장한다.
 
 사용법:
     # 모든 대상 파싱
-    python scripts/generate_parser_fixtures.py
+    python scripts/dev/generate_parser_fixtures.py
 
     # 특정 기관만
-    python scripts/generate_parser_fixtures.py --pollster 한국리서치
+    python scripts/dev/generate_parser_fixtures.py --pollster 한국리서치
 """
 from __future__ import annotations
 
@@ -20,20 +20,23 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+_BASE = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_BASE / "src"))
 
-from tqdm import tqdm
+from tqdm import tqdm  # noqa: E402
 
-from lawdigest_data_pipeline.polls.parser import PollResultParser
+from lawdigest_data_pipeline.polls.parser import PollResultParser  # noqa: E402
 
 # ── 경로 ──────────────────────────────────────────────────────────────────────
 
-_ROOT = Path(__file__).resolve().parents[1]
 # PDF는 main 프로젝트 경로에서 조회 (워크트리에는 output/ 없음)
 _MAIN_DATA = Path("/home/ubuntu/project/Lawdigest/services/data")
-_PDF_DIR = (_MAIN_DATA if (_MAIN_DATA / "output").exists() else _ROOT) / "output" / "pdfs" / "gyeonggi_governor"
-_FIXTURE_DIR = _ROOT / "tests" / "polls" / "fixtures"
-_REGISTRY = _ROOT / "config" / "parser_registry.json"
+_PDF_DIR = (
+    (_MAIN_DATA if (_MAIN_DATA / "output" / "polls").exists() else _BASE)
+    / "output" / "polls" / "pdfs" / "gyeonggi_governor"
+)
+_FIXTURE_DIR = _BASE / "tests" / "polls" / "fixtures"
+_REGISTRY = _BASE / "config" / "parser_registry.json"
 
 # ── 파싱 대상 목록 ─────────────────────────────────────────────────────────────
 # (pollster_hint, pdf_filename)
