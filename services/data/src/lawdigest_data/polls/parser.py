@@ -131,6 +131,142 @@ def _extract_text_outside_tables(page: "fitz.Page", finder: "fitz.TableFinder") 
     return "\n".join(lines)
 
 
+def _infer_col_x_ranges(fitz_table: "fitz.Table") -> Dict[int, Tuple[float, float]]:  # type: ignore[name-defined]  # noqa: F821
+    """테이블 각 컬럼의 x 범위를 추론한다.
+
+    개별 셀이 가장 많은 행(병합 없는 행)을 기준으로 컬럼 x 범위를 결정한다.
+    colspan 병합 셀은 x1이 실제 컬럼보다 훨씬 크므로, 비-None 셀이 많은 행을
+    선택하면 개별 경계를 정확히 반영할 수 있다.
+    """
+    col_count = fitz_table.col_count
+
+    # 각 행의 non-None 셀 수 계산, 가장 많은 행(들)을 선택
+    best_rows = []
+    best_count = 0
+    for row in fitz_table.rows:
+        non_none = sum(1 for c in row.cells if c is not None)
+        if non_none > best_count:
+            best_count = non_none
+            best_rows = [row]
+        elif non_none == best_count:
+            best_rows.append(row)
+
+    # 선택된 행들에서 컬럼 x 범위 수집
+    col_x: Dict[int, List[Tuple[float, float]]] = {}
+    for row in best_rows:
+        for ci, cell in enumerate(row.cells):
+            if cell is not None:
+                x0, _, x1, _ = cell
+                col_x.setdefault(ci, []).append((x0, x1))
+
+    # 각 컬럼의 중앙값 사용
+    result: Dict[int, Tuple[float, float]] = {}
+    for ci in range(col_count):
+        ranges = col_x.get(ci)
+        if ranges:
+            x0s = sorted(r[0] for r in ranges)
+            x1s = sorted(r[1] for r in ranges)
+            mid = len(ranges) // 2
+            result[ci] = (x0s[mid], x1s[mid])
+
+    return result
+
+
+def _unmerge_table(
+    fitz_table: "fitz.Table",  # type: ignore[name-defined]  # noqa: F821
+    page: "fitz.Page",  # type: ignore[name-defined]  # noqa: F821
+) -> List[List]:
+    """colspan 병합 셀을 해제하여 모든 컬럼에 값이 채워진 2D 테이블을 반환한다.
+
+    PyMuPDF ``Table.extract()`` 는 colspan 병합 셀의 텍스트를 첫 번째 셀에 이어
+    붙이고 나머지를 None으로 채운다. 이 함수는 병합 셀의 bbox와
+    ``page.get_text("words")`` 의 x 좌표를 대조하여 값을 원래 컬럼으로 분리한다.
+
+    rowspan(동일 컬럼의 여러 행에 걸친 병합)은 그대로 None으로 유지된다.
+    """
+    extracted = fitz_table.extract()
+
+    # 모든 행에 None이 없으면 병합 셀 없음 → 그대로 반환
+    has_merge = any(
+        None in row
+        for row in extracted
+    )
+    if not has_merge:
+        return extracted
+
+    col_x_ranges = _infer_col_x_ranges(fitz_table)
+    if not col_x_ranges:
+        return extracted
+
+    # 페이지 전체 words 한 번만 추출
+    all_words = page.get_text("words")  # (x0, y0, x1, y1, text, block, line, word)
+
+    result: List[List] = []
+    for row_idx, ext_row in enumerate(extracted):
+        if None not in ext_row:
+            result.append(ext_row)
+            continue
+
+        row_obj = fitz_table.rows[row_idx]
+        new_row: List = list(ext_row)
+
+        for col_idx, cell_bbox in enumerate(row_obj.cells):
+            if cell_bbox is None:
+                continue  # rowspan — 이 셀은 상위 행이 소유
+
+            x0, y0, x1, y1 = cell_bbox
+            typical_x1 = col_x_ranges.get(col_idx, (x0, x1))[1]
+
+            # colspan 감지: 셀 우측 경계가 해당 컬럼의 일반 우측보다 유의미하게 큼
+            if x1 <= typical_x1 + 5:
+                continue  # 단일 셀
+
+            # colspan에 포함되는 컬럼 목록
+            spanned = [
+                ci
+                for ci, (cx0, cx1) in col_x_ranges.items()
+                if cx0 >= x0 - 2 and cx1 <= x1 + 2
+            ]
+            if len(spanned) <= 1:
+                continue
+
+            # 병합 셀 영역 내 words 추출 (y 범위는 셀보다 약간 여유)
+            cell_words = [
+                w for w in all_words
+                if w[0] >= x0 - 2 and w[2] <= x1 + 2
+                and w[1] >= y0 - 3 and w[3] <= y1 + 3
+            ]
+
+            # 각 word → 컬럼 배정 (x 중심 기준)
+            col_texts: Dict[int, List[str]] = {ci: [] for ci in spanned}
+            assigned_cols: set = set()
+            for w in cell_words:
+                x_center = (w[0] + w[2]) / 2
+                for ci in spanned:
+                    cx0, cx1 = col_x_ranges[ci]
+                    if cx0 - 2 <= x_center <= cx1 + 2:
+                        col_texts[ci].append(w[4])
+                        assigned_cols.add(ci)
+                        break
+
+            # 재배분 조건: 여러 컬럼에 단어가 분산되고, 모든 단어가 숫자일 때만 수행.
+            #  - 하나의 컬럼에만 있으면 → 정상 colspan 레이블 (extract()가 이미 처리)
+            #  - 숫자가 아닌 단어 포함 → '▣ 전 체 ▣' 같은 레이블 (재배분 불필요)
+            _float_re = re.compile(r"^\d+\.?\d*$")
+            all_numeric = all(_float_re.match(w[4]) for w in cell_words if w[4].strip())
+            if len(assigned_cols) <= 1 or not all_numeric:
+                continue
+
+            # new_row 갱신
+            for ci in spanned:
+                texts = col_texts[ci]
+                new_row[ci] = " ".join(texts) if texts else None
+
+        result.append(new_row)
+
+    return result
+
+
 def _extract_pages_with_gid_decode(
     pdf_path: Path,
     gid_map: Dict[int, int],
@@ -183,7 +319,7 @@ def _extract_pages_with_gid_decode(
     try:
         for page in doc:
             finder = page.find_tables()
-            tables = [_decode_table(t.extract(), gid_map) for t in finder.tables]
+            tables = [_decode_table(_unmerge_table(t, page), gid_map) for t in finder.tables]
             full_text = _decode_page_text(page, gid_map)
             outside_text = _decode_text_with_gid(
                 _extract_text_outside_tables(page, finder) if finder.tables else page.get_text(),
@@ -296,7 +432,7 @@ class PollResultParser:
         try:
             for page in doc:
                 finder = page.find_tables()
-                tables = [t.extract() for t in finder.tables]
+                tables = [_unmerge_table(t, page) for t in finder.tables]
                 full_text = page.get_text() or ""
                 outside_text = _extract_text_outside_tables(page, finder) if tables else full_text
                 pages_data.append((outside_text, tables, full_text))
@@ -556,96 +692,89 @@ class _KoreanResearchParser(BaseTableParser):
     """한국리서치 크로스탭 파서.
 
     특이사항:
-      - PyMuPDF 셀 병합 문제로 비율을 full_text에서 추출
+      - 헤더 row[0][0]='전체', 전체 행 row[N][0]='▣ 전체 ▣'
+      - 테이블 추출 시 _unmerge_table로 colspan 해제 → 개별 셀에서 비율 추출
       - 페이지 분할 표 merge 지원 (같은 q_num이 여러 페이지에 걸침)
-      - 헤더 row[0][0]='전체' (다른 파서의 '구분'과 다름)
     """
 
     PARSER_KEY = "_KoreanResearchParser"
+    TOTAL_MARKERS: tuple = ("▣ 전체 ▣",)
+    _META_COLS: int = 3
 
     _TABLE_TITLE_RE = re.compile(r"\[표\s*(\d+)\]\s+(.+)")
     _Q_TEXT_RE = re.compile(r"\[문\s*\d+\]\s+(.+?)(?:\?|？)", re.DOTALL)
-    _TOTAL_ROW_RE = re.compile(
-        r"▣ 전체 ▣\s+\(([\d,]+)\)\s+\(([\d,]+)\)\s+((?:[\d.]+\s*)+)"
-    )
-    _SUMMARY_COL_RE = re.compile(r"^T[12]|^B[12]|\(1\+2\)|\(3\+4\)|^계$")
-    _META_COLS = 3
 
     def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
         result_map: dict = {}
 
-        for page_text, page_tables, full_text in pages_data:
+        for page_text, page_tables, _full_text in pages_data:
             title_match = self._TABLE_TITLE_RE.search(page_text)
             if not title_match:
                 continue
             q_num = int(title_match.group(1))
 
-            options = self._extract_options_kr(page_tables)
-            if not options:
-                continue
+            for table in page_tables:
+                if not table or len(table) < 3:
+                    continue
+                # 헤더 식별: row[0][0] = '전체'
+                if str(table[0][0] or "").strip() != "전체":
+                    continue
 
-            total_match = self._TOTAL_ROW_RE.search(full_text)
-            if not total_match:
-                continue
+                # 전체 행 탐색 (헤더 행 이후부터)
+                found = find_total_row(table, markers=self.TOTAL_MARKERS, start_row=1)
+                if found is None:
+                    continue
+                _, total_row = found
 
-            n_completed = int(total_match.group(1).replace(",", ""))
-            n_weighted = int(total_match.group(2).replace(",", ""))
-            raw_pcts = [float(v) for v in total_match.group(3).split()]
+                n_completed = extract_sample_count(str(total_row[1] or ""))
+                n_weighted = extract_sample_count(str(total_row[2] or ""))
 
-            pairs = [
-                (o, p)
-                for o, p in zip(options, raw_pcts)
-                if not self._SUMMARY_COL_RE.search(re.sub(r"\s+", "", o))
-            ]
-            if not pairs:
-                continue
-            options_f, pcts_f = zip(*pairs)
-            min_len = min(len(options_f), len(pcts_f))
-            if min_len == 0:
-                continue
+                # colspan 해제 후 개별 셀에서 비율 추출
+                pcts = extract_percentages_from_cells(total_row, start_col=self._META_COLS)
+                if not pcts:
+                    continue
 
-            page_options = list(options_f[:min_len])
-            page_pcts = list(pcts_f[:min_len])
+                # 헤더에서 선택지 추출
+                options = extract_options_from_row(table[0], start_col=self._META_COLS)
+                if not options:
+                    continue
 
-            if q_num in result_map:
-                existing = result_map[q_num]
-                if page_pcts and abs(page_pcts[-1] - 100.0) < 1.0:
-                    page_options = page_options[:-1]
-                    page_pcts = page_pcts[:-1]
-                if page_options:
+                # 요약 컬럼 제거 (계, T1/T2, (1+2) 등)
+                options, pcts = filter_summary_columns(options, pcts)
+                if not pcts:
+                    continue
+
+                min_len = min(len(options), len(pcts))
+                page_options = options[:min_len]
+                page_pcts = pcts[:min_len]
+
+                # 멀티페이지 크로스탭: 동일 q_num 결과에 선택지·비율 추가
+                if q_num in result_map:
+                    existing = result_map[q_num]
                     existing.response_options = existing.response_options + page_options
                     existing.overall_percentages = existing.overall_percentages + page_pcts
-                continue
+                    break
 
-            q_title = title_match.group(2).strip()
-            q_text_match = self._Q_TEXT_RE.search(page_text)
-            q_text = (
-                re.sub(r"\s+", " ", q_text_match.group(1)).strip() + "?"
-                if q_text_match
-                else q_title
-            )
+                q_title = title_match.group(2).strip()
+                q_text_match = self._Q_TEXT_RE.search(page_text)
+                q_text = (
+                    re.sub(r"\s+", " ", q_text_match.group(1)).strip() + "?"
+                    if q_text_match
+                    else q_title
+                )
 
-            result_map[q_num] = QuestionResult(
-                question_number=q_num,
-                question_title=q_title,
-                question_text=q_text,
-                response_options=page_options,
-                overall_n_completed=n_completed,
-                overall_n_weighted=n_weighted,
-                overall_percentages=page_pcts,
-            )
+                result_map[q_num] = QuestionResult(
+                    question_number=q_num,
+                    question_title=q_title,
+                    question_text=q_text,
+                    response_options=page_options,
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=page_pcts,
+                )
+                break  # 페이지당 크로스탭 테이블 하나만
 
         return list(result_map.values())
-
-    def _extract_options_kr(self, page_tables: List) -> List[str]:
-        for table in page_tables:
-            if not table or len(table) < 2:
-                continue
-            header = table[0]
-            if not header or str(header[0] or "").strip() != "전체":
-                continue
-            return extract_options_from_row(header, start_col=self._META_COLS)
-        return []
 
 
 class _SignalPulseParser(BaseTableParser):
