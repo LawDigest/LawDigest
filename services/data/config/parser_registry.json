@@ -1,41 +1,41 @@
 {
-  "version": "1.0",
+  "version": "1.1",
   "description": "조사기관별 파서 지정. pollster_assignments 키는 여론조사기관명의 일부와 매칭됩니다. catalog_scan 실행 후 catalog.json의 pollsters 목록을 참고해 추가하세요.",
   "parsers": {
     "table_format": {
       "class": "_TableFormatParser",
       "description": "크로스탭 테이블 기반 파서 (조원씨앤아이, 메타서치 등)",
-      "content_probes": ["▣ 전체 ▣", "가중값적용사례수"]
+      "pollster_names": ["조원씨앤아이", "메타서치"]
     },
     "text_format": {
       "class": "_TextFormatParser",
       "description": "텍스트 섹션 기반 파서 (데일리리서치 등)",
-      "content_probes": []
+      "pollster_names": ["데일리리서치"]
     },
     "realmeter_format": {
       "class": "_RealMeterParser",
       "description": "리얼미터 크로스탭 PDF 파서 – 테이블 헤더 선택지 + 텍스트 전체 비율 혼합 방식",
-      "content_probes": ["조사 가중값", "가중값\n적용\n사례수"]
+      "pollster_names": ["리얼미터"]
     },
     "korean_research_format": {
       "class": "_KoreanResearchParser",
       "description": "한국리서치 크로스탭 PDF 파서 – [표N] 제목, ▣ 전체 ▣ 텍스트 기반 비율 추출",
-      "content_probes": ["▣ 전체 ▣"]
+      "pollster_names": ["한국리서치"]
     },
     "signal_pulse_format": {
       "class": "_SignalPulseParser",
-      "description": "시그널앤펄스 크로스탭 PDF 파서 – [표N]/[QN] 두 버전 지원, pollster 키워드 기반 선택",
-      "content_probes": []
+      "description": "시그널앤펄스 크로스탭 PDF 파서 – [표N]/[QN] 두 버전 지원",
+      "pollster_names": ["시그널앤펄스"]
     },
     "embrain_format": {
       "class": "_EmbrainPublicParser",
       "description": "엠브레인퍼블릭 크로스탭 PDF 파서 – [표N] 제목, ■ 전체 ■ 마커, col4+가 선택지",
-      "content_probes": ["■ 전체 ■"]
+      "pollster_names": ["엠브레인퍼블릭"]
     },
     "flower_research_format": {
       "class": "_FlowerResearchParser",
       "description": "여론조사꽃 크로스탭 PDF 파서 – NotoSansKR Identity-H GID 디코딩, 전체 행 col3 뭉친 비율 파싱",
-      "content_probes": []
+      "pollster_names": ["여론조사꽃"]
     }
   },
   "pollster_assignments": {

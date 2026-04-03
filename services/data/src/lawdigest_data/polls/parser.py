@@ -158,7 +158,6 @@ def _extract_pages_with_gid_decode(
 class _RegistryEntry:
     parser_class: type
     pollster_keywords: Tuple[str, ...] = field(default_factory=tuple)
-    content_probe: Optional[str] = None
     priority: int = 0
 
 
@@ -196,37 +195,29 @@ class PollResultParser:
 
         entries: List[_RegistryEntry] = []
 
-        # 기관별 할당 (priority=10)
+        # parsers 정의에서 pollster_names를 keyword 집합으로 구성 (priority=10)
+        # pollster_assignments는 parsers.pollster_names와 중복될 수 있으므로
+        # 두 소스를 합산하여 하나의 엔트리로 등록한다.
+        parser_keywords: Dict[str, List[str]] = {}  # parser_key → keyword 목록
+        for parser_key, parser_def in parsers_def.items():
+            parser_keywords[parser_key] = list(parser_def.get("pollster_names", []))
+
+        # pollster_assignments도 keyword로 추가 (하위 호환)
         for pollster_kw, parser_key in assignments.items():
+            parser_keywords.setdefault(parser_key, [])
+            if pollster_kw not in parser_keywords[parser_key]:
+                parser_keywords[parser_key].append(pollster_kw)
+
+        for parser_key, keywords in parser_keywords.items():
+            if not keywords:
+                continue
             parser_def = parsers_def.get(parser_key, {})
             cls = parser_map.get(parser_def.get("class", ""), _TextFormatParser)
-            probes: List[str] = parser_def.get("content_probes", [])
-            if probes:
-                for probe in probes:
-                    entries.append(_RegistryEntry(
-                        parser_class=cls,
-                        pollster_keywords=(pollster_kw,),
-                        content_probe=probe,
-                        priority=10,
-                    ))
-            else:
-                entries.append(_RegistryEntry(
-                    parser_class=cls,
-                    pollster_keywords=(pollster_kw,),
-                    content_probe=None,
-                    priority=10,
-                ))
-
-        # content_probe 기반 fallback (priority=5)
-        for parser_key, parser_def in parsers_def.items():
-            cls = parser_map.get(parser_def.get("class", ""), _TextFormatParser)
-            for probe in parser_def.get("content_probes", []):
-                entries.append(_RegistryEntry(
-                    parser_class=cls,
-                    pollster_keywords=(),
-                    content_probe=probe,
-                    priority=5,
-                ))
+            entries.append(_RegistryEntry(
+                parser_class=cls,
+                pollster_keywords=tuple(keywords),
+                priority=10,
+            ))
 
         # 최종 fallback (priority=0)
         fallback_def = parsers_def.get(fallback_name, {})
@@ -234,7 +225,6 @@ class PollResultParser:
         entries.append(_RegistryEntry(
             parser_class=fallback_cls,
             pollster_keywords=(),
-            content_probe=None,
             priority=0,
         ))
 
@@ -244,12 +234,9 @@ class PollResultParser:
     def _load_defaults(self) -> None:
         """JSON 파일 없을 때 내장 기본 레지스트리 로드."""
         self._registry = [
-            _RegistryEntry(_TableFormatParser, ("조원씨앤아이",), "▣ 전체 ▣", 10),
-            _RegistryEntry(_TextFormatParser, ("데일리리서치",), None, 10),
-            _RegistryEntry(_TableFormatParser, ("메타서치",), None, 10),
-            _RegistryEntry(_TableFormatParser, (), "가중값적용사례수", 5),
-            _RegistryEntry(_TableFormatParser, (), "▣ 전체 ▣", 0),
-            _RegistryEntry(_TextFormatParser, (), None, 0),
+            _RegistryEntry(_TableFormatParser, ("조원씨앤아이", "메타서치"), 10),
+            _RegistryEntry(_TextFormatParser, ("데일리리서치",), 10),
+            _RegistryEntry(_TextFormatParser, (), 0),
         ]
 
     def parse_pdf(
@@ -294,8 +281,8 @@ class PollResultParser:
     def _select_parser(self, full_text: str, pollster_hint: Optional[str]) -> type:
         """레지스트리에서 적합한 파서 클래스를 선택한다.
 
-        pollster_hint가 있으면 pollster_assignments 기반으로만 선택한다.
-        수집 단계에서 여론조사기관이 항상 알려져 있으므로 content_probe fallback은 사용하지 않는다.
+        pollster_hint로 기관명 키워드를 매칭한다.
+        매칭되지 않으면 fallback 파서(priority=0)를 반환한다.
         """
         if pollster_hint:
             for entry in self._registry:
@@ -304,9 +291,9 @@ class PollResultParser:
                 ):
                     return entry.parser_class
 
-        # pollster_hint 없을 때만 fallback
+        # fallback (priority=0 엔트리)
         for entry in self._registry:
-            if entry.content_probe is None:
+            if entry.priority == 0:
                 return entry.parser_class
 
         return _TextFormatParser
