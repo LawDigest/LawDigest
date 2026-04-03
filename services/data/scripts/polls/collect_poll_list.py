@@ -35,7 +35,7 @@ from urllib3.util.retry import Retry
 _BASE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_BASE / "src"))
 
-from lawdigest_data_pipeline.polls.targets import load_targets  # noqa: E402
+from lawdigest_data.polls.targets import load_targets  # noqa: E402
 
 # ── 설정 ────────────────────────────────────────────────────────────────────────
 
@@ -230,6 +230,11 @@ def main() -> None:
         log.error("poll_targets.json의 '%s' 타겟에 poll_gubuncd가 없습니다.", target.slug)
         sys.exit(1)
 
+    if not target.search_wrd:
+        log.warning("search_wrd가 없습니다 — 선거구분 전체를 수집합니다 (대량 수집 주의)")
+    else:
+        log.info("서버 사이드 필터: searchCnd=%s searchWrd=%s", target.search_cnd, target.search_wrd)
+
     # ── 경로 설정 ──────────────────────────────────────────────────────────────
     output_dir = _BASE / "output" / "polls" / "lists"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -263,6 +268,9 @@ def main() -> None:
             "pollGubuncd": target.poll_gubuncd,
             "pageIndex":   str(page_index),
         }
+        if target.search_wrd:
+            params["searchCnd"] = target.search_cnd
+            params["searchWrd"] = target.search_wrd
         try:
             resp = session.get(urljoin(BASE_URL, LIST_PATH), params=params, timeout=20)
             resp.raise_for_status()

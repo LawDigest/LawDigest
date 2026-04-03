@@ -1,12 +1,13 @@
 {
-  "version": "1.0",
-  "description": "수집 대상 선거 목록. poll_gubuncd는 NESDC pollGubuncd 파라미터 값입니다 (catalog_scan 결과의 election_types 참고). slug는 output 파일명에 사용됩니다.",
+  "version": "1.1",
+  "description": "수집 대상 선거 목록. NESDC 서버 사이드 필터(poll_gubuncd, search_cnd, search_wrd)로 1차 수집 후, region/election_names/pollsters로 클라이언트 사이드 추가 필터링한다. searchCnd 코드: 4=시·도, 1=조사기관명, 3=여론조사명칭(지역) (docs/nesdc_search_api.md 참고).",
   "targets": [
     {
       "slug": "gyeonggi_governor_9th",
       "poll_gubuncd": "VT026",
       "election_type": "제9회 전국동시지방선거",
-      "search_keyword": "경기도",
+      "search_cnd": "4",
+      "search_wrd": "경기도",
       "region": "경기도 전체",
       "election_names": ["광역단체장선거"],
       "pollsters": null

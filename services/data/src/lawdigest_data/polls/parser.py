@@ -5,12 +5,52 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from .models import QuestionResult
 
 # config/ 디렉터리 기본 경로
 _DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[4] / "config"
+
+
+def _build_gid_to_unicode(font_path: Path) -> Dict[int, int]:
+    """NotoSansCJKkr 폰트 파일에서 GID→Unicode 역매핑을 생성한다.
+
+    여론조사꽃 PDF는 Identity-H 인코딩으로 임베드된 NotoSansKR 서브셋 폰트를 사용하며,
+    ToUnicode CMap에 한글 매핑이 누락되어 있다. 원본 폰트의 cmap(unicode→GID)을
+    역전시켜 디코딩 테이블을 만든다.
+    """
+    try:
+        from fontTools.ttLib import TTFont
+    except ImportError as exc:
+        raise RuntimeError("GID 디코딩을 위해 fonttools가 필요합니다: pip install fonttools") from exc
+
+    font = TTFont(str(font_path))
+    cmap = font.getBestCmap()
+    gid_map: Dict[int, int] = {}
+    for unicode_val, glyph_name in cmap.items():
+        gid = font.getGlyphID(glyph_name)
+        if gid not in gid_map:
+            gid_map[gid] = unicode_val
+    font.close()
+    return gid_map
+
+
+def _decode_text_with_gid(raw: str, gid_map: Dict[int, int]) -> str:
+    """GID→Unicode 매핑을 이용해 잘못 변환된 문자열을 올바른 유니코드로 디코딩한다.
+
+    PyMuPDF가 ToUnicode CMap 없이 글리프 인덱스를 그대로 유니코드로 해석한
+    깨진 문자열을 원래 한글로 복원한다. 매핑이 없는 글리프(공백 등)는 공백으로 대체한다.
+    """
+    result = []
+    for ch in raw:
+        cp = ord(ch)
+        if cp > 127:
+            real = gid_map.get(cp)
+            result.append(chr(real) if real else " ")
+        else:
+            result.append(ch)
+    return "".join(result)
 
 
 def _extract_text_outside_tables(page: "fitz.Page", finder: "fitz.TableFinder") -> str:  # type: ignore[name-defined]
@@ -50,11 +90,74 @@ def _extract_text_outside_tables(page: "fitz.Page", finder: "fitz.TableFinder") 
     return "\n".join(lines)
 
 
+def _extract_pages_with_gid_decode(
+    pdf_path: Path,
+    gid_map: Dict[int, int],
+) -> List[Tuple[str, List, str]]:
+    """GID 디코딩을 적용하여 페이지 데이터를 추출한다.
+
+    rawdict 모드로 문자별 코드포인트를 읽고 _decode_text_with_gid를 적용한 뒤,
+    기존 pages_data 형식 (outside_text, tables, full_text) 으로 반환한다.
+    """
+    try:
+        import fitz
+    except ImportError as exc:
+        raise RuntimeError("PDF 파싱을 위해 pymupdf가 필요합니다.") from exc
+
+    def _decode_page_text(page: "fitz.Page", gid_map: Dict[int, int]) -> str:  # type: ignore[name-defined]
+        """페이지 전체 텍스트를 GID 디코딩하여 반환한다."""
+        result = []
+        for b in page.get_text("rawdict")["blocks"]:
+            if b.get("type") != 0:
+                continue
+            for line in b.get("lines", []):
+                line_chars = []
+                for span in line.get("spans", []):
+                    for ch in span.get("chars", []):
+                        c = ch["c"]
+                        cp = ord(c) if len(c) == 1 else None
+                        if cp and cp > 127:
+                            real = gid_map.get(cp)
+                            line_chars.append(chr(real) if real else " ")
+                        else:
+                            line_chars.append(c)
+                result.append("".join(line_chars))
+        return "\n".join(result)
+
+    def _decode_table(table: List[List], gid_map: Dict[int, int]) -> List[List]:
+        """테이블 셀 텍스트를 GID 디코딩하여 반환한다."""
+        decoded = []
+        for row in table:
+            decoded_row = []
+            for cell in row:
+                if cell is None:
+                    decoded_row.append(None)
+                else:
+                    decoded_row.append(_decode_text_with_gid(str(cell), gid_map))
+            decoded.append(decoded_row)
+        return decoded
+
+    pages_data: List[Tuple[str, List, str]] = []
+    doc = fitz.open(str(pdf_path))
+    try:
+        for page in doc:
+            finder = page.find_tables()
+            tables = [_decode_table(t.extract(), gid_map) for t in finder.tables]
+            full_text = _decode_page_text(page, gid_map)
+            outside_text = _decode_text_with_gid(
+                _extract_text_outside_tables(page, finder) if finder.tables else page.get_text(),
+                gid_map,
+            )
+            pages_data.append((outside_text, tables, full_text))
+    finally:
+        doc.close()
+    return pages_data
+
+
 @dataclass
 class _RegistryEntry:
     parser_class: type
     pollster_keywords: Tuple[str, ...] = field(default_factory=tuple)
-    content_probe: Optional[str] = None
     priority: int = 0
 
 
@@ -84,44 +187,24 @@ class PollResultParser:
             "_KoreanResearchParser": _KoreanResearchParser,
             "_SignalPulseParser": _SignalPulseParser,
             "_EmbrainPublicParser": _EmbrainPublicParser,
+            "_FlowerResearchParser": _FlowerResearchParser,
         }
         parsers_def = data.get("parsers", {})
-        assignments = data.get("pollster_assignments", {})
         fallback_name = data.get("fallback_parser", "text_format")
 
         entries: List[_RegistryEntry] = []
 
-        # 기관별 할당 (priority=10)
-        for pollster_kw, parser_key in assignments.items():
-            parser_def = parsers_def.get(parser_key, {})
-            cls = parser_map.get(parser_def.get("class", ""), _TextFormatParser)
-            probes: List[str] = parser_def.get("content_probes", [])
-            if probes:
-                for probe in probes:
-                    entries.append(_RegistryEntry(
-                        parser_class=cls,
-                        pollster_keywords=(pollster_kw,),
-                        content_probe=probe,
-                        priority=10,
-                    ))
-            else:
-                entries.append(_RegistryEntry(
-                    parser_class=cls,
-                    pollster_keywords=(pollster_kw,),
-                    content_probe=None,
-                    priority=10,
-                ))
-
-        # content_probe 기반 fallback (priority=5)
+        # parsers 정의의 pollster_names로 엔트리 구성 (priority=10)
         for parser_key, parser_def in parsers_def.items():
+            keywords = parser_def.get("pollster_names", [])
+            if not keywords:
+                continue
             cls = parser_map.get(parser_def.get("class", ""), _TextFormatParser)
-            for probe in parser_def.get("content_probes", []):
-                entries.append(_RegistryEntry(
-                    parser_class=cls,
-                    pollster_keywords=(),
-                    content_probe=probe,
-                    priority=5,
-                ))
+            entries.append(_RegistryEntry(
+                parser_class=cls,
+                pollster_keywords=tuple(keywords),
+                priority=10,
+            ))
 
         # 최종 fallback (priority=0)
         fallback_def = parsers_def.get(fallback_name, {})
@@ -129,7 +212,6 @@ class PollResultParser:
         entries.append(_RegistryEntry(
             parser_class=fallback_cls,
             pollster_keywords=(),
-            content_probe=None,
             priority=0,
         ))
 
@@ -139,12 +221,9 @@ class PollResultParser:
     def _load_defaults(self) -> None:
         """JSON 파일 없을 때 내장 기본 레지스트리 로드."""
         self._registry = [
-            _RegistryEntry(_TableFormatParser, ("조원씨앤아이",), "▣ 전체 ▣", 10),
-            _RegistryEntry(_TextFormatParser, ("데일리리서치",), None, 10),
-            _RegistryEntry(_TableFormatParser, ("메타서치",), None, 10),
-            _RegistryEntry(_TableFormatParser, (), "가중값적용사례수", 5),
-            _RegistryEntry(_TableFormatParser, (), "▣ 전체 ▣", 0),
-            _RegistryEntry(_TextFormatParser, (), None, 0),
+            _RegistryEntry(_TableFormatParser, ("조원씨앤아이", "메타서치"), 10),
+            _RegistryEntry(_TextFormatParser, ("데일리리서치",), 10),
+            _RegistryEntry(_TextFormatParser, (), 0),
         ]
 
     def parse_pdf(
@@ -173,6 +252,13 @@ class PollResultParser:
 
         parser_class = self._select_parser("", pollster_hint)
 
+        # GID 디코딩이 필요한 파서(여론조사꽃 등)는 rawdict 모드로 재추출
+        if getattr(parser_class, "NEEDS_GID_DECODE", False):
+            font_path = getattr(parser_class, "FONT_PATH", None)
+            if font_path and Path(font_path).exists():
+                gid_map = _build_gid_to_unicode(Path(font_path))
+                pages_data = _extract_pages_with_gid_decode(pdf_path, gid_map)
+
         if issubclass(parser_class, _TableFormatParser):
             return parser_class().parse(pages_data)
         else:
@@ -182,8 +268,8 @@ class PollResultParser:
     def _select_parser(self, full_text: str, pollster_hint: Optional[str]) -> type:
         """레지스트리에서 적합한 파서 클래스를 선택한다.
 
-        pollster_hint가 있으면 pollster_assignments 기반으로만 선택한다.
-        수집 단계에서 여론조사기관이 항상 알려져 있으므로 content_probe fallback은 사용하지 않는다.
+        pollster_hint로 기관명 키워드를 매칭한다.
+        매칭되지 않으면 fallback 파서(priority=0)를 반환한다.
         """
         if pollster_hint:
             for entry in self._registry:
@@ -192,9 +278,9 @@ class PollResultParser:
                 ):
                     return entry.parser_class
 
-        # pollster_hint 없을 때만 fallback
+        # fallback (priority=0 엔트리)
         for entry in self._registry:
-            if entry.content_probe is None:
+            if entry.priority == 0:
                 return entry.parser_class
 
         return _TextFormatParser
@@ -818,3 +904,139 @@ class _RealMeterParser(_TableFormatParser):
             if options:
                 return options
         return []
+
+
+class _FlowerResearchParser(_TableFormatParser):
+    """여론조사꽃 크로스탭 PDF 파서.
+
+    PDF 구조:
+      - NotoSansKR Identity-H 인코딩 + ToUnicode CMap 누락 → GID 디코딩 필요
+      - 각 질문: 페이지당 1개 테이블, 앞에 "N. (부제) Q 질문문?" 텍스트
+      - 테이블 구조:
+          row 0: ['Base=전체\\n(단위: %)', None, '조사\\n완료', opt1, opt2, ..., '가중값\\n적용\\n사례수']
+          row 1: ['전체', None, '(N완료)', '54.3 25.2 ... 0.3', None, ..., '(N가중)']
+      - 전체 행(row 1) col 2에서 N완료, col 3에서 비율 공백구분, col -1에서 N가중 추출
+      - 비율이 col 3 하나의 셀에 공백으로 뭉쳐 있음
+    """
+
+    NEEDS_GID_DECODE: bool = True
+    FONT_PATH: str = str(
+        Path(__file__).resolve().parents[4] / "data" / "resources" / "fonts" / "NotoSansCJKkr-Medium.otf"
+    )
+
+    # "N. (부제) Q" 패턴에서 N과 질문번호 추출
+    _Q_SECTION_RE = re.compile(r"(?m)^(\d+)\.\s+(.+)$")
+    # 질문문 추출: "Q\n질문텍스트?" 또는 "Q 질문텍스트?"
+    _Q_TEXT_RE = re.compile(r"Q[\s\n]+(.+?)(?:\?|？)", re.DOTALL)
+    # 사례수 "(숫자)" 패턴
+    _N_RE = re.compile(r"\((\d[\d,]*)\)")
+    # 소계 컬럼 제거: "잘하고 있다 ①+②" 형태
+    _SUMMARY_COL_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩]\s*\+\s*[①②③④⑤⑥⑦⑧⑨⑩]")
+
+    def parse(self, pages_data: List[Tuple[str, List, str]]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_q_nums: set = set()
+
+        for page_text, page_tables, _full_text in pages_data:
+            if not page_tables:
+                continue
+
+            tbl = page_tables[0]
+            if not tbl or len(tbl) < 2:
+                continue
+
+            # 전체 행 탐색 (첫 번째 컬럼이 '전체'인 행)
+            total_row: Optional[List] = None
+            for row in tbl[1:]:
+                if row and row[0] and str(row[0]).strip() == "전체":
+                    total_row = row
+                    break
+            if total_row is None:
+                continue
+
+            # 선택지: 헤더 row col 3 ~ col -2 (마지막은 '가중값 적용 사례수')
+            header = tbl[0]
+            options: List[str] = []
+            for cell in header[3:-1]:
+                if cell is None:
+                    continue
+                opt = re.sub(r"\s+", " ", str(cell)).strip()
+                if opt and opt.lower() not in ("none", ""):
+                    options.append(opt)
+            if not options:
+                continue
+
+            # 사례수: col 2=(완료), col -1=(가중)
+            n_completed = self._extract_n_from_cell(str(total_row[2] or ""))
+            n_weighted = self._extract_n_from_cell(str(total_row[-1] or ""))
+
+            # 비율: col 3에 공백 구분 문자열로 뭉쳐 있음
+            pct_raw = str(total_row[3] or "").strip()
+            try:
+                percentages = [float(v) for v in pct_raw.split() if re.fullmatch(r"[\d.]+", v)]
+            except ValueError:
+                continue
+            if not percentages:
+                continue
+
+            # 소계 컬럼 제거
+            pairs = [
+                (o, p) for o, p in zip(options, percentages)
+                if not self._SUMMARY_COL_RE.search(o)
+            ]
+            if not pairs:
+                pairs = list(zip(options, percentages))
+            options, percentages = [p[0] for p in pairs], [p[1] for p in pairs]
+
+            # 길이 맞춤
+            min_len = min(len(options), len(percentages))
+            if min_len == 0:
+                continue
+            options = options[:min_len]
+            percentages = percentages[:min_len]
+
+            # 질문 번호/제목 추출
+            q_section = self._Q_SECTION_RE.search(page_text)
+            if q_section:
+                q_num = int(q_section.group(1))
+                q_title = q_section.group(2).strip()
+            else:
+                q_num = len(results) + 1
+                q_title = ""
+
+            if q_num in seen_q_nums:
+                continue
+            seen_q_nums.add(q_num)
+
+            # 질문문 추출
+            q_text_m = self._Q_TEXT_RE.search(page_text)
+            if q_text_m:
+                q_text = re.sub(r"\s+", " ", q_text_m.group(1)).strip() + "?"
+            else:
+                q_text = q_title
+
+            results.append(QuestionResult(
+                question_number=q_num,
+                question_title=q_title,
+                question_text=q_text,
+                response_options=options,
+                overall_n_completed=n_completed,
+                overall_n_weighted=n_weighted,
+                overall_percentages=percentages,
+            ))
+
+        # 질문 번호 재매김
+        for i, r in enumerate(results):
+            r.question_number = i + 1
+        return results
+
+    def _extract_n_from_cell(self, text: str) -> Optional[int]:
+        """'(1,234)' 또는 '1234' 형태에서 정수 추출."""
+        m = self._N_RE.search(text)
+        if m:
+            return int(m.group(1).replace(",", ""))
+        text = text.strip()
+        try:
+            return int(text.replace(",", ""))
+        except ValueError:
+            return None
