@@ -31,6 +31,11 @@
       "class": "_EmbrainPublicParser",
       "description": "엠브레인퍼블릭 크로스탭 PDF 파서 – [표N] 제목, ■ 전체 ■ 마커, col4+가 선택지",
       "content_probes": ["■ 전체 ■"]
+    },
+    "flower_research_format": {
+      "class": "_FlowerResearchParser",
+      "description": "여론조사꽃 크로스탭 PDF 파서 – NotoSansKR Identity-H GID 디코딩, 전체 행 col3 뭉친 비율 파싱",
+      "content_probes": []
     }
   },
   "pollster_assignments": {
@@ -40,7 +45,8 @@
     "리얼미터": "realmeter_format",
     "한국리서치": "korean_research_format",
     "시그널앤펄스": "signal_pulse_format",
-    "엠브레인퍼블릭": "embrain_format"
+    "엠브레인퍼블릭": "embrain_format",
+    "여론조사꽃": "flower_research_format"
   },
   "fallback_parser": "text_format"
 }
