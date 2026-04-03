@@ -1,8 +1,8 @@
 {
   "pollster": "(주)시그널앤펄스",
   "pdf_filename": "보도용_경기도 여론조사 보고서_프레시안_251230(수정).pdf",
-  "parsed_at": "2026-04-01T12:01:36.231269+00:00",
-  "elapsed_seconds": 2.2,
+  "parsed_at": "2026-04-03T12:59:36.897735+00:00",
+  "elapsed_seconds": 2.6,
   "question_count": 6,
   "questions": [
     {
@@ -10,9 +10,9 @@
       "question_title": "정당지지도",
       "question_text": "",
       "response_options": [
-        "더불어민주당",
+        "더불어 민주당",
         "국민의힘",
-        "조국혁신당",
+        "조국 혁신당",
         "진보당",
         "개혁신당",
         "기타",
@@ -37,10 +37,10 @@
       "question_title": "국정지지도",
       "question_text": "",
       "response_options": [
-        "매우잘함",
-        "잘하는편",
-        "잘못하는편",
-        "매우잘못함",
+        "매우 잘함",
+        "잘하는 편",
+        "잘못하는 편",
+        "매우 잘못함",
         "모름"
       ],
       "overall_n_completed": 1000,

@@ -7,9 +7,9 @@
       "description": "크로스탭 테이블 기반 파서 (조원씨앤아이, 메타서치 등)",
       "pollster_names": ["조원씨앤아이", "메타서치"]
     },
-    "text_format": {
-      "class": "_TextFormatParser",
-      "description": "텍스트 섹션 기반 파서 (데일리리서치 등)",
+    "daily_research_format": {
+      "class": "_DailyResearchParser",
+      "description": "데일리리서치 크로스탭 테이블 파서 (구 _TextFormatParser 대체)",
       "pollster_names": ["데일리리서치"]
     },
     "realmeter_format": {

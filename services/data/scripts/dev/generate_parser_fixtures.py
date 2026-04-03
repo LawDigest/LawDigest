@@ -33,7 +33,7 @@ from lawdigest_data.polls.parser import PollResultParser  # noqa: E402
 _MAIN_DATA = Path("/home/ubuntu/project/Lawdigest/services/data")
 _PDF_DIR = (
     (_MAIN_DATA if (_MAIN_DATA / "output" / "pdfs").exists() else _BASE)
-    / "output" / "pdfs" / "gyeonggi_governor"
+    / "output" / "pdfs" / "제9회 전국동시지방선거" / "경기도 전체"
 )
 _FIXTURE_DIR = _BASE / "tests" / "polls" / "fixtures"
 _REGISTRY = _BASE / "config" / "parser_registry.json"
@@ -62,6 +62,9 @@ TARGETS = [
     ("(주)시그널앤펄스", "보도용_경기도 여론조사 보고서_프레시안_260212.pdf"),
     ("(주)시그널앤펄스", "보도용_경기도 여론조사 보고서_프레시안_251230(수정).pdf"),
     ("(주)시그널앤펄스", "보도용_경기도 여론조사 보고서_서울의소리_251215.pdf"),
+    # 윈지코리아컨설팅
+    ("(주)윈지코리아컨설팅", "260305_공표용보고서_경기도_정치지형조사_v2.pdf"),
+    ("(주)윈지코리아컨설팅", "250915_보고서_드림투데이(경기)_v2.pdf"),
 ]
 
 

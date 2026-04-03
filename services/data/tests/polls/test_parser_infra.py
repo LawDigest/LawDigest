@@ -9,8 +9,6 @@ PDF 파일이 없어도 실행되는 빠른 테스트.
 from __future__ import annotations
 
 import json
-import tempfile
-from pathlib import Path
 
 import pytest
 
@@ -25,7 +23,7 @@ from lawdigest_data.polls.parser import (
     _RealMeterParser,
     _SignalPulseParser,
     _TableFormatParser,
-    _TextFormatParser,
+    _DailyResearchParser,
     _WinjiKoreaParser,
 )
 
@@ -37,7 +35,7 @@ class TestBuildParserKeyMap:
         key_map = _build_parser_key_map()
         expected_keys = {
             "_TableFormatParser",
-            "_TextFormatParser",
+            "_DailyResearchParser",
             "_RealMeterParser",
             "_KoreanResearchParser",
             "_SignalPulseParser",
@@ -51,7 +49,7 @@ class TestBuildParserKeyMap:
         key_map = _build_parser_key_map()
         assert key_map["_WinjiKoreaParser"] is _WinjiKoreaParser
         assert key_map["_FlowerResearchParser"] is _FlowerResearchParser
-        assert key_map["_TextFormatParser"] is _TextFormatParser
+        assert key_map["_DailyResearchParser"] is _DailyResearchParser
 
 
 # ── PARSER_KEY 클래스 변수 존재 여부 ─────────────────────────────────────────
@@ -59,7 +57,7 @@ class TestBuildParserKeyMap:
 class TestParserKeyAttribute:
     @pytest.mark.parametrize("parser_cls", [
         _TableFormatParser,
-        _TextFormatParser,
+        _DailyResearchParser,
         _RealMeterParser,
         _KoreanResearchParser,
         _SignalPulseParser,
@@ -83,7 +81,7 @@ class TestParserKeyAttribute:
 class TestPollParserProtocol:
     @pytest.mark.parametrize("parser_cls", [
         _TableFormatParser,
-        _TextFormatParser,
+        _DailyResearchParser,
         _RealMeterParser,
         _KoreanResearchParser,
         _SignalPulseParser,
@@ -100,7 +98,7 @@ class TestPollParserProtocol:
 
     @pytest.mark.parametrize("parser_cls", [
         _TableFormatParser,
-        _TextFormatParser,
+        _DailyResearchParser,
         _RealMeterParser,
         _KoreanResearchParser,
         _SignalPulseParser,
