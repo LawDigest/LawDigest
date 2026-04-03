@@ -1,8 +1,8 @@
 {
   "pollster": "조원씨앤아이",
   "pdf_filename": "프레시안_경기 지선 여론조사 보고서_260318_f.pdf",
-  "parsed_at": "2026-04-02T07:01:50.503594+00:00",
-  "elapsed_seconds": 13.4,
+  "parsed_at": "2026-04-03T14:15:58.656083+00:00",
+  "elapsed_seconds": 13.9,
   "question_count": 8,
   "questions": [
     {
@@ -10,13 +10,13 @@
       "question_title": "정당 지지도",
       "question_text": "",
       "response_options": [
-        "더불어민주당",
+        "더불어 민주당",
         "국민의힘",
-        "조국혁신당",
+        "조국 혁신당",
         "진보당",
         "개혁신당",
-        "기타정당",
-        "무당층(없음/모름)"
+        "기타 정당",
+        "무당층 (없음/모름)"
       ],
       "overall_n_completed": 1011,
       "overall_n_weighted": 1011,
@@ -35,10 +35,10 @@
       "question_title": "이재명 대통령 국정 평가",
       "question_text": "",
       "response_options": [
-        "매우잘하고있다",
-        "잘하고있는편이다",
-        "잘못하는편이다",
-        "매우잘못하고있다",
+        "매우 잘하고 있다",
+        "잘하고 있는 편이다",
+        "잘못하는 편이다",
+        "매우 잘못하고 있다",
         "모름"
       ],
       "overall_n_completed": 1011,
@@ -56,10 +56,10 @@
       "question_title": "김동연 지사 도정 평가",
       "question_text": "",
       "response_options": [
-        "매우잘하고있다",
-        "잘하고있는편이다",
-        "잘못하는편이다",
-        "매우잘못하고있다",
+        "매우 잘하고 있다",
+        "잘하고 있는 편이다",
+        "잘못하는 편이다",
+        "매우 잘못하고 있다",
         "모름"
       ],
       "overall_n_completed": 1011,
@@ -77,8 +77,8 @@
       "question_title": "지방선거 프레임 공감도",
       "question_text": "",
       "response_options": [
-        "국정 지원을 위해여당에 힘을 실어줘야 한다",
-        "정권 견제를 위해야당에 힘을 실어줘야 한다",
+        "국정 지원을 위해 여당에 힘을 실어 줘야 한다",
+        "정권 견제를 위해 야당에 힘을 실어 줘야 한다",
         "잘 모르겠다"
       ],
       "overall_n_completed": 1011,
@@ -100,7 +100,7 @@
         "양기대",
         "권칠승",
         "그 외",
-        "없음/모름"
+        "없음 /모름"
       ],
       "overall_n_completed": 1011,
       "overall_n_weighted": 1011,
@@ -125,7 +125,7 @@
         "조광한",
         "함진규",
         "그 외",
-        "없음/모름"
+        "없음 /모름"
       ],
       "overall_n_completed": 1011,
       "overall_n_weighted": 1011,
@@ -151,7 +151,7 @@
         "성기선",
         "이해문",
         "그 외",
-        "없음/모름"
+        "없음 /모름"
       ],
       "overall_n_completed": 1011,
       "overall_n_weighted": 1011,
@@ -171,9 +171,9 @@
       "question_title": "선호하는 교육감 성향",
       "question_text": "",
       "response_options": [
-        "진보성향교육감",
-        "중도성향교육감",
-        "보수성향교육감",
+        "진보성향 교육감",
+        "중도성향 교육감",
+        "보수성향 교육감",
         "잘 모름"
       ],
       "overall_n_completed": 1011,

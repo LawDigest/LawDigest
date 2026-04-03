@@ -20,6 +20,7 @@ from .pdf_analyzer import AnalyzedPdf
 # (display_name, regex, numbering_style)
 _Q_MARKER_PATTERNS: List[Tuple[str, str, str]] = [
     ("[표N]",   r"\[표\s*\d+\]",                     "bracket_pyo"),
+    ("표 N",    r"(?m)^표\s*\d+\s*\n",               "pyo_newline"),   # 윈지코리아 등
     ("[문N]",   r"\[문\s*\d+\]",                     "bracket_mun"),
     ("[QN]",    r"\[Q\s*\d+\]",                     "bracket_Q"),
     ("QN.",     r"\bQ\s*\d+\s*[.。]",               "Q_dot"),
@@ -42,6 +43,10 @@ _TOTAL_MARKER_PATTERNS: List[Tuple[str, str]] = [
     ("합계",        r"(?m)^\s*합계\s"),
     ("전 체",       r"전\s+체"),
 ]
+
+# ── 테이블 셀 전체행 마커 — 텍스트 기반 패턴과 별도로 셀 raw 값을 정규화하여 매칭
+# re.sub(r"[\s\[\]]", "", cell) == "전체" 이면 전체행으로 판단
+_TOTAL_CELL_NORMALIZER = re.compile(r"[\s\[\]]")
 
 # ── N값 포맷 패턴 ───────────────────────────────────────────────────────────────
 _N_FORMAT_PATTERNS: List[Tuple[str, str, str]] = [
@@ -70,51 +75,92 @@ class PatternDetector:
     """AnalyzedPdf에서 파서 개발에 필요한 패턴을 탐지한다."""
 
     def detect_question_blocks(self, analyzed: AnalyzedPdf) -> QuestionBlockPatterns:
-        """질문 블록 구분 마커를 탐지한다."""
+        """질문 블록 구분 마커를 탐지한다.
+
+        테이블이 있는 페이지(크로스탭)와 없는 페이지(보고서 본문)를 분리하여 탐지한다.
+        크로스탭 페이지에서 발견된 마커를 우선 순위로 사용한다.
+        """
         text = analyzed.full_text
         if not text:
             return QuestionBlockPatterns()
 
+        # 테이블 있는 페이지 / 없는 페이지 텍스트 분리
+        crosstab_texts: List[str] = []
+        text_only_texts: List[str] = []
+        for i, (_, tables, _) in enumerate(analyzed.pages_data):
+            page_text = analyzed.per_page_texts[i] if i < len(analyzed.per_page_texts) else ""
+            if tables:
+                crosstab_texts.append(page_text)
+            else:
+                text_only_texts.append(page_text)
+
+        crosstab_full = "\n".join(crosstab_texts)
+        text_only_full = "\n".join(text_only_texts)
+
         detected: List[MarkerOccurrence] = []
         for display, regex, style in _Q_MARKER_PATTERNS:
-            matches = list(re.finditer(regex, text))
-            if not matches:
+            matches_crosstab = list(re.finditer(regex, crosstab_full))
+            matches_text_only = list(re.finditer(regex, text_only_full))
+            matches_all = list(re.finditer(regex, text))
+
+            if not matches_all:
                 continue
+
+            # 크로스탭 페이지에서 발견된 경우 우선 표시
+            source_label = ""
+            if matches_crosstab and not matches_text_only:
+                source_label = " [크로스탭 전용]"
+            elif matches_text_only and not matches_crosstab:
+                source_label = " [본문 전용 — 크로스탭 파서에서 사용 불가]"
+            elif matches_crosstab and matches_text_only:
+                source_label = " [크로스탭+본문 혼재]"
 
             # 페이지별 매핑
             example_pages: List[int] = []
-            examples: List[str] = []
             for i, page_text in enumerate(analyzed.per_page_texts, start=1):
                 if re.search(regex, page_text):
                     example_pages.append(i)
 
-            # 대표 예시 (최대 3개)
-            for m in matches[:3]:
+            # 대표 예시 (크로스탭 페이지 우선, 최대 3개)
+            examples: List[str] = []
+            source_text = crosstab_full if matches_crosstab else text
+            for m in list(re.finditer(regex, source_text))[:3]:
                 start = max(0, m.start())
-                end = min(len(text), m.end() + 40)
-                snippet = text[start:end].replace("\n", " ").strip()
+                end = min(len(source_text), m.end() + 40)
+                snippet = source_text[start:end].replace("\n", " ").strip()
                 examples.append(snippet)
 
             detected.append(MarkerOccurrence(
-                pattern=display,
+                pattern=display + source_label,
                 regex=regex,
-                occurrences=len(matches),
+                occurrences=len(matches_all),
                 example_pages=list(dict.fromkeys(example_pages))[:5],
                 examples=examples,
             ))
 
-        # 가장 많이 등장한 마커 기준 정렬
-        detected.sort(key=lambda m: m.occurrences, reverse=True)
+        # 크로스탭 전용 마커 우선, 그다음 출현 횟수 기준 정렬
+        detected.sort(
+            key=lambda m: (
+                0 if "크로스탭 전용" in m.pattern else
+                1 if "혼재" in m.pattern else
+                2,
+                -m.occurrences,
+            )
+        )
 
-        # 질문 수 추정: 1위 마커 기준
+        # 질문 수 추정: 크로스탭 전용 마커 중 1위 기준
         estimated = 0
         numbering_style = "unknown"
         if detected:
-            best = detected[0]
+            # 크로스탭 전용 마커 우선
+            best = next(
+                (m for m in detected if "크로스탭 전용" in m.pattern),
+                detected[0],
+            )
             estimated = best.occurrences
-            # style은 _Q_MARKER_PATTERNS에서 찾기
-            for _, r, s in _Q_MARKER_PATTERNS:
-                if r == best.regex:
+            base_pattern = best.pattern.split(" [")[0]
+            for display, r, s in _Q_MARKER_PATTERNS:
+                if display == base_pattern:
                     numbering_style = s
                     break
 
@@ -125,7 +171,12 @@ class PatternDetector:
         )
 
     def detect_total_row_markers(self, analyzed: AnalyzedPdf) -> TotalRowMarkers:
-        """전체/합계 행 마커 및 N값 포맷을 탐지한다."""
+        """전체/합계 행 마커 및 N값 포맷을 탐지한다.
+
+        텍스트 기반 탐지 외에, 실제 테이블 셀(row[0])에서의 raw 값도 수집한다.
+        텍스트 렌더링과 셀 추출 결과가 다를 수 있으므로 (예: '전체' vs '[ 전 체 ]')
+        셀 기반 결과를 별도로 제공한다.
+        """
         text = analyzed.full_text
         if not text:
             return TotalRowMarkers()
@@ -155,6 +206,35 @@ class PatternDetector:
                 example_pages=list(dict.fromkeys(example_pages))[:5],
                 examples=examples,
             ))
+
+        # 테이블 셀 기반 전체행 마커 탐지 (row[0] raw 값 수집)
+        # 파서가 실제로 보는 셀 값이므로 텍스트 기반보다 더 정확하다
+        cell_total_forms: Dict[str, List[int]] = {}  # raw_value → 등장 페이지 목록
+        for page_num, (_, tables, _) in enumerate(analyzed.pages_data, start=1):
+            for tbl in tables:
+                for row in tbl:
+                    if not row or row[0] is None:
+                        continue
+                    cell_val = str(row[0]).strip()
+                    normalized = _TOTAL_CELL_NORMALIZER.sub("", cell_val)
+                    if normalized == "전체":
+                        if cell_val not in cell_total_forms:
+                            cell_total_forms[cell_val] = []
+                        if page_num not in cell_total_forms[cell_val]:
+                            cell_total_forms[cell_val].append(page_num)
+
+        # 셀 기반 탐지 결과를 detected에 추가 (텍스트 기반에 없는 변형만)
+        existing_patterns = {m.pattern for m in detected}
+        for cell_val, pages in sorted(cell_total_forms.items(), key=lambda x: -len(x[1])):
+            marker_label = f"셀:{repr(cell_val)}"
+            if marker_label not in existing_patterns:
+                detected.append(MarkerOccurrence(
+                    pattern=marker_label,
+                    regex="",  # 셀 기반은 regex 없음
+                    occurrences=len(pages),
+                    example_pages=pages[:5],
+                    examples=[f"row[0] = {repr(cell_val)}"],
+                ))
 
         detected.sort(key=lambda m: m.occurrences, reverse=True)
 

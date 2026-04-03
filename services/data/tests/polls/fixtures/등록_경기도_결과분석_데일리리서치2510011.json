@@ -1,29 +1,158 @@
 {
   "pollster": "(주)데일리리서치",
   "pdf_filename": "등록_경기도_결과분석_데일리리서치2510011.pdf",
-  "parsed_at": "2026-04-02T07:02:16.787807+00:00",
+  "parsed_at": "2026-04-03T14:16:24.975517+00:00",
   "elapsed_seconds": 26.3,
-  "question_count": 1,
+  "question_count": 6,
   "questions": [
+    {
+      "question_number": 1,
+      "question_title": "더불어민주당 경기도지사 후보적합도",
+      "question_text": "",
+      "response_options": [
+        "김 동 연",
+        "김 병 주",
+        "김 영 진",
+        "박 광 온",
+        "박 정",
+        "염 태 영",
+        "추 미 애",
+        "기타 후보",
+        "적합 후보 없다",
+        "잘 모르 겠다"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        21.7,
+        9.5,
+        2.7,
+        4.0,
+        1.7,
+        4.6,
+        20.6,
+        3.5,
+        21.5,
+        10.2
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "국민의힘 경기도지사 후보적합도",
+      "question_text": "",
+      "response_options": [
+        "김 은 혜",
+        "나 경 원",
+        "심 재 철",
+        "안 철 수",
+        "원 유 철",
+        "기타 후보",
+        "적합 후보 없다",
+        "잘 모르 겠다"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        12.9,
+        15.5,
+        3.7,
+        16.8,
+        4.5,
+        4.4,
+        35.8,
+        6.4
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "가상대결",
+      "question_text": "",
+      "response_options": [
+        "더불어 민주당 후보",
+        "국민의힘 후보",
+        "기타정당 후보",
+        "무소속 후보",
+        "투표하지 않겠다",
+        "잘 모르겠다"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        53.5,
+        33.8,
+        4.0,
+        0.7,
+        3.0,
+        4.9
+      ]
+    },
     {
       "question_number": 4,
       "question_title": "국정평가",
-      "question_text": "선생님께서는 이재명 대통령의 국정운영에 대해서 어떻게 평가하십니까?",
+      "question_text": "",
       "response_options": [
-        "아주 잘하고 있다",
-        "잘하고 있는 편이다",
-        "잘못하고 있는 편이다",
-        "아주 잘못하고 있다",
-        "잘 모르겠다"
+        "아주 잘하고 있다(1)",
+        "잘하고 있는 편이다 (2)",
+        "잘못하 고 있는 편이다 (3)",
+        "아주 잘못하 고 있다(4)",
+        "잘 모름"
       ],
-      "overall_n_completed": null,
-      "overall_n_weighted": null,
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
       "overall_percentages": [
         44.9,
         16.8,
         8.5,
         23.9,
         5.9
+      ]
+    },
+    {
+      "question_number": 5,
+      "question_title": "지역현안",
+      "question_text": "",
+      "response_options": [
+        "아주 잘하고 있다(1)",
+        "잘하는 편이다 (2)",
+        "잘못하 는 편이다 (3)",
+        "아주 잘못하 고 있다(4)",
+        "잘 모름"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        27.3,
+        28.7,
+        9.4,
+        12.1,
+        22.6
+      ]
+    },
+    {
+      "question_number": 6,
+      "question_title": "정당지지도",
+      "question_text": "",
+      "response_options": [
+        "더불 어민 주당",
+        "국민 의힘",
+        "조국 혁신 당",
+        "진보 당",
+        "개혁 신당",
+        "기타 정당",
+        "지지 정당 없다",
+        "잘 모르 겠다"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        43.4,
+        25.8,
+        4.9,
+        1.4,
+        5.3,
+        2.7,
+        14.5,
+        2.0
       ]
     }
   ]

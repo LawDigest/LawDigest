@@ -1,8 +1,6 @@
 """파서 결과 속성 검증 단위 테스트 (PDF 파일 불필요)."""
 from __future__ import annotations
 
-import pytest
-
 from lawdigest_data.polls.models import QuestionResult
 from lawdigest_data.polls.validation import (
     validate_parse_results,
