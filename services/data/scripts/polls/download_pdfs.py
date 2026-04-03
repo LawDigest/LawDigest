@@ -1,7 +1,7 @@
 """여론조사 결과분석 PDF 전체 다운로드 스크립트.
 
 output/polls/checks/{slug}.json 에서 analysis_url을 읽어
-output/polls/pdfs/{slug}/ 에 저장한다.
+output/pdfs/{선거명}/{지역명}/ 에 저장한다.
 
 사용법:
     cd services/data
@@ -29,7 +29,16 @@ from urllib3.util.retry import Retry
 _BASE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_BASE / "src"))
 
-from lawdigest_data_pipeline.polls.targets import load_targets  # noqa: E402
+import re as _re
+
+from lawdigest_data.polls.targets import load_targets  # noqa: E402
+
+_UNSAFE = _re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def _safe_dirname(name: str) -> str:
+    name = _UNSAFE.sub("_", name)
+    return name.strip(". ") or "_"
 
 BASE_URL = "https://www.nesdc.go.kr"
 
@@ -95,7 +104,11 @@ def main() -> None:
 
     # ── 경로 설정 ──────────────────────────────────────────────────────────────
     check_json = _BASE / "output" / "polls" / "checks" / f"{target.slug}.json"
-    pdf_dir    = _BASE / "output" / "polls" / "pdfs" / target.slug
+    pdf_dir    = (
+        _BASE / "output" / "pdfs"
+        / _safe_dirname(target.election_type or target.slug)
+        / _safe_dirname(target.region or "전체")
+    )
 
     if not check_json.exists():
         log.error("check JSON 없음: %s", check_json)

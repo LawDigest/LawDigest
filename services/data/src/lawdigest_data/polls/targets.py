@@ -17,16 +17,24 @@ _DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[4] / "config"
 class PollTarget:
     """수집 대상 선거를 정의하는 불변 데이터클래스.
 
-    search_keyword로 NESDC searchWrd 검색을 수행한 뒤,
-    region / election_names / pollsters 조건으로 클라이언트 사이드 필터링한다.
+    NESDC 검색 파라미터:
+      - poll_gubuncd: 선거구분 코드 (예: VT026)
+      - search_cnd: 검색 카테고리 코드 (예: "4" = 시·도, "1" = 조사기관명)
+      - search_wrd: 검색어 텍스트 (예: "경기도")
+
+    서버 사이드 필터링 후 클라이언트 사이드 추가 필터:
+      - region: None이면 와일드카드, 값이 있으면 정확히 일치
+      - election_names: None이면 와일드카드, 값이 있으면 OR 매칭
+      - pollsters: None이면 와일드카드, 값이 있으면 키워드 포함 OR 매칭
     """
-    search_keyword: str
+    search_wrd: str = ""        # NESDC searchWrd 검색어
+    search_cnd: str = "4"       # NESDC searchCnd 카테고리 코드 (기본: 시·도)
     region: Optional[str] = None
     election_names: Optional[Tuple[str, ...]] = None
     election_type: Optional[str] = None
     pollsters: Optional[Tuple[str, ...]] = None  # 조사기관명 OR 필터 (None = 전체)
     slug: str = ""
-    poll_gubuncd: str = ""  # NESDC pollGubuncd 파라미터 (예: VT026)
+    poll_gubuncd: str = ""      # NESDC pollGubuncd 파라미터 (예: VT026)
 
 
 def load_targets(targets_path: Optional[Path] = None) -> List[PollTarget]:
@@ -45,7 +53,8 @@ def load_targets(targets_path: Optional[Path] = None) -> List[PollTarget]:
         election_names = item.get("election_names")
         pollsters = item.get("pollsters")
         targets.append(PollTarget(
-            search_keyword=item["search_keyword"],
+            search_wrd=item.get("search_wrd", ""),
+            search_cnd=str(item.get("search_cnd", "4")),
             region=item.get("region"),
             election_names=tuple(election_names) if election_names else None,
             election_type=item.get("election_type"),

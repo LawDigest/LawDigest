@@ -547,18 +547,29 @@ class NesdcCrawler:
         max_pages_per_target: int = 50,
         skip_errors: bool = False,
     ) -> Dict[str, List[ListRecord]]:
-        """타겟별 NESDC 검색 및 클라이언트 사이드 필터링.
+        """타겟별 NESDC 서버 사이드 검색 + 클라이언트 사이드 필터링.
 
-        동일 search_keyword를 가진 타겟은 한 번만 검색해 네트워크를 절약한다.
+        동일 (poll_gubuncd, search_cnd, search_wrd) 조합의 타겟은 한 번만 검색해
+        네트워크를 절약한다.
         """
         results: Dict[str, List[ListRecord]] = {_slug(t): [] for t in targets}
-        keyword_to_targets: Dict[str, List[PollTarget]] = {}
-        for t in targets:
-            keyword_to_targets.setdefault(t.search_keyword, []).append(t)
 
-        for keyword, kw_targets in keyword_to_targets.items():
-            self.logger.info("검색어 '%s' 수집 시작 (타겟 %d개)", keyword, len(kw_targets))
-            search_params = build_search_params(search_wrd=keyword)
+        # 동일 검색 조합끼리 묶기
+        search_key_to_targets: Dict[tuple, List[PollTarget]] = {}
+        for t in targets:
+            key = (t.poll_gubuncd, t.search_cnd, t.search_wrd)
+            search_key_to_targets.setdefault(key, []).append(t)
+
+        for (poll_gubuncd, search_cnd, search_wrd), group_targets in search_key_to_targets.items():
+            self.logger.info(
+                "검색 시작: pollGubuncd=%s searchCnd=%s searchWrd=%s (타겟 %d개)",
+                poll_gubuncd, search_cnd, search_wrd, len(group_targets),
+            )
+            search_params = build_search_params(
+                poll_gubuncd=poll_gubuncd or None,
+                search_cnd=search_cnd or None,
+                search_wrd=search_wrd or None,
+            )
 
             for page_index in range(1, max_pages_per_target + 1):
                 try:
@@ -566,20 +577,26 @@ class NesdcCrawler:
                     records = self.parse_list_page(soup)
                 except NesdcConnectionError:
                     if skip_errors:
-                        self.logger.exception("페이지 수집 실패: keyword=%s page=%d", keyword, page_index)
+                        self.logger.exception(
+                            "페이지 수집 실패: pollGubuncd=%s searchWrd=%s page=%d",
+                            poll_gubuncd, search_wrd, page_index,
+                        )
                         break
                     raise
 
                 if not records:
-                    self.logger.info("빈 페이지, 수집 종료: keyword=%s page=%d", keyword, page_index)
+                    self.logger.info(
+                        "빈 페이지, 수집 종료: pollGubuncd=%s searchWrd=%s page=%d",
+                        poll_gubuncd, search_wrd, page_index,
+                    )
                     break
 
                 for record in records:
-                    for target in kw_targets:
+                    for target in group_targets:
                         if matches_target(record, target):
                             results[_slug(target)].append(record)
 
-            for t in kw_targets:
+            for t in group_targets:
                 self.logger.info("타겟 '%s' 매칭 완료: %d건", _slug(t), len(results[_slug(t)]))
 
         return results

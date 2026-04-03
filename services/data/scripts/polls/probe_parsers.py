@@ -28,8 +28,17 @@ warnings.filterwarnings("ignore")
 _BASE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_BASE / "src"))
 
-from lawdigest_data_pipeline.polls.parser import PollResultParser  # noqa: E402
-from lawdigest_data_pipeline.polls.targets import load_targets  # noqa: E402
+import re as _re
+
+from lawdigest_data.polls.parser import PollResultParser  # noqa: E402
+from lawdigest_data.polls.targets import load_targets     # noqa: E402
+
+_UNSAFE = _re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def _safe_dirname(name: str) -> str:
+    name = _UNSAFE.sub("_", name)
+    return name.strip(". ") or "_"
 
 # PDF 파서 타임아웃 (초)
 PDF_TIMEOUT = 20
@@ -71,7 +80,11 @@ def main() -> None:
 
     # ── 경로 설정 ──────────────────────────────────────────────────────────────
     check_json  = _BASE / "output" / "polls" / "checks" / f"{target.slug}.json"
-    pdf_dir     = _BASE / "output" / "polls" / "pdfs" / target.slug
+    pdf_dir     = (
+        _BASE / "output" / "pdfs"
+        / _safe_dirname(target.election_type or target.slug)
+        / _safe_dirname(target.region or "전체")
+    )
     report_dir  = _BASE / "output" / "polls" / "probe_reports"
 
     if not check_json.exists():
