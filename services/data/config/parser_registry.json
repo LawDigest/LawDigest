@@ -1,6 +1,6 @@
 {
-  "version": "1.1",
-  "description": "조사기관별 파서 지정. pollster_assignments 키는 여론조사기관명의 일부와 매칭됩니다. catalog_scan 실행 후 catalog.json의 pollsters 목록을 참고해 추가하세요.",
+  "version": "1.2",
+  "description": "조사기관별 파서 지정. 각 파서의 pollster_names에 기관명 키워드를 추가하세요.",
   "parsers": {
     "table_format": {
       "class": "_TableFormatParser",
@@ -37,16 +37,6 @@
       "description": "여론조사꽃 크로스탭 PDF 파서 – NotoSansKR Identity-H GID 디코딩, 전체 행 col3 뭉친 비율 파싱",
       "pollster_names": ["여론조사꽃"]
     }
-  },
-  "pollster_assignments": {
-    "조원씨앤아이": "table_format",
-    "메타서치": "table_format",
-    "데일리리서치": "text_format",
-    "리얼미터": "realmeter_format",
-    "한국리서치": "korean_research_format",
-    "시그널앤펄스": "signal_pulse_format",
-    "엠브레인퍼블릭": "embrain_format",
-    "여론조사꽃": "flower_research_format"
   },
   "fallback_parser": "text_format"
 }

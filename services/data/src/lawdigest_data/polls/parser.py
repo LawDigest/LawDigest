@@ -190,28 +190,15 @@ class PollResultParser:
             "_FlowerResearchParser": _FlowerResearchParser,
         }
         parsers_def = data.get("parsers", {})
-        assignments = data.get("pollster_assignments", {})
         fallback_name = data.get("fallback_parser", "text_format")
 
         entries: List[_RegistryEntry] = []
 
-        # parsers 정의에서 pollster_names를 keyword 집합으로 구성 (priority=10)
-        # pollster_assignments는 parsers.pollster_names와 중복될 수 있으므로
-        # 두 소스를 합산하여 하나의 엔트리로 등록한다.
-        parser_keywords: Dict[str, List[str]] = {}  # parser_key → keyword 목록
+        # parsers 정의의 pollster_names로 엔트리 구성 (priority=10)
         for parser_key, parser_def in parsers_def.items():
-            parser_keywords[parser_key] = list(parser_def.get("pollster_names", []))
-
-        # pollster_assignments도 keyword로 추가 (하위 호환)
-        for pollster_kw, parser_key in assignments.items():
-            parser_keywords.setdefault(parser_key, [])
-            if pollster_kw not in parser_keywords[parser_key]:
-                parser_keywords[parser_key].append(pollster_kw)
-
-        for parser_key, keywords in parser_keywords.items():
+            keywords = parser_def.get("pollster_names", [])
             if not keywords:
                 continue
-            parser_def = parsers_def.get(parser_key, {})
             cls = parser_map.get(parser_def.get("class", ""), _TextFormatParser)
             entries.append(_RegistryEntry(
                 parser_class=cls,
