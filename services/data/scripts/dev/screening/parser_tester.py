@@ -20,39 +20,20 @@ class ParserTester:
     def test_all(self, analyzed: AnalyzedPdf) -> List[ParserTestResult]:
         """AnalyzedPdf의 pages_data를 재사용하여 중복 PDF 열기 없이 시도한다."""
         try:
-            from lawdigest_data.polls.parser import (
-                _EmbrainPublicParser,
-                _FlowerResearchParser,
-                _KoreanResearchParser,
-                _RealMeterParser,
-                _SignalPulseParser,
-                _TableFormatParser,
-                _TextFormatParser,
-            )
+            from lawdigest_data.polls.parser import _build_parser_key_map
             from lawdigest_data.polls.validation import validate_parse_results
         except ImportError as e:
             return [ParserTestResult(class_name="ImportError", exception=str(e))]
 
-        parser_classes = {
-            "_TableFormatParser":    _TableFormatParser,
-            "_TextFormatParser":     _TextFormatParser,
-            "_RealMeterParser":      _RealMeterParser,
-            "_KoreanResearchParser": _KoreanResearchParser,
-            "_SignalPulseParser":     _SignalPulseParser,
-            "_EmbrainPublicParser":  _EmbrainPublicParser,
-            "_FlowerResearchParser": _FlowerResearchParser,
-        }
+        # PARSER_KEY를 가진 모든 파서를 자동 탐색 (Protocol 통일로 단일 호출 방식)
+        parser_classes = _build_parser_key_map()
 
         pages_data = analyzed.pages_data
-        full_text = analyzed.full_text
         results: List[ParserTestResult] = []
 
         for cls_name, cls in parser_classes.items():
             try:
-                if cls_name == "_TextFormatParser":
-                    parsed = cls().parse(full_text)
-                else:
-                    parsed = cls().parse(pages_data)
+                parsed = cls().parse(pages_data)
                 errors = validate_parse_results(parsed)
                 valid_count = sum(1 for errs in errors.values() if not errs)
                 error_count = sum(1 for errs in errors.values() if errs)

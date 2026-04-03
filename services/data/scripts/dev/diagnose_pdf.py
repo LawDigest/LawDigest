@@ -72,6 +72,7 @@ def screen_one(
     filename: str,
     sample_pages: int = 5,
     dump_text: bool = False,
+    pdf_dir: Optional[Path] = None,
 ) -> "ScreeningResult":
     """단일 PDF 스크리닝을 수행하고 ScreeningResult를 반환한다."""
     from screening.models import (
@@ -82,7 +83,7 @@ def screen_one(
     from screening.parser_tester import ParserTester
     from screening.format_profiler import FormatProfiler
 
-    pdf_path = _PDF_DIR / filename
+    pdf_path = (pdf_dir or _PDF_DIR) / filename
     now = datetime.now(timezone.utc).isoformat()
 
     result = ScreeningResult(
@@ -126,8 +127,15 @@ def screen_one(
 
     # 5. 텍스트 샘플 (에이전트 참고용)
     first_pages = analyzed.per_page_texts[:3]
+    # table_previews: 테이블이 실제로 존재하는 첫 3페이지에서 추출
+    # (전체 페이지 앞에서 3개가 아니라 테이블 있는 페이지 앞에서 3개)
     table_previews = []
-    for page_num, (_, tables, _) in enumerate(analyzed.pages_data[:3], start=1):
+    pages_with_tables = [
+        (page_num, tables)
+        for page_num, (_, tables, _) in enumerate(analyzed.pages_data, start=1)
+        if tables
+    ]
+    for page_num, tables in pages_with_tables[:3]:
         for ti, tbl in enumerate(tables[:2]):
             if tbl:
                 table_previews.append({
@@ -153,11 +161,13 @@ def main() -> None:
     ap.add_argument("--stdout",    action="store_true", help="JSON을 stdout으로 출력")
     ap.add_argument("--profile",   action="store_true", help="기관별 프로파일 생성")
     ap.add_argument("--output-dir", default=str(_OUTPUT_DIR), help="출력 디렉토리")
+    ap.add_argument("--pdf-dir",    default=None, help="PDF 디렉토리 경로 (기본: poll_targets.json 기준 자동 설정)")
     args = ap.parse_args()
 
     from screening.output import ScreeningOutput
     from screening.profiler import Profiler
 
+    pdf_dir = Path(args.pdf_dir) if args.pdf_dir else _PDF_DIR
     out = ScreeningOutput(Path(args.output_dir))
 
     targets: List[Tuple[str, str]] = (
@@ -167,7 +177,7 @@ def main() -> None:
     )
 
     print(f"스크리닝 시작 — {len(targets)}건", file=sys.stderr)
-    print(f"PDF 경로: {_PDF_DIR}", file=sys.stderr)
+    print(f"PDF 경로: {pdf_dir}", file=sys.stderr)
     print(f"출력 경로: {args.output_dir}", file=sys.stderr)
 
     # 기관별 결과 수집 (프로파일링용)
@@ -176,7 +186,7 @@ def main() -> None:
 
     for pollster, filename in targets:
         print(f"\n  ▶ {pollster} / {filename[:50]}", file=sys.stderr)
-        result = screen_one(pollster, filename, sample_pages=args.pages, dump_text=args.dump_text)
+        result = screen_one(pollster, filename, sample_pages=args.pages, dump_text=args.dump_text, pdf_dir=pdf_dir)
 
         if args.stdout:
             out.print_to_stdout(result)

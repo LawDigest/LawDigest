@@ -1,6 +1,8 @@
 """여론조사 결과표 PDF 파서."""
 from __future__ import annotations
 
+import importlib
+import inspect
 import json
 import re
 from dataclasses import dataclass, field
@@ -10,7 +12,37 @@ from typing import Dict, List, Optional, Tuple
 from .models import QuestionResult
 
 # config/ 디렉터리 기본 경로
-_DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[4] / "config"
+# parser.py: .../services/data/src/lawdigest_data/polls/parser.py
+# parents[3] = .../services/data  →  config/
+_DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[3] / "config"
+
+# PageData: (테이블_외부_텍스트, 테이블_목록, 전체_텍스트) 타입 alias
+PageData = Tuple[str, List, str]
+
+
+class UnknownPollsterError(ValueError):
+    """등록된 파서가 없는 조사기관에 대해 발생하는 예외."""
+
+
+# ── PollParser Protocol ────────────────────────────────────────────────────────
+# 모든 파서 클래스는 이 인터페이스를 준수해야 한다.
+# - PARSER_KEY: parser_registry.json의 "class" 값과 동일한 클래스 변수
+# - parse(pages_data): 단일 시그니처로 통일 (text-only 파서도 포함)
+try:
+    from typing import Protocol, runtime_checkable
+except ImportError:  # Python < 3.8
+    from typing_extensions import Protocol, runtime_checkable  # type: ignore[assignment]
+
+
+@runtime_checkable
+class PollParser(Protocol):
+    """여론조사 결과표 파서의 공통 인터페이스."""
+
+    PARSER_KEY: str  # parser_registry.json "class" 값과 동일
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        """pages_data를 파싱하여 QuestionResult 목록을 반환한다."""
+        ...
 
 
 def _build_gid_to_unicode(font_path: Path) -> Dict[int, int]:
@@ -161,96 +193,108 @@ class _RegistryEntry:
     priority: int = 0
 
 
+def _build_parser_key_map() -> Dict[str, type]:
+    """이 모듈 내에서 PARSER_KEY를 가진 모든 파서 클래스를 자동으로 수집한다.
+
+    parser_registry.json의 "class" 값(= PARSER_KEY)으로 클래스를 찾기 위해 사용된다.
+    새 파서를 추가할 때 이 함수를 수정할 필요가 없다 — PARSER_KEY만 정의하면 된다.
+    """
+    module = importlib.import_module(__name__)
+    result: Dict[str, type] = {}
+    for _name, obj in inspect.getmembers(module, inspect.isclass):
+        key = getattr(obj, "PARSER_KEY", None)
+        if key:
+            result[key] = obj
+    return result
+
+
 class PollResultParser:
     """결과표 PDF에서 설문 항목별 응답 결과를 추출하는 파서.
 
-    기관별 파서는 parser_registry.json에서 로드하거나,
+    기관별 파서는 parser_registry.json에서 로드한다.
     registry_path=None 시 config/parser_registry.json을 자동으로 찾는다.
-    JSON이 없으면 내장 기본 레지스트리를 사용한다.
+    JSON이 없으면 RuntimeError를 발생시킨다.
+
+    pollster_hint가 레지스트리에 등록된 기관과 매칭되지 않으면
+    UnknownPollsterError를 발생시킨다 (폴백 없음).
     """
 
     def __init__(self, registry_path: Optional[Path] = None) -> None:
         self._registry: List[_RegistryEntry] = []
         path = registry_path or (_DEFAULT_CONFIG_DIR / "parser_registry.json")
-        if path.exists():
-            self.load_registry(path)
-        else:
-            self._load_defaults()
+        if not path.exists():
+            raise RuntimeError(
+                f"parser_registry.json을 찾을 수 없습니다: {path}\n"
+                "config/parser_registry.json이 올바른 위치에 있는지 확인하세요."
+            )
+        self.load_registry(path)
 
     def load_registry(self, registry_path: Path) -> None:
-        """JSON 파일에서 파서 레지스트리를 로드한다."""
-        data = json.loads(registry_path.read_text(encoding="utf-8"))
-        parser_map = {
-            "_TableFormatParser": _TableFormatParser,
-            "_TextFormatParser": _TextFormatParser,
-            "_RealMeterParser": _RealMeterParser,
-            "_KoreanResearchParser": _KoreanResearchParser,
-            "_SignalPulseParser": _SignalPulseParser,
-            "_EmbrainPublicParser": _EmbrainPublicParser,
-            "_FlowerResearchParser": _FlowerResearchParser,
-        }
-        parsers_def = data.get("parsers", {})
-        fallback_name = data.get("fallback_parser", "text_format")
+        """JSON 파일에서 파서 레지스트리를 로드한다.
 
+        PARSER_KEY 클래스 변수를 가진 파서들을 자동으로 탐색하므로
+        새 파서 추가 시 이 메서드를 수정할 필요가 없다.
+        """
+        data = json.loads(registry_path.read_text(encoding="utf-8"))
+        # PARSER_KEY 기반으로 이 모듈의 파서 클래스를 자동 탐색
+        parser_key_map = _build_parser_key_map()
+
+        parsers_def = data.get("parsers", {})
         entries: List[_RegistryEntry] = []
 
-        # parsers 정의의 pollster_names로 엔트리 구성 (priority=10)
-        for parser_key, parser_def in parsers_def.items():
+        for _parser_key, parser_def in parsers_def.items():
             keywords = parser_def.get("pollster_names", [])
             if not keywords:
                 continue
-            cls = parser_map.get(parser_def.get("class", ""), _TextFormatParser)
+            class_name = parser_def.get("class", "")
+            cls = parser_key_map.get(class_name)
+            if cls is None:
+                raise RuntimeError(
+                    f"parser_registry.json에 등록된 파서 클래스 '{class_name}'를 "
+                    f"모듈에서 찾을 수 없습니다. PARSER_KEY = '{class_name}'인 "
+                    "클래스가 parser.py에 정의되어 있는지 확인하세요."
+                )
             entries.append(_RegistryEntry(
                 parser_class=cls,
                 pollster_keywords=tuple(keywords),
                 priority=10,
             ))
 
-        # 최종 fallback (priority=0)
-        fallback_def = parsers_def.get(fallback_name, {})
-        fallback_cls = parser_map.get(fallback_def.get("class", ""), _TextFormatParser)
-        entries.append(_RegistryEntry(
-            parser_class=fallback_cls,
-            pollster_keywords=(),
-            priority=0,
-        ))
-
-        entries.sort(key=lambda e: e.priority, reverse=True)
         self._registry = entries
-
-    def _load_defaults(self) -> None:
-        """JSON 파일 없을 때 내장 기본 레지스트리 로드."""
-        self._registry = [
-            _RegistryEntry(_TableFormatParser, ("조원씨앤아이", "메타서치"), 10),
-            _RegistryEntry(_TextFormatParser, ("데일리리서치",), 10),
-            _RegistryEntry(_TextFormatParser, (), 0),
-        ]
 
     def parse_pdf(
         self,
         pdf_path: Path,
         pollster_hint: Optional[str] = None,
     ) -> List[QuestionResult]:
-        """PDF 파일을 파싱하여 QuestionResult 목록을 반환한다."""
+        """PDF 파일을 파싱하여 QuestionResult 목록을 반환한다.
+
+        Args:
+            pdf_path: 파싱할 PDF 파일 경로
+            pollster_hint: 조사기관명 (레지스트리 매칭에 사용)
+
+        Raises:
+            UnknownPollsterError: pollster_hint가 레지스트리에 없는 경우
+            RuntimeError: pymupdf 미설치 또는 기타 오류
+        """
         try:
             import fitz  # PyMuPDF
         except ImportError as exc:
             raise RuntimeError("PDF 파싱을 위해 pymupdf가 필요합니다.") from exc
 
-        pages_data: List[Tuple[str, List, str]] = []
+        pages_data: List[PageData] = []
         doc = fitz.open(pdf_path)
         try:
             for page in doc:
                 finder = page.find_tables()
                 tables = [t.extract() for t in finder.tables]
                 full_text = page.get_text() or ""
-                # 테이블 외부 텍스트: 섹션 제목 파싱 정확도 향상 (word 단위 재조합)
                 outside_text = _extract_text_outside_tables(page, finder) if tables else full_text
                 pages_data.append((outside_text, tables, full_text))
         finally:
             doc.close()
 
-        parser_class = self._select_parser("", pollster_hint)
+        parser_class = self._select_parser(pollster_hint)
 
         # GID 디코딩이 필요한 파서(여론조사꽃 등)는 rawdict 모드로 재추출
         if getattr(parser_class, "NEEDS_GID_DECODE", False):
@@ -259,42 +303,42 @@ class PollResultParser:
                 gid_map = _build_gid_to_unicode(Path(font_path))
                 pages_data = _extract_pages_with_gid_decode(pdf_path, gid_map)
 
-        if issubclass(parser_class, _TableFormatParser):
-            return parser_class().parse(pages_data)
-        else:
-            full_text = "\n".join(ft for _, _, ft in pages_data)
-            return parser_class().parse(full_text)
+        return parser_class().parse(pages_data)
 
-    def _select_parser(self, full_text: str, pollster_hint: Optional[str]) -> type:
+    def _select_parser(self, pollster_hint: Optional[str]) -> type:
         """레지스트리에서 적합한 파서 클래스를 선택한다.
 
-        pollster_hint로 기관명 키워드를 매칭한다.
-        매칭되지 않으면 fallback 파서(priority=0)를 반환한다.
+        Raises:
+            UnknownPollsterError: pollster_hint가 None이거나 매칭되는 파서가 없는 경우
         """
         if pollster_hint:
             for entry in self._registry:
-                if entry.pollster_keywords and any(
-                    kw in pollster_hint for kw in entry.pollster_keywords
-                ):
+                if any(kw in pollster_hint for kw in entry.pollster_keywords):
                     return entry.parser_class
 
-        # fallback (priority=0 엔트리)
-        for entry in self._registry:
-            if entry.priority == 0:
-                return entry.parser_class
-
-        return _TextFormatParser
+        registered = sorted({
+            kw for e in self._registry for kw in e.pollster_keywords
+        })
+        hint_repr = repr(pollster_hint) if pollster_hint else "None (pollster_hint 미지정)"
+        raise UnknownPollsterError(
+            f"조사기관 {hint_repr}에 대한 파서를 찾을 수 없습니다.\n"
+            f"등록된 기관 키워드: {registered}\n"
+            "parser_registry.json에 해당 기관을 등록하거나 pollster_hint를 확인하세요."
+        )
 
 
 class _TextFormatParser:
     """텍스트 형식 파서 – 데일리리서치 등."""
+
+    PARSER_KEY = "_TextFormatParser"
 
     _SECTION_NUM_TITLE_RE = re.compile(r"^(\d+)\)\s+(.+)$", re.MULTILINE)
     _OPTION_PCT_RE = re.compile(r"^(.+?)\s+([\d.]+)$")
     _CROSSTAB_MARKERS = ["자료 처리 방법", "교차분석", "교차 분석", "Ⅱ. 조사"]
     _RESULTS_MARKERS = ["설문 항목별 결과", "조사결과", "제2장 조사결과"]
 
-    def parse(self, full_text: str) -> List[QuestionResult]:
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        full_text = "\n".join(ft for _, _, ft in pages_data)
         text = self._extract_results_section(full_text)
         sections = list(self._SECTION_NUM_TITLE_RE.finditer(text))
         results: List[QuestionResult] = []
@@ -366,11 +410,13 @@ class _TextFormatParser:
 class _TableFormatParser:
     """테이블 형식 파서 – 조원씨앤아이, 메타서치 등."""
 
+    PARSER_KEY = "_TableFormatParser"
+
     _SECTION_RE = re.compile(r"^문?(\d+)[.)]\s+([^\n]+)$", re.MULTILINE)
     _N_RE = re.compile(r"\((\d+)\)")
     _SUBTOTAL_RE = re.compile(r"\(합\)|합계|소계")
 
-    def parse(self, pages_data: List[Tuple[str, List, str]]) -> List[QuestionResult]:
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
         for page_text, page_tables, _full_text in pages_data:
             for table in page_tables:
@@ -464,6 +510,8 @@ class _KoreanResearchParser(_TableFormatParser):
       - T2/B2/(1+2)/(3+4) 소계 컬럼 및 '계' 컬럼 제거
     """
 
+    PARSER_KEY = "_KoreanResearchParser"
+
     _TABLE_TITLE_RE = re.compile(r"\[표\s*(\d+)\]\s+(.+)")
     _Q_TEXT_RE = re.compile(r"\[문\s*\d+\]\s+(.+?)(?:\?|？)", re.DOTALL)
     _TOTAL_ROW_RE = re.compile(
@@ -472,7 +520,7 @@ class _KoreanResearchParser(_TableFormatParser):
     _SUMMARY_COL_RE = re.compile(r"^T[12]|^B[12]|\(1\+2\)|\(3\+4\)|^계$")
     _META_COLS = 3  # '전체', '사례수 (명)', None
 
-    def parse(self, pages_data: List[Tuple[str, List, str]]) -> List[QuestionResult]:
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
         # q_num → QuestionResult (페이지 분할 표 merge 지원)
         result_map: dict = {}
 
@@ -572,6 +620,8 @@ class _SignalPulseParser(_TableFormatParser):
     한 질문이 여러 페이지에 걸쳐 반복됨 → seen_q_nums 중복 방지
     """
 
+    PARSER_KEY = "_SignalPulseParser"
+
     _PYO_TITLE_RE = re.compile(r"\[표\s*(\d+)\]\s+(.+)")   # 신버전: [표N] 제목
     _Q_TITLE_RE = re.compile(r"\[Q(\d+)\]\s+\[(.+)\]")     # 구버전: [Q1] [제목]
     _TOTAL_TEXT_RE = re.compile(                             # 신버전 전체 행 (텍스트)
@@ -580,7 +630,7 @@ class _SignalPulseParser(_TableFormatParser):
     _SUMMARY_COL_RE = re.compile(r"\(합\)")                 # 소계 컬럼 필터
     _META_COLS = 4  # col 0~3: 제목/None/조사완료/가중값적용
 
-    def parse(self, pages_data: List[Tuple[str, List, str]]) -> List[QuestionResult]:
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
         seen_q_nums: set = set()
 
@@ -704,6 +754,8 @@ class _EmbrainPublicParser(_TableFormatParser):
       - 【...】 패턴(소계 컬럼) 및 None 헤더 컬럼 제거
     """
 
+    PARSER_KEY = "_EmbrainPublicParser"
+
     _TABLE_TITLE_RE = re.compile(r"\[표(\d+)\]\s+(.+)")
     _SUMMARY_COL_RE = re.compile(r"【.+】")
     _META_COLS = 4  # None, None, 사례수, None
@@ -799,6 +851,8 @@ class _RealMeterParser(_TableFormatParser):
       - 한 질문이 2페이지에 걸칠 수 있으므로 질문번호 중복 방지
     """
 
+    PARSER_KEY = "_RealMeterParser"
+
     # "N. 제목" 패턴 – 질문 섹션 시작 (숫자 + 점 + 공백 + 텍스트)
     _Q_SECTION_RE = re.compile(r"(?m)^(\d+)\.\s+(.+)$")
     # "QN. 질문문?" 패턴
@@ -813,7 +867,7 @@ class _RealMeterParser(_TableFormatParser):
     # 원형 숫자 두 개가 + 로 연결된 경우
     _SUMMARY_OPT_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩]\s*\+\s*[①②③④⑤⑥⑦⑧⑨⑩]")
 
-    def parse(self, pages_data: List[Tuple[str, List, str]]) -> List[QuestionResult]:
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
         seen_q_nums: set = set()
 
@@ -919,6 +973,7 @@ class _FlowerResearchParser(_TableFormatParser):
       - 비율이 col 3 하나의 셀에 공백으로 뭉쳐 있음
     """
 
+    PARSER_KEY = "_FlowerResearchParser"
     NEEDS_GID_DECODE: bool = True
     FONT_PATH: str = str(
         Path(__file__).resolve().parents[4] / "data" / "resources" / "fonts" / "NotoSansCJKkr-Medium.otf"
@@ -933,7 +988,7 @@ class _FlowerResearchParser(_TableFormatParser):
     # 소계 컬럼 제거: "잘하고 있다 ①+②" 형태
     _SUMMARY_COL_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩]\s*\+\s*[①②③④⑤⑥⑦⑧⑨⑩]")
 
-    def parse(self, pages_data: List[Tuple[str, List, str]]) -> List[QuestionResult]:
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
         seen_q_nums: set = set()
 
@@ -1040,3 +1095,130 @@ class _FlowerResearchParser(_TableFormatParser):
             return int(text.replace(",", ""))
         except ValueError:
             return None
+
+
+class _WinjiKoreaParser:
+    """윈지코리아컨설팅 ARS 크로스탭 PDF 파서.
+
+    포맷 특성:
+      - 질문 마커: 텍스트의 '표 N\\n제목' 패턴
+      - 전체 행 마커: '전체', '전 체', '[ 전 체 ]' 등 공백·대괄호 변형 허용
+      - 비율 위치: 전체 행의 col4+ 각 셀에 개별 float
+      - 전체 행 구조: [구분, None, (n완료), (n가중), 비율1, 비율2, ...]
+      - 헤더: row[0]='구분', row[4+]=선택지명 (멀티라인 가능)
+      - 가중값 통계표(3페이지 등)는 col4+에 float가 없으므로 자동 건너뜀
+    """
+
+    PARSER_KEY = "_WinjiKoreaParser"
+
+    # 텍스트에서 '표 N\n제목' 패턴
+    _TABLE_HEADER_RE = re.compile(r"표\s*(\d+)\s*\n([^\n]+)", re.MULTILINE)
+    # 사례수 추출: (1,007) 또는 (1007)
+    _N_RE = re.compile(r"\((\d[\d,]*)\)")
+
+    @staticmethod
+    def _is_total_cell(val: object) -> bool:
+        """row[0] 값이 '전체' 계열 마커인지 판단한다."""
+        normalized = re.sub(r"[\s\[\]]", "", str(val or ""))
+        return normalized == "전체"
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        # 전체 텍스트에서 '표 N\n제목' 매핑 수집
+        full_text = "\n".join(ft for _, _, ft in pages_data)
+        q_titles: Dict[int, str] = {}
+        for m in self._TABLE_HEADER_RE.finditer(full_text):
+            q_num = int(m.group(1))
+            title = re.sub(r"\s+", " ", m.group(2)).strip()
+            if q_num not in q_titles:
+                q_titles[q_num] = title
+
+        results: List[QuestionResult] = []
+        q_counter = 0
+
+        for _page_text, page_tables, _full in pages_data:
+            for table in page_tables:
+                result = self._parse_table(table)
+                if result is None:
+                    continue
+                q_counter += 1
+                result.question_number = q_counter
+                result.question_title = q_titles.get(q_counter, "")
+                results.append(result)
+
+        return results
+
+    def _parse_table(self, table: List[List]) -> Optional[QuestionResult]:
+        if not table or len(table) < 2:
+            return None
+
+        # 전체 행 탐색: row[0]이 '전체' 계열
+        total_row: Optional[List] = None
+        total_row_idx: int = -1
+        for i, row in enumerate(table):
+            if not row:
+                continue
+            if self._is_total_cell(row[0]):
+                total_row = row
+                total_row_idx = i
+                break
+
+        if total_row is None:
+            return None
+
+        # 사례수: col2=(n완료), col3=(n가중)
+        n_completed = self._extract_n(str(total_row[2] if len(total_row) > 2 else ""))
+        n_weighted = self._extract_n(str(total_row[3] if len(total_row) > 3 else ""))
+
+        # 비율: col4+ 각 셀에서 float 추출 (가중값 테이블은 col4에 float가 없으므로 건너뜀)
+        percentages: List[float] = []
+        for cell in total_row[4:]:
+            cell_str = str(cell or "").strip()
+            try:
+                v = float(cell_str)
+                if 0.0 <= v <= 100.0:
+                    percentages.append(v)
+            except ValueError:
+                pass
+
+        if not percentages:
+            return None
+
+        # 선택지: 헤더 행(전체 행 위)의 col4+
+        header_row: Optional[List] = None
+        for row in table[:total_row_idx]:
+            cells_4plus = [str(c or "").strip() for c in row[4:]]
+            non_empty = [c for c in cells_4plus if c and c.lower() != "none"]
+            if len(non_empty) >= len(percentages):
+                header_row = row
+                break
+        if header_row is None and total_row_idx > 0:
+            header_row = table[0]
+
+        options: List[str] = []
+        if header_row is not None:
+            for cell in header_row[4:]:
+                opt = re.sub(r"[\n\x00\s]+", " ", str(cell or "")).strip()
+                if not opt or opt.lower() == "none":
+                    continue
+                options.append(opt)
+                if len(options) == len(percentages):
+                    break
+
+        while len(options) < len(percentages):
+            options.append(f"선택지{len(options)+1}")
+
+        return QuestionResult(
+            question_number=0,
+            question_title="",
+            question_text="",
+            response_options=options,
+            overall_n_completed=n_completed,
+            overall_n_weighted=n_weighted,
+            overall_percentages=percentages,
+        )
+
+    def _extract_n(self, text: str) -> Optional[int]:
+        m = self._N_RE.search(text)
+        if m:
+            return int(m.group(1).replace(",", ""))
+        return None
