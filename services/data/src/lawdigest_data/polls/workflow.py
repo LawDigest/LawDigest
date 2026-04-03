@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from dataclasses import asdict
 from pathlib import Path
@@ -17,6 +18,35 @@ logger = logging.getLogger(__name__)
 
 # artifact 저장 디렉터리 (WorkFlowManager와 동일한 위치)
 _ARTIFACT_DIR = Path(__file__).resolve().parents[6] / ".airflow_artifacts"
+
+# 파싱 결과 저장 루트 디렉터리
+_PARSED_DIR = Path(__file__).resolve().parents[6] / "services" / "data" / "output" / "parsed"
+
+_UNSAFE_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+
+def _safe_dirname(name: str) -> str:
+    """디렉토리명으로 사용하기 안전한 문자열로 변환한다."""
+    name = _UNSAFE_CHARS_RE.sub("_", name)
+    name = name.strip(". ")
+    return name or "_"
+
+
+def _save_parsed_result(result_set_dict: Dict[str, Any], detail: PollDetail) -> Path:
+    """파싱 결과를 output/parsed/{선거명}/{지역명}/{기관명}/{보고서명}.json 에 저장한다."""
+    election_name = _safe_dirname(detail.election_name or "미분류")
+    region = _safe_dirname(detail.region or "미분류")
+    pollster = _safe_dirname(detail.pollster or "미분류")
+    report_stem = _safe_dirname(Path(detail.analysis_filename or detail.registration_number).stem)
+
+    out_dir = _PARSED_DIR / election_name / region / pollster
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{report_stem}.json"
+    out_path.write_text(
+        json.dumps(result_set_dict, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return out_path
 
 
 def _write_artifact(prefix: str, payload: Any) -> str:
@@ -243,6 +273,7 @@ class PollsWorkflowManager:
 
         raw = _read_artifact(artifact_path)
         details = [PollDetail(**d) for d in raw]
+        detail_by_reg: Dict[str, PollDetail] = {d.registration_number: d for d in details}
 
         reg_path = Path(registry_path) if registry_path else None
         _pdf_dir = Path(pdf_dir) if pdf_dir else Path("./pdfs")
@@ -255,17 +286,28 @@ class PollsWorkflowManager:
         )
 
         questions_total = sum(len(rs.questions) for rs in result_sets)
-        payload = [asdict(rs) for rs in result_sets]
+        payload = []
+        saved_paths: List[str] = []
+        for rs in result_sets:
+            rs_dict = asdict(rs)
+            payload.append(rs_dict)
+            detail = detail_by_reg.get(rs.registration_number)
+            if detail:
+                out_path = _save_parsed_result(rs_dict, detail)
+                saved_paths.append(str(out_path))
+                logger.debug("[polls_ingest.parse] 결과 저장: %s", out_path)
+
         artifact_path_out = _write_artifact("polls_ingest_results", payload)
         logger.info(
-            "[polls_ingest.parse] 파싱 완료: %d건, 질문 %d개",
-            len(result_sets), questions_total,
+            "[polls_ingest.parse] 파싱 완료: %d건, 질문 %d개, 파일 저장 %d건",
+            len(result_sets), questions_total, len(saved_paths),
         )
         return {
             "mode": self.mode,
             "parsed": len(result_sets),
             "questions_total": questions_total,
             "artifact_path": artifact_path_out,
+            "saved_paths": saved_paths,
         }
 
     def upsert_polls_step(self, artifact_path: Optional[str]) -> Dict[str, Any]:
