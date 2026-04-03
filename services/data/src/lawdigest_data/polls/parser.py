@@ -789,9 +789,6 @@ class _SignalPulseParser(BaseTableParser):
 
     _PYO_TITLE_RE = re.compile(r"\[표\s*(\d+)\]\s+(.+)")
     _Q_TITLE_RE = re.compile(r"\[Q(\d+)\]\s+\[(.+)\]")
-    _TOTAL_TEXT_RE = re.compile(
-        r"▣ 전 체 ▣\s+([\d,]+)\s+([\d,]+)\s+((?:[\d.]+\s*)+)"
-    )
     _SUMMARY_COL_RE = re.compile(r"\(합\)")
     _META_COLS = 4
 
@@ -950,8 +947,9 @@ class _RealMeterParser(BaseTableParser):
     """리얼미터 크로스탭 파서.
 
     특이사항:
-      - 텍스트에서 '전체 (N완료) (N가중) p1 p2 ...' 패턴으로 비율 추출
-      - 테이블 헤더에서 선택지 추출 (col 0에 '구' 포함 여부로 식별)
+      - 질문 테이블 식별: header[0][0]에 '구' 포함
+      - 전체 행의 col2에 '(N완료) (N가중)' 두 값이 함께 기재됨
+      - col4+에 선택지별 비율이 개별 셀로 저장
       - seen_q_nums로 중복 페이지 방지
     """
 
@@ -959,9 +957,7 @@ class _RealMeterParser(BaseTableParser):
 
     _Q_SECTION_RE = re.compile(r"(?m)^(\d+)\.\s+(.+)$")
     _Q_TEXT_RE = re.compile(r"Q\d+\.\s+(.+?)(?:\?|？)", re.DOTALL)
-    _TOTAL_ROW_RE = re.compile(
-        r"전체\s+\((\d+)\)\s+\((\d+)\)\s+((?:[\d.]+\s*)+)"
-    )
+    _N_PAIR_RE = re.compile(r"\((\d[\d,]*)\)")
     _HEADER_META_COLS = 4
     _SUMMARY_OPT_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩]\s*\+\s*[①②③④⑤⑥⑦⑧⑨⑩]")
 
@@ -969,7 +965,7 @@ class _RealMeterParser(BaseTableParser):
         results: List[QuestionResult] = []
         seen_q_nums: set = set()
 
-        for page_text, page_tables, full_text in pages_data:
+        for page_text, page_tables, _full_text in pages_data:
             q_section_match = self._Q_SECTION_RE.search(page_text)
             if not q_section_match:
                 continue
@@ -977,16 +973,52 @@ class _RealMeterParser(BaseTableParser):
             if q_num in seen_q_nums:
                 continue
 
-            options = self._extract_header_options(page_tables)
+            result = self._extract_from_tables(page_tables, q_section_match, page_text)
+            if result is None:
+                continue
+
+            seen_q_nums.add(q_num)
+            result.question_number = q_num
+            results.append(result)
+
+        return results
+
+    def _extract_from_tables(
+        self,
+        page_tables: List,
+        q_section_match: re.Match,
+        page_text: str,
+    ) -> Optional[QuestionResult]:
+        for table in page_tables:
+            if not table or len(table) < 2:
+                continue
+            if "구" not in str(table[0][0] or ""):
+                continue
+
+            found = find_total_row(table, markers=("전체",))
+            if found is None:
+                continue
+            _, total_row = found
+
+            if len(total_row) < self._HEADER_META_COLS + 1:
+                continue
+
+            # col2: '(N완료) (N가중)' 두 값이 한 셀에 있음
+            n_vals = self._N_PAIR_RE.findall(str(total_row[2] or ""))
+            if len(n_vals) < 2:
+                continue
+            n_completed = int(n_vals[0].replace(",", ""))
+            n_weighted = int(n_vals[1].replace(",", ""))
+
+            options = extract_options_from_row(table[0], start_col=self._HEADER_META_COLS)
             if not options:
                 continue
 
-            total_match = self._TOTAL_ROW_RE.search(full_text)
-            if not total_match:
+            percentages = extract_percentages_from_cells(
+                total_row, start_col=self._HEADER_META_COLS,
+            )
+            if not percentages:
                 continue
-            n_completed = int(total_match.group(1))
-            n_weighted = int(total_match.group(2))
-            percentages = [float(v) for v in total_match.group(3).split()]
 
             options, percentages = filter_summary_columns(
                 options, percentages, summary_patterns=(self._SUMMARY_OPT_RE,),
@@ -1003,30 +1035,16 @@ class _RealMeterParser(BaseTableParser):
                 else q_title
             )
 
-            seen_q_nums.add(q_num)
-            results.append(QuestionResult(
-                question_number=q_num,
+            return QuestionResult(
+                question_number=0,
                 question_title=q_title,
                 question_text=q_text,
                 response_options=options[:min_len],
                 overall_n_completed=n_completed,
                 overall_n_weighted=n_weighted,
                 overall_percentages=percentages[:min_len],
-            ))
-
-        return results
-
-    def _extract_header_options(self, page_tables: List) -> List[str]:
-        for table in page_tables:
-            if not table or len(table) < 2:
-                continue
-            header = table[0]
-            if len(header) <= self._HEADER_META_COLS:
-                continue
-            if "구" not in str(header[0] or ""):
-                continue
-            return extract_options_from_row(header, start_col=self._HEADER_META_COLS)
-        return []
+            )
+        return None
 
 
 class _FlowerResearchParser(BaseTableParser):
@@ -1227,4 +1245,88 @@ class _WinjiKoreaParser(BaseTableParser):
             response_options=options_b,
             overall_n_completed=n_c_b, overall_n_weighted=n_w_b,
             overall_percentages=pcts_b,
+        )
+
+
+class _HangilResearchParser(BaseTableParser):
+    """한길리서치 크로스탭 파서.
+
+    특이사항:
+      - 질문 결과 테이블 식별: header[0][0]=='' AND header[0][2]=='합계'
+      - 전체 행: col0=='전체', n_completed=col2, n_weighted=col3
+      - col4+에 선택지별 비율이 개별 셀로 저장
+      - ①+②, ③+④ 등 소계 열은 DEFAULT_SUMMARY_PATTERNS로 필터
+      - 질문 번호/텍스트: page_text의 '문N)' 패턴에서 추출
+    """
+
+    PARSER_KEY = "_HangilResearchParser"
+
+    _Q_RE = re.compile(r"문\s*(\d+)\s*\)\s*(.+?)(?:\?|？)", re.DOTALL)
+    _META_COLS = 4
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+
+        for page_text, page_tables, _full_text in pages_data:
+            for table in page_tables:
+                result = self._parse_table(table, page_text, len(results) + 1)
+                if result is not None:
+                    results.append(result)
+
+        return results
+
+    def _parse_table(
+        self, table: List, page_text: str, fallback_q_num: int,
+    ) -> Optional[QuestionResult]:
+        if not table or not table[0] or len(table[0]) < self._META_COLS + 1:
+            return None
+
+        # 질문 결과 테이블 식별: col0 빈 셀, col2 == '합계'
+        if str(table[0][0] or "").strip() != "":
+            return None
+        if str(table[0][2] or "").strip() != "합계":
+            return None
+
+        found = find_total_row(table, markers=("전체",))
+        if found is None:
+            return None
+        _, total_row = found
+
+        if len(total_row) < self._META_COLS + 1:
+            return None
+
+        n_completed = extract_sample_count(str(total_row[2] or ""))
+        n_weighted = extract_sample_count(str(total_row[3] or ""))
+
+        options = extract_options_from_row(table[0], start_col=self._META_COLS)
+        if not options:
+            return None
+
+        percentages = extract_percentages_from_cells(total_row, start_col=self._META_COLS)
+        if not percentages:
+            return None
+
+        options, percentages = filter_summary_columns(
+            options, percentages, summary_patterns=DEFAULT_SUMMARY_PATTERNS,
+        )
+        min_len = min(len(options), len(percentages))
+        if min_len == 0:
+            return None
+
+        q_match = self._Q_RE.search(page_text)
+        if q_match:
+            q_num = int(q_match.group(1))
+            q_text = re.sub(r"\s+", " ", q_match.group(2)).strip() + "?"
+        else:
+            q_num = fallback_q_num
+            q_text = ""
+
+        return QuestionResult(
+            question_number=q_num,
+            question_title=q_text,
+            question_text=q_text,
+            response_options=options[:min_len],
+            overall_n_completed=n_completed,
+            overall_n_weighted=n_weighted,
+            overall_percentages=percentages[:min_len],
         )

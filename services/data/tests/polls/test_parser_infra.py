@@ -42,6 +42,7 @@ class TestBuildParserKeyMap:
             "_EmbrainPublicParser",
             "_FlowerResearchParser",
             "_WinjiKoreaParser",
+            "_HangilResearchParser",
         }
         assert expected_keys == set(key_map.keys())
 
@@ -119,13 +120,14 @@ class TestPollResultParserRegistry:
     def test_load_from_default_registry(self):
         """기본 경로의 parser_registry.json에서 모든 파서가 로드된다."""
         parser = PollResultParser()
-        assert len(parser._registry) == 8  # 현재 등록된 파서 수
+        assert len(parser._registry) == 9  # 현재 등록된 파서 수
 
     def test_all_pollsters_registered(self):
         parser = PollResultParser()
         all_keywords = {kw for e in parser._registry for kw in e.pollster_keywords}
         expected = {"조원씨앤아이", "메타서치", "데일리리서치", "리얼미터",
-                    "한국리서치", "시그널앤펄스", "엠브레인퍼블릭", "여론조사꽃", "윈지코리아"}
+                    "한국리서치", "시그널앤펄스", "엠브레인퍼블릭", "여론조사꽃", "윈지코리아",
+                    "(주)한길리서치", "한길리서치"}
         assert expected == all_keywords
 
     def test_registry_json_missing_raises(self, tmp_path):
