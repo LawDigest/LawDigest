@@ -63,30 +63,26 @@
 
 ---
 
-## 2. 마이그레이션 필요 — text 정규식 의존 파서 (1개 기관, 2건)
+## 2. 마이그레이션 완료 — ✅ 리얼미터 테이블 기반 전환
 
-> 현재 동작하지만, 비율 추출을 `full_text` 정규식에 의존해 PDF 레이아웃 변화에 취약.
+| 조사기관 | 파서 | PDF 건수 | 이전 방식 | 현재 방식 |
+|---------|------|---------|---------|---------|
+| ㈜리얼미터 | `_RealMeterParser` | 2 | `_TOTAL_ROW_RE.search(full_text)` 정규식 기반 | `find_total_row` + `extract_percentages_from_cells` 테이블 기반 ✅ |
 
-| 조사기관 | 파서 | PDF 건수 | 문제 | 마이그레이션 방향 |
-|---------|------|---------|------|-----------------|
-| ㈜리얼미터 | `_RealMeterParser` | 2 | 비율 추출: `_TOTAL_ROW_RE.search(full_text)` — 텍스트 위치 기반 | 테이블 전체 행(`find_total_row`) + `extract_percentages_from_cells`로 전환 |
-
-**현재 구조 (혼합 방식)**:
-- 선택지: 테이블 헤더에서 추출 ← 이미 테이블 기반 ✅
-- 비율 + N: `전체 (N완료) (N가중) p1 p2 ...` 패턴을 `full_text` 에서 정규식 탐색 ⚠️
-
-**부수 정리 필요**:
-- `_SignalPulseParser._TOTAL_TEXT_RE` — 정의만 되고 사용되지 않는 dead code (실제 구현은 이미 테이블 기반)
+**완료 내용**:
+- `_TOTAL_ROW_RE` 제거, `_N_PAIR_RE`로 col2 내 `(N완료) (N가중)` 두 값 파싱
+- `_extract_from_tables()` 메서드로 테이블 전체 행 기반 비율 추출
+- `_SignalPulseParser._TOTAL_TEXT_RE` dead code 제거
 
 ---
 
-## 3. 미개발 파서 (5개 기관, 6건)
+## 3. 미개발 파서 (4개 기관, 5건)
 
 > 스크리닝 결과: `output/polls/screening/{기관명}/` — 상세 포맷 정보 및 도전 과제 참고
 
 | 조사기관 | PDF 건수 | 질문마커 | 전체행마커 | 비율위치 | 주요 도전 과제 | 우선순위 |
 |---------|---------|---------|-----------|---------|-------------|--------|
-| ㈜한길리서치 | 1 | `문N)` | `합계` | mixed+뭉침 | 비율 뭉침 셀 분리 | 1 |
+| ~~㈜한길리서치~~ | ~~1~~ | ~~`문N)`~~ | ~~`합계`~~ | ~~mixed+뭉침~~ | ~~비율 뭉침 셀 분리~~ | ~~1~~ → ✅ 완료 |
 | 넥스트리서치 | 1 | `N.` | `계` | mixed+뭉침 | 비율 뭉침 셀 분리 | 1 |
 | ㈜에스티아이 | 1 | `QN.` | `계` | mixed+뭉침 | 비율 뭉침 셀 분리 + 멀티페이지 merge | 2 |
 | 입소스 주식회사 | 1 | `문N.` | `전 체` | text_bundled | 멀티페이지 merge 필요 | 2 |
@@ -132,7 +128,8 @@ PollResultParser
 ├── _SignalPulseParser        ✅ 테이블 — 시그널앤펄스: [표N]/[QN] 분기
 ├── _FlowerResearchParser     ✅ 테이블 — 여론조사꽃: GID 디코딩 + 뭉침 비율
 ├── _WinjiKoreaParser         ✅ 테이블 — 윈지코리아: A/B 포맷 자동 감지
-└── _RealMeterParser          ⚠️ 혼합  — 리얼미터: 선택지(테이블) + 비율(full_text 정규식)
+├── _RealMeterParser          ✅ 테이블 — 리얼미터: col4+ 개별 셀, col2에 (N완료)(N가중) 쌍
+└── _HangilResearchParser     ✅ 테이블 — 한길리서치: header[0][2]=='합계' 식별, col4+ 개별 셀
 ```
 
 ### 공통 인프라 (`table_utils.py` + `parser.py`)
@@ -157,6 +154,7 @@ PollResultParser
 | `main` | 조원씨앤아이, 데일리리서치, 리얼미터, 엠브레인퍼블릭(#23), 한국리서치(#24), 시그널앤펄스(#24) | ✅ 머지됨 |
 | `feat/parser-diagnosis/claude` | 여론조사꽃 (3건) | 🚧 PR 대기 |
 | `refactor/parser-infra/claude` | 윈지코리아 (2건) + `_unmerge_table` 인프라 + KoreanResearch 테이블 기반 재작성 | 🚧 PR 대기 |
+| `feat/parser-hangil-realmeter-migration/claude` | 한길리서치 신규 + 리얼미터 테이블 기반 마이그레이션 | 🚧 PR 대기 |
 
 ---
 
@@ -174,9 +172,9 @@ PollResultParser
 
 1. **즉시**: `feat/parser-diagnosis/claude` PR 작성 → 여론조사꽃 머지
 2. **즉시**: `refactor/parser-infra/claude` PR 작성 → 윈지코리아 + 인프라 머지
-3. **단기**: 미개발 1순위 파서 개발 (한길리서치, 넥스트리서치)
+3. **즉시**: `feat/parser-hangil-realmeter-migration/claude` PR 작성 → 한길리서치 + 리얼미터 머지
+4. **단기**: 미개발 1순위 파서 개발 (넥스트리서치)
    - `output/polls/screening/{기관명}/` 스크리닝 JSON 참고
    - `extract_percentages_from_bunched_cell` 활용
-4. **중기**: `_RealMeterParser` 테이블 기반 마이그레이션 (`full_text` 정규식 제거)
 5. **중기**: 미개발 2·3순위 파서 개발 (에스티아이, 입소스, 케이스탯리서치)
 6. **보류 해제**: 기후위기 인식조사 대상 포함 여부 확인 후 결정

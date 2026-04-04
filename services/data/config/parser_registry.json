@@ -41,6 +41,11 @@
       "class": "_WinjiKoreaParser",
       "description": "윈지코리아컨설팅 ARS 크로스탭 PDF 파서 – '표 N' 질문 마커, '전체'/'전 체'/'[ 전 체 ]' 전체 행",
       "pollster_names": ["윈지코리아"]
+    },
+    "hangil_research_format": {
+      "class": "_HangilResearchParser",
+      "description": "한길리서치 크로스탭 PDF 파서 – '문N)' 질문 마커, header[0][2]=='합계' 테이블 식별, col4+ 개별 셀 비율",
+      "pollster_names": ["(주)한길리서치", "한길리서치"]
     }
   }
 }
