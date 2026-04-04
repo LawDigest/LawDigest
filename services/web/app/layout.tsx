@@ -4,6 +4,7 @@ import { siteConfig } from '@/config/site';
 import { fontSans } from '@/config/fonts';
 import clsx from 'clsx';
 import { Suspense } from 'react';
+import Script from 'next/script';
 import { QueryClientProvider, NextUIProvider, NextThemesProvider, RecoilRootProvider } from '@/lib/provider';
 import { GoToTopButton, Loading, Snackbar } from '@/components';
 import SearchModal from '@/components/common/SearchBar/SearchModal';
@@ -65,12 +66,11 @@ function RootLayout({ children }: { children: React.ReactNode }) {
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        {process.env.NODE_ENV === 'development' && (
+          <Script src="//unpkg.com/react-grab/dist/index.global.js" crossOrigin="anonymous" strategy="lazyOnload" />
+        )}
       </head>
-      <body
-        className={clsx(
-          'text-black bg-white dark:bg-dark-b dark:lg:bg-dark-pb dark:text-white font-sans antialiased',
-          fontSans.variable,
-        )}>
+      <body className={clsx('text-black bg-white dark:bg-dark-b dark:lg:bg-dark-pb dark:text-white antialiased')}>
         <RecoilRootProvider>
           <QueryClientProvider>
             <NextThemesProvider>

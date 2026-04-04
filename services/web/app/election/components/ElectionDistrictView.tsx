@@ -59,14 +59,7 @@ function CandidateCard({
       <div className="space-y-2">
         {candidate.pledges.slice(0, 2).map((pledge) => (
           <div key={pledge} className="flex items-start gap-2">
-            <span
-              className="material-symbols-outlined text-sm mt-0.5 shrink-0"
-              style={{
-                color: importanceColor,
-                fontVariationSettings: "'FILL' 1",
-              }}>
-              star
-            </span>
+            <span className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: importanceColor }} />
             <p className="text-xs text-gray-3 dark:text-gray-1 leading-relaxed">{pledge}</p>
           </div>
         ))}
