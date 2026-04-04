@@ -3,6 +3,18 @@
 import { FeedItem, SnsFeedItem, PollFeedItem, BillMiniCardProps } from '../data/mockFeedData';
 import BillMiniCard from './BillMiniCard';
 
+function getDeltaClass(delta: number): string {
+  if (delta > 0) return 'text-red-500';
+  if (delta < 0) return 'text-blue-500';
+  return 'text-gray-2';
+}
+
+function getDeltaLabel(delta: number): string {
+  if (delta > 0) return `▲${delta}`;
+  if (delta < 0) return `▼${Math.abs(delta)}`;
+  return '-';
+}
+
 const PLATFORM_LABEL: Record<string, string> = {
   twitter: 'X',
   facebook: 'Facebook',
@@ -58,12 +70,7 @@ function PollCard({ item }: { item: PollFeedItem }) {
               <div className="h-full rounded-full bg-primary-2" style={{ width: `${r.pct}%` }} />
             </div>
             <span className="text-xs font-semibold text-gray-4 dark:text-white w-9 text-right">{r.pct}%</span>
-            <span
-              className={`text-[10px] w-12 text-right ${
-                r.delta > 0 ? 'text-red-500' : r.delta < 0 ? 'text-blue-500' : 'text-gray-2'
-              }`}>
-              {r.delta > 0 ? `▲${r.delta}` : r.delta < 0 ? `▼${Math.abs(r.delta)}` : '-'}
-            </span>
+            <span className={`text-[10px] w-12 text-right ${getDeltaClass(r.delta)}`}>{getDeltaLabel(r.delta)}</span>
           </div>
         ))}
       </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import ManualRegionPicker, { ManualRegionFormValue } from '../ManualRegionPicker';
 
 export interface SelectedRegion {
@@ -13,10 +14,19 @@ interface DistrictMapPickerProps {
   label?: string;
 }
 
+function noop() {}
+
 export default function DistrictMapPicker({ selected, onSelect, label = '지역 선택' }: DistrictMapPickerProps) {
-  function handleSubmit(value: ManualRegionFormValue) {
-    onSelect({ regionCode: value.regionCode, regionName: value.regionName });
-  }
+  const handleSubmit = useCallback(
+    (value: ManualRegionFormValue) => {
+      onSelect({ regionCode: value.regionCode, regionName: value.regionName });
+    },
+    [onSelect],
+  );
+
+  const handleReset = useCallback(() => {
+    onSelect(null);
+  }, [onSelect]);
 
   if (selected) {
     return (
@@ -27,7 +37,7 @@ export default function DistrictMapPicker({ selected, onSelect, label = '지역 
         </span>
         <button
           type="button"
-          onClick={() => onSelect(null)}
+          onClick={handleReset}
           className="text-xs text-gray-2 hover:text-gray-3 dark:hover:text-gray-1 underline">
           변경
         </button>
@@ -38,7 +48,7 @@ export default function DistrictMapPicker({ selected, onSelect, label = '지역 
   return (
     <div className="px-4 py-2">
       <p className="mb-2 text-sm text-gray-2 dark:text-gray-2">{label}</p>
-      <ManualRegionPicker onSubmit={handleSubmit} onCancel={() => {}} />
+      <ManualRegionPicker onSubmit={handleSubmit} onCancel={noop} />
     </div>
   );
 }

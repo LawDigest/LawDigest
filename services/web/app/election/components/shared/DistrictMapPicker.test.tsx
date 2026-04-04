@@ -4,8 +4,14 @@ import { describe, it, expect, vi } from 'vitest';
 import DistrictMapPicker from './DistrictMapPicker';
 
 vi.mock('../ManualRegionPicker', () => ({
-  default: ({ onSubmit }: { onSubmit: (v: { regionCode: string; regionName: string; regionType: string }) => void }) => (
-    <button onClick={() => onSubmit({ regionCode: '11', regionName: '서울특별시', regionType: 'PROVINCE' })}>
+  default: ({
+    onSubmit,
+  }: {
+    onSubmit: (v: { regionCode: string; regionName: string; regionType: string }) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onSubmit({ regionCode: '11', regionName: '서울특별시', regionType: 'PROVINCE' })}>
       서울특별시 선택
     </button>
   ),

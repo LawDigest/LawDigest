@@ -16,15 +16,11 @@ export default function FeedRegionPanel({ region }: FeedRegionPanelProps) {
 
   // 해당 지역 데이터가 없으면 sns/poll 항목 중 최신 3개를 보여줌 (폴백)
   const items: FeedItem[] =
-    filtered.length > 0
-      ? filtered
-      : MOCK_FEED_ITEMS.filter((i) => i.type !== 'bill').slice(0, 3);
+    filtered.length > 0 ? filtered : MOCK_FEED_ITEMS.filter((i) => i.type !== 'bill').slice(0, 3);
 
   return (
     <div className="space-y-3">
-      <h3 className="px-4 text-sm font-semibold text-gray-4 dark:text-white">
-        {region} 관련 피드
-      </h3>
+      <h3 className="px-4 text-sm font-semibold text-gray-4 dark:text-white">{region} 관련 피드</h3>
       <ElectionFeedCardList items={items} />
     </div>
   );

@@ -26,10 +26,7 @@ export default function PollRegionPanel({ region }: PollRegionPanelProps) {
                 <span className="font-semibold text-gray-4 dark:text-white">{item.pct}%</span>
               </div>
               <div className="h-2 w-full rounded-full bg-default-100 dark:bg-dark-b overflow-hidden">
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${item.pct}%`, backgroundColor: item.color }}
-                />
+                <div className="h-full rounded-full" style={{ width: `${item.pct}%`, backgroundColor: item.color }} />
               </div>
             </div>
           ))}
