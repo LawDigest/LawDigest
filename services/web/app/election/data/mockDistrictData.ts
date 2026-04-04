@@ -12,17 +12,77 @@ export interface MockCandidate {
   imageUrl?: string;
 }
 
+export interface MockAiIssue {
+  id: string;
+  icon: string;
+  title: string;
+  description: string;
+  importance: 'high' | 'medium' | 'emerging';
+}
+
+export interface MockDistrictPoll {
+  leadParty: string;
+  leadPartyColor: string;
+  leadPct: number;
+  secondParty: string;
+  secondPartyColor: string;
+  secondPct: number;
+  undecidedPct: number;
+  reliability: number;
+}
+
 export interface MockDistrict {
   regionCode: string;
   regionName: string;
   officeName: string;
   candidates: MockCandidate[];
+  aiIssues: MockAiIssue[];
+  poll: MockDistrictPoll;
 }
+
+export const IMPORTANCE_LABEL: Record<MockAiIssue['importance'], string> = {
+  high: '핵심',
+  medium: '중요',
+  emerging: '부상',
+};
 
 export const MOCK_DISTRICT: MockDistrict = {
   regionCode: '11',
   regionName: '서울특별시',
   officeName: '서울특별시장',
+  aiIssues: [
+    {
+      id: 'i1',
+      icon: 'apartment',
+      title: '도시 재개발',
+      description: '역사 지구 보존과 현대화 사이의 균형',
+      importance: 'high',
+    },
+    {
+      id: 'i2',
+      icon: 'directions_bus',
+      title: '대중교통 확대',
+      description: '북부 지역 주민을 위한 새로운 버스 노선',
+      importance: 'medium',
+    },
+    {
+      id: 'i3',
+      icon: 'eco',
+      title: '기후위기 대응',
+      description: '탄소중립 실현을 위한 그린 뉴딜 정책',
+      importance: 'emerging',
+    },
+  ],
+  poll: {
+    leadParty: '더불어민주당',
+    leadPartyColor: '#152484',
+    leadPct: 47.3,
+    secondParty: '국민의힘',
+    secondPartyColor: '#C9151E',
+    secondPct: 43.1,
+    undecidedPct: 7.2,
+    reliability: 95,
+  },
   candidates: [
     {
       id: 'c1',
