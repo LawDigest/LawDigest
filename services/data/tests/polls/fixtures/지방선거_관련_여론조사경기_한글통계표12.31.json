@@ -1,0 +1,347 @@
+{
+  "pollster": "케이스탯리서치",
+  "pdf_filename": "지방선거 관련 여론조사(경기)_한글통계표(12.31).pdf",
+  "parsed_at": "2026-04-05T08:11:46.068672+00:00",
+  "elapsed_seconds": 9.5,
+  "question_count": 14,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_title": "내년 지방선거 관심도",
+      "question_text": "내년 지방선거 관심도",
+      "response_options": [
+        "매우 관심이 있다",
+        "대체로 관심이 있다",
+        "별로 관심이 없다",
+        "전혀 관심이 없다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        28.0,
+        38.0,
+        25.0,
+        9.0,
+        1.0
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "경기도지사 범여권 후보 적합도",
+      "question_text": "경기도지사 범여권 후보 적합도",
+      "response_options": [
+        "김동연 현 경기 도지사",
+        "추미애 현 국회의원",
+        "한준호 현 국회의원",
+        "김병주 현 국회의원",
+        "권칠승 현 국회의원",
+        "양기대 전 국회의원",
+        "모름/ 무응답",
+        "없다",
+        "기타"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        21.0,
+        20.0,
+        7.0,
+        5.0,
+        1.0,
+        1.0,
+        9.0,
+        37.0,
+        0.0
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "경기도지사 야당 후보 적합도",
+      "question_text": "경기도지사 야당 후보 적합도",
+      "response_options": [
+        "유승민 전 국회의원",
+        "김문수 전 고용노동부 장관",
+        "김은혜 현 국회의원",
+        "이준석 현 국회의원",
+        "원희룡 전 국회의원",
+        "심재철 전 국회의원",
+        "원유철 전 국회의원",
+        "모름/ 무응답",
+        "없다"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        16.0,
+        12.0,
+        8.0,
+        7.0,
+        5.0,
+        1.0,
+        0.0,
+        6.0,
+        45.0
+      ]
+    },
+    {
+      "question_number": 4,
+      "question_title": "경기도지사 적합도",
+      "question_text": "경기도지사 적합도",
+      "response_options": [
+        "추미애 현 국회 의원",
+        "김동연 현 경기 도지사",
+        "김문수 전 고용 노동부 장관",
+        "한준호 현 국회 의원",
+        "김은혜 현 국회 의원",
+        "유승민 전 국회 의원",
+        "이준석 현 국회 의원",
+        "원희룡 전 국회 의원",
+        "김병주 현 국회 의원",
+        "권칠승 현 국회 의원",
+        "심재철 전 국회 의원",
+        "원유철 전 국회 의원",
+        "양기대 전 국회 의원",
+        "모름/ 무응답",
+        "없다",
+        "기타"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        19.0,
+        14.0,
+        10.0,
+        7.0,
+        6.0,
+        6.0,
+        5.0,
+        5.0,
+        4.0,
+        1.0,
+        1.0,
+        0.0,
+        0.0,
+        5.0,
+        17.0,
+        0.0
+      ]
+    },
+    {
+      "question_number": 5,
+      "question_title": "가상대결 1 - 김동연 VS 이준석",
+      "question_text": "가상대결 1 - 김동연 VS 이준석",
+      "response_options": [
+        "김동연 현 경기도지사",
+        "이준석 현 국회의원",
+        "그 외 다른 인물",
+        "없다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        40.0,
+        18.0,
+        3.0,
+        35.0,
+        4.0
+      ]
+    },
+    {
+      "question_number": 6,
+      "question_title": "가상대결 2 - 김동연 VS 유승민",
+      "question_text": "가상대결 2 - 김동연 VS 유승민",
+      "response_options": [
+        "김동연 현 경기도지사",
+        "유승민 전 국회의원",
+        "그 외 다른 인 물",
+        "없다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        39.0,
+        19.0,
+        2.0,
+        36.0,
+        4.0
+      ]
+    },
+    {
+      "question_number": 7,
+      "question_title": "가상대결 3 - 추미애 VS 이준석",
+      "question_text": "가상대결 3 - 추미애 VS 이준석",
+      "response_options": [
+        "추미애 현 국회의원",
+        "이준석 현 국회의원",
+        "그 외 다른 인물",
+        "없다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        40.0,
+        24.0,
+        2.0,
+        33.0,
+        2.0
+      ]
+    },
+    {
+      "question_number": 8,
+      "question_title": "가상대결 4 - 추미애 VS 유승민",
+      "question_text": "가상대결 4 - 추미애 VS 유승민",
+      "response_options": [
+        "추미애 현 국회의원",
+        "유승민 전 국회의원",
+        "그 외 다른 인 물",
+        "없다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        37.0,
+        24.0,
+        1.0,
+        34.0,
+        3.0
+      ]
+    },
+    {
+      "question_number": 9,
+      "question_title": "경기도지사 후보 선택 기준",
+      "question_text": "경기도지사 후보 선택 기준",
+      "response_options": [
+        "정책/공약",
+        "인물/능력",
+        "도덕성",
+        "정당",
+        "현 정부에 대한 평가",
+        "모름/ 무응답",
+        "기타"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        31.0,
+        27.0,
+        17.0,
+        10.0,
+        10.0,
+        4.0,
+        1.0
+      ]
+    },
+    {
+      "question_number": 10,
+      "question_title": "내년 지방선거 인식",
+      "question_text": "내년 지방선거 인식",
+      "response_options": [
+        "안정적인 국정운영을 위해 여당에 힘을 실어줘야 한다",
+        "정부를 견제하기 위해 야당에 힘을 실어줘야 한다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        55.0,
+        36.0,
+        9.0
+      ]
+    },
+    {
+      "question_number": 11,
+      "question_title": "현 도지사 평가",
+      "question_text": "현 도지사 평가",
+      "response_options": [
+        "매우 잘하고 있다",
+        "잘하는 편이다",
+        "잘못하는 편이다",
+        "매우 잘못하고 있다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        6.0,
+        53.0,
+        18.0,
+        6.0,
+        17.0
+      ]
+    },
+    {
+      "question_number": 12,
+      "question_title": "경기북부특별자치도 지속 추진 인식",
+      "question_text": "경기북부특별자치도 지속 추진 인식",
+      "response_options": [
+        "매우 그렇다",
+        "대체로 그렇다",
+        "별로 그렇지 않다",
+        "전혀 그렇지 않다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        19.0,
+        28.0,
+        22.0,
+        16.0,
+        15.0
+      ]
+    },
+    {
+      "question_number": 13,
+      "question_title": "국정운영 평가",
+      "question_text": "국정운영 평가",
+      "response_options": [
+        "매우 잘하고 있다",
+        "잘하는 편이다",
+        "잘못하는 편이다",
+        "매우 잘못하고 있다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        38.0,
+        28.0,
+        11.0,
+        19.0,
+        5.0
+      ]
+    },
+    {
+      "question_number": 14,
+      "question_title": "정당 지지도",
+      "question_text": "정당 지지도",
+      "response_options": [
+        "더불어 민주당",
+        "국민의힘",
+        "조국혁신당",
+        "개혁신당",
+        "진보당",
+        "그 외 다른 정당",
+        "지지하는 정당 없다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 802,
+      "overall_n_weighted": 802,
+      "overall_percentages": [
+        47.0,
+        24.0,
+        4.0,
+        4.0,
+        1.0,
+        1.0,
+        17.0,
+        1.0
+      ]
+    }
+  ]
+}
