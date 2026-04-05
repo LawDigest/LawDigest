@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import json
 import importlib.util
 import sys
 import types
+from dataclasses import asdict
 from pathlib import Path
+
+from lawdigest_data.polls.models import PollDetail, PollResultSet, QuestionResult
 
 def _install_fake_workflow_dependencies():
     core_module = types.ModuleType("lawdigest_data.core.WorkFlowManager")
@@ -148,6 +152,159 @@ def test_save_parsed_result_prefers_list_pollster(monkeypatch, tmp_path):
 
     assert "테스트기관" in str(out_path)
     assert out_path.exists()
+
+
+def test_parse_results_step_enriches_survey_metadata(monkeypatch, tmp_path):
+    workflow_module = _load_workflow_module()
+    monkeypatch.setattr(workflow_module, "_PARSED_DIR", tmp_path)
+
+    detail = PollDetail(
+        source_url="https://example.com/detail/1",
+        registration_number="REG-1",
+        list_pollster="테스트기관",
+        pollster="",
+        election_type="제9회 전국동시지방선거",
+        region="경기도 전체",
+        election_name="광역단체장선거",
+        sponsor="테스트스폰서",
+        survey_datetimes=["2026-03-20 09시 00분 ~ 2026-03-21 18시 00분"],
+        sample_size_completed=1000,
+        margin_of_error="±3.1%",
+        analysis_filename="결과표_테스트.pdf",
+    )
+
+    result_set = PollResultSet(
+        registration_number="REG-1",
+        source_url=detail.source_url,
+        pdf_path="/tmp/result.pdf",
+        questions=[
+            QuestionResult(
+                question_number=1,
+                question_title="Q1",
+                question_text="Q1",
+                response_options=["A", "B"],
+                overall_n_completed=500,
+                overall_n_weighted=500,
+                overall_percentages=[40.0, 60.0],
+            )
+        ],
+    )
+
+    artifact_path = tmp_path / "details.json"
+    artifact_path.write_text(json.dumps([asdict(detail)], ensure_ascii=False), encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    class _StubCrawler:
+        def __init__(self, verify_connectivity: bool = True, registry_path=None):
+            self.verify_connectivity = verify_connectivity
+            self.registry_path = registry_path
+
+        def crawl_results(self, details, pdf_dir, skip_errors: bool = True, registry_path=None):
+            return [result_set]
+
+    monkeypatch.setattr(workflow_module, "NesdcCrawler", _StubCrawler)
+    def _capture_artifact(prefix, payload):
+        captured["payload"] = payload
+        return "/tmp/results.json"
+
+    monkeypatch.setattr(workflow_module, "_write_artifact", _capture_artifact)
+
+    result = workflow_module.PollsWorkflowManager("test").parse_results_step(
+        artifact_path=str(artifact_path),
+        pdf_dir=str(tmp_path),
+    )
+
+    assert result["parsed"] == 1
+    assert result["questions_total"] == 1
+    payload = captured["payload"]
+    assert isinstance(payload, list)
+    assert payload[0]["election_type"] == "제9회 전국동시지방선거"
+    assert payload[0]["region"] == "경기도 전체"
+    assert payload[0]["pollster"] == "테스트기관"
+    assert payload[0]["survey_start_date"] == "2026-03-20"
+    assert payload[0]["survey_end_date"] == "2026-03-21"
+    assert payload[0]["sample_size"] == 1000
+    assert payload[0]["margin_of_error"] == "±3.1%"
+    assert "detail" in payload[0]
+
+
+def test_upsert_polls_step_uses_survey_metadata(monkeypatch, tmp_path):
+    workflow_module = _load_workflow_module()
+
+    artifact_path = tmp_path / "results.json"
+    artifact_path.write_text(
+        json.dumps(
+            [
+                {
+                    "registration_number": "REG-1",
+                    "source_url": "https://example.com/detail/1",
+                    "pdf_path": "/tmp/result.pdf",
+                    "election_type": "제9회 전국동시지방선거",
+                    "region": "경기도 전체",
+                    "election_name": "광역단체장선거",
+                    "pollster": "테스트기관",
+                    "sponsor": "테스트스폰서",
+                    "survey_start_date": "2026-03-20",
+                    "survey_end_date": "2026-03-21",
+                    "sample_size": 1000,
+                    "margin_of_error": "±3.1%",
+                    "questions": [
+                        {
+                            "question_number": 1,
+                            "question_title": "Q1",
+                            "response_options": ["A", "B"],
+                            "overall_n_completed": 500,
+                            "overall_n_weighted": 500,
+                            "overall_percentages": [40.0, 60.0],
+                        }
+                    ],
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    captured: dict[str, object] = {}
+
+    class _FakeDB:
+        def ensure_tables(self):
+            captured["ensured"] = True
+
+        def upsert_surveys(self, rows):
+            captured["survey_rows"] = rows
+            return len(rows)
+
+        def upsert_questions(self, rows):
+            captured["question_rows"] = rows
+            return 99
+
+        def replace_options(self, question_id, options):
+            captured["options"] = options
+            return len(options)
+
+    monkeypatch.setattr(workflow_module.PollsWorkflowManager, "_build_db_manager", lambda self: _FakeDB())
+
+    result = workflow_module.PollsWorkflowManager("test").upsert_polls_step(str(artifact_path))
+
+    assert result["mode"] == "test_db"
+    assert result["upserted_surveys"] == 1
+    assert result["upserted_questions"] == 2
+    survey_row = captured["survey_rows"][0]
+    assert survey_row["election_type"] == "제9회 전국동시지방선거"
+    assert survey_row["region"] == "경기도 전체"
+    assert survey_row["election_name"] == "광역단체장선거"
+    assert survey_row["pollster"] == "테스트기관"
+    assert survey_row["sponsor"] == "테스트스폰서"
+    assert survey_row["survey_start_date"] == "2026-03-20"
+    assert survey_row["survey_end_date"] == "2026-03-21"
+    assert survey_row["sample_size"] == 1000
+    assert survey_row["margin_of_error"] == "±3.1%"
+    assert captured["question_rows"][0]["question_number"] == 1
+    assert captured["options"] == [
+        {"option_name": "A", "percentage": 40.0},
+        {"option_name": "B", "percentage": 60.0},
+    ]
 
 
 def _load_polls_ingest_dag_module():

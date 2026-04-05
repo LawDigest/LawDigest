@@ -230,9 +230,6 @@ class PollsDatabaseManager(DatabaseManager):
         Returns:
             삽입된 행 수
         """
-        if not options:
-            return 0
-
         delete_sql = "DELETE FROM PollOption WHERE question_id = %s"
         insert_sql = """
         INSERT INTO PollOption (question_id, option_name, percentage)
@@ -242,6 +239,8 @@ class PollsDatabaseManager(DatabaseManager):
 
         with self.transaction() as cursor:
             cursor.execute(delete_sql, (question_id,))
+            if not rows:
+                return 0
             cursor.executemany(insert_sql, rows)
 
         logger.debug("[PollsDB] replace_options: question_id=%d, %d개", question_id, len(rows))

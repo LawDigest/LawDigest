@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from ..core.WorkFlowManager import WorkFlowManager
 from .crawler import NesdcCrawler
-from .models import ListRecord, PollDetail, PollResultSet
+from .models import ListRecord, PollDetail
 from .targets import PollTarget, load_targets, parse_title_region
 
 logger = logging.getLogger(__name__)
@@ -63,6 +63,46 @@ def _read_artifact(artifact_path: str) -> Any:
 
 def _elapsed_seconds(started_at: float) -> float:
     return round(monotonic() - started_at, 3)
+
+
+def _extract_survey_dates(survey_datetimes: List[str]) -> tuple[Optional[str], Optional[str]]:
+    """조사 일시 문자열 목록에서 시작/종료 날짜를 추출한다."""
+    dates: List[str] = []
+    for item in survey_datetimes:
+        dates.extend(re.findall(r"\d{4}-\d{2}-\d{2}", item))
+    if not dates:
+        return None, None
+    return dates[0], dates[-1]
+
+
+def _survey_row_from_result_set(result_set: Dict[str, Any]) -> Dict[str, Any]:
+    """파싱 결과 아티팩트에서 PollSurvey upsert용 row를 구성한다."""
+    detail = result_set.get("detail") if isinstance(result_set.get("detail"), dict) else {}
+    return {
+        "registration_number": result_set.get("registration_number"),
+        "election_type": result_set.get("election_type") or detail.get("election_type") or "",
+        "region": result_set.get("region") or detail.get("region") or "",
+        "election_name": result_set.get("election_name") or detail.get("election_name") or "",
+        "pollster": result_set.get("pollster") or detail.get("pollster") or detail.get("list_pollster") or "",
+        "sponsor": result_set.get("sponsor") or detail.get("sponsor") or "",
+        "survey_start_date": result_set.get("survey_start_date") or detail.get("survey_start_date"),
+        "survey_end_date": result_set.get("survey_end_date") or detail.get("survey_end_date"),
+        "sample_size": result_set.get("sample_size") or detail.get("sample_size_completed"),
+        "margin_of_error": result_set.get("margin_of_error") or detail.get("margin_of_error") or "",
+        "source_url": result_set.get("source_url") or detail.get("source_url") or "",
+        "pdf_path": result_set.get("pdf_path") or "",
+    }
+
+
+def _normalize_option_percentage(value: Any) -> Optional[float]:
+    """DB에 저장 가능한 선택지 퍼센트만 반환한다."""
+    try:
+        pct = float(value)
+    except (TypeError, ValueError):
+        return None
+    if pct < 0 or pct > 100:
+        return None
+    return round(pct, 2)
 
 
 class PollsWorkflowManager:
@@ -328,9 +368,25 @@ class PollsWorkflowManager:
         payload = []
         saved_paths: List[str] = []
         for rs in result_sets:
-            rs_dict = asdict(rs)
-            payload.append(rs_dict)
             detail = detail_by_reg.get(rs.registration_number)
+            rs_dict = asdict(rs)
+            if detail:
+                survey_start_date, survey_end_date = _extract_survey_dates(detail.survey_datetimes)
+                rs_dict.update(
+                    {
+                        "election_type": detail.election_type,
+                        "region": detail.region,
+                        "election_name": detail.election_name,
+                        "pollster": detail.pollster or detail.list_pollster,
+                        "sponsor": detail.sponsor,
+                        "survey_start_date": survey_start_date,
+                        "survey_end_date": survey_end_date,
+                        "sample_size": detail.sample_size_completed or detail.sample_size_weighted,
+                        "margin_of_error": detail.margin_of_error,
+                        "detail": asdict(detail),
+                    }
+                )
+            payload.append(rs_dict)
             if detail:
                 out_path = _save_parsed_result(rs_dict, detail)
                 saved_paths.append(str(out_path))
@@ -372,10 +428,10 @@ class PollsWorkflowManager:
             }
 
         raw = _read_artifact(artifact_path)
-        result_sets = [PollResultSet(**rs) for rs in raw]
+        result_sets = [dict(rs) for rs in raw]
 
         if self.mode == "dry_run":
-            questions_total = sum(len(rs.questions) for rs in result_sets)
+            questions_total = sum(len(rs.get("questions") or []) for rs in result_sets)
             logger.info(
                 "[polls_ingest.upsert] [DRY_RUN] %d건 여론조사, 질문 %d개 (DB 미반영)",
                 len(result_sets), questions_total,
@@ -393,27 +449,32 @@ class PollsWorkflowManager:
         upserted_surveys = 0
         upserted_questions = 0
         for rs in result_sets:
-            survey_rows = [{
-                "registration_number": rs.registration_number,
-                "source_url": rs.source_url,
-                "pdf_path": rs.pdf_path,
-            }]
+            survey_rows = [_survey_row_from_result_set(rs)]
             upserted_surveys += db.upsert_surveys(survey_rows)
 
-            for q in rs.questions:
+            for q in rs.get("questions") or []:
                 q_rows = [{
-                    "registration_number": rs.registration_number,
-                    "question_number": q.question_number,
-                    "question_title": q.question_title,
-                    "n_completed": q.overall_n_completed,
-                    "n_weighted": q.overall_n_weighted,
+                    "registration_number": rs.get("registration_number"),
+                    "question_number": q["question_number"],
+                    "question_title": q["question_title"],
+                    "n_completed": q.get("overall_n_completed"),
+                    "n_weighted": q.get("overall_n_weighted"),
                 }]
                 q_id = db.upsert_questions(q_rows)
                 if q_id:
-                    options = [
-                        {"option_name": opt, "percentage": pct}
-                        for opt, pct in zip(q.response_options, q.overall_percentages)
-                    ]
+                    options = []
+                    for opt, pct in zip(q["response_options"], q["overall_percentages"]):
+                        normalized_pct = _normalize_option_percentage(pct)
+                        if normalized_pct is None:
+                            logger.debug(
+                                "[polls_ingest.upsert] 선택지 퍼센트 스킵: reg=%s q=%s option=%s pct=%s",
+                                rs.get("registration_number"),
+                                q["question_number"],
+                                opt,
+                                pct,
+                            )
+                            continue
+                        options.append({"option_name": opt, "percentage": normalized_pct})
                     upserted_questions += db.replace_options(q_id, options)
 
         logger.info(
