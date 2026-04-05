@@ -1,0 +1,149 @@
+{
+  "pollster": "넥스트리서치",
+  "pdf_filename": "(넥스트리서치_조사결과_등록_0319) 제9회 전국동시지방선거관련 경기지역 여론조사.pdf",
+  "parsed_at": "2026-04-05T05:36:24.304119+00:00",
+  "elapsed_seconds": 2.3,
+  "question_count": 6,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_title": "정당지지도",
+      "question_text": "정당지지도",
+      "response_options": [
+        "더불어 민주당",
+        "국민의힘",
+        "개혁신당",
+        "조국혁신 당",
+        "진보당",
+        "그 외 정당",
+        "지지정당 없음",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1009,
+      "overall_n_weighted": 1009,
+      "overall_percentages": [
+        53.1,
+        21.8,
+        2.3,
+        1.3,
+        0.5,
+        1.3,
+        19.0,
+        0.7
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "현 경기도지사의 도정 운영",
+      "question_text": "현 경기도지사의 도정 운영",
+      "response_options": [
+        "① 매우 잘하고 있다",
+        "② 잘하는 편이다",
+        "③ 잘못하 는 편이다",
+        "④ 매우 잘못하고 있다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1009,
+      "overall_n_weighted": 1009,
+      "overall_percentages": [
+        5.7,
+        45.9,
+        16.1,
+        5.4,
+        26.8
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "지방선거 투표 판단 기준",
+      "question_text": "지방선거 투표 판단 기준",
+      "response_options": [
+        "국정 지원을 위해 여당에 힘을 실어 줘야 한다",
+        "정권 견제를 위해 야당에 힘을 실어 줘야 한다",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 1009,
+      "overall_n_weighted": 1009,
+      "overall_percentages": [
+        54.8,
+        31.9,
+        13.2
+      ]
+    },
+    {
+      "question_number": 4,
+      "question_title": "더불어민주당 경기도지사 후보 적합 인물",
+      "question_text": "더불어민주당 경기도지사 후보 적합 인물",
+      "response_options": [
+        "김동연 현 경기도지 사",
+        "추미애 현 국회의원",
+        "한준호 현 국회의원",
+        "권칠승 현 국회의원",
+        "양기대 전 국회의원",
+        "그 외 인물",
+        "없다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1009,
+      "overall_n_weighted": 1009,
+      "overall_percentages": [
+        33.8,
+        22.5,
+        9.0,
+        1.6,
+        1.4,
+        3.5,
+        24.6,
+        3.6
+      ]
+    },
+    {
+      "question_number": 5,
+      "question_title": "범보수 야권 경기도지사 후보 적합 인물",
+      "question_text": "범보수 야권 경기도지사 후보 적합 인물",
+      "response_options": [
+        "유승민 전 국회 의원",
+        "김문수 전 경기 도지사",
+        "안철수 현 국회 의원",
+        "이준석 현 국회 의원",
+        "양향자 현 국민 의힘 최 고위원",
+        "함진규 전 국회 의원",
+        "그 외 인물",
+        "없다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1009,
+      "overall_n_weighted": 1009,
+      "overall_percentages": [
+        23.3,
+        19.9,
+        9.6,
+        8.6,
+        2.8,
+        0.7,
+        3.2,
+        30.1,
+        1.8
+      ]
+    },
+    {
+      "question_number": 6,
+      "question_title": "교육감 이념 성향 선호도",
+      "question_text": "교육감 이념 성향 선호도",
+      "response_options": [
+        "진보성향 교육감",
+        "중도성향 교육감",
+        "보수성향 교육감",
+        "모름/무응답"
+      ],
+      "overall_n_completed": 1009,
+      "overall_n_weighted": 1009,
+      "overall_percentages": [
+        33.1,
+        33.5,
+        20.9,
+        12.5
+      ]
+    }
+  ]
+}

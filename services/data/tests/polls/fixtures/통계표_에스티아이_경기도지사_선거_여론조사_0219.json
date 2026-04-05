@@ -1,0 +1,101 @@
+{
+  "pollster": "에스티아이",
+  "pdf_filename": "통계표_에스티아이_경기도지사 선거 여론조사 0219.pdf",
+  "parsed_at": "2026-04-05T05:36:37.971858+00:00",
+  "elapsed_seconds": 8.9,
+  "question_count": 4,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_title": "지지 정당",
+      "question_text": "지지 정당",
+      "response_options": [
+        "더불어 민주당",
+        "국민의힘",
+        "조국 혁신당",
+        "진보당",
+        "개혁신당",
+        "기타",
+        "없음",
+        "잘 모르겠음"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        50.7,
+        34.8,
+        1.8,
+        0.6,
+        1.8,
+        2.2,
+        6.8,
+        1.2
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "국정 운영 평가",
+      "question_text": "국정 운영 평가",
+      "response_options": [
+        "매우 잘하고 있음",
+        "잘하고 있는 편임",
+        "잘못하는 편임",
+        "매우 잘못하고 있음",
+        "잘 모르겠음"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        44.8,
+        12.9,
+        10.7,
+        27.0,
+        4.6
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "지선 인식",
+      "question_text": "지선 인식",
+      "response_options": [
+        "국정 지원을 위해 여당 지지",
+        "정권 견제를 위해 야당 지지",
+        "잘 모르겠음"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        50.8,
+        41.0,
+        8.2
+      ]
+    },
+    {
+      "question_number": 4,
+      "question_title": "범보수 진영 후보 적합도",
+      "question_text": "범보수 진영 후보 적합도",
+      "response_options": [
+        "김민수",
+        "김은혜",
+        "안철수",
+        "유승민",
+        "이준석",
+        "기타",
+        "없음",
+        "잘 모르겠음"
+      ],
+      "overall_n_completed": 1000,
+      "overall_n_weighted": 1000,
+      "overall_percentages": [
+        18.1,
+        14.6,
+        10.7,
+        16.8,
+        5.8,
+        17.8,
+        12.7,
+        3.6
+      ]
+    }
+  ]
+}
