@@ -26,10 +26,10 @@ import SubTabBar from './shared/SubTabBar';
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend);
 
 // ── 오차범위 바 플러그인 ───────────────────────────────────────────────────────
-// 호버 시: 중앙 점 → 사라짐, 위아래 끝점 두 개 + 색깔 채워진 바 등장 (애니메이션)
-const _eb = { idx: -1, scale: 0, rafId: 0 };
+// 호버 시: 중앙 점 사라짐, 위아래 끝점 두 개 + 색깔 채워진 바 즉시 표시
+let _activeIdx = -1;
 
-/** 기본 pointRadius를 데이터 개수만큼 배열로 반환 */
+/** pointRadius 배열: 호버 인덱스만 0으로 */
 function makeRadii(len: number, hiddenIdx: number, normal: number): number[] {
   return Array.from({ length: len }, (_, i) => (i === hiddenIdx ? 0 : normal));
 }
@@ -41,13 +41,9 @@ const ERROR_BAR_PLUGIN: Plugin<'line'> = {
     const isLeave = event.type === 'mouseout' || event.type === 'mouseleave';
     const active = isLeave ? [] : chart.getActiveElements();
     const newIdx = active.length > 0 ? active[0].index : -1;
-    if (newIdx === _eb.idx) return;
+    if (newIdx === _activeIdx) return;
 
-    _eb.idx = newIdx;
-    const fromScale = _eb.scale;
-    const toScale = newIdx >= 0 ? 1 : 0;
-
-    // 중앙 점 show/hide: pointRadius 배열을 직접 수정
+    _activeIdx = newIdx;
     const len = chart.data.datasets[0]?.data.length ?? 0;
     chart.data.datasets.forEach((ds) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,29 +51,13 @@ const ERROR_BAR_PLUGIN: Plugin<'line'> = {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (ds as any).pointHoverRadius = makeRadii(len, newIdx, 5);
     });
-
-    cancelAnimationFrame(_eb.rafId);
-    const t0 = performance.now();
-    const dur = 300;
-
-    const step = (now: number) => {
-      const t = Math.min((now - t0) / dur, 1);
-      // 확장: easeOutBack, 축소: easeInQuad
-      const eased =
-        toScale > 0
-          ? 1 + 2.7 * Math.pow(t - 1, 3) + 1.7 * Math.pow(t - 1, 2) // easeOutBack
-          : 1 - Math.pow(1 - t, 2); // easeInQuad (0→1)
-      _eb.scale = toScale > 0 ? eased : fromScale * (1 - eased);
-      chart.update('none');
-      if (t < 1) _eb.rafId = requestAnimationFrame(step);
-    };
-    _eb.rafId = requestAnimationFrame(step);
+    chart.update('none');
   },
 
   afterDatasetsDraw(chart) {
     const { ctx } = chart;
-    const { idx, scale } = _eb;
-    if (idx < 0 || scale < 0.005) return;
+    const idx = _activeIdx;
+    if (idx < 0) return;
 
     const yScale = chart.scales.y;
     const yRange = yScale.max - yScale.min;
@@ -93,16 +73,15 @@ const ERROR_BAR_PLUGIN: Plugin<'line'> = {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const margins: number[] | undefined = (dataset as any).errorMargins;
       const margin = margins?.[idx] ?? 2.5;
-      const errorPx = (margin / yRange) * yPx * scale;
-      const barW = 5; // pill 너비
-      const dotR = 5.5; // 끝점 도트 반지름
+      const errorPx = (margin / yRange) * yPx;
+      const barW = 5;
+      const dotR = 5.5;
 
       const x: number = pt.x;
       const y: number = pt.y;
       const color = dataset.borderColor as string;
 
       ctx.save();
-      ctx.globalAlpha = scale;
 
       // ① 세로 pill 바 (두꺼운 선 + round lineCap → capsule 모양)
       ctx.strokeStyle = color + 'aa'; // 반투명
