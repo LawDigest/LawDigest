@@ -12,7 +12,10 @@
       "election_names": [
         "광역단체장선거"
       ],
-      "pollsters": null
+      "pollsters": null,
+      "ignored_analysis_filenames": [
+        "2026 기후위기 국민 인식조사_09_경기_TABLE_등록_0306.pdf"
+      ]
     }
   ]
 }

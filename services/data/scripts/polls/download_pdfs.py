@@ -29,11 +29,9 @@ from urllib3.util.retry import Retry
 _BASE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_BASE / "src"))
 
-import re as _re
-
 from lawdigest_data.polls.targets import load_targets  # noqa: E402
 
-_UNSAFE = _re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
 def _safe_dirname(name: str) -> str:
@@ -102,6 +100,8 @@ def main() -> None:
         target = targets[0]
         log.info("타겟 미지정 — 첫 번째 타겟 사용: %s", target.slug)
 
+    ignored_filenames = set(target.ignored_analysis_filenames or ())
+
     # ── 경로 설정 ──────────────────────────────────────────────────────────────
     check_json = _BASE / "output" / "polls" / "checks" / f"{target.slug}.json"
     pdf_dir    = (
@@ -117,6 +117,8 @@ def main() -> None:
 
     records = json.loads(check_json.read_text(encoding="utf-8"))
     download_targets = [r for r in records if r.get("has_pdf") and r.get("analysis_url")]
+    if ignored_filenames:
+        download_targets = [r for r in download_targets if r.get("analysis_filename") not in ignored_filenames]
     log.info("다운로드 대상: %d건", len(download_targets))
     log.info("저장 경로: %s", pdf_dir)
     log.info("딜레이: %.1f~%.1fs / 요청", MIN_DELAY, MAX_DELAY)

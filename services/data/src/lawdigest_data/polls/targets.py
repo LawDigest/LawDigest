@@ -33,6 +33,7 @@ class PollTarget:
     election_names: Optional[Tuple[str, ...]] = None
     election_type: Optional[str] = None
     pollsters: Optional[Tuple[str, ...]] = None  # 조사기관명 OR 필터 (None = 전체)
+    ignored_analysis_filenames: Optional[Tuple[str, ...]] = None
     slug: str = ""
     poll_gubuncd: str = ""      # NESDC pollGubuncd 파라미터 (예: VT026)
 
@@ -52,6 +53,7 @@ def load_targets(targets_path: Optional[Path] = None) -> List[PollTarget]:
     for item in data.get("targets", []):
         election_names = item.get("election_names")
         pollsters = item.get("pollsters")
+        ignored_analysis_filenames = item.get("ignored_analysis_filenames")
         targets.append(PollTarget(
             search_wrd=item.get("search_wrd", ""),
             search_cnd=str(item.get("search_cnd", "4")),
@@ -59,6 +61,9 @@ def load_targets(targets_path: Optional[Path] = None) -> List[PollTarget]:
             election_names=tuple(election_names) if election_names else None,
             election_type=item.get("election_type"),
             pollsters=tuple(pollsters) if pollsters else None,
+            ignored_analysis_filenames=(
+                tuple(ignored_analysis_filenames) if ignored_analysis_filenames else None
+            ),
             slug=item.get("slug", ""),
             poll_gubuncd=item.get("poll_gubuncd", ""),
         ))
@@ -125,3 +130,10 @@ def matches_target(record: ListRecord, target: PollTarget) -> bool:
             return False
 
     return True
+
+
+def is_ignored_analysis_filename(filename: str, target: PollTarget) -> bool:
+    """타겟 설정의 ignore 목록에 포함된 분석 PDF 파일명인지 확인한다."""
+    if not target.ignored_analysis_filenames:
+        return False
+    return filename in target.ignored_analysis_filenames

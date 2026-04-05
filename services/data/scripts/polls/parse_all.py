@@ -71,6 +71,8 @@ def main() -> None:
         target = targets[0]
         print(f"타겟 미지정 — 첫 번째 타겟 사용: {target.slug}")
 
+    ignored_filenames = set(target.ignored_analysis_filenames or ())
+
     # ── 경로 설정 ──────────────────────────────────────────────────────────────
     pdf_dir = (
         Path(args.pdf_dir) if args.pdf_dir
@@ -102,6 +104,9 @@ def main() -> None:
 
     # ── PDF 순회 ───────────────────────────────────────────────────────────────
     pdfs = sorted(pdf_dir.glob("*.pdf"))
+    if ignored_filenames:
+        pdfs = [p for p in pdfs if p.name not in ignored_filenames]
+        print(f"무시 대상: {len(ignored_filenames)}건")
     if args.pollster:
         pdfs = [p for p in pdfs if args.pollster.lower() in
                 meta_by_filename.get(p.name, {}).get("pollster", p.name).lower()]
