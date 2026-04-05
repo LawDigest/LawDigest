@@ -6,7 +6,7 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
+html {
   font-family:
     'Pretendard Variable',
     Pretendard,
@@ -23,6 +23,10 @@
     'Segoe UI Emoji',
     'Segoe UI Symbol',
     sans-serif;
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
 }
 
 .더불어민주당 {
