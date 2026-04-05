@@ -23,7 +23,7 @@ from .models import (
     PollDetail,
     PollResultSet,
 )
-from .parser import PollResultParser
+from .parser import PollResultParser, UnknownPollsterError
 from .targets import PollTarget, matches_target
 
 BASE_URL = "https://www.nesdc.go.kr"
@@ -608,6 +608,7 @@ class NesdcCrawler:
             try:
                 soup = self.fetch_detail_page(record.detail_url)
                 detail = self.parse_detail_page(soup, source_url=record.detail_url)
+                detail.list_pollster = record.pollster
                 if not detail.registration_number:
                     detail.registration_number = record.registration_number
                 if not detail.pollster:
@@ -652,6 +653,8 @@ class NesdcCrawler:
         parser = PollResultParser(registry_path=registry_path or self._registry_path)
         pdf_dir = Path(pdf_dir)
         result_sets: List[PollResultSet] = []
+        skipped_unknown_pollsters = 0
+        skipped_parse_errors = 0
         for detail in details:
             if not detail.analysis_download_url:
                 self.logger.info("결과 URL 없음(공표 전?): %s", detail.registration_number)
@@ -668,7 +671,15 @@ class NesdcCrawler:
                     ok = self.download_result_pdf(detail, pdf_path)
                     if not ok:
                         continue
-                questions = parser.parse_pdf(pdf_path, pollster_hint=detail.pollster)
+                pollster_hint = detail.pollster or detail.list_pollster
+                questions = parser.parse_pdf(pdf_path, pollster_hint=pollster_hint)
+                if not questions:
+                    self.logger.warning(
+                        "결과 파싱 0건: reg=%s pollster=%s pdf=%s",
+                        detail.registration_number,
+                        detail.pollster,
+                        pdf_path.name,
+                    )
                 result_sets.append(PollResultSet(
                     registration_number=detail.registration_number,
                     source_url=detail.source_url,
@@ -676,11 +687,28 @@ class NesdcCrawler:
                     questions=questions,
                 ))
                 self.logger.info("결과 파싱 완료: %s, 질문 %d개", detail.registration_number, len(questions))
+            except UnknownPollsterError as exc:
+                skipped_unknown_pollsters += 1
+                self.logger.warning(
+                    "미등록 조사기관 건너뜀: reg=%s pollster=%s pdf=%s (%s)",
+                    detail.registration_number,
+                    detail.pollster,
+                    pdf_path.name,
+                    exc,
+                )
+                continue
             except Exception as exc:
                 if skip_errors:
+                    skipped_parse_errors += 1
                     self.logger.exception("결과 파싱 실패: %s", exc)
                 else:
                     raise
+        self.logger.info(
+            "결과 파싱 요약: parsed=%d, 미등록기관=%d, 기타오류=%d",
+            len(result_sets),
+            skipped_unknown_pollsters,
+            skipped_parse_errors,
+        )
         return result_sets
 
     def save_details_json(self, details: List[PollDetail], path: str | Path) -> None:
