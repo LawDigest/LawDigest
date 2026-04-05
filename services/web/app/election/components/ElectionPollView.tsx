@@ -140,6 +140,133 @@ function AgencyPollCard({ poll }: { poll: (typeof MOCK_AGENCY_POLLS)[0] }) {
   );
 }
 
+// ─── 여론조사 테이블 ──────────────────────────────────────────────────────────
+function AgencyPollTable({ polls }: { polls: typeof MOCK_AGENCY_POLLS }) {
+  return (
+    <div className="rounded-2xl border border-gray-1 dark:border-dark-l bg-white dark:bg-dark-pb overflow-hidden">
+      {/* 테이블 헤더 */}
+      <div className="px-5 py-4 flex justify-between items-center border-b border-gray-1 dark:border-dark-l">
+        <h3 className="text-[14px] font-bold text-gray-4 dark:text-white">최신 여론조사</h3>
+        <button
+          type="button"
+          className="p-1.5 bg-default-100 dark:bg-dark-b rounded-lg hover:bg-default-200 dark:hover:bg-dark-l transition-colors">
+          <span className="material-symbols-outlined text-[18px] text-gray-3 dark:text-gray-1">filter_list</span>
+        </button>
+      </div>
+
+      {/* 테이블 본문 */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="bg-default-50 dark:bg-dark-b border-b border-gray-1/50 dark:border-dark-l">
+              <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-2 whitespace-nowrap">
+                조사기관
+              </th>
+              <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-2">주요 질문</th>
+              <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-2 whitespace-nowrap">
+                1위
+              </th>
+              <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-2 whitespace-nowrap">
+                2위
+              </th>
+              <th className="px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-gray-2 whitespace-nowrap">
+                발표일
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-1/50 dark:divide-dark-l">
+            {polls.map((poll) => {
+              const meaningfulResults = poll.results.filter(
+                (r) => !r.label.includes('없음') && !r.label.includes('모름') && !r.label.includes('기타'),
+              );
+              const sorted = [...meaningfulResults].sort((a, b) => b.pct - a.pct);
+              const first = sorted[0];
+              const second = sorted[1];
+              const maxPct = first?.pct ?? 100;
+
+              return (
+                <tr key={poll.id} className="hover:bg-default-50 dark:hover:bg-dark-b/50 transition-colors">
+                  {/* 조사기관 */}
+                  <td className="px-5 py-4 whitespace-nowrap">
+                    <p className="text-[12px] font-bold text-gray-4 dark:text-white leading-tight">{poll.agency}</p>
+                    <p className="text-[10px] text-gray-2 mt-0.5">{poll.client} 의뢰</p>
+                  </td>
+
+                  {/* 주요 질문 */}
+                  <td className="px-5 py-4 max-w-[180px] md:max-w-[240px]">
+                    <p className="text-[11px] text-gray-3 dark:text-gray-1 leading-tight line-clamp-2">
+                      {poll.questionTitle}
+                    </p>
+                    <p className="text-[10px] text-gray-2 mt-0.5">
+                      n={poll.sampleSize.toLocaleString()} · {poll.marginOfError}
+                    </p>
+                  </td>
+
+                  {/* 1위 */}
+                  <td className="px-5 py-4 whitespace-nowrap">
+                    {first ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 bg-default-100 dark:bg-dark-b h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${(first.pct / maxPct) * 100}%`,
+                                backgroundColor: first.color ?? '#aaa',
+                              }}
+                            />
+                          </div>
+                          <span className="text-[12px] font-bold text-gray-4 dark:text-white tabular-nums">
+                            {first.pct}%
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-gray-2 mt-0.5 max-w-[100px] truncate">{first.label}</p>
+                      </>
+                    ) : (
+                      <span className="text-[11px] text-gray-2">—</span>
+                    )}
+                  </td>
+
+                  {/* 2위 */}
+                  <td className="px-5 py-4 whitespace-nowrap">
+                    {second ? (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 bg-default-100 dark:bg-dark-b h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${(second.pct / maxPct) * 100}%`,
+                                backgroundColor: second.color ?? '#aaa',
+                              }}
+                            />
+                          </div>
+                          <span className="text-[12px] font-bold text-gray-4 dark:text-white tabular-nums">
+                            {second.pct}%
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-gray-2 mt-0.5 max-w-[100px] truncate">{second.label}</p>
+                      </>
+                    ) : (
+                      <span className="text-[11px] text-gray-2">—</span>
+                    )}
+                  </td>
+
+                  {/* 발표일 */}
+                  <td className="px-5 py-4 whitespace-nowrap">
+                    <p className="text-[11px] font-semibold text-gray-3 dark:text-gray-1">{poll.publishDate}</p>
+                    <p className="text-[10px] text-gray-2 mt-0.5">{poll.surveyPeriod}</p>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ─── 전체 뷰 ─────────────────────────────────────────────────────────────────
 function OverallView() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
@@ -165,10 +292,6 @@ function OverallView() {
 
   const minjooMax = Math.max(...(minjooData?.results.map((r) => r.pct) ?? [1]));
   const pppMax = Math.max(...(pppData?.results.map((r) => r.pct) ?? [1]));
-
-  const latestPolls = MOCK_AGENCY_POLLS.filter((p) =>
-    ['realmeter-party-2603', 'realmeter-party-v2-2603', 'hangil-governor-2510'].includes(p.id),
-  );
 
   return (
     <div className="space-y-5 px-4 pb-8 pt-3">
@@ -236,24 +359,33 @@ function OverallView() {
       {/* 2행: 추이 차트 + 정당지지율 바 */}
       <div className="md:grid md:grid-cols-5 md:gap-4 space-y-4 md:space-y-0">
         {/* 추이 차트 (모바일 전체, 데스크톱 3/5) */}
-        <div className="md:col-span-3 rounded-2xl border border-gray-1 dark:border-dark-l bg-white dark:bg-dark-pb p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[13px] font-bold text-gray-4 dark:text-white">정당지지율 추이</h3>
-            <div className="flex flex-wrap gap-x-3 gap-y-1">
+        <div className="md:col-span-3 rounded-3xl bg-white dark:bg-dark-pb shadow-sm border border-gray-1/60 dark:border-dark-l p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-[14px] font-semibold text-gray-4 dark:text-white tracking-tight">정당지지율 추이</h3>
+              <p className="text-[10px] text-gray-2 mt-0.5">{POLL_SUMMARY.source} 기준</p>
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1.5 justify-end">
               {MOCK_PARTY_POLL_DATA.map((p) => (
-                <span key={p.partyName} className="flex items-center gap-1 text-[10px] text-gray-2">
-                  <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: p.color }} />
-                  {p.partyName.replace('더불어', '').replace('당', '당')}
+                <span
+                  key={p.partyName}
+                  className="flex items-center gap-1.5 text-[10px] text-gray-3 dark:text-gray-1 font-medium">
+                  <span className="w-5 h-1.5 rounded-full inline-block" style={{ backgroundColor: p.color }} />
+                  {p.partyName
+                    .replace('더불어민주', '민주')
+                    .replace('국민의힘', '국힘')
+                    .replace('개혁신당', '개혁')
+                    .replace('조국혁신당', '조국')}
                 </span>
               ))}
             </div>
           </div>
-          <div className="h-[200px]">
+          <div className="h-[210px]">
             <Line
               data={{
                 labels: filteredTimeseries.map((d) => {
                   const [, m, day] = d.date.split('-');
-                  return `${m}/${day}`;
+                  return `${+m}/${+day}`;
                 }),
                 datasets: MOCK_PARTY_POLL_DATA.map((p) => ({
                   label: p.partyName,
@@ -262,30 +394,82 @@ function OverallView() {
                     return typeof d[key] === 'number' ? (d[key] as number) : null;
                   }),
                   borderColor: p.color,
-                  backgroundColor: `${p.color}15`,
-                  tension: 0.4,
+                  backgroundColor: 'transparent',
+                  tension: 0.35,
                   pointRadius: 3,
+                  pointBackgroundColor: p.color,
+                  pointBorderColor: '#ffffff',
+                  pointBorderWidth: 1.5,
                   pointHoverRadius: 5,
+                  pointHoverBackgroundColor: p.color,
+                  pointHoverBorderColor: '#ffffff',
+                  pointHoverBorderWidth: 2,
                   borderWidth: 2,
+                  fill: false,
+                  spanGaps: true,
                 })),
               }}
               options={{
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    backgroundColor: 'rgba(255,255,255,0.97)',
+                    titleColor: '#0f172a',
+                    bodyColor: '#64748b',
+                    borderColor: 'rgba(0,0,0,0.07)',
+                    borderWidth: 1,
+                    cornerRadius: 14,
+                    padding: { x: 12, y: 9 },
+                    boxPadding: 5,
+                    usePointStyle: true,
+                    titleFont: { size: 11, weight: 'bold' },
+                    bodyFont: { size: 11 },
+                    callbacks: {
+                      title: (items) => items[0]?.label ?? '',
+                      label: (ctx) => {
+                        const v = ctx.parsed.y;
+                        return v != null ? ` ${ctx.dataset.label}: ${v}%` : '';
+                      },
+                    },
+                  },
+                },
                 scales: {
                   y: {
                     min: 0,
                     max: 65,
-                    grid: { color: '#f0f0f0' },
-                    ticks: { callback: (v) => `${v}%`, font: { size: 10 } },
+                    grid: { display: false },
+                    border: { display: false },
+                    ticks: {
+                      callback: (v) => `${v}%`,
+                      font: { size: 10 },
+                      color: '#94a3b8',
+                      padding: 6,
+                      stepSize: 20,
+                    },
                   },
-                  x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+                  x: {
+                    grid: {
+                      display: true,
+                      color: 'rgba(148,163,184,0.2)',
+                      lineWidth: 1,
+                    },
+                    border: { display: false, dash: [4, 4] },
+                    ticks: {
+                      font: { size: 10 },
+                      color: '#94a3b8',
+                      maxRotation: 0,
+                      maxTicksLimit: 7,
+                      padding: 6,
+                    },
+                  },
                 },
+                animation: { duration: 600, easing: 'easeInOutQuart' },
               }}
             />
           </div>
-          <p className="text-[10px] text-gray-2 mt-2 text-right">{POLL_SUMMARY.source} 기준</p>
         </div>
 
         {/* 최신 정당지지율 바 (모바일 전체, 데스크톱 2/5) */}
@@ -354,14 +538,14 @@ function OverallView() {
         </div>
       </div>
 
-      {/* 4행: 최신 조사기관 카드 리스트 */}
-      <div>
-        <h3 className="text-[13px] font-bold text-gray-4 dark:text-white mb-3">최신 여론조사</h3>
-        <div className="space-y-3">
-          {latestPolls.map((poll) => (
-            <AgencyPollCard key={poll.id} poll={poll} />
-          ))}
-        </div>
+      {/* 4행: 최신 여론조사 테이블 */}
+      <AgencyPollTable polls={MOCK_AGENCY_POLLS} />
+
+      {/* 5행: 조사기관 카드 상세 */}
+      <div className="space-y-3">
+        {MOCK_AGENCY_POLLS.map((poll) => (
+          <AgencyPollCard key={poll.id} poll={poll} />
+        ))}
       </div>
     </div>
   );
