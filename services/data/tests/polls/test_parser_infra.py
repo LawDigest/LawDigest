@@ -19,9 +19,14 @@ from lawdigest_data.polls.parser import (
     _build_parser_key_map,
     _EmbrainPublicParser,
     _FlowerResearchParser,
+    _HangilResearchParser,
+    _IpsosParser,
     _KoreanResearchParser,
+    _KStatResearchParser,
+    _NextResearchParser,
     _RealMeterParser,
     _SignalPulseParser,
+    _STIParser,
     _TableFormatParser,
     _DailyResearchParser,
     _WinjiKoreaParser,
@@ -43,6 +48,10 @@ class TestBuildParserKeyMap:
             "_FlowerResearchParser",
             "_WinjiKoreaParser",
             "_HangilResearchParser",
+            "_NextResearchParser",
+            "_STIParser",
+            "_IpsosParser",
+            "_KStatResearchParser",
         }
         assert expected_keys == set(key_map.keys())
 
@@ -65,6 +74,11 @@ class TestParserKeyAttribute:
         _EmbrainPublicParser,
         _FlowerResearchParser,
         _WinjiKoreaParser,
+        _HangilResearchParser,
+        _NextResearchParser,
+        _STIParser,
+        _IpsosParser,
+        _KStatResearchParser,
     ])
     def test_has_parser_key(self, parser_cls):
         assert hasattr(parser_cls, "PARSER_KEY"), (
@@ -89,6 +103,11 @@ class TestPollParserProtocol:
         _EmbrainPublicParser,
         _FlowerResearchParser,
         _WinjiKoreaParser,
+        _HangilResearchParser,
+        _NextResearchParser,
+        _STIParser,
+        _IpsosParser,
+        _KStatResearchParser,
     ])
     def test_implements_protocol(self, parser_cls):
         """런타임 Protocol 체크 — parse(pages_data) 시그니처 존재 여부."""
@@ -106,6 +125,11 @@ class TestPollParserProtocol:
         _EmbrainPublicParser,
         _FlowerResearchParser,
         _WinjiKoreaParser,
+        _HangilResearchParser,
+        _NextResearchParser,
+        _STIParser,
+        _IpsosParser,
+        _KStatResearchParser,
     ])
     def test_parse_accepts_pages_data(self, parser_cls):
         """parse()가 빈 pages_data 리스트를 받아 오류 없이 빈 결과를 반환한다."""
@@ -120,14 +144,19 @@ class TestPollResultParserRegistry:
     def test_load_from_default_registry(self):
         """기본 경로의 parser_registry.json에서 모든 파서가 로드된다."""
         parser = PollResultParser()
-        assert len(parser._registry) == 9  # 현재 등록된 파서 수
+        assert len(parser._registry) == 13  # 현재 등록된 파서 수
 
     def test_all_pollsters_registered(self):
         parser = PollResultParser()
         all_keywords = {kw for e in parser._registry for kw in e.pollster_keywords}
         expected = {"조원씨앤아이", "메타서치", "데일리리서치", "리얼미터",
                     "한국리서치", "시그널앤펄스", "엠브레인퍼블릭", "여론조사꽃", "윈지코리아",
-                    "(주)한길리서치", "한길리서치"}
+                    "(주)한길리서치", "한길리서치",
+                    "넥스트리서치",
+                    "에스티아이", "㈜에스티아이", "(주)에스티아이",
+                    "입소스", "Ipsos",
+                    "케이스탯리서치", "㈜케이스탯리서치", "(주)케이스탯리서치", "케이스탯",
+                    "메타보이스", "메타보이스(주)"}
         assert expected == all_keywords
 
     def test_registry_json_missing_raises(self, tmp_path):
@@ -168,6 +197,10 @@ class TestSelectParser:
     def test_select_realmeter(self):
         cls = self.parser._select_parser("리얼미터")
         assert cls is _RealMeterParser
+
+    def test_select_meta_voice(self):
+        cls = self.parser._select_parser("메타보이스(주)")
+        assert cls is _TableFormatParser
 
     def test_unknown_pollster_raises(self):
         with pytest.raises(UnknownPollsterError, match="미등록기관"):

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Layout } from '@/components';
-import ElectionDdayHeader from './ElectionDdayHeader';
+import ElectionHeader from './ElectionHeader';
 import ElectionInnerTabBar, { ElectionInnerTab } from './ElectionInnerTabBar';
 import ElectionMapTabView from './ElectionMapTabView';
 import ElectionFeedView from './ElectionFeedView';
@@ -20,15 +21,35 @@ export interface ConfirmedRegion {
 
 const DEFAULT_REGION: ConfirmedRegion = { regionCode: '11', regionName: '서울특별시' };
 
+const VALID_TABS: ElectionInnerTab[] = ['map', 'feed', 'poll', 'district'];
+
+function isValidTab(value: string | null): value is ElectionInnerTab {
+  return VALID_TABS.includes(value as ElectionInnerTab);
+}
+
 export default function ElectionMapShell() {
-  const [activeTab, setActiveTab] = useState<ElectionInnerTab>('map');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const tabParam = searchParams.get('tab');
+  const activeTab: ElectionInnerTab = isValidTab(tabParam) ? tabParam : 'map';
+
   const [confirmedRegion, setConfirmedRegion] = useState<ConfirmedRegion | null>(DEFAULT_REGION);
+
+  const handleTabChange = useCallback(
+    (tab: ElectionInnerTab) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('tab', tab);
+      router.push(`?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   return (
     <Layout nav logo>
       <div className="flex flex-col w-full md:max-w-[768px] mx-auto">
-        <ElectionDdayHeader electionName={LOCAL_ELECTION_NAME} electionDate={LOCAL_ELECTION_DATE} />
-        <ElectionInnerTabBar activeTab={activeTab} onChange={setActiveTab} />
+        <ElectionHeader electionName={LOCAL_ELECTION_NAME} electionDate={LOCAL_ELECTION_DATE} />
+        <ElectionInnerTabBar activeTab={activeTab} onChange={handleTabChange} />
 
         {activeTab === 'map' && <ElectionMapTabView />}
         {activeTab === 'feed' && <ElectionFeedView confirmedRegion={confirmedRegion} />}

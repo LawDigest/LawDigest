@@ -18,7 +18,12 @@ const nextConfig = {
   },
   experimental: {
     serverActions: {
-      allowedOrigins: ['dev.lawdigest.net', 'https://dev.lawdigest.net', 'test.lawdigest.net', 'https://test.lawdigest.net'],
+      allowedOrigins: [
+        'dev.lawdigest.net',
+        'https://dev.lawdigest.net',
+        'test.lawdigest.net',
+        'https://test.lawdigest.net',
+      ],
     },
   },
   async rewrites() {

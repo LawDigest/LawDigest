@@ -93,7 +93,18 @@ def test_fixture_results_pass_property_validation(
     """
     errors = validate_parse_results(results)
 
-    assert not errors, (
-        f"속성 검증 실패 ({pollster} / {fname}):\n"
-        + "\n".join(f"  [{q}] {msgs}" for q, msgs in errors.items())
-    )
+    if errors:
+        sample_lines = []
+        for r in results:
+            pct_sum = sum(r.overall_percentages) if r.overall_percentages else 0.0
+            sample_lines.append(
+                f"  Q{r.question_number} ({r.question_title[:30]!r}):\n"
+                f"    options     = {r.response_options}\n"
+                f"    percentages = {r.overall_percentages}  합계={pct_sum:.1f}%"
+            )
+        pytest.fail(
+            f"속성 검증 실패 ({pollster} / {fname}):\n"
+            + "\n".join(f"  [{q}] {msgs}" for q, msgs in errors.items())
+            + "\n\n[파싱 결과 샘플]\n"
+            + "\n".join(sample_lines)
+        )

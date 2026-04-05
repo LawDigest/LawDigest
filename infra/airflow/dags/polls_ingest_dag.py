@@ -7,6 +7,7 @@ PollSurvey / PollQuestion / PollOption 테이블에 저장한다.
 from __future__ import annotations
 
 import sys
+from time import monotonic
 
 import pendulum
 
@@ -15,9 +16,12 @@ from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
 
 _PROJECT_ROOT = "/opt/airflow/project"
+_RUN_STARTED_AT: float | None = None
 
 
 def fetch_polls(**context):
+    global _RUN_STARTED_AT
+    _RUN_STARTED_AT = monotonic()
     if _PROJECT_ROOT not in sys.path:
         sys.path.append(_PROJECT_ROOT)
 
@@ -92,6 +96,52 @@ def upsert_polls(**context):
 
     manager = PollsWorkflowManager(params.get("execution_mode") or "dry_run")
     return manager.upsert_polls_step(artifact_path=artifact_path)
+
+
+def summarize_run(**context):
+    if _PROJECT_ROOT not in sys.path:
+        sys.path.append(_PROJECT_ROOT)
+
+    from src.lawdigest_data_pipeline.polls.workflow import _write_artifact
+
+    params = context.get("params", {})
+    ti = context["ti"]
+    fetched = ti.xcom_pull(task_ids="fetch_polls") or {}
+    detailed = ti.xcom_pull(task_ids="crawl_details") or {}
+    parsed = ti.xcom_pull(task_ids="parse_results") or {}
+    upserted = ti.xcom_pull(task_ids="upsert_polls") or {}
+
+    started_at = _RUN_STARTED_AT
+    total_elapsed = round(monotonic() - started_at, 3) if started_at is not None else None
+
+    summary = {
+        "mode": params.get("execution_mode") or "dry_run",
+        "targets_path": params.get("targets_path") or None,
+        "target_count": fetched.get("targets", 0),
+        "target_slugs": fetched.get("target_slugs", []),
+        "fetched_total": fetched.get("total", 0),
+        "details_total": detailed.get("total", 0),
+        "parsed_total": parsed.get("parsed", 0),
+        "questions_total": parsed.get("questions_total", 0),
+        "saved_paths_count": len(parsed.get("saved_paths") or []),
+        "upserted_surveys": upserted.get("upserted_surveys", 0),
+        "upserted_questions": upserted.get("upserted_questions", 0),
+        "total_elapsed_seconds": total_elapsed,
+        "step_elapsed_seconds": {
+            "fetch_polls": fetched.get("elapsed_seconds"),
+            "crawl_details": detailed.get("elapsed_seconds"),
+            "parse_results": parsed.get("elapsed_seconds"),
+            "upsert_polls": upserted.get("elapsed_seconds"),
+        },
+        "artifacts": {
+            "fetch": fetched.get("artifact_path"),
+            "details": detailed.get("artifact_path"),
+            "results": parsed.get("artifact_path"),
+        },
+    }
+    summary["artifact_path"] = _write_artifact("polls_ingest_summary", summary)
+    print(f"[polls_ingest.summary] {summary}")
+    return summary
 
 
 with DAG(
@@ -187,4 +237,9 @@ with DAG(
         python_callable=upsert_polls,
     )
 
-    t_fetch >> t_details >> t_parse >> t_upsert
+    t_summary = PythonOperator(
+        task_id="summarize_run",
+        python_callable=summarize_run,
+    )
+
+    t_fetch >> t_details >> t_parse >> t_upsert >> t_summary

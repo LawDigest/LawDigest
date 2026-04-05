@@ -1,58 +1,87 @@
 'use client';
 
-interface SeatParty {
+interface GovernorParty {
   name: string;
   seats: number;
   colorClass: string;
 }
 
-interface SeatSummaryCardProps {
-  totalSeats: number;
-  countRate: number;
-  parties: SeatParty[];
+interface PollSegment {
+  label: string;
+  count: number;
+  colorClass: string;
 }
 
-export default function SeatSummaryCard({ totalSeats, countRate, parties }: SeatSummaryCardProps) {
-  const seatsAllocated = parties.reduce((sum, p) => sum + p.seats, 0);
+interface SeatSummaryCardProps {
+  totalRegions: number;
+  governorParties: GovernorParty[];
+  pollSegments: PollSegment[];
+}
+
+export default function SeatSummaryCard({ totalRegions, governorParties, pollSegments }: SeatSummaryCardProps) {
+  const governorTotal = governorParties.reduce((sum, p) => sum + p.seats, 0);
+  const pollTotal = pollSegments.reduce((sum, s) => sum + s.count, 0);
 
   return (
-    <section className="mx-5 rounded-2xl bg-white dark:bg-dark-pb border border-gray-1 dark:border-dark-l shadow-sm p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold tracking-widest text-gray-2 uppercase">의석 현황</p>
-        <span className="text-xs text-gray-2">
-          개표율 <span className="font-bold text-gray-4 dark:text-white">{countRate}%</span>
-        </span>
-      </div>
-
-      {/* 의석 바 */}
-      <div className="flex h-3 w-full overflow-hidden rounded-full" role="img" aria-label="정당별 의석 비율">
-        {parties.map((party) => (
-          <div
-            key={party.name}
-            className={`h-full transition-all ${party.colorClass}`}
-            style={{ width: `${(party.seats / seatsAllocated) * 100}%` }}
-          />
-        ))}
-      </div>
-
-      {/* 정당별 의석 수 */}
-      <div className="flex flex-wrap gap-x-4 gap-y-2">
-        {parties.map((party) => (
-          <div key={party.name} className="flex items-center gap-1.5">
-            <span className={`h-2.5 w-2.5 rounded-full ${party.colorClass}`} />
-            <span className="text-xs text-gray-3 dark:text-gray-1">{party.name}</span>
+    <section className="mx-5 rounded-2xl bg-white dark:bg-dark-pb border border-gray-1 dark:border-dark-l shadow-sm p-4 flex flex-col gap-4">
+      {/* 현직 광역단체장 현황 */}
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-semibold tracking-widest text-gray-2 uppercase">현직 광역단체장 현황</p>
+        <div className="flex h-3 w-full overflow-hidden rounded-full" role="img" aria-label="정당별 광역단체장 수">
+          {governorParties.map((p) => (
+            <div
+              key={p.name}
+              className={`h-full transition-all ${p.colorClass}`}
+              style={{ width: `${(p.seats / governorTotal) * 100}%` }}
+            />
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {governorParties.map((p) => (
+            <div key={p.name} className="flex items-center gap-1.5">
+              <span className={`h-2 w-2 rounded-full ${p.colorClass}`} />
+              <span className="text-xs text-gray-3 dark:text-gray-1">{p.name}</span>
+              <span className="text-sm font-bold text-gray-4 dark:text-white tabular-nums">
+                {p.seats}
+                <span className="text-xs font-normal text-gray-2">곳</span>
+              </span>
+            </div>
+          ))}
+          <div className="flex items-center gap-1 ml-auto">
+            <span className="text-xs text-gray-2">총</span>
             <span className="text-sm font-bold text-gray-4 dark:text-white tabular-nums">
-              {party.seats}
-              <span className="text-xs font-normal text-gray-2">석</span>
+              {totalRegions}
+              <span className="text-xs font-normal text-gray-2">곳</span>
             </span>
           </div>
-        ))}
-        <div className="flex items-center gap-1.5 ml-auto">
-          <span className="text-xs text-gray-2">총</span>
-          <span className="text-sm font-bold text-gray-4 dark:text-white tabular-nums">
-            {totalSeats}
-            <span className="text-xs font-normal text-gray-2">석</span>
-          </span>
+        </div>
+      </div>
+
+      <div className="border-t border-gray-1 dark:border-dark-l" />
+
+      {/* 여론조사 현황 */}
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-semibold tracking-widest text-gray-2 uppercase">여론조사 현황</p>
+        <div className="flex h-3 w-full overflow-hidden rounded-full" role="img" aria-label="여론조사 우세 현황">
+          {pollSegments.map((s) => (
+            <div
+              key={s.label}
+              className={`h-full transition-all ${s.colorClass}`}
+              style={{ width: `${(s.count / pollTotal) * 100}%` }}
+            />
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {pollSegments.map((s) => (
+            <div key={s.label} className="flex items-center gap-1.5">
+              <span className={`h-2 w-2 rounded-full ${s.colorClass}`} />
+              <span className="text-xs text-gray-3 dark:text-gray-1">{s.label}</span>
+              <span className="text-sm font-bold text-gray-4 dark:text-white tabular-nums">
+                {s.count}
+                <span className="text-xs font-normal text-gray-2">곳</span>
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </section>

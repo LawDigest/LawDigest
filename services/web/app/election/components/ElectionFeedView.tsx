@@ -2,11 +2,19 @@
 
 import { useState } from 'react';
 import { ConfirmedRegion } from './ElectionMapShell';
-import { MOCK_FEED_ITEMS, FeedItem, SnsFeedItem, PollFeedItem, BillMiniCardProps } from '../data/mockFeedData';
+import {
+  MOCK_FEED_ITEMS,
+  FeedItem,
+  SnsFeedItem,
+  PollFeedItem,
+  BillMiniCardProps,
+  YoutubeFeedItem,
+} from '../data/mockFeedData';
 import { MOCK_PARTY_POLL_DATA } from '../data/mockPartyPollData';
 import PartyRingSelector from './shared/PartyRingSelector';
 import DistrictMapPicker, { SelectedRegion } from './shared/DistrictMapPicker';
 import ElectionFeedCardList from './ElectionFeedCardList';
+import SubTabBar from './shared/SubTabBar';
 
 type FeedSubView = 'all' | 'party' | 'candidate' | 'region';
 
@@ -34,8 +42,10 @@ export default function ElectionFeedView({ confirmedRegion }: ElectionFeedViewPr
     if (subView === 'party' && selectedParty) {
       return MOCK_FEED_ITEMS.filter((item) => {
         if (item.type === 'sns') return (item as SnsFeedItem).partyName === selectedParty;
+        if (item.type === 'youtube') return (item as YoutubeFeedItem).partyName === selectedParty;
         if (item.type === 'poll') return (item as PollFeedItem).results.some((r) => r.partyName === selectedParty);
         if (item.type === 'bill') return (item as BillMiniCardProps).partyName === selectedParty;
+        if (item.type === 'image') return item.partyName === selectedParty;
         return true;
       });
     }
@@ -50,28 +60,7 @@ export default function ElectionFeedView({ confirmedRegion }: ElectionFeedViewPr
   return (
     <div className="flex flex-col">
       {/* 서브 뷰 탭 */}
-      <nav className="flex border-b border-gray-1 dark:border-dark-l overflow-x-auto scrollbar-hide">
-        {SUB_TABS.map(({ key, label }) => {
-          const isActive = key === subView;
-          return (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => setSubView(key)}
-              className={[
-                'relative flex-1 min-w-[72px] py-2.5 text-sm font-semibold transition-colors whitespace-nowrap',
-                isActive ? 'text-gray-4 dark:text-white' : 'text-gray-2 hover:text-gray-3',
-              ].join(' ')}>
-              {label}
-              {isActive && (
-                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-6 rounded-full bg-gradient-to-r from-primary-2 to-primary-3" />
-              )}
-            </button>
-          );
-        })}
-      </nav>
+      <SubTabBar tabs={SUB_TABS} active={subView} onChange={setSubView} />
 
       {/* 서브 필터 영역 */}
       {subView === 'party' && (

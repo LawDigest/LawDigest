@@ -1,6 +1,6 @@
 export { default as ElectionShell } from './ElectionShell';
 export { default as ElectionMapShell } from './ElectionMapShell';
-export { default as ElectionDdayHeader } from './ElectionDdayHeader';
+export { default as ElectionHeader } from './ElectionHeader';
 export { default as ElectionInnerTabBar } from './ElectionInnerTabBar';
 export { default as ElectionMapTabView } from './ElectionMapTabView';
 export { default as SeatSummaryCard } from './SeatSummaryCard';

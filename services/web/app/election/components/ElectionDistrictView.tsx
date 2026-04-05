@@ -72,14 +72,14 @@ function CandidateCard({
 
 function AiIssueItem({ issue }: { issue: MockAiIssue }) {
   const importanceColors: Record<MockAiIssue['importance'], string> = {
-    high: 'text-secondary',
-    medium: 'text-on-surface-variant',
-    emerging: 'text-tertiary',
+    high: 'text-primary-2',
+    medium: 'text-gray-2',
+    emerging: 'text-gray-3',
   };
 
   return (
     <div className="flex items-center gap-4 p-4 bg-white dark:bg-dark-pb rounded-2xl border border-gray-1 dark:border-dark-l">
-      <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-secondary/5 text-secondary shrink-0">
+      <div className="w-10 h-10 flex items-center justify-center rounded-xl bg-primary-2/5 text-primary-2 shrink-0">
         <span className="material-symbols-outlined text-xl">{issue.icon}</span>
       </div>
       <div className="flex-1 min-w-0">
@@ -132,11 +132,11 @@ function DistrictPollCard() {
 
       {/* 하단: 미결정/신뢰도 */}
       <div className="flex gap-3">
-        <div className="flex-1 bg-default-50 dark:bg-dark-b rounded-xl p-3">
+        <div className="flex-1 bg-gray-0.5/50 dark:bg-dark-b rounded-xl p-3">
           <p className="text-[10px] font-bold text-gray-2 uppercase tracking-wide mb-1">미결정</p>
           <p className="text-lg font-extrabold text-gray-4 dark:text-white">{poll.undecidedPct}%</p>
         </div>
-        <div className="flex-1 bg-default-50 dark:bg-dark-b rounded-xl p-3">
+        <div className="flex-1 bg-gray-0.5/50 dark:bg-dark-b rounded-xl p-3">
           <p className="text-[10px] font-bold text-gray-2 uppercase tracking-wide mb-1">신뢰도</p>
           <p className="text-lg font-extrabold text-gray-4 dark:text-white">{poll.reliability}%</p>
         </div>
@@ -175,9 +175,9 @@ function EmptyDistrictState({ onSelect }: { onSelect: (region: ConfirmedRegion) 
 
   return (
     <div className="px-4 py-6">
-      <div className="bg-default-50 dark:bg-dark-b border-2 border-dashed border-gray-1 dark:border-dark-l rounded-3xl p-8 text-center">
+      <div className="bg-gray-0.5/50 dark:bg-dark-b border-2 border-dashed border-gray-1 dark:border-dark-l rounded-3xl p-8 text-center">
         <div className="w-16 h-16 bg-white dark:bg-dark-pb rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-          <span className="material-symbols-outlined text-secondary text-3xl">location_off</span>
+          <span className="material-symbols-outlined text-gray-2 text-3xl">location_off</span>
         </div>
         <h4 className="font-bold text-lg text-gray-4 dark:text-white mb-2">지역구를 설정해보세요</h4>
         <p className="text-sm text-gray-2 mb-6 leading-relaxed">
@@ -186,7 +186,7 @@ function EmptyDistrictState({ onSelect }: { onSelect: (region: ConfirmedRegion) 
         <button
           type="button"
           onClick={() => setShowPicker(true)}
-          className="w-full py-4 rounded-full bg-secondary text-white font-bold text-sm transition-transform active:scale-95">
+          className="w-full py-4 rounded-full bg-primary-3 text-white font-bold text-sm transition-transform active:scale-95">
           지역구 검색
         </button>
       </div>
@@ -228,17 +228,17 @@ export default function ElectionDistrictView({ confirmedRegion, onRegionChange }
       <section className="px-4 py-6 pb-4">
         <div className="flex items-end justify-between mb-2">
           <div>
-            <span className="text-[11px] font-bold uppercase tracking-widest text-secondary opacity-70">내 지역구</span>
+            <span className="text-[11px] font-bold uppercase tracking-widest text-gray-2 opacity-70">내 지역구</span>
             <h2 className="font-bold text-2xl text-gray-4 dark:text-white mt-1">{confirmedRegion.regionName}</h2>
           </div>
           <button
             type="button"
             onClick={() => setShowPicker(true)}
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-default-50 dark:bg-dark-b text-secondary transition-colors hover:bg-gray-1">
+            className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-0.5 dark:bg-dark-b text-gray-3 transition-colors hover:bg-gray-1">
             <span className="material-symbols-outlined text-xl">edit_location_alt</span>
           </button>
         </div>
-        <div className="h-1 w-10 bg-secondary rounded-full" />
+        <div className="h-1 w-10 bg-primary-2 rounded-full" />
       </section>
 
       {/* ── 지역구 후보자 캐러셀 ── */}
@@ -261,7 +261,7 @@ export default function ElectionDistrictView({ confirmedRegion, onRegionChange }
         {/* 2명 선택 시 비교표 */}
         {compareA && compareB ? (
           <div className="mx-4 mt-3 rounded-2xl border border-gray-1 dark:border-dark-l overflow-hidden">
-            <div className="grid grid-cols-3 bg-default-50 dark:bg-dark-b text-[11px] font-semibold text-gray-3 dark:text-gray-1">
+            <div className="grid grid-cols-3 bg-gray-0.5/50 dark:bg-dark-b text-[11px] font-semibold text-gray-3 dark:text-gray-1">
               <div className="p-3">항목</div>
               <div className="p-3 border-l border-gray-1 dark:border-dark-l">{compareA.name}</div>
               <div className="p-3 border-l border-gray-1 dark:border-dark-l">{compareB.name}</div>
@@ -290,16 +290,16 @@ export default function ElectionDistrictView({ confirmedRegion, onRegionChange }
 
       {/* ── AI 주요 이슈 ── */}
       <section className="px-4 mb-8">
-        <div className="bg-default-50 dark:bg-dark-b rounded-3xl p-5 relative overflow-hidden">
+        <div className="bg-gray-0.5/50 dark:bg-dark-b rounded-3xl p-5 relative overflow-hidden">
           {/* 배경 장식 아이콘 */}
           <span
-            className="material-symbols-outlined absolute top-3 right-4 text-5xl text-secondary opacity-10 select-none"
+            className="material-symbols-outlined absolute top-3 right-4 text-5xl text-gray-2 opacity-10 select-none"
             aria-hidden>
             auto_awesome
           </span>
 
           <div className="flex items-center gap-2 mb-4">
-            <span className="material-symbols-outlined text-secondary text-lg">auto_awesome</span>
+            <span className="material-symbols-outlined text-primary-2 text-lg">auto_awesome</span>
             <h3 className="font-bold text-base text-gray-4 dark:text-white">
               AI 주요 이슈 · {confirmedRegion.regionName}
             </h3>

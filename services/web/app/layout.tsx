@@ -1,7 +1,6 @@
 import '@/styles/globals.css';
 import { Metadata, Viewport } from 'next';
 import { siteConfig } from '@/config/site';
-import { fontSans } from '@/config/fonts';
 import clsx from 'clsx';
 import { Suspense } from 'react';
 import Script from 'next/script';

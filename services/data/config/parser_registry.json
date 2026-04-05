@@ -5,7 +5,7 @@
     "table_format": {
       "class": "_TableFormatParser",
       "description": "크로스탭 테이블 기반 파서 (조원씨앤아이, 메타서치 등)",
-      "pollster_names": ["조원씨앤아이", "메타서치"]
+      "pollster_names": ["조원씨앤아이", "메타서치", "메타보이스", "메타보이스(주)"]
     },
     "daily_research_format": {
       "class": "_DailyResearchParser",
@@ -46,6 +46,26 @@
       "class": "_HangilResearchParser",
       "description": "한길리서치 크로스탭 PDF 파서 – '문N)' 질문 마커, header[0][2]=='합계' 테이블 식별, col4+ 개별 셀 비율",
       "pollster_names": ["(주)한길리서치", "한길리서치"]
+    },
+    "next_research_format": {
+      "class": "_NextResearchParser",
+      "description": "넥스트리서치 크로스탭 PDF 파서 – '■ 표N.' 질문 마커, '[전체]' 전체 행, col4+ 개별 셀 비율",
+      "pollster_names": ["넥스트리서치"]
+    },
+    "sti_format": {
+      "class": "_STIParser",
+      "description": "에스티아이(STI) 크로스탭 PDF 파서 – 'QN.' 질문 마커, '전 체' 전체 행, col4+ 개별 셀 비율, 2페이지 멀티페이지",
+      "pollster_names": ["에스티아이", "㈜에스티아이", "(주)에스티아이"]
+    },
+    "ipsos_format": {
+      "class": "_IpsosParser",
+      "description": "입소스 주식회사 텍스트 기반 파서 – '문N.' 질문 마커, '전 체' 전체 행, 텍스트 비율 추출",
+      "pollster_names": ["입소스", "Ipsos"]
+    },
+    "kstat_research_format": {
+      "class": "_KStatResearchParser",
+      "description": "케이스탯리서치 텍스트 기반 파서 – '전 체'/'계' 전체 행, 텍스트 비율 추출, 멀티페이지 중복 방지",
+      "pollster_names": ["케이스탯리서치", "㈜케이스탯리서치", "(주)케이스탯리서치", "케이스탯"]
     }
   }
 }

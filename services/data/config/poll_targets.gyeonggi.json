@@ -1,0 +1,18 @@
+{
+  "version": "1.1",
+  "description": "경기도 광역단체장선거 여론조사 전용 수집 타깃.",
+  "targets": [
+    {
+      "slug": "gyeonggi_governor_9th",
+      "poll_gubuncd": "VT026",
+      "election_type": "제9회 전국동시지방선거",
+      "search_cnd": "4",
+      "search_wrd": "경기도",
+      "region": "경기도 전체",
+      "election_names": [
+        "광역단체장선거"
+      ],
+      "pollsters": null
+    }
+  ]
+}
