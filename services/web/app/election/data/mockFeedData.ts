@@ -1,6 +1,6 @@
 // services/web/app/election/data/mockFeedData.ts
 
-export type FeedCardType = 'sns' | 'poll' | 'bill';
+export type FeedCardType = 'sns' | 'poll' | 'bill' | 'youtube' | 'image';
 export type SnsPlatform = 'facebook' | 'twitter' | 'instagram' | 'youtube';
 
 export interface SnsFeedItem {
@@ -13,6 +13,10 @@ export interface SnsFeedItem {
   publishedAt: string;
   originalUrl: string;
   region: string;
+  quoteText?: string;
+  likes?: number;
+  comments?: number;
+  retweets?: number;
 }
 
 export interface PollFeedItem {
@@ -34,52 +38,87 @@ export interface BillMiniCardProps {
   partyName: string;
 }
 
-export type FeedItem = SnsFeedItem | PollFeedItem | BillMiniCardProps;
+export interface YoutubeFeedItem {
+  type: 'youtube';
+  id: string;
+  candidateName: string;
+  partyName: string;
+  channelName: string;
+  title: string;
+  thumbnailUrl: string;
+  publishedAt: string;
+  likes?: number;
+  comments?: number;
+}
+
+export interface ImageFeedItem {
+  type: 'image';
+  id: string;
+  groupName: string;
+  partyName: string;
+  content: string;
+  images: { src: string; alt: string }[];
+  publishedAt: string;
+}
+
+export type FeedItem = SnsFeedItem | PollFeedItem | BillMiniCardProps | YoutubeFeedItem | ImageFeedItem;
 
 export const MOCK_FEED_ITEMS: FeedItem[] = [
+  {
+    type: 'youtube',
+    id: 'yt-1',
+    candidateName: '홍길동',
+    partyName: '더불어민주당',
+    channelName: '더불어민주당 공식 채널',
+    title: '타운홀 미팅 하이라이트: 도시 교통망 확충 공약 발표',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&q=80',
+    publishedAt: '2026-04-03T09:00:00Z',
+    likes: 1200,
+    comments: 342,
+  },
   {
     type: 'sns',
     id: 'sns-1',
     platform: 'twitter',
-    candidateName: '홍길동',
-    partyName: '더불어민주당',
-    content: '서울 시민 여러분, 오늘 종로에서 뵙겠습니다. 함께 만드는 서울의 미래를 이야기합시다.',
-    publishedAt: '2026-04-03T09:00:00Z',
-    originalUrl: 'https://x.com/example',
-    region: '서울특별시',
-  },
-  {
-    type: 'sns',
-    id: 'sns-2',
-    platform: 'instagram',
     candidateName: '이순신',
     partyName: '국민의힘',
-    content: '오늘도 현장에서 시민들의 목소리를 듣고 왔습니다. 강한 종로를 만들겠습니다.',
+    content:
+      '데이터는 명확합니다: 우리 지역구에는 더 나은 연결이 필요합니다. 2027년까지 모든 가정에 기가급 광통신을 공급하겠습니다. #디지털미래 #지역우선',
     publishedAt: '2026-04-03T11:30:00Z',
-    originalUrl: 'https://instagram.com/example',
+    originalUrl: 'https://twitter.com/example',
     region: '서울특별시',
+    quoteText: '"기술에 대한 투자는 사람에 대한 투자입니다." — 지역 경제포럼',
+    likes: 156,
+    comments: 18,
+    retweets: 42,
   },
   {
-    type: 'sns',
-    id: 'sns-3',
-    platform: 'facebook',
-    candidateName: '강감찬',
-    partyName: '조국혁신당',
-    content: '청년 주거 문제 해결을 위한 공약을 발표했습니다. 새로운 시작을 함께 하겠습니다.',
+    type: 'bill',
+    id: 'bill-1',
+    briefSummary: '청년 주거 안정을 위한 공공임대주택 확대 법안으로, 2030년까지 공공주택 50만 호 공급을 목표로 합니다.',
+    billName: '공공주택 특별법 일부개정법률안',
+    billStage: '위원회 심사',
+    proposeDate: '2026-03-15',
+    partyName: '더불어민주당',
+  },
+  {
+    type: 'image',
+    id: 'img-1',
+    groupName: '국민의힘 서울시당',
+    partyName: '국민의힘',
+    content:
+      '주말 서울 광장 그린업 프로젝트 성공적으로 마쳤습니다! 500그루 나무 식재, 함께 해주신 모든 분께 감사드립니다.',
+    images: [
+      {
+        src: 'https://images.unsplash.com/photo-1466692476868-aef1dfb1e735?w=400&q=80',
+        alt: '시민들과 함께하는 나무 심기 행사',
+      },
+      {
+        src: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=400&q=80',
+        alt: '자원봉사자들이 나무를 심고 있는 모습',
+      },
+    ],
     publishedAt: '2026-04-02T14:00:00Z',
-    originalUrl: 'https://facebook.com/example',
-    region: '경기도',
-  },
-  {
-    type: 'sns',
-    id: 'sns-4',
-    platform: 'youtube',
-    candidateName: '유관순',
-    partyName: '개혁신당',
-    content: '[영상] 교육 공약 발표 현장 - 모든 아이가 평등한 출발선에 서도록',
-    publishedAt: '2026-04-01T16:00:00Z',
-    originalUrl: 'https://youtube.com/example',
-    region: '서울특별시',
   },
   {
     type: 'poll',
@@ -94,37 +133,17 @@ export const MOCK_FEED_ITEMS: FeedItem[] = [
     region: '서울특별시',
   },
   {
-    type: 'poll',
-    id: 'poll-2',
-    pollster: '리얼미터',
-    publishedAt: '2026-04-02T00:00:00Z',
-    results: [
-      { partyName: '더불어민주당', pct: 50.2, delta: 2.1 },
-      { partyName: '국민의힘', pct: 40.5, delta: -1.3 },
-      { partyName: '기타', pct: 9.3, delta: -0.8 },
-    ],
+    type: 'sns',
+    id: 'sns-2',
+    platform: 'instagram',
+    candidateName: '강감찬',
+    partyName: '조국혁신당',
+    content: '청년 주거 문제 해결을 위한 공약을 발표했습니다. 새로운 시작을 함께 하겠습니다.',
+    publishedAt: '2026-04-02T14:00:00Z',
+    originalUrl: 'https://instagram.com/example',
     region: '경기도',
-  },
-  {
-    type: 'poll',
-    id: 'poll-3',
-    pollster: '엠브레인',
-    publishedAt: '2026-04-01T00:00:00Z',
-    results: [
-      { partyName: '더불어민주당', pct: 44.8, delta: -0.5 },
-      { partyName: '국민의힘', pct: 46.5, delta: 0.9 },
-      { partyName: '기타', pct: 8.7, delta: -0.4 },
-    ],
-    region: '인천광역시',
-  },
-  {
-    type: 'bill',
-    id: 'bill-1',
-    briefSummary: '청년 주거 안정을 위한 공공임대주택 확대 법안',
-    billName: '공공주택 특별법 일부개정법률안',
-    billStage: '위원회 심사',
-    proposeDate: '2026-03-15',
-    partyName: '더불어민주당',
+    likes: 89,
+    comments: 12,
   },
   {
     type: 'bill',
@@ -136,12 +155,15 @@ export const MOCK_FEED_ITEMS: FeedItem[] = [
     partyName: '국민의힘',
   },
   {
-    type: 'bill',
-    id: 'bill-3',
-    briefSummary: '지방자치단체 재정 자율성 강화를 위한 교부세 산정 방식 개선',
-    billName: '지방교부세법 일부개정법률안',
-    billStage: '본회의 심의',
-    proposeDate: '2026-02-28',
-    partyName: '조국혁신당',
+    type: 'poll',
+    id: 'poll-2',
+    pollster: '리얼미터',
+    publishedAt: '2026-04-02T00:00:00Z',
+    results: [
+      { partyName: '더불어민주당', pct: 50.2, delta: 2.1 },
+      { partyName: '국민의힘', pct: 40.5, delta: -1.3 },
+      { partyName: '기타', pct: 9.3, delta: -0.8 },
+    ],
+    region: '경기도',
   },
 ];

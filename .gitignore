@@ -90,6 +90,10 @@ lawdigestenv/
 log/
 logs/
 *.pem
+.airflow_vendor/
+temp.html
+pencil-new.pen
+=4.60.0
 
 # =====================
 # 서비스별 데이터/결과물

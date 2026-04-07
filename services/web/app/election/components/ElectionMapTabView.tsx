@@ -4,11 +4,17 @@ import SeatSummaryCard from './SeatSummaryCard';
 import RegionResultGrid from './RegionResultGrid';
 import MapRegionCarousel from './MapRegionCarousel';
 
-// 프로토타입용 목업 데이터
-const MOCK_PARTIES = [
-  { name: '더불어민주당', seats: 160, colorClass: 'bg-party-minjoo' },
-  { name: '국민의힘', seats: 114, colorClass: 'bg-party-ppp' },
-  { name: '기타', seats: 26, colorClass: 'bg-party-independent' },
+// 프로토타입용 목업 데이터 (지방선거 광역단체장 기준, 총 17곳)
+const MOCK_GOVERNOR_PARTIES = [
+  { name: '더불어민주당', seats: 9, colorClass: 'bg-party-minjoo' },
+  { name: '국민의힘', seats: 7, colorClass: 'bg-party-ppp' },
+  { name: '기타', seats: 1, colorClass: 'bg-party-independent' },
+];
+
+const MOCK_POLL_SEGMENTS = [
+  { label: '민주 우세', count: 9, colorClass: 'bg-party-minjoo' },
+  { label: '경합', count: 6, colorClass: 'bg-gray-300' },
+  { label: '국힘 우세', count: 2, colorClass: 'bg-party-ppp' },
 ];
 
 const MOCK_REGIONS = [
@@ -100,9 +106,7 @@ const MOCK_REGIONS = [
 
 export default function ElectionMapTabView() {
   return (
-    <div className="flex flex-col gap-5 pb-32">
-      <SeatSummaryCard totalSeats={300} countRate={98.2} parties={MOCK_PARTIES} />
-
+    <div className="flex flex-col gap-5 pb-32 pt-4">
       {/* 지도 영역 */}
       <section className="mx-5 flex flex-col gap-3">
         <p className="text-xs font-semibold tracking-widest text-gray-2 uppercase">선거 지도</p>
@@ -110,6 +114,8 @@ export default function ElectionMapTabView() {
           <MapRegionCarousel />
         </div>
       </section>
+
+      <SeatSummaryCard totalRegions={17} governorParties={MOCK_GOVERNOR_PARTIES} pollSegments={MOCK_POLL_SEGMENTS} />
 
       <RegionResultGrid
         regions={MOCK_REGIONS}

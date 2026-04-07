@@ -28,7 +28,7 @@ export default function PartyRingSelector({ parties, selected, onSelect }: Party
             <div
               className="rounded-full p-0.5 transition-all"
               style={{ boxShadow: isSelected ? `0 0 0 2.5px ${party.color}` : 'none' }}>
-              <PartyLogoReplacement partyName={party.name} circle />
+              <PartyLogoReplacement partyName={party.name} circle color={party.color} />
             </div>
             <span
               className={`text-[11px] max-w-[56px] text-center leading-tight transition-colors ${

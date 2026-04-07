@@ -239,6 +239,7 @@ interface KoreaMapProps {
   onRegionChange: (index: number) => void;
   onCentroidsReady?: (centroids: CentroidInfo[]) => void;
   onRegionCentroidsReady?: (centroids: RegionCentroidInfo[]) => void;
+  mapHeight?: number;
 }
 
 export default function KoreaMap({
@@ -246,6 +247,7 @@ export default function KoreaMap({
   onRegionChange,
   onCentroidsReady,
   onRegionCentroidsReady,
+  mapHeight = 280,
 }: KoreaMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -253,6 +255,7 @@ export default function KoreaMap({
   const outlineElRef = useRef<SVGPathElement | null>(null);
   const labelsGRef = useRef<SVGGElement | null>(null);
   const pathRef = useRef<d3.GeoPath | null>(null);
+  const projectionRef = useRef<d3.GeoProjection | null>(null);
   const geoRef = useRef<FeatureCollection<Geometry> | null>(null);
   /** 각 권역 index → 사전 계산된 SVG path 문자열 */
   const mergedPathsRef = useRef<Map<number, string>>(new Map());
@@ -278,9 +281,9 @@ export default function KoreaMap({
     const container = containerRef.current;
     if (!svg || !container) return;
 
-    const { width, height } = container.getBoundingClientRect();
+    const { width } = container.getBoundingClientRect();
     const w = width || 320;
-    const h = height || 280;
+    const h = mapHeight;
 
     d3.select(svg).selectAll('*').remove();
 
@@ -291,6 +294,7 @@ export default function KoreaMap({
       .translate([w / 2, h / 2]);
     const path = d3.geoPath().projection(projection);
     pathRef.current = path;
+    projectionRef.current = projection;
 
     const zoomG = d3.select(svg).append('g').attr('class', 'zoom-layer');
     const labelsG = d3.select(svg).append('g').attr('class', 'labels-layer');
@@ -381,9 +385,9 @@ export default function KoreaMap({
     const container = containerRef.current;
 
     if (ready && geo && path && zoomG && labelsG && outlineEl && container) {
-      const { width, height } = container.getBoundingClientRect();
+      const { width } = container.getBoundingClientRect();
       const w = width || 320;
-      const h = height || 280;
+      const h = mapHeight;
       const region = MAP_REGIONS[regionIndex];
 
       const targetFeatures =
@@ -436,9 +440,9 @@ export default function KoreaMap({
         })
         .attr('stroke', (f) => {
           if (region.provinces === null) return 'none'; // 전국 뷰: 시도 경계 숨김
-          return inRegion(f) ? '#CCCCCC' : '#E8E8E8';
+          return inRegion(f) ? '#999999' : '#E8E8E8';
         })
-        .attr('stroke-width', () => 0.6 / scale);
+        .attr('stroke-width', (f) => (inRegion(f) ? 1.2 / scale : 0.6 / scale));
 
       // 커서 스타일: 전국 뷰에서 pointer, 권역 뷰에서 default
       d3.select(zoomG)
@@ -469,16 +473,98 @@ export default function KoreaMap({
           d3.select(labelsG).selectAll('*').remove();
 
           // 사이드바에서 렌더링하므로 SVG 레이블 대신 centroid 위치만 콜백으로 전달
+          // 섬이 많거나 오목한 지역은 bounding box 중심이 바다/외부로 치우치므로 내륙 위경도 사용
+          const CENTROID_LNGLAT: Record<string, [number, number]> = {
+            서울특별시: [126.978, 37.566],
+            인천광역시: [126.72, 37.46], // 서해 도서 제외, 부평/남동 일대
+            경기도: [127.15, 37.3],
+            부산광역시: [129.05, 35.15],
+            대구광역시: [128.6, 35.87],
+            광주광역시: [126.85, 35.16],
+            대전광역시: [127.38, 36.35],
+            울산광역시: [129.31, 35.54],
+            세종특별자치시: [127.29, 36.48],
+            강원특별자치도: [128.2, 37.6], // 동해안 섬 제외, 내륙 중심
+            강원도: [128.2, 37.6],
+            충청북도: [127.73, 36.8],
+            충청남도: [126.8, 36.5], // 서해 도서 제외
+            전북특별자치도: [127.1, 35.7],
+            전라북도: [127.1, 35.7],
+            전라남도: [127.1, 34.9], // 남해 도서 제외
+            경상북도: [128.8, 36.4],
+            경상남도: [128.25, 35.4], // 남해 도서 제외
+            제주특별자치도: [126.55, 33.4],
+          };
+          const proj = projectionRef.current;
           const centroidsOut: CentroidInfo[] = [];
           targetFeatures.forEach((f) => {
             const name = getProvinceName(f);
-            const centroid = centroidsRef.current.get(name);
-            if (!centroid) return;
-            const screenCx = tx + scale * centroid[0];
-            const screenCy = ty + scale * centroid[1];
+            const overrideLngLat = CENTROID_LNGLAT[name];
+            let screenCx: number;
+            let screenCy: number;
+            if (overrideLngLat && proj) {
+              const projected = proj(overrideLngLat);
+              if (projected) {
+                screenCx = tx + scale * projected[0];
+                screenCy = ty + scale * projected[1];
+              } else {
+                const centroid = centroidsRef.current.get(name);
+                if (!centroid) return;
+                screenCx = tx + scale * centroid[0];
+                screenCy = ty + scale * centroid[1];
+              }
+            } else {
+              const centroid = centroidsRef.current.get(name);
+              if (!centroid) return;
+              screenCx = tx + scale * centroid[0];
+              screenCy = ty + scale * centroid[1];
+            }
             centroidsOut.push({ provinceName: name, x: screenCx, y: screenCy });
           });
           onCentroidsReady?.(centroidsOut);
+
+          // 각 시도 이름을 내륙 centroid 위치에 SVG 텍스트로 표시
+          centroidsOut.forEach(({ provinceName: name, x: screenCx, y: screenCy }) => {
+            // 짧은 표시명 (광역시·도 → 시·도 약칭)
+            const SHORT_NAME: Record<string, string> = {
+              서울특별시: '서울',
+              인천광역시: '인천',
+              경기도: '경기',
+              부산광역시: '부산',
+              대구광역시: '대구',
+              광주광역시: '광주',
+              대전광역시: '대전',
+              울산광역시: '울산',
+              세종특별자치시: '세종',
+              강원특별자치도: '강원',
+              강원도: '강원',
+              충청북도: '충북',
+              충청남도: '충남',
+              전북특별자치도: '전북',
+              전라북도: '전북',
+              전라남도: '전남',
+              경상북도: '경북',
+              경상남도: '경남',
+              제주특별자치도: '제주',
+            };
+            const label = SHORT_NAME[name] ?? name;
+            d3.select(labelsG)
+              .append('text')
+              .attr('x', screenCx)
+              .attr('y', screenCy)
+              .attr('text-anchor', 'middle')
+              .attr('dominant-baseline', 'middle')
+              .attr('font-size', 11)
+              .attr('font-weight', '600')
+              .attr('fill', '#374151')
+              .attr('opacity', 0)
+              .attr('pointer-events', 'none')
+              .text(label)
+              .transition()
+              .duration(300)
+              .attr('opacity', 0.7);
+          });
+
           onRegionCentroidsReady?.([]); // 권역 바로가기 숨김
         }, TRANSITION_DURATION + 50);
       } else {
@@ -487,10 +573,33 @@ export default function KoreaMap({
         labelTimer = setTimeout(() => {
           // 각 권역의 중심 = 소속 시도 바운딩박스 중심의 면적 가중 평균
           // 당선 정보 = 권역 내 국힘/민주 평균 득표율 비교
+          // 전국 뷰 권역 centroid: 각 시도의 내륙 위경도 기준 면적 가중 평균
+          const INLAND_LNGLAT: Record<string, [number, number]> = {
+            서울특별시: [126.978, 37.566],
+            인천광역시: [126.72, 37.46],
+            경기도: [127.15, 37.3],
+            부산광역시: [129.05, 35.15],
+            대구광역시: [128.6, 35.87],
+            광주광역시: [126.85, 35.16],
+            대전광역시: [127.38, 36.35],
+            울산광역시: [129.31, 35.2],
+            세종특별자치시: [127.29, 36.48],
+            강원특별자치도: [128.2, 37.6],
+            강원도: [128.2, 37.6],
+            충청북도: [127.73, 36.8],
+            충청남도: [126.8, 36.5],
+            전북특별자치도: [127.1, 35.7],
+            전라북도: [127.1, 35.7],
+            전라남도: [127.1, 34.9],
+            경상북도: [128.8, 36.4],
+            경상남도: [128.25, 35.4],
+            제주특별자치도: [126.55, 33.4],
+          };
+          const proj = projectionRef.current;
           const regionCentroidsOut: RegionCentroidInfo[] = [];
           MAP_REGIONS.forEach((r, idx) => {
             if (r.provinces === null) return;
-            let totalArea = 0;
+            let totalWeight = 0;
             let wcx = 0;
             let wcy = 0;
             let gukHimSum = 0;
@@ -501,11 +610,27 @@ export default function KoreaMap({
               const name = getProvinceName(f);
               if (!isProvinceInRegion(name, r.provinces!)) return;
               const area = projAreasRef.current.get(name) ?? 0;
-              const c = centroidsRef.current.get(name);
-              if (!c) return;
-              wcx += area * c[0];
-              wcy += area * c[1];
-              totalArea += area;
+              // 내륙 위경도가 있으면 그 좌표를 사용, 없으면 bounding box 중심
+              const inlandLngLat = INLAND_LNGLAT[name];
+              let projectedCx: number;
+              let projectedCy: number;
+              if (inlandLngLat && proj) {
+                const projected = proj(inlandLngLat);
+                if (projected) {
+                  [projectedCx, projectedCy] = projected;
+                } else {
+                  const c = centroidsRef.current.get(name);
+                  if (!c) return;
+                  [projectedCx, projectedCy] = c;
+                }
+              } else {
+                const c = centroidsRef.current.get(name);
+                if (!c) return;
+                [projectedCx, projectedCy] = c;
+              }
+              wcx += area * projectedCx;
+              wcy += area * projectedCy;
+              totalWeight += area;
               if (!seen.has(name)) {
                 seen.add(name);
                 const info = ELECTION_INFO[name];
@@ -517,7 +642,7 @@ export default function KoreaMap({
                 }
               }
             });
-            if (totalArea > 0) {
+            if (totalWeight > 0) {
               const gukHimAvg = pollCount > 0 ? gukHimSum / pollCount : 0;
               const minJuAvg = pollCount > 0 ? minJuSum / pollCount : 0;
               const leadingParty = gukHimAvg >= minJuAvg ? '국힘' : '민주';
@@ -526,8 +651,8 @@ export default function KoreaMap({
               regionCentroidsOut.push({
                 regionIndex: idx,
                 label: r.label,
-                x: tx + scale * (wcx / totalArea),
-                y: ty + scale * (wcy / totalArea),
+                x: tx + scale * (wcx / totalWeight),
+                y: ty + scale * (wcy / totalWeight),
                 leadingParty,
                 leadingColor,
                 leadingPct,
@@ -600,8 +725,8 @@ export default function KoreaMap({
       <svg
         ref={svgRef}
         className="w-full"
-        style={{ height: 280 }}
-        viewBox={`0 0 ${containerRef.current?.clientWidth || 320} 280`}
+        style={{ height: mapHeight }}
+        viewBox={`0 0 ${containerRef.current?.clientWidth || 320} ${mapHeight}`}
         preserveAspectRatio="xMidYMid meet"
       />
       {!ready && (

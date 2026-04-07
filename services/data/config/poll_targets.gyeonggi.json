@@ -1,6 +1,6 @@
 {
   "version": "1.1",
-  "description": "수집 대상 선거 목록. NESDC 서버 사이드 필터(poll_gubuncd, search_cnd, search_wrd)로 1차 수집 후, region/election_names/pollsters로 클라이언트 사이드 추가 필터링한다. searchCnd 코드: 4=시·도, 1=조사기관명, 3=여론조사명칭(지역) (docs/nesdc_search_api.md 참고).",
+  "description": "경기도 광역단체장선거 여론조사 전용 수집 타깃.",
   "targets": [
     {
       "slug": "gyeonggi_governor_9th",
@@ -9,7 +9,9 @@
       "search_cnd": "4",
       "search_wrd": "경기도",
       "region": "경기도 전체",
-      "election_names": ["광역단체장선거"],
+      "election_names": [
+        "광역단체장선거"
+      ],
       "pollsters": null,
       "ignored_analysis_filenames": [
         "2026 기후위기 국민 인식조사_09_경기_TABLE_등록_0306.pdf"

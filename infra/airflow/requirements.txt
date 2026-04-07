@@ -19,6 +19,8 @@ lxml>=5.2.0
 
 # Data Analysis
 pandas>=2.2.0
+pymupdf>=1.27.2.2
+fonttools>=4.60.0
 
 # AI & Vector DB
 openai>=1.50.0

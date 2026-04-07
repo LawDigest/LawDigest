@@ -6,12 +6,13 @@ import logging
 import re
 import uuid
 from dataclasses import asdict
+from time import monotonic
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from ..WorkFlowManager import WorkFlowManager
+from ..core.WorkFlowManager import WorkFlowManager
 from .crawler import NesdcCrawler
-from .models import ListRecord, PollDetail, PollResultSet
+from .models import ListRecord, PollDetail
 from .targets import PollTarget, load_targets, parse_title_region
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ def _save_parsed_result(result_set_dict: Dict[str, Any], detail: PollDetail) -> 
     """파싱 결과를 output/parsed/{선거명}/{지역명}/{기관명}/{보고서명}.json 에 저장한다."""
     election_name = _safe_dirname(detail.election_name or "미분류")
     region = _safe_dirname(detail.region or "미분류")
-    pollster = _safe_dirname(detail.pollster or "미분류")
+    pollster = _safe_dirname(detail.pollster or detail.list_pollster or "미분류")
     report_stem = _safe_dirname(Path(detail.analysis_filename or detail.registration_number).stem)
 
     out_dir = _PARSED_DIR / election_name / region / pollster
@@ -60,6 +61,50 @@ def _read_artifact(artifact_path: str) -> Any:
     return json.loads(Path(artifact_path).read_text(encoding="utf-8"))
 
 
+def _elapsed_seconds(started_at: float) -> float:
+    return round(monotonic() - started_at, 3)
+
+
+def _extract_survey_dates(survey_datetimes: List[str]) -> tuple[Optional[str], Optional[str]]:
+    """조사 일시 문자열 목록에서 시작/종료 날짜를 추출한다."""
+    dates: List[str] = []
+    for item in survey_datetimes:
+        dates.extend(re.findall(r"\d{4}-\d{2}-\d{2}", item))
+    if not dates:
+        return None, None
+    return dates[0], dates[-1]
+
+
+def _survey_row_from_result_set(result_set: Dict[str, Any]) -> Dict[str, Any]:
+    """파싱 결과 아티팩트에서 PollSurvey upsert용 row를 구성한다."""
+    detail = result_set.get("detail") if isinstance(result_set.get("detail"), dict) else {}
+    return {
+        "registration_number": result_set.get("registration_number"),
+        "election_type": result_set.get("election_type") or detail.get("election_type") or "",
+        "region": result_set.get("region") or detail.get("region") or "",
+        "election_name": result_set.get("election_name") or detail.get("election_name") or "",
+        "pollster": result_set.get("pollster") or detail.get("pollster") or detail.get("list_pollster") or "",
+        "sponsor": result_set.get("sponsor") or detail.get("sponsor") or "",
+        "survey_start_date": result_set.get("survey_start_date") or detail.get("survey_start_date"),
+        "survey_end_date": result_set.get("survey_end_date") or detail.get("survey_end_date"),
+        "sample_size": result_set.get("sample_size") or detail.get("sample_size_completed"),
+        "margin_of_error": result_set.get("margin_of_error") or detail.get("margin_of_error") or "",
+        "source_url": result_set.get("source_url") or detail.get("source_url") or "",
+        "pdf_path": result_set.get("pdf_path") or "",
+    }
+
+
+def _normalize_option_percentage(value: Any) -> Optional[float]:
+    """DB에 저장 가능한 선택지 퍼센트만 반환한다."""
+    try:
+        pct = float(value)
+    except (TypeError, ValueError):
+        return None
+    if pct < 0 or pct > 100:
+        return None
+    return round(pct, 2)
+
+
 class PollsWorkflowManager:
     """NESDC 여론조사 데이터 파이프라인 오케스트레이터.
 
@@ -74,7 +119,7 @@ class PollsWorkflowManager:
         self.mode = WorkFlowManager.normalize_execution_mode(execution_mode)
 
     def _build_db_manager(self):
-        from ..PollsDatabaseManager import PollsDatabaseManager
+        from ..connectors.PollsDatabaseManager import PollsDatabaseManager
         # WorkFlowManager._build_db_manager 패턴을 그대로 따름
         wfm = WorkFlowManager(self.mode)
         base_db = wfm._build_db_manager(self.mode)
@@ -198,13 +243,21 @@ class PollsWorkflowManager:
         Returns:
             {mode, targets, total, artifact_path}
         """
+        started_at = monotonic()
         path = Path(targets_path) if targets_path else None
         targets: List[PollTarget] = load_targets(path)
         logger.info("[polls_ingest.fetch] mode=%s targets=%d", self.mode, len(targets))
 
         if not targets:
             logger.warning("[polls_ingest.fetch] 수집 대상 타겟이 없습니다. poll_targets.json을 확인하세요.")
-            return {"mode": self.mode, "targets": 0, "total": 0, "artifact_path": None}
+            return {
+                "mode": self.mode,
+                "targets": 0,
+                "total": 0,
+                "artifact_path": None,
+                "target_slugs": [],
+                "elapsed_seconds": _elapsed_seconds(started_at),
+            }
 
         crawler = NesdcCrawler(verify_connectivity=True)
         target_records = crawler.crawl_for_targets(
@@ -221,7 +274,14 @@ class PollsWorkflowManager:
         total = sum(len(v) for v in payload.values())
         artifact_path = _write_artifact("polls_ingest_fetch", payload)
         logger.info("[polls_ingest.fetch] 수집 완료: 타겟 %d개, 총 %d건", len(targets), total)
-        return {"mode": self.mode, "targets": len(targets), "total": total, "artifact_path": artifact_path}
+        return {
+            "mode": self.mode,
+            "targets": len(targets),
+            "total": total,
+            "artifact_path": artifact_path,
+            "target_slugs": [target.slug for target in targets],
+            "elapsed_seconds": _elapsed_seconds(started_at),
+        }
 
     def crawl_details_step(
         self,
@@ -234,9 +294,15 @@ class PollsWorkflowManager:
         Returns:
             {mode, total, artifact_path}
         """
+        started_at = monotonic()
         logger.info("[polls_ingest.details] mode=%s artifact=%s", self.mode, artifact_path)
         if not artifact_path:
-            return {"mode": self.mode, "total": 0, "artifact_path": None}
+            return {
+                "mode": self.mode,
+                "total": 0,
+                "artifact_path": None,
+                "elapsed_seconds": _elapsed_seconds(started_at),
+            }
 
         raw = _read_artifact(artifact_path)
         # raw: {slug: [{...}, ...]}
@@ -253,7 +319,12 @@ class PollsWorkflowManager:
         payload = [asdict(d) for d in details]
         artifact_path_out = _write_artifact("polls_ingest_details", payload)
         logger.info("[polls_ingest.details] 상세 수집 완료: %d건", len(details))
-        return {"mode": self.mode, "total": len(details), "artifact_path": artifact_path_out}
+        return {
+            "mode": self.mode,
+            "total": len(details),
+            "artifact_path": artifact_path_out,
+            "elapsed_seconds": _elapsed_seconds(started_at),
+        }
 
     def parse_results_step(
         self,
@@ -267,9 +338,17 @@ class PollsWorkflowManager:
         Returns:
             {mode, parsed, questions_total, artifact_path}
         """
+        started_at = monotonic()
         logger.info("[polls_ingest.parse] mode=%s artifact=%s", self.mode, artifact_path)
         if not artifact_path:
-            return {"mode": self.mode, "parsed": 0, "questions_total": 0, "artifact_path": None}
+            return {
+                "mode": self.mode,
+                "parsed": 0,
+                "questions_total": 0,
+                "artifact_path": None,
+                "saved_paths": [],
+                "elapsed_seconds": _elapsed_seconds(started_at),
+            }
 
         raw = _read_artifact(artifact_path)
         details = [PollDetail(**d) for d in raw]
@@ -289,15 +368,36 @@ class PollsWorkflowManager:
         payload = []
         saved_paths: List[str] = []
         for rs in result_sets:
-            rs_dict = asdict(rs)
-            payload.append(rs_dict)
             detail = detail_by_reg.get(rs.registration_number)
+            rs_dict = asdict(rs)
+            if detail:
+                survey_start_date, survey_end_date = _extract_survey_dates(detail.survey_datetimes)
+                rs_dict.update(
+                    {
+                        "election_type": detail.election_type,
+                        "region": detail.region,
+                        "election_name": detail.election_name,
+                        "pollster": detail.pollster or detail.list_pollster,
+                        "sponsor": detail.sponsor,
+                        "survey_start_date": survey_start_date,
+                        "survey_end_date": survey_end_date,
+                        "sample_size": detail.sample_size_completed or detail.sample_size_weighted,
+                        "margin_of_error": detail.margin_of_error,
+                        "detail": asdict(detail),
+                    }
+                )
+            payload.append(rs_dict)
             if detail:
                 out_path = _save_parsed_result(rs_dict, detail)
                 saved_paths.append(str(out_path))
                 logger.debug("[polls_ingest.parse] 결과 저장: %s", out_path)
 
         artifact_path_out = _write_artifact("polls_ingest_results", payload)
+        if not result_sets:
+            logger.warning(
+                "[polls_ingest.parse] 파싱 결과가 0건입니다. "
+                "pollster 레지스트리, PDF 포맷, 다운로드 상태를 확인하세요."
+            )
         logger.info(
             "[polls_ingest.parse] 파싱 완료: %d건, 질문 %d개, 파일 저장 %d건",
             len(result_sets), questions_total, len(saved_paths),
@@ -308,6 +408,7 @@ class PollsWorkflowManager:
             "questions_total": questions_total,
             "artifact_path": artifact_path_out,
             "saved_paths": saved_paths,
+            "elapsed_seconds": _elapsed_seconds(started_at),
         }
 
     def upsert_polls_step(self, artifact_path: Optional[str]) -> Dict[str, Any]:
@@ -316,20 +417,31 @@ class PollsWorkflowManager:
         Returns:
             {mode, upserted_surveys, upserted_questions}
         """
+        started_at = monotonic()
         logger.info("[polls_ingest.upsert] mode=%s artifact=%s", self.mode, artifact_path)
         if not artifact_path:
-            return {"mode": self.mode, "upserted_surveys": 0, "upserted_questions": 0}
+            return {
+                "mode": self.mode,
+                "upserted_surveys": 0,
+                "upserted_questions": 0,
+                "elapsed_seconds": _elapsed_seconds(started_at),
+            }
 
         raw = _read_artifact(artifact_path)
-        result_sets = [PollResultSet(**rs) for rs in raw]
+        result_sets = [dict(rs) for rs in raw]
 
         if self.mode == "dry_run":
-            questions_total = sum(len(rs.questions) for rs in result_sets)
+            questions_total = sum(len(rs.get("questions") or []) for rs in result_sets)
             logger.info(
                 "[polls_ingest.upsert] [DRY_RUN] %d건 여론조사, 질문 %d개 (DB 미반영)",
                 len(result_sets), questions_total,
             )
-            return {"mode": self.mode, "upserted_surveys": 0, "upserted_questions": 0}
+            return {
+                "mode": self.mode,
+                "upserted_surveys": 0,
+                "upserted_questions": 0,
+                "elapsed_seconds": _elapsed_seconds(started_at),
+            }
 
         db = self._build_db_manager()
         db.ensure_tables()
@@ -337,27 +449,32 @@ class PollsWorkflowManager:
         upserted_surveys = 0
         upserted_questions = 0
         for rs in result_sets:
-            survey_rows = [{
-                "registration_number": rs.registration_number,
-                "source_url": rs.source_url,
-                "pdf_path": rs.pdf_path,
-            }]
+            survey_rows = [_survey_row_from_result_set(rs)]
             upserted_surveys += db.upsert_surveys(survey_rows)
 
-            for q in rs.questions:
+            for q in rs.get("questions") or []:
                 q_rows = [{
-                    "registration_number": rs.registration_number,
-                    "question_number": q.question_number,
-                    "question_title": q.question_title,
-                    "n_completed": q.overall_n_completed,
-                    "n_weighted": q.overall_n_weighted,
+                    "registration_number": rs.get("registration_number"),
+                    "question_number": q["question_number"],
+                    "question_title": q["question_title"],
+                    "n_completed": q.get("overall_n_completed"),
+                    "n_weighted": q.get("overall_n_weighted"),
                 }]
                 q_id = db.upsert_questions(q_rows)
                 if q_id:
-                    options = [
-                        {"option_name": opt, "percentage": pct}
-                        for opt, pct in zip(q.response_options, q.overall_percentages)
-                    ]
+                    options = []
+                    for opt, pct in zip(q["response_options"], q["overall_percentages"]):
+                        normalized_pct = _normalize_option_percentage(pct)
+                        if normalized_pct is None:
+                            logger.debug(
+                                "[polls_ingest.upsert] 선택지 퍼센트 스킵: reg=%s q=%s option=%s pct=%s",
+                                rs.get("registration_number"),
+                                q["question_number"],
+                                opt,
+                                pct,
+                            )
+                            continue
+                        options.append({"option_name": opt, "percentage": normalized_pct})
                     upserted_questions += db.replace_options(q_id, options)
 
         logger.info(
@@ -368,4 +485,5 @@ class PollsWorkflowManager:
             "mode": self.mode,
             "upserted_surveys": upserted_surveys,
             "upserted_questions": upserted_questions,
+            "elapsed_seconds": _elapsed_seconds(started_at),
         }

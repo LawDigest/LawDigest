@@ -9,10 +9,10 @@ from uuid import uuid4
 
 import pandas as pd
 
-from .DataFetcher import DataFetcher
-from .DataProcessor import DataProcessor
-from .DatabaseManager import DatabaseManager
-from .constants import ProposerKindType
+from ..bills.DataFetcher import DataFetcher
+from ..bills.DataProcessor import DataProcessor
+from ..connectors.DatabaseManager import DatabaseManager
+from ..bills.constants import ProposerKindType
 
 
 class WorkFlowManager:

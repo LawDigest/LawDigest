@@ -48,6 +48,7 @@ class MethodStats:
 class PollDetail:
     """NESDC 상세 페이지에서 파싱한 여론조사 상세 정보."""
     source_url: str
+    list_pollster: str = ""
     registration_number: str = ""
     election_type: str = ""
     region: str = ""

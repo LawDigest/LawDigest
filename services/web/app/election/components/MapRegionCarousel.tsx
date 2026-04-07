@@ -74,9 +74,9 @@ function avoidCollisions(
   return placed.map((p) => ({ ...p, y: Math.max(0, Math.min(containerH - cardH, p.y)) }));
 }
 
-const MAP_HEIGHT = 280;
+const MAP_HEIGHT = 520;
 /** 충돌 회피 계산에 쓰이는 카드 높이 추정값 (px) — ProvinceInfoCard 크기에 맞춰 조정 */
-const CARD_HEIGHT = 72;
+const CARD_HEIGHT = 96;
 
 export default function MapRegionCarousel() {
   const [regionIndex, setRegionIndex] = useState(0);
@@ -124,7 +124,16 @@ export default function MapRegionCarousel() {
   }, [centroids]);
 
   // ── 시도 분배 ────────────────────────────────────────────────────────────────
-  const allProvinces = (region.provinces ?? []).filter((p, i, arr) => arr.indexOf(p) === i && ELECTION_INFO[p] != null);
+  // 구 명칭(강원도→강원특별자치도, 전라북도→전북특별자치도)이 provinces에 별칭으로 포함되어
+  // 카드가 중복 렌더링되는 것을 방지하기 위해 centroids에 실제로 존재하는 이름만 사용
+  const centroidNames = new Set(centroids.map((c) => c.provinceName));
+  const allProvinces = (region.provinces ?? []).filter((p, i, arr) => {
+    if (arr.indexOf(p) !== i) return false; // 배열 내 중복 제거
+    if (!ELECTION_INFO[p]) return false; // ELECTION_INFO 없는 항목 제거
+    // centroids가 도착한 이후에는 실제 GeoJSON feature 이름과 매칭되는 것만 사용
+    if (centroidNames.size > 0 && !centroidNames.has(p)) return false;
+    return true;
+  });
 
   const { left: leftProvinces, right: rightProvinces } =
     centroids.length > 0
@@ -143,10 +152,17 @@ export default function MapRegionCarousel() {
   const showRegionShortcuts = regionIndex === 0 && regionCentroids.length > 0;
 
   // ── 시도 카드 동적 배치 (centroid y 기준, 겹침 방지) ───────────────────────
+  // 카드가 지도와 겹치는 경우 카드 위치만 별도로 보정 (centroid/지역명은 그대로 유지)
+  const CARD_Y_OFFSET: Record<string, number> = {
+    울산광역시: 120,
+  };
   const centroidYMap = new Map(centroids.map((c) => [c.provinceName, c.y]));
   const leftPositioned = showSidebars
     ? avoidCollisions(
-        leftProvinces.map((name) => ({ name, y: centroidYMap.get(name) ?? MAP_HEIGHT / 2 })),
+        leftProvinces.map((name) => ({
+          name,
+          y: (centroidYMap.get(name) ?? MAP_HEIGHT / 2) + (CARD_Y_OFFSET[name] ?? 0),
+        })),
         CARD_HEIGHT,
         MAP_HEIGHT,
         4,
@@ -154,7 +170,10 @@ export default function MapRegionCarousel() {
     : [];
   const rightPositioned = showSidebars
     ? avoidCollisions(
-        rightProvinces.map((name) => ({ name, y: centroidYMap.get(name) ?? MAP_HEIGHT / 2 })),
+        rightProvinces.map((name) => ({
+          name,
+          y: (centroidYMap.get(name) ?? MAP_HEIGHT / 2) + (CARD_Y_OFFSET[name] ?? 0),
+        })),
         CARD_HEIGHT,
         MAP_HEIGHT,
         4,
@@ -177,15 +196,25 @@ export default function MapRegionCarousel() {
           if (!cardEl || !centroid) return;
 
           const cardRect = cardEl.getBoundingClientRect();
-          const x1 = side === 'left' ? cardRect.right - containerRect.left : cardRect.left - containerRect.left;
+          // 좌측 카드: 오른쪽 색 테두리(2px) 끝, 우측 카드: 왼쪽 색 테두리(2px) 끝
+          const x1 = side === 'left' ? cardRect.right - containerRect.left + 2 : cardRect.left - containerRect.left - 2;
           const y1 = (cardRect.top + cardRect.bottom) / 2 - containerRect.top;
+
+          // 지시선 끝점을 centroid에서 18px 당겨서 지역명과 겹침 방지
+          const SHORTEN = 18;
+          const dx = centroid.x - x1;
+          const dy = centroid.y - y1;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const ratio = dist > SHORTEN ? (dist - SHORTEN) / dist : 0;
+          const x2 = x1 + dx * ratio;
+          const y2 = y1 + dy * ratio;
 
           const info = ELECTION_INFO[pName];
           const poll = MOCK_POLL_DATA[pName];
           const c1Leads = !poll || poll.c1Pct >= poll.c2Pct;
           const color = c1Leads ? info?.c1.color ?? '#999' : info?.c2.color ?? '#999';
 
-          leaderLines.push({ x1, y1, x2: centroid.x, y2: centroid.y, color, side });
+          leaderLines.push({ x1, y1, x2, y2, color, side });
         });
       };
       computeLines(leftProvinces, 'left');
@@ -236,6 +265,7 @@ export default function MapRegionCarousel() {
           onRegionChange={goToRegion}
           onCentroidsReady={handleCentroidsReady}
           onRegionCentroidsReady={handleRegionCentroidsReady}
+          mapHeight={MAP_HEIGHT}
         />
 
         {/* 시도 좌 사이드바 — centroid y 기준 동적 배치 */}
@@ -294,58 +324,78 @@ export default function MapRegionCarousel() {
           </button>
         )}
 
-        {/* 권역 바로가기 좌 */}
-        {showRegionShortcuts && leftRegions.length > 0 && (
-          <div className="absolute left-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10 animate-fade-in">
-            {leftRegions.map((rInfo) => (
-              <button
+        {/* 권역 바로가기 좌 — centroid y 기준 절대 배치 */}
+        {showRegionShortcuts &&
+          avoidCollisions(
+            leftRegions.map((r) => ({ name: String(r.regionIndex), y: r.y })),
+            CARD_HEIGHT,
+            MAP_HEIGHT,
+            4,
+          ).map(({ name, y }) => {
+            const rInfo = leftRegions.find((r) => String(r.regionIndex) === name);
+            if (!rInfo) return null;
+            return (
+              <div
                 key={rInfo.regionIndex}
-                ref={(el) => {
-                  if (el) regionLabelRefs.current.set(rInfo.regionIndex, el);
-                  else regionLabelRefs.current.delete(rInfo.regionIndex);
-                }}
-                type="button"
-                onClick={() => goToRegion(rInfo.regionIndex)}
-                className="pointer-events-auto bg-white/85 backdrop-blur-sm rounded px-1.5 py-1 text-left leading-tight">
-                <span className="block text-sm font-bold text-gray-800">{rInfo.label}</span>
-                {rInfo.leadingPct > 0 && (
-                  <span className="block text-[10px] font-semibold" style={{ color: rInfo.leadingColor }}>
-                    {rInfo.leadingParty} {rInfo.leadingPct.toFixed(1)}%
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
+                className="absolute left-1 z-10 pointer-events-none animate-fade-in"
+                style={{ top: y }}>
+                <button
+                  ref={(el) => {
+                    if (el) regionLabelRefs.current.set(rInfo.regionIndex, el);
+                    else regionLabelRefs.current.delete(rInfo.regionIndex);
+                  }}
+                  type="button"
+                  onClick={() => goToRegion(rInfo.regionIndex)}
+                  className="pointer-events-auto bg-white/85 backdrop-blur-sm rounded px-2 py-1.5 text-left leading-tight">
+                  <span className="block text-base font-bold text-gray-800">{rInfo.label}</span>
+                  {rInfo.leadingPct > 0 && (
+                    <span className="block text-xs font-semibold" style={{ color: rInfo.leadingColor }}>
+                      {rInfo.leadingParty} {rInfo.leadingPct.toFixed(1)}%
+                    </span>
+                  )}
+                </button>
+              </div>
+            );
+          })}
 
-        {/* 권역 바로가기 우 */}
-        {showRegionShortcuts && rightRegions.length > 0 && (
-          <div className="absolute right-1 top-0 h-full flex flex-col justify-around pointer-events-none z-10 animate-fade-in">
-            {rightRegions.map((rInfo) => (
-              <button
+        {/* 권역 바로가기 우 — centroid y 기준 절대 배치 */}
+        {showRegionShortcuts &&
+          avoidCollisions(
+            rightRegions.map((r) => ({ name: String(r.regionIndex), y: r.y })),
+            CARD_HEIGHT,
+            MAP_HEIGHT,
+            4,
+          ).map(({ name, y }) => {
+            const rInfo = rightRegions.find((r) => String(r.regionIndex) === name);
+            if (!rInfo) return null;
+            return (
+              <div
                 key={rInfo.regionIndex}
-                ref={(el) => {
-                  if (el) regionLabelRefs.current.set(rInfo.regionIndex, el);
-                  else regionLabelRefs.current.delete(rInfo.regionIndex);
-                }}
-                type="button"
-                onClick={() => goToRegion(rInfo.regionIndex)}
-                className="pointer-events-auto bg-white/85 backdrop-blur-sm rounded px-1.5 py-1 text-right leading-tight">
-                <span className="block text-sm font-bold text-gray-800">{rInfo.label}</span>
-                {rInfo.leadingPct > 0 && (
-                  <span className="block text-[10px] font-semibold" style={{ color: rInfo.leadingColor }}>
-                    {rInfo.leadingParty} {rInfo.leadingPct.toFixed(1)}%
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
+                className="absolute right-1 z-10 pointer-events-none animate-fade-in"
+                style={{ top: y }}>
+                <button
+                  ref={(el) => {
+                    if (el) regionLabelRefs.current.set(rInfo.regionIndex, el);
+                    else regionLabelRefs.current.delete(rInfo.regionIndex);
+                  }}
+                  type="button"
+                  onClick={() => goToRegion(rInfo.regionIndex)}
+                  className="pointer-events-auto bg-white/85 backdrop-blur-sm rounded px-2 py-1.5 text-right leading-tight">
+                  <span className="block text-base font-bold text-gray-800">{rInfo.label}</span>
+                  {rInfo.leadingPct > 0 && (
+                    <span className="block text-xs font-semibold" style={{ color: rInfo.leadingColor }}>
+                      {rInfo.leadingParty} {rInfo.leadingPct.toFixed(1)}%
+                    </span>
+                  )}
+                </button>
+              </div>
+            );
+          })}
 
         {/* 지시선 overlay SVG */}
         {(leaderLines.length > 0 || regionLeaderLines.length > 0) && (
           <svg
-            className="absolute inset-0 pointer-events-none z-20 animate-fade-in"
+            className="absolute inset-0 pointer-events-none z-5 animate-fade-in"
             width="100%"
             height={MAP_HEIGHT}
             style={{ overflow: 'visible' }}>
