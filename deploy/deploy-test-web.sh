@@ -66,9 +66,9 @@ RELEASES_DIR="$RUNTIME_ROOT/releases"
 CURRENT_LINK="$RUNTIME_ROOT/current"
 TMP_LINK="$RUNTIME_ROOT/.current.tmp"
 
-NEXT_PUBLIC_URL="${NEXT_PUBLIC_URL:-https://api.lawdigest.net/}"
-NEXT_PUBLIC_IMAGE_URL="${NEXT_PUBLIC_IMAGE_URL:-https://api.lawdigest.net}"
-NEXT_PUBLIC_HOSTNAME="${NEXT_PUBLIC_HOSTNAME:-api.lawdigest.net}"
+NEXT_PUBLIC_URL="${NEXT_PUBLIC_URL:-https://api.lawdigest.kr/}"
+NEXT_PUBLIC_IMAGE_URL="${NEXT_PUBLIC_IMAGE_URL:-https://api.lawdigest.kr}"
+NEXT_PUBLIC_HOSTNAME="${NEXT_PUBLIC_HOSTNAME:-api.lawdigest.kr}"
 
 load_env_file "$SOURCE_ENV_FILE"
 if [ -f "$TARGET_ROOT/.env.preview" ]; then
@@ -78,7 +78,7 @@ fi
 
 load_env_file "$TARGET_WEB_DIR/.env.preview"
 
-NEXT_PUBLIC_DOMAIN="${NEXT_PUBLIC_DOMAIN:-https://dev.lawdigest.net}"
+NEXT_PUBLIC_DOMAIN="${NEXT_PUBLIC_DOMAIN:-https://dev.lawdigest.kr}"
 
 BRANCH_NAME="$(git -C "$TARGET_ROOT" branch --show-current)"
 COMMIT_SHA="$(git -C "$TARGET_ROOT" rev-parse --short HEAD)"
@@ -132,5 +132,5 @@ pm2 start npm --name "$PM2_NAME" -- run start
 pm2 save
 
 echo "✓ 배포 완료"
-echo "  url: https://dev.lawdigest.net"
+echo "  url: https://dev.lawdigest.kr"
 echo "  runtime: $CURRENT_LINK"

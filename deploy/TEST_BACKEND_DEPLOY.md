@@ -1,6 +1,6 @@
 # Test Backend Deploy Guide
 
-`test.api.lawdigest.net`용 백엔드 테스트 배포 절차 문서다.
+`test.api.lawdigest.kr`용 백엔드 테스트 배포 절차 문서다.
 
 운영 전체 기준은 [DEPLOY_OPERATIONS.md](./DEPLOY_OPERATIONS.md)를 먼저 참고한다.
 
@@ -16,7 +16,7 @@
 
 ## 구성
 - 도메인: `http://127.0.0.1:808`
-- 실제 테스트 API 도메인: `https://test.api.lawdigest.net`
+- 실제 테스트 API 도메인: `https://test.api.lawdigest.kr`
 - 컨테이너 이름: `lawdigest-backend-test`
 - host 포트: `808`
 - Docker 네트워크: `law_prod_network`
@@ -51,7 +51,7 @@ PORT=808 ACTIVE=test ./deploy/deploy-test-backend.sh /home/ubuntu/project/Lawdig
 - 대상 워크트리 기준으로 backend JAR를 빌드
 - Docker 이미지 생성
 - `lawdigest-backend-test` 컨테이너 재기동
-- `test.api.lawdigest.net`이 host 808을 통해 그 컨테이너를 서비스
+- `test.api.lawdigest.kr`이 host 808을 통해 그 컨테이너를 서비스
 
 ## 인자와 환경변수
 스크립트는 첫 번째 인자로 배포 대상 워크트리 경로를 받는다.
@@ -98,7 +98,7 @@ docker logs -f lawdigest-backend-test
 - `.env` 안의 `mysql` / `redis` 호스트명은 `law_prod_network`에서 해석된다.
 - `mysql` / `redis` 컨테이너는 이미 `law_prod_network`에 붙어 있어야 한다.
 - host의 `127.0.0.1:808`는 nginx가 바라보는 진입점이다.
-- `dev.lawdigest.net`은 프론트엔드 도메인이고, 백엔드 진입점은 `test.api.lawdigest.net`이다.
+- `dev.lawdigest.kr`은 프론트엔드 도메인이고, 백엔드 진입점은 `test.api.lawdigest.kr`이다.
 - `.runtime/`은 git 추적 대상이 아니다.
 
 ## 권장 운영 방식

@@ -29,8 +29,8 @@ import {
 
 const publicDomain = process.env.NEXT_PUBLIC_DOMAIN ?? '';
 const shouldUseElectionFallback =
-  publicDomain.includes('dev.lawdigest.net') ||
-  publicDomain.includes('test.lawdigest.net') ||
+  publicDomain.includes('dev.lawdigest.kr') ||
+  publicDomain.includes('test.lawdigest.kr') ||
   publicDomain.includes('127.0.0.1') ||
   publicDomain.includes('localhost');
 

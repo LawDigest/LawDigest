@@ -19,10 +19,10 @@ const nextConfig = {
   experimental: {
     serverActions: {
       allowedOrigins: [
-        'dev.lawdigest.net',
-        'https://dev.lawdigest.net',
-        'test.lawdigest.net',
-        'https://test.lawdigest.net',
+        'dev.lawdigest.kr',
+        'https://dev.lawdigest.kr',
+        'test.lawdigest.kr',
+        'https://test.lawdigest.kr',
       ],
     },
   },
@@ -30,11 +30,11 @@ const nextConfig = {
     return [
       {
         source: '/v1/:path*',
-        destination: 'https://api.lawdigest.net/v1/:path*',
+        destination: 'https://api.lawdigest.kr/v1/:path*',
       },
       {
         source: '/oauth2/:path*',
-        destination: 'https://api.lawdigest.net/oauth2/:path*',
+        destination: 'https://api.lawdigest.kr/oauth2/:path*',
       },
     ];
   },

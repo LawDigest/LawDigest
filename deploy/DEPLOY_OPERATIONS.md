@@ -4,7 +4,7 @@
 
 ## 적용 범위
 
-- `dev.lawdigest.net` 프론트엔드
+- `dev.lawdigest.kr` 프론트엔드
 - 테스트 백엔드
 - GitHub Actions 기반 자동 배포
 - 배포 실패 시 자동 롤백
@@ -20,14 +20,14 @@
 
 - 자동 배포 워크플로우: [`.github/workflows/deploy-web-dev.yml`](../.github/workflows/deploy-web-dev.yml)
 - 배포 스크립트: [`deploy/deploy-test-web.sh`](./deploy-test-web.sh)
-- 운영 도메인: `https://dev.lawdigest.net`
+- 운영 도메인: `https://dev.lawdigest.kr`
 - 런타임 구조: `release/symlink`
 
 ### 백엔드
 
 - 자동 배포 워크플로우: [`.github/workflows/deploy-web-dev.yml`](../.github/workflows/deploy-web-dev.yml)
 - 배포 스크립트: [`deploy/deploy-test-backend.sh`](./deploy-test-backend.sh)
-- 테스트 API 진입점: `https://test.api.lawdigest.net`
+- 테스트 API 진입점: `https://test.api.lawdigest.kr`
 - 런타임 구조: Docker 컨테이너 재기동
 
 ### 서버 전제
@@ -92,7 +92,7 @@
 
 ```bash
 pm2 list
-curl -sSI https://dev.lawdigest.net/election | sed -n '1,20p'
+curl -sSI https://dev.lawdigest.kr/election | sed -n '1,20p'
 ```
 
 ### 백엔드
