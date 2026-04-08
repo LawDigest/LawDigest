@@ -6,7 +6,7 @@ import Image from 'next/image';
 
 const buildOAuthHref = (provider: 'kakao' | 'google' | 'naver', callbackPath: string) => {
   const redirectUri = `${process.env.NEXT_PUBLIC_DOMAIN}${callbackPath}`;
-  const apiBase = process.env.NEXT_PUBLIC_URL ?? 'https://api.lawdigest.net/';
+  const apiBase = process.env.NEXT_PUBLIC_URL ?? 'https://api.lawdigest.kr/';
 
   return `${new URL(`/v1/oauth2/authorization/${provider}`, apiBase).toString()}?redirect_uri=${encodeURIComponent(redirectUri)}`;
 };

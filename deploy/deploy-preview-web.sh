@@ -7,9 +7,9 @@ WEB_DIR="$ROOT_DIR/services/web"
 PORT="${PORT:-3011}"
 APP_HOST="${APP_HOST:-0.0.0.0}"
 PM2_NAME="${PM2_NAME:-lawdigest-web-preview}"
-NEXT_PUBLIC_URL="${NEXT_PUBLIC_URL:-https://api.lawdigest.net/}"
-NEXT_PUBLIC_IMAGE_URL="${NEXT_PUBLIC_IMAGE_URL:-https://api.lawdigest.net}"
-NEXT_PUBLIC_HOSTNAME="${NEXT_PUBLIC_HOSTNAME:-api.lawdigest.net}"
+NEXT_PUBLIC_URL="${NEXT_PUBLIC_URL:-https://api.lawdigest.kr/}"
+NEXT_PUBLIC_IMAGE_URL="${NEXT_PUBLIC_IMAGE_URL:-https://api.lawdigest.kr}"
+NEXT_PUBLIC_HOSTNAME="${NEXT_PUBLIC_HOSTNAME:-api.lawdigest.kr}"
 NEXT_PUBLIC_DOMAIN="${NEXT_PUBLIC_DOMAIN:-http://127.0.0.1:$PORT}"
 
 if [ -f "$ROOT_DIR/.env.preview" ]; then
