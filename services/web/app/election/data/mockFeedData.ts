@@ -24,7 +24,7 @@ export interface PollFeedItem {
   id: string;
   pollster: string;
   publishedAt: string;
-  results: { partyName: string; pct: number; delta: number }[];
+  results: { partyName: string; pct: number; delta: number; color: string }[];
   region: string;
 }
 
@@ -36,6 +36,7 @@ export interface BillMiniCardProps {
   billStage: string;
   proposeDate: string;
   partyName: string;
+  region?: string;
 }
 
 export interface YoutubeFeedItem {
@@ -126,9 +127,9 @@ export const MOCK_FEED_ITEMS: FeedItem[] = [
     pollster: '한국갤럽',
     publishedAt: '2026-04-03T00:00:00Z',
     results: [
-      { partyName: '더불어민주당', pct: 47.3, delta: 1.2 },
-      { partyName: '국민의힘', pct: 43.1, delta: -0.8 },
-      { partyName: '기타', pct: 9.6, delta: -0.4 },
+      { partyName: '더불어민주당', pct: 47.3, delta: 1.2, color: '#152484' },
+      { partyName: '국민의힘', pct: 43.1, delta: -0.8, color: '#C9151E' },
+      { partyName: '기타', pct: 9.6, delta: -0.4, color: '#999999' },
     ],
     region: '서울특별시',
   },
@@ -160,9 +161,9 @@ export const MOCK_FEED_ITEMS: FeedItem[] = [
     pollster: '리얼미터',
     publishedAt: '2026-04-02T00:00:00Z',
     results: [
-      { partyName: '더불어민주당', pct: 50.2, delta: 2.1 },
-      { partyName: '국민의힘', pct: 40.5, delta: -1.3 },
-      { partyName: '기타', pct: 9.3, delta: -0.8 },
+      { partyName: '더불어민주당', pct: 50.2, delta: 2.1, color: '#152484' },
+      { partyName: '국민의힘', pct: 40.5, delta: -1.3, color: '#C9151E' },
+      { partyName: '기타', pct: 9.3, delta: -0.8, color: '#999999' },
     ],
     region: '경기도',
   },
