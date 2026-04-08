@@ -39,6 +39,9 @@ export interface BillMiniCardProps {
   region?: string;
 }
 
+// Alias for BillMiniCardProps with a more descriptive name
+export type BillFeedItem = BillMiniCardProps;
+
 export interface YoutubeFeedItem {
   type: 'youtube';
   id: string;
