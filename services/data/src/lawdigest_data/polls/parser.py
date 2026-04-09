@@ -2788,3 +2788,127 @@ class _KopraParser(BaseTableParser):
         for i, r in enumerate(results):
             r.question_number = i + 1
         return results
+
+
+class _KSOIParser(BaseTableParser):
+    """CBS-KSOI(한국사회여론연구소) 크로스탭 파서.
+
+    포맷 특성:
+      - 질문 제목: 테이블 바로 위 outside_text에 '【 표 N 】 제목' 형태로 존재
+      - 크로스탭 페이지: 질문당 2페이지 — outside_text에 제목 있는 첫 페이지만 파싱
+      - 전체 행: cell0='전체', col4+ 개별 셀 비율
+      - 소계 컬럼: SUMMARY_PATS로 필터 + 중복 선택지 이름 첫 재등장 시 컷
+      - meta 컬럼: 4개 (빈칸, 빈칸, n완료, n가중)
+      - 선택지 텍스트에 개행('\n') 포함 → 공백으로 정규화
+    """
+
+    PARSER_KEY = "_KSOIParser"
+    TOTAL_MARKERS = ("전체",)
+    META_COLS = 4
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS + (
+        re.compile(r"^계$"),
+        re.compile(r"^긍정\s*평가"),
+        re.compile(r"^부정\s*평가"),
+    )
+
+    # outside_text 내 '【 표 N 】 제목' 패턴 — 표 번호(그룹1)와 제목(그룹2) 분리
+    _TABLE_TITLE_RE = re.compile(r"【\s*표\s*(\d+)\s*】\s*(.+)")
+
+    # 선택지에 이 키워드가 있으면 응답자 특성표 — 스킵
+    _META_OPT_KEYWORDS = frozenset({"가중값", "사례수"})
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_table_nums: set = set()  # 이미 파싱한 표 번호 — 2번째 페이지 중복 방지
+
+        for outside_text, page_tables, _full_text in pages_data:
+            if not page_tables:
+                continue
+
+            # outside_text에서 '【 표 N 】 제목' 추출 — 없으면 비크로스탭 페이지
+            title_match = self._TABLE_TITLE_RE.search(outside_text)
+            if title_match is None:
+                continue
+            table_num = title_match.group(1)
+            q_title = title_match.group(2).strip()
+
+            # 같은 표 번호가 이미 파싱됐으면 2번째 크로스탭 페이지 — 스킵
+            if table_num in seen_table_nums:
+                continue
+            seen_table_nums.add(table_num)
+
+            for table in page_tables:
+                if not table or len(table) < 3:
+                    continue
+
+                total_row = None
+                for row in table[:5]:
+                    if str(row[0] or "").strip() == "전체":
+                        total_row = row
+                        break
+                if total_row is None:
+                    continue
+
+                # 선택지: row[0], col4~ (개행 → 공백)
+                options = [
+                    re.sub(r"\s+", " ", str(c or "").strip())
+                    for c in table[0][self.META_COLS:]
+                    if str(c or "").strip()
+                ]
+                if not options:
+                    continue
+
+                # 응답자 특성표 등 메타 테이블 — 스킵
+                if any(
+                    any(kw in opt for kw in self._META_OPT_KEYWORDS)
+                    for opt in options
+                ):
+                    continue
+
+                n_completed = extract_sample_count(str(total_row[2] or ""))
+                n_weighted = extract_sample_count(str(total_row[3] or ""))
+
+                if n_completed is None:
+                    continue
+
+                percentages = extract_percentages_from_cells(total_row, start_col=self.META_COLS)
+                if not percentages:
+                    continue
+
+                options, percentages = filter_summary_columns(
+                    options, percentages, summary_patterns=self.SUMMARY_PATS
+                )
+                min_len = min(len(options), len(percentages))
+                if min_len == 0:
+                    continue
+
+                # 중복 선택지 이름이 재등장하면 이후는 소계 영역 — 컷
+                seen_opts: set = set()
+                deduped_opts: list = []
+                deduped_pcts: list = []
+                for opt, pct in zip(options[:min_len], percentages[:min_len]):
+                    if opt in seen_opts:
+                        break
+                    seen_opts.add(opt)
+                    deduped_opts.append(opt)
+                    deduped_pcts.append(pct)
+                options, percentages = deduped_opts, deduped_pcts
+                if not options:
+                    continue
+
+                results.append(
+                    QuestionResult(
+                        question_number=len(results) + 1,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    )
+                )
+                break
+
+        for i, r in enumerate(results):
+            r.question_number = i + 1
+        return results

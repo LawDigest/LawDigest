@@ -86,6 +86,11 @@
       "class": "_MediaTomatoParser",
       "description": "미디어토마토(뉴스토마토) 텍스트 기반 파서 – '교차표N_제목' 질문 마커, '전체 (N) (N) 비율들' 전체 행 텍스트 추출",
       "pollster_names": ["미디어토마토"]
+    },
+    "ksoi_format": {
+      "class": "_KSOIParser",
+      "description": "CBS-KSOI(한국사회여론연구소) 크로스탭 파서 – '[ 제목 ]' 질문 마커, '전체' 전체 행 row[2], col4+ 개별 셀 비율, 질문당 2페이지 중복 제거",
+      "pollster_names": ["케이에스오아이 주식회사(한국사회여론연구소)", "KSOI", "한국사회여론연구소"]
     }
   }
 }
