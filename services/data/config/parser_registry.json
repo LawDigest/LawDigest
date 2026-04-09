@@ -71,6 +71,21 @@
       "class": "_KStatResearchParser",
       "description": "케이스탯리서치 텍스트 기반 파서 – '전 체'/'계' 전체 행, 텍스트 비율 추출, 멀티페이지 중복 방지",
       "pollster_names": ["케이스탯리서치", "㈜케이스탯리서치", "(주)케이스탯리서치", "케이스탯"]
+    },
+    "ace_research_format": {
+      "class": "_AceResearchParser",
+      "description": "에이스리서치 크로스탭 파서 – '<표N>' 질문 마커, '■ 전  체 ■' 전체 행, col4+ 개별 셀 비율",
+      "pollster_names": ["(주)에이스리서치", "에이스리서치"]
+    },
+    "kopra_format": {
+      "class": "_KopraParser",
+      "description": "KOPRA(한국여론평판연구소) 크로스탭 파서 – 'N. 제목' 섹션 마커, '▣ 전체 ▣' 전체 행, col5+ 정수 비율",
+      "pollster_names": ["KOPRA", "한국여론평판연구소"]
+    },
+    "media_tomato_format": {
+      "class": "_MediaTomatoParser",
+      "description": "미디어토마토(뉴스토마토) 텍스트 기반 파서 – '교차표N_제목' 질문 마커, '전체 (N) (N) 비율들' 전체 행 텍스트 추출",
+      "pollster_names": ["미디어토마토"]
     }
   }
 }

@@ -20,8 +20,8 @@ from .models import (
 # ratio_location 기준으로 가장 유사한 코드 구조를 가진 클래스를 안내
 _BASE_CLASS_BY_RATIO: dict = {
     "table_cell":   "_TableFormatParser",
-    "text_bundled": "_TextFormatParser",
-    "mixed":        "_TableFormatParser",   # 테이블 기반이지만 추가 처리 필요
+    "text_bundled": "_KoreanResearchParser",  # 텍스트 기반 비율 추출 예시
+    "mixed":        "_DailyResearchParser",   # 뭉침 셀 처리 예시 (extract_percentages_from_bunched_cell)
     "unknown":      "_TableFormatParser",
 }
 
@@ -72,14 +72,21 @@ class FormatProfiler:
             challenges.append("cid 인코딩 — GID→Unicode 역맵핑 필요 (NotoSansCJKkr-Medium.otf)")
 
         if table_structure.ratio_cell_bundled:
-            challenges.append(
-                f"비율이 한 셀에 공백 구분으로 뭉쳐 있음 — 셀 분리 파싱 필요"
-            )
+            if ratio_loc == "mixed":
+                challenges.append(
+                    "뭉침 셀과 개별 셀이 공존 — 셀별 분기 처리 필요"
+                    " (extract_percentages_from_bunched_cell + extract_percentages_from_cells 혼용)"
+                )
+            else:
+                challenges.append(
+                    "모든 비율이 텍스트 영역에 공백 구분으로 존재"
+                    " — extract_percentages_from_bunched_cell 사용"
+                )
             if table_structure.bundled_example:
                 challenges.append(f"  뭉침 예시: {table_structure.bundled_example[:80]}")
 
-        if ratio_loc == "mixed":
-            challenges.append("비율 데이터가 테이블 셀과 텍스트 영역에 혼재")
+        if ratio_loc == "mixed" and not table_structure.ratio_cell_bundled:
+            challenges.append("비율 데이터가 테이블 셀과 텍스트 영역에 혼재 — 페이지별 위치 판별 로직 필요")
 
         if table_structure.header_row_analysis.has_summary_cols:
             patterns = table_structure.header_row_analysis.summary_col_patterns
