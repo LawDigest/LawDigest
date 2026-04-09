@@ -15,7 +15,9 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
+import logging
 import signal
 import sys
 import time
@@ -28,9 +30,9 @@ warnings.filterwarnings("ignore")
 _BASE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_BASE / "src"))
 
-import re as _re
+import re as _re  # noqa: E402
 
-from lawdigest_data.polls.parser import PollResultParser  # noqa: E402
+from lawdigest_data.polls.parser import PollResultParser, UnknownPollsterError  # noqa: E402
 from lawdigest_data.polls.targets import is_ignored_analysis_filename, load_targets  # noqa: E402
 
 _UNSAFE = _re.compile(r'[<>:"/\\|?*\x00-\x1f]')
@@ -59,7 +61,15 @@ def main() -> None:
         default=None,
         help="poll_targets.json의 slug (미지정 시 첫 번째 타겟 사용)",
     )
+    ap.add_argument(
+        "--verbose",
+        action="store_true",
+        help="DEBUG 로그 출력 (단계별 타이밍)",
+    )
     args = ap.parse_args()
+
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG, format="%(name)s %(levelname)s %(message)s")
 
     # ── 타겟 로드 ──────────────────────────────────────────────────────────────
     targets = load_targets(_BASE / "config" / "poll_targets.json")
@@ -120,6 +130,16 @@ def main() -> None:
             q = -99
             flag = "T"
             error = "timeout"
+        except UnknownPollsterError:
+            q = -1
+            flag = "E"
+            pollster_name = r["pollster"]
+            all_keywords = parser.get_registered_pollster_names()
+            close = difflib.get_close_matches(pollster_name, all_keywords, n=3, cutoff=0.3)
+            if close:
+                error = f"파서 없음: '{pollster_name}' — 유사 등록 기관: {close}"
+            else:
+                error = f"파서 없음: '{pollster_name}' (유사 기관 없음)"
         except Exception as e:
             q = -1
             flag = "E"
