@@ -99,14 +99,20 @@ def main() -> None:
         if not is_ignored_analysis_filename(row.get("analysis_filename", ""), target)
     ]
 
-    print(f"{'번호':<8} {'Q':>3}  {'초':>4}  {'조사기관':<30}  파일명")
-    print("-" * 95)
+    sorted_check = [
+        r for r in sorted(check, key=lambda x: x["registered_date"])
+        if (pdf_dir / r["analysis_filename"]).exists()
+    ]
+    total_files = len(sorted_check)
+
+    print(f"총 {total_files}개 파일 처리 시작\n")
+    print(f"{'번호':<8} {'진행':>8}  {'Q':>3}  {'초':>5}  {'조사기관':<30}  파일명")
+    print("-" * 105)
 
     rows = []
-    for r in sorted(check, key=lambda x: x["registered_date"]):
+    t_session_start = time.monotonic()
+    for idx, r in enumerate(sorted_check, start=1):
         pdf_path = pdf_dir / r["analysis_filename"]
-        if not pdf_path.exists():
-            continue
 
         t0 = time.monotonic()
         try:
@@ -130,7 +136,18 @@ def main() -> None:
             error = str(e)
         elapsed = time.monotonic() - t0
 
-        print(f"{r['registration_number']:<8} {q:>3}{flag}  {elapsed:>4.1f}s  {r['pollster']:<30}  {r['analysis_filename'][:38]}")
+        progress = f"{idx}/{total_files}"
+        pct = idx / total_files * 100
+        elapsed_session = time.monotonic() - t_session_start
+        avg = elapsed_session / idx
+        eta = avg * (total_files - idx)
+        eta_str = f"ETA {eta:>4.0f}s" if idx < total_files else "완료     "
+
+        print(
+            f"{r['registration_number']:<8} [{progress:>7}|{pct:>3.0f}%]  "
+            f"{q:>3}{flag}  {elapsed:>4.1f}s  {r['pollster']:<30}  "
+            f"{r['analysis_filename'][:30]}  {eta_str}"
+        )
         sys.stdout.flush()
 
         rows.append({
