@@ -18,7 +18,6 @@ import argparse
 import difflib
 import json
 import logging
-import signal
 import sys
 import time
 import warnings
@@ -35,23 +34,14 @@ import re as _re  # noqa: E402
 from lawdigest_data.polls.parser import PollResultParser, UnknownPollsterError  # noqa: E402
 from lawdigest_data.polls.targets import is_ignored_analysis_filename, load_targets  # noqa: E402
 
+# PDF 파서 타임아웃 없음 — 느린 파일(여론조사꽃 GID 디코딩 등)도 완료까지 대기
+
 _UNSAFE = _re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
 def _safe_dirname(name: str) -> str:
     name = _UNSAFE.sub("_", name)
     return name.strip(". ") or "_"
-
-# PDF 파서 타임아웃 (초)
-PDF_TIMEOUT = 20
-
-
-class _Timeout(Exception):
-    pass
-
-
-def _handler(signum, frame):
-    raise _Timeout()
 
 
 def main() -> None:
@@ -118,18 +108,12 @@ def main() -> None:
         if not pdf_path.exists():
             continue
 
-        signal.signal(signal.SIGALRM, _handler)
-        signal.alarm(PDF_TIMEOUT)
         t0 = time.monotonic()
         try:
             results = parser.parse_pdf(pdf_path, pollster_hint=r["pollster"])
             q = len(results)
             flag = "✔" if q > 0 else "✘"
             error = None
-        except _Timeout:
-            q = -99
-            flag = "T"
-            error = "timeout"
         except UnknownPollsterError:
             q = -1
             flag = "E"
@@ -144,8 +128,6 @@ def main() -> None:
             q = -1
             flag = "E"
             error = str(e)
-        finally:
-            signal.alarm(0)
         elapsed = time.monotonic() - t0
 
         print(f"{r['registration_number']:<8} {q:>3}{flag}  {elapsed:>4.1f}s  {r['pollster']:<30}  {r['analysis_filename'][:38]}")
@@ -169,7 +151,6 @@ def main() -> None:
     total   = len(rows)
     success = sum(1 for r in rows if r["flag"] == "✔")
     empty   = sum(1 for r in rows if r["flag"] == "✘")
-    timeout = sum(1 for r in rows if r["flag"] == "T")
     error   = sum(1 for r in rows if r["flag"] == "E")
 
     report = {
@@ -179,7 +160,6 @@ def main() -> None:
             "total": total,
             "success": success,
             "empty": empty,
-            "timeout": timeout,
             "error": error,
         },
         "rows": rows,
@@ -188,7 +168,7 @@ def main() -> None:
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print()
-    print(f"[ 요약 ] 전체={total}  성공={success}  빈결과={empty}  타임아웃={timeout}  오류={error}")
+    print(f"[ 요약 ] 전체={total}  성공={success}  빈결과={empty}  오류={error}")
     print(f"리포트 저장: {report_path}")
 
 

@@ -415,6 +415,7 @@ class PollResultParser:
 
     def __init__(self, registry_path: Optional[Path] = None) -> None:
         self._registry: List[_RegistryEntry] = []
+        self._gid_cache: Dict[str, Dict[int, int]] = {}  # font_path → gid_map 캐시
         path = registry_path or (_DEFAULT_CONFIG_DIR / "parser_registry.json")
         if not path.exists():
             raise RuntimeError(
@@ -480,6 +481,17 @@ class PollResultParser:
 
         parser_class = self._select_parser(pollster_hint)
 
+        # GID 디코딩이 필요한 파서(여론조사꽃 등)는 일반 파싱 없이 rawdict 모드로 직접 추출
+        if getattr(parser_class, "NEEDS_GID_DECODE", False):
+            font_path = getattr(parser_class, "FONT_PATH", None)
+            if font_path and Path(font_path).exists():
+                font_path_str = str(font_path)
+                if font_path_str not in self._gid_cache:
+                    self._gid_cache[font_path_str] = _build_gid_to_unicode(Path(font_path))
+                gid_map = self._gid_cache[font_path_str]
+                pages_data = _extract_pages_with_gid_decode(pdf_path, gid_map)
+                return parser_class().parse(pages_data)
+
         pages_data: List[PageData] = []
         doc = fitz.open(pdf_path)
         try:
@@ -495,13 +507,6 @@ class PollResultParser:
                 pages_data.append((outside_text, tables, full_text))
         finally:
             doc.close()
-
-        # GID 디코딩이 필요한 파서(여론조사꽃 등)는 rawdict 모드로 재추출
-        if getattr(parser_class, "NEEDS_GID_DECODE", False):
-            font_path = getattr(parser_class, "FONT_PATH", None)
-            if font_path and Path(font_path).exists():
-                gid_map = _build_gid_to_unicode(Path(font_path))
-                pages_data = _extract_pages_with_gid_decode(pdf_path, gid_map)
 
         return parser_class().parse(pages_data)
 
@@ -2912,3 +2917,4 @@ class _KSOIParser(BaseTableParser):
         for i, r in enumerate(results):
             r.question_number = i + 1
         return results
+
