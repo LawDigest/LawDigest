@@ -192,30 +192,29 @@ def _generate_scaffold(pollster: str, format_profile: "FormatProfile") -> str:  
     has_continuity: bool = format_profile.page_continuity
 
     # ── 비율 추출 방식 선택 ───────────────────────────────────────────────────
+    _I = "                "  # 16칸 들여쓰기 (클래스 내 코드 기준)
     if is_table_cell:
-        pct_extract_line = (
-            f"percentages = extract_percentages_from_cells(total_row, start_col=self.META_COLS)"
+        pct_block = (
+            f"{_I}# 개별 셀에서 비율 추출\n"
+            f"{_I}percentages = extract_percentages_from_cells(total_row, start_col=self.META_COLS)"
         )
-        pct_extract_comment = "# 개별 셀에서 비율 추출"
-        ratio_mode_label = "table_cell (col{META_COLS}+)".replace("{META_COLS}", str(meta_cols))
+        ratio_mode_label = f"table_cell (col{meta_cols}+)"
     elif is_mixed:
-        pct_extract_line = (
-            "# TODO: 뭉침 셀과 개별 셀이 공존 — 셀별 분기 처리 필요\n"
-            "            # pcts_cell = extract_percentages_from_cells(total_row, start_col=self.META_COLS)\n"
-            "            # pcts_bunched = extract_percentages_from_bunched_cell(str(total_row[self.META_COLS] or \"\"))\n"
-            "            # percentages = pcts_bunched if pcts_bunched else pcts_cell\n"
-            "            percentages = extract_percentages_from_cells(total_row, start_col=self.META_COLS)"
+        pct_block = (
+            f"{_I}# TODO: 뭉침 셀과 개별 셀이 공존 — 셀별 분기 처리 필요\n"
+            f"{_I}# pcts_cell = extract_percentages_from_cells(total_row, start_col=self.META_COLS)\n"
+            f"{_I}# pcts_bunched = extract_percentages_from_bunched_cell(str(total_row[self.META_COLS] or \"\"))\n"
+            f"{_I}# percentages = pcts_bunched if pcts_bunched else pcts_cell\n"
+            f"{_I}percentages = extract_percentages_from_cells(total_row, start_col=self.META_COLS)"
         )
-        pct_extract_comment = "# 혼합 방식 — 위 TODO 참고"
         ratio_mode_label = "mixed (뭉침/개별 혼재)"
     else:  # text_bundled or unknown
-        pct_extract_line = (
-            "# TODO: 텍스트 영역에서 비율 추출\n"
-            "            # pct_cell = str(total_row[self.META_COLS] or \"\")\n"
-            "            # percentages = extract_percentages_from_bunched_cell(pct_cell)\n"
-            "            percentages = extract_percentages_from_cells(total_row, start_col=self.META_COLS)"
+        pct_block = (
+            f"{_I}# TODO: 텍스트 영역에서 비율 추출 — extract_percentages_from_bunched_cell 활용 권장\n"
+            f"{_I}# pct_cell = str(total_row[self.META_COLS] or \"\")\n"
+            f"{_I}# percentages = extract_percentages_from_bunched_cell(pct_cell)\n"
+            f"{_I}percentages = extract_percentages_from_cells(total_row, start_col=self.META_COLS)"
         )
-        pct_extract_comment = "# text_bundled — extract_percentages_from_bunched_cell 활용 권장"
         ratio_mode_label = "text_bundled (공백 구분)"
 
     continuity_block = ""
@@ -294,8 +293,7 @@ class {class_name}(BaseTableParser):
                 n_completed = extract_sample_count(str(total_row[2] if len(total_row) > 2 else ""))
                 n_weighted = extract_sample_count(str(total_row[3] if len(total_row) > 3 else ""))
 
-                {pct_extract_comment}
-                {pct_extract_line}
+{pct_block}
                 if not percentages:
                     continue
 

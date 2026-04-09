@@ -21,12 +21,15 @@ from lawdigest_data.polls.parser import (
     PollResultParser,
     UnknownPollsterError,
     _build_parser_key_map,
+    _AceResearchParser,
     _EmbrainPublicParser,
     _FlowerResearchParser,
     _HangilResearchParser,
     _IpsosParser,
+    _KopraParser,
     _KoreanResearchParser,
     _KStatResearchParser,
+    _MediaTomatoParser,
     _NextResearchParser,
     _RealMeterParser,
     _ResearchAndResearchParser,
@@ -58,6 +61,9 @@ class TestBuildParserKeyMap:
             "_STIParser",
             "_IpsosParser",
             "_KStatResearchParser",
+            "_AceResearchParser",
+            "_KopraParser",
+            "_MediaTomatoParser",
         }
         assert expected_keys == set(key_map.keys())
 
@@ -165,7 +171,7 @@ class TestPollResultParserRegistry:
     def test_load_from_default_registry(self):
         """기본 경로의 parser_registry.json에서 모든 파서가 로드된다."""
         parser = PollResultParser()
-        assert len(parser._registry) == 14  # 현재 등록된 파서 수
+        assert len(parser._registry) == 17  # 현재 등록된 파서 수
 
     def test_all_pollsters_registered(self):
         parser = PollResultParser()
@@ -197,6 +203,12 @@ class TestPollResultParserRegistry:
             "케이스탯",
             "메타보이스",
             "메타보이스(주)",
+            # 신규 추가 파서
+            "(주)에이스리서치",
+            "에이스리서치",
+            "KOPRA",
+            "한국여론평판연구소",
+            "미디어토마토",
         }
         assert expected == all_keywords
 
