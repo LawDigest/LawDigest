@@ -9,6 +9,7 @@ from pathlib import Path
 
 from lawdigest_data.polls.models import PollDetail, PollResultSet, QuestionResult
 
+
 def _install_fake_workflow_dependencies():
     core_module = types.ModuleType("lawdigest_data.core.WorkFlowManager")
 
@@ -25,7 +26,9 @@ def _install_fake_workflow_dependencies():
     core_module.WorkFlowManager = _FakeWorkFlowManager
     sys.modules["lawdigest_data.core.WorkFlowManager"] = core_module
 
-    connectors_module = types.ModuleType("lawdigest_data.connectors.PollsDatabaseManager")
+    connectors_module = types.ModuleType(
+        "lawdigest_data.connectors.PollsDatabaseManager"
+    )
 
     class _FakePollsDatabaseManager:
         def __init__(self, *args, **kwargs):
@@ -39,7 +42,13 @@ def _load_workflow_module():
     _install_fake_workflow_dependencies()
     module_name = "lawdigest_data.polls.workflow"
     sys.modules.pop(module_name, None)
-    workflow_path = Path(__file__).resolve().parents[2] / "src" / "lawdigest_data" / "polls" / "workflow.py"
+    workflow_path = (
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "lawdigest_data"
+        / "polls"
+        / "workflow.py"
+    )
     spec = importlib.util.spec_from_file_location(module_name, workflow_path)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
@@ -55,16 +64,25 @@ def test_fetch_polls_step_returns_metrics(monkeypatch, tmp_path):
     targets_path.write_text(
         """
         {
+          "regions": {
+            "gyeonggi": {
+              "search_cnd": "4",
+              "search_wrd": "경기도",
+              "region": "경기도 전체"
+            }
+          },
+          "elections": {
+            "local_9th_governor": {
+              "poll_gubuncd": "VT026",
+              "election_type": "제9회 전국동시지방선거",
+              "election_names": ["광역단체장선거"]
+            }
+          },
           "targets": [
             {
               "slug": "gyeonggi_governor_9th",
-              "poll_gubuncd": "VT026",
-              "election_type": "제9회 전국동시지방선거",
-              "search_cnd": "4",
-              "search_wrd": "경기도",
-              "region": "경기도 전체",
-              "election_names": ["광역단체장선거"],
-              "pollsters": null
+              "region_key": "gyeonggi",
+              "election_key": "local_9th_governor"
             }
           ]
         }
@@ -80,7 +98,9 @@ def test_fetch_polls_step_returns_metrics(monkeypatch, tmp_path):
             self.verify_connectivity = verify_connectivity
             self.registry_path = registry_path
 
-        def crawl_for_targets(self, targets, max_pages_per_target: int, skip_errors: bool = True):
+        def crawl_for_targets(
+            self, targets, max_pages_per_target: int, skip_errors: bool = True
+        ):
             assert max_pages_per_target == 7
             return {
                 targets[0].slug: [
@@ -99,7 +119,9 @@ def test_fetch_polls_step_returns_metrics(monkeypatch, tmp_path):
             }
 
     monkeypatch.setattr(workflow_module, "NesdcCrawler", _StubCrawler)
-    monkeypatch.setattr(workflow_module, "_write_artifact", lambda prefix, payload: str(artifact_path))
+    monkeypatch.setattr(
+        workflow_module, "_write_artifact", lambda prefix, payload: str(artifact_path)
+    )
     monotonic_values = iter([10.0, 12.5])
     monkeypatch.setattr(workflow_module, "monotonic", lambda: next(monotonic_values))
 
@@ -191,7 +213,9 @@ def test_parse_results_step_enriches_survey_metadata(monkeypatch, tmp_path):
     )
 
     artifact_path = tmp_path / "details.json"
-    artifact_path.write_text(json.dumps([asdict(detail)], ensure_ascii=False), encoding="utf-8")
+    artifact_path.write_text(
+        json.dumps([asdict(detail)], ensure_ascii=False), encoding="utf-8"
+    )
     captured: dict[str, object] = {}
 
     class _StubCrawler:
@@ -199,10 +223,13 @@ def test_parse_results_step_enriches_survey_metadata(monkeypatch, tmp_path):
             self.verify_connectivity = verify_connectivity
             self.registry_path = registry_path
 
-        def crawl_results(self, details, pdf_dir, skip_errors: bool = True, registry_path=None):
+        def crawl_results(
+            self, details, pdf_dir, skip_errors: bool = True, registry_path=None
+        ):
             return [result_set]
 
     monkeypatch.setattr(workflow_module, "NesdcCrawler", _StubCrawler)
+
     def _capture_artifact(prefix, payload):
         captured["payload"] = payload
         return "/tmp/results.json"
@@ -283,9 +310,15 @@ def test_upsert_polls_step_uses_survey_metadata(monkeypatch, tmp_path):
             captured["options"] = options
             return len(options)
 
-    monkeypatch.setattr(workflow_module.PollsWorkflowManager, "_build_db_manager", lambda self: _FakeDB())
+    monkeypatch.setattr(
+        workflow_module.PollsWorkflowManager,
+        "_build_db_manager",
+        lambda self: _FakeDB(),
+    )
 
-    result = workflow_module.PollsWorkflowManager("test").upsert_polls_step(str(artifact_path))
+    result = workflow_module.PollsWorkflowManager("test").upsert_polls_step(
+        str(artifact_path)
+    )
 
     assert result["mode"] == "test_db"
     assert result["upserted_surveys"] == 1
@@ -351,8 +384,16 @@ def _load_polls_ingest_dag_module():
     sys.modules["airflow.operators"] = airflow_operators
     sys.modules["airflow.operators.python"] = airflow_operators_python
 
-    dag_path = Path(__file__).resolve().parents[4] / "infra" / "airflow" / "dags" / "polls_ingest_dag.py"
-    spec = importlib.util.spec_from_file_location("test_polls_ingest_dag_module", dag_path)
+    dag_path = (
+        Path(__file__).resolve().parents[4]
+        / "infra"
+        / "airflow"
+        / "dags"
+        / "polls_ingest_dag.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "test_polls_ingest_dag_module", dag_path
+    )
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
@@ -363,10 +404,14 @@ def test_summarize_run_returns_aggregate_metrics(monkeypatch):
     module = _load_polls_ingest_dag_module()
 
     fake_workflow_module = types.ModuleType("workflow")
-    fake_workflow_module._write_artifact = lambda prefix, payload: "/tmp/polls_summary.json"
+    fake_workflow_module._write_artifact = (
+        lambda prefix, payload: "/tmp/polls_summary.json"
+    )
 
     sys.modules["src"] = types.ModuleType("src")
-    sys.modules["src.lawdigest_data_pipeline"] = types.ModuleType("lawdigest_data_pipeline")
+    sys.modules["src.lawdigest_data_pipeline"] = types.ModuleType(
+        "lawdigest_data_pipeline"
+    )
     sys.modules["src.lawdigest_data_pipeline.polls"] = types.ModuleType("polls")
     sys.modules["src.lawdigest_data_pipeline.polls.workflow"] = fake_workflow_module
 

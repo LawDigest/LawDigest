@@ -10,21 +10,30 @@ def test_load_targets_parses_ignored_analysis_filenames(tmp_path):
     targets_path.write_text(
         json.dumps(
             {
-                "targets": [
-                    {
-                        "slug": "gyeonggi_governor_9th",
-                        "poll_gubuncd": "VT026",
-                        "election_type": "제9회 전국동시지방선거",
+                "regions": {
+                    "gyeonggi": {
                         "search_cnd": "4",
                         "search_wrd": "경기도",
                         "region": "경기도 전체",
+                    }
+                },
+                "elections": {
+                    "local_9th_governor": {
+                        "poll_gubuncd": "VT026",
+                        "election_type": "제9회 전국동시지방선거",
                         "election_names": ["광역단체장선거"],
-                        "pollsters": None,
+                    }
+                },
+                "targets": [
+                    {
+                        "slug": "gyeonggi_governor_9th",
+                        "region_key": "gyeonggi",
+                        "election_key": "local_9th_governor",
                         "ignored_analysis_filenames": [
                             "2026 기후위기 국민 인식조사_09_경기_TABLE_등록_0306.pdf",
                         ],
                     }
-                ]
+                ],
             },
             ensure_ascii=False,
         ),
