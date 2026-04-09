@@ -23,7 +23,9 @@ harness
 # 캐시
 .ruff_cache
 
+# Airflow
 .airflow_artifacts
+.airflow_vendor
 
 services/data/output
 services/data/.lawdigestenv
@@ -107,3 +109,5 @@ services/web/.vercel/
 # 배포 런타임
 .runtime/
 services/data/dump
+services/data/tests/polls/fixtures/
+

@@ -37,7 +37,7 @@ _BASE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_BASE / "src"))
 
 from lawdigest_data.polls.parser import PollResultParser  # noqa: E402
-from lawdigest_data.polls.targets import load_targets     # noqa: E402
+from lawdigest_data.polls.targets import is_ignored_analysis_filename, load_targets  # noqa: E402
 
 _UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
@@ -95,6 +95,8 @@ def main() -> None:
 
     meta_by_filename: dict[str, dict] = {}
     for r in json.loads(check_json.read_text()):
+        if is_ignored_analysis_filename(r.get("analysis_filename", ""), target):
+            continue
         meta_by_filename[r["analysis_filename"]] = r
     print(f"메타데이터 로드: {len(meta_by_filename)}건 ({check_json.name})")
 

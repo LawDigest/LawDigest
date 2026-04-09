@@ -36,12 +36,12 @@ from urllib3.util.retry import Retry
 _BASE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_BASE / "src"))
 
-from lawdigest_data_pipeline.polls.targets import (  # noqa: E402
+from lawdigest_data.polls.targets import (  # noqa: E402
     is_ignored_analysis_filename,
     load_targets,
     matches_target,
 )
-from lawdigest_data_pipeline.polls.models import ListRecord  # noqa: E402
+from lawdigest_data.polls.models import ListRecord  # noqa: E402
 
 # ── 설정 ─────────────────────────────────────────────────────────────────────────
 
@@ -277,9 +277,11 @@ def main() -> None:
             continue
 
         detail = parse_detail(soup, url)
-        if is_ignored_analysis_filename(detail["analysis_filename"], target):
+        if detail["analysis_filename"] and is_ignored_analysis_filename(
+            detail["analysis_filename"], target,
+        ):
             ignored_count += 1
-            log.info("         ↷ 무시 대상 — %s", detail["analysis_filename"] or "(파일명 없음)")
+            log.info("         ↷ 예외 등록 PDF — 제외: %s", detail["analysis_filename"])
             time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
             continue
 
@@ -319,9 +321,12 @@ def main() -> None:
     log.info("─" * 65)
     log.info("[ 결과 요약 ]")
     log.info("  전체 대상:     %2d건", len(filtered))
-    log.info("  무시 대상:     %2d건", ignored_count)
+    log.info("  예외 제외:     %2d건", ignored_count)
     log.info("  PDF 있음:    %2d건  ← 최종 수집 대상", pdf_count)
-    log.info("  PDF 없음:    %2d건  (공표 전 또는 미첨부)", len(filtered) - pdf_count - ignored_count)
+    log.info(
+        "  PDF 없음:    %2d건  (공표 전 또는 미첨부)",
+        len(filtered) - ignored_count - pdf_count,
+    )
 
     if pdf_count:
         log.info("")

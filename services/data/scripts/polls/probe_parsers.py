@@ -31,7 +31,7 @@ sys.path.insert(0, str(_BASE / "src"))
 import re as _re
 
 from lawdigest_data.polls.parser import PollResultParser  # noqa: E402
-from lawdigest_data.polls.targets import load_targets     # noqa: E402
+from lawdigest_data.polls.targets import is_ignored_analysis_filename, load_targets  # noqa: E402
 
 _UNSAFE = _re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
@@ -94,7 +94,10 @@ def main() -> None:
 
     registry = _BASE / "config" / "parser_registry.json"
     parser   = PollResultParser(registry_path=registry)
-    check    = json.loads(check_json.read_text())
+    check    = [
+        row for row in json.loads(check_json.read_text())
+        if not is_ignored_analysis_filename(row.get("analysis_filename", ""), target)
+    ]
 
     print(f"{'번호':<8} {'Q':>3}  {'초':>4}  {'조사기관':<30}  파일명")
     print("-" * 95)

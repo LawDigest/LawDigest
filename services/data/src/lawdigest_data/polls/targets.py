@@ -1,4 +1,5 @@
 """수집 대상 선거 타겟 정의 및 매칭 유틸리티."""
+
 from __future__ import annotations
 
 import json
@@ -10,63 +11,112 @@ from typing import List, Optional, Tuple
 from .models import ListRecord
 
 # config/ 디렉터리 기본 경로 (services/data/config/)
-_DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[4] / "config"
+_DEFAULT_CONFIG_DIR = Path(__file__).resolve().parents[3] / "config"
+
+
+@dataclass(frozen=True)
+class RegionSpec:
+    """광역시·도 검색 및 지역 매칭 규칙."""
+
+    key: str
+    search_cnd: str = "4"
+    search_wrd: str = ""
+    region: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ElectionSpec:
+    """선거 공통 정의."""
+
+    key: str
+    poll_gubuncd: str
+    election_type: Optional[str] = None
+    election_names: Optional[Tuple[str, ...]] = None
 
 
 @dataclass(frozen=True)
 class PollTarget:
-    """수집 대상 선거를 정의하는 불변 데이터클래스.
+    """실제 수집 대상.
 
-    NESDC 검색 파라미터:
-      - poll_gubuncd: 선거구분 코드 (예: VT026)
-      - search_cnd: 검색 카테고리 코드 (예: "4" = 시·도, "1" = 조사기관명)
-      - search_wrd: 검색어 텍스트 (예: "경기도")
-
-    서버 사이드 필터링 후 클라이언트 사이드 추가 필터:
-      - region: None이면 와일드카드, 값이 있으면 정확히 일치
-      - election_names: None이면 와일드카드, 값이 있으면 OR 매칭
-      - pollsters: None이면 와일드카드, 값이 있으면 키워드 포함 OR 매칭
+    런타임에서는 region/election 정의를 조합한 완성형 검색/필터 정보를 제공한다.
     """
-    search_wrd: str = ""        # NESDC searchWrd 검색어
-    search_cnd: str = "4"       # NESDC searchCnd 카테고리 코드 (기본: 시·도)
+
+    slug: str
+    region_key: str
+    election_key: str
+    search_wrd: str = ""
+    search_cnd: str = "4"
     region: Optional[str] = None
     election_names: Optional[Tuple[str, ...]] = None
     election_type: Optional[str] = None
-    pollsters: Optional[Tuple[str, ...]] = None  # 조사기관명 OR 필터 (None = 전체)
+    pollsters: Optional[Tuple[str, ...]] = None
     ignored_analysis_filenames: Optional[Tuple[str, ...]] = None
-    slug: str = ""
-    poll_gubuncd: str = ""      # NESDC pollGubuncd 파라미터 (예: VT026)
+    poll_gubuncd: str = ""
+
+
+def _load_region_specs(data: dict) -> dict[str, RegionSpec]:
+    regions: dict[str, RegionSpec] = {}
+    for key, item in data.get("regions", {}).items():
+        regions[key] = RegionSpec(
+            key=key,
+            search_cnd=str(item.get("search_cnd", "4")),
+            search_wrd=item.get("search_wrd", ""),
+            region=item.get("region"),
+        )
+    return regions
+
+
+def _load_election_specs(data: dict) -> dict[str, ElectionSpec]:
+    elections: dict[str, ElectionSpec] = {}
+    for key, item in data.get("elections", {}).items():
+        election_names = item.get("election_names")
+        elections[key] = ElectionSpec(
+            key=key,
+            poll_gubuncd=item.get("poll_gubuncd", ""),
+            election_type=item.get("election_type"),
+            election_names=tuple(election_names) if election_names else None,
+        )
+    return elections
 
 
 def load_targets(targets_path: Optional[Path] = None) -> List[PollTarget]:
-    """poll_targets.json에서 수집 대상 목록을 로드한다.
+    """poll_targets.json에서 수집 대상 목록을 로드한다."""
 
-    targets_path가 None이면 config/poll_targets.json을 자동으로 찾는다.
-    파일이 없으면 빈 리스트를 반환한다.
-    """
     path = targets_path or (_DEFAULT_CONFIG_DIR / "poll_targets.json")
     if not path.exists():
         return []
 
     data = json.loads(path.read_text(encoding="utf-8"))
+    regions = _load_region_specs(data)
+    elections = _load_election_specs(data)
+
     targets: List[PollTarget] = []
     for item in data.get("targets", []):
-        election_names = item.get("election_names")
+        region_key = item.get("region_key", "")
+        election_key = item.get("election_key", "")
+        region_spec = regions[region_key]
+        election_spec = elections[election_key]
         pollsters = item.get("pollsters")
         ignored_analysis_filenames = item.get("ignored_analysis_filenames")
-        targets.append(PollTarget(
-            search_wrd=item.get("search_wrd", ""),
-            search_cnd=str(item.get("search_cnd", "4")),
-            region=item.get("region"),
-            election_names=tuple(election_names) if election_names else None,
-            election_type=item.get("election_type"),
-            pollsters=tuple(pollsters) if pollsters else None,
-            ignored_analysis_filenames=(
-                tuple(ignored_analysis_filenames) if ignored_analysis_filenames else None
-            ),
-            slug=item.get("slug", ""),
-            poll_gubuncd=item.get("poll_gubuncd", ""),
-        ))
+        targets.append(
+            PollTarget(
+                slug=item.get("slug", ""),
+                region_key=region_key,
+                election_key=election_key,
+                search_wrd=region_spec.search_wrd,
+                search_cnd=region_spec.search_cnd,
+                region=region_spec.region,
+                election_names=election_spec.election_names,
+                election_type=election_spec.election_type,
+                pollsters=tuple(pollsters) if pollsters else None,
+                ignored_analysis_filenames=(
+                    tuple(ignored_analysis_filenames)
+                    if ignored_analysis_filenames
+                    else None
+                ),
+                poll_gubuncd=election_spec.poll_gubuncd,
+            )
+        )
     return targets
 
 
@@ -74,14 +124,8 @@ _REGION_SUFFIX_RE = re.compile(r"[시군구읍면동리]$")
 
 
 def parse_title_region(title_region: str) -> Tuple[str, str]:
-    """ListRecord.title_region 필드에서 지역과 선거명을 분리한다.
+    """ListRecord.title_region 필드에서 지역과 선거명을 분리한다."""
 
-    지역 끝 판별 규칙 (우선순위순):
-      1. "전국" 으로 시작하면 → region = "전국"
-      2. " 전체" 가 포함되면 → region = "... 전체" 까지
-      3. 두 번째 토큰이 시/군/구/읍/면/동/리 로 끝나면 → region = 첫 두 토큰
-      4. 그 외 → region = 첫 토큰
-    """
     text = title_region.strip()
     parts = text.split()
 
@@ -91,7 +135,7 @@ def parse_title_region(title_region: str) -> Tuple[str, str]:
     idx = text.find(" 전체")
     if idx != -1:
         region = text[: idx + len(" 전체")].strip()
-        election_name = text[idx + len(" 전체"):].strip()
+        election_name = text[idx + len(" 전체") :].strip()
         return (region, election_name)
 
     if len(parts) >= 2 and _REGION_SUFFIX_RE.search(parts[1]):
@@ -105,13 +149,13 @@ def parse_title_region(title_region: str) -> Tuple[str, str]:
 
 
 def matches_target(record: ListRecord, target: PollTarget) -> bool:
-    """ListRecord가 PollTarget의 기준을 충족하면 True를 반환한다.
+    """ListRecord가 PollTarget의 기준을 충족하면 True를 반환한다."""
 
-    - region: None이면 와일드카드, 값이 있으면 파싱된 지역과 정확히 일치
-    - election_names: None이면 와일드카드, 값이 있으면 OR 매칭
-    - pollsters: None이면 와일드카드, 값이 있으면 record.pollster에 키워드 포함 여부 OR
-    """
-    if target.region is None and target.election_names is None and target.pollsters is None:
+    if (
+        target.region is None
+        and target.election_names is None
+        and target.pollsters is None
+    ):
         return True
 
     region, election_name = parse_title_region(record.title_region)
@@ -121,19 +165,20 @@ def matches_target(record: ListRecord, target: PollTarget) -> bool:
 
     if target.election_names is not None:
         clean = election_name.replace("(", "").replace(")", "")
-        actual = {t for t in re.split(r"[,\s]+", clean) if t}
+        actual = {token for token in re.split(r"[,\s]+", clean) if token}
         if not actual.intersection(set(target.election_names)):
             return False
 
     if target.pollsters is not None:
-        if not any(kw in record.pollster for kw in target.pollsters):
+        if not any(keyword in record.pollster for keyword in target.pollsters):
             return False
 
     return True
 
 
 def is_ignored_analysis_filename(filename: str, target: PollTarget) -> bool:
-    """타겟 설정의 ignore 목록에 포함된 분석 PDF 파일명인지 확인한다."""
+    """타겟의 제외 PDF 목록과 일치하면 True를 반환한다."""
+
     if not target.ignored_analysis_filenames:
         return False
     return filename in target.ignored_analysis_filenames
