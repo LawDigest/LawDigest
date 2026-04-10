@@ -4589,3 +4589,144 @@ class _KPOParser:
                 break
 
         return sorted(results, key=lambda r: r.question_number)
+
+
+class _KPRIParser:
+    """한국정책연구원 결과보고서 PDF 파서.
+
+    두 가지 포맷 지원:
+    [포맷A] 2025년형 - 데이터 페이지에 '【표N】 제목' 마커 포함
+    [포맷B] 2026년형 - 설명 페이지에 '[그림N] 제목', 다음 페이지에 데이터 테이블,
+                        비율에 '%' 기호 포함 (예: '19.0%')
+
+    공통 테이블 구조:
+      - row[0][0]='구 분', row[1][0]='전 체'
+      - N: row[1][2], row[1][3]
+      - 선택지: row[0][4:], 비율: row[1][4:]
+    """
+
+    PARSER_KEY = "_KPRIParser"
+    # 포맷A: 데이터 페이지에 있는 표 번호 마커
+    _TABLE_TITLE_RE = re.compile(r"【표(\d+)】\s*(.+?)(?:\n|$)")
+    # 포맷B: 설명 페이지에 있는 그림 번호 마커
+    _FIGURE_TITLE_RE = re.compile(r"\[그림(\d+)\]\s*(.+?)(?:\n|$)")
+    _TOTAL_MARKER = "전 체"
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS
+
+    @staticmethod
+    def _cell(val: object) -> str:
+        return (str(val) if val is not None else "").strip()
+
+    @staticmethod
+    def _parse_pct(raw: str) -> Optional[float]:
+        """비율 파싱 - '%' 기호 포함/비포함 모두 처리."""
+        s = raw.strip().rstrip("%")
+        try:
+            return float(s)
+        except (ValueError, TypeError):
+            return None
+
+    def _extract_table(
+        self,
+        page_tables: List,
+        q_num: int,
+        q_title: str,
+    ) -> Optional[QuestionResult]:
+        """페이지의 테이블에서 QuestionResult를 추출."""
+        for table in page_tables:
+            if not table or len(table) < 2:
+                continue
+            row0 = table[0]
+            row1 = table[1]
+            if not row0 or not row1:
+                continue
+            if self._cell(row0[0]) != "구 분":
+                continue
+            if self._cell(row1[0]) != self._TOTAL_MARKER:
+                continue
+            if len(row0) < 5:
+                continue
+
+            n_completed = extract_sample_count(self._cell(row1[2]) if len(row1) > 2 else "")
+            if n_completed is None:
+                continue
+            n_weighted = extract_sample_count(self._cell(row1[3]) if len(row1) > 3 else "")
+
+            options: List[str] = []
+            percentages: List[float] = []
+            for c in range(4, len(row0)):
+                opt_raw = self._cell(row0[c] if c < len(row0) else None)
+                opt = " ".join(opt_raw.replace("\n", " ").split())
+                pct_raw = self._cell(row1[c] if c < len(row1) else None)
+                pct = self._parse_pct(pct_raw)
+                if pct is None:
+                    continue
+                if opt:
+                    options.append(opt)
+                    percentages.append(pct)
+
+            if not percentages:
+                continue
+
+            options, percentages = filter_summary_columns(
+                options, percentages, summary_patterns=self.SUMMARY_PATS
+            )
+            if not percentages:
+                continue
+
+            return QuestionResult(
+                question_number=q_num,
+                question_title=q_title,
+                question_text=q_title,
+                response_options=options,
+                overall_n_completed=n_completed,
+                overall_n_weighted=n_weighted,
+                overall_percentages=percentages,
+            )
+        return None
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_q: set = set()
+        # 포맷B용 크로스페이지 상태: (q_num, q_title)
+        pending_q: Optional[tuple] = None
+
+        for _outside_text, page_tables, full_text in pages_data:
+            if not full_text:
+                pending_q = None
+                continue
+
+            # 포맷A: 같은 페이지에 '【표N】 제목' 마커
+            title_match = self._TABLE_TITLE_RE.search(full_text)
+            if title_match and page_tables:
+                q_num = int(title_match.group(1))
+                q_title = " ".join(title_match.group(2).strip().split())
+                if q_num not in seen_q:
+                    result = self._extract_table(page_tables, q_num, q_title)
+                    if result:
+                        results.append(result)
+                        seen_q.add(q_num)
+                pending_q = None
+                continue
+
+            # 포맷B 단계1: '[그림N] 제목' 마커 → 다음 페이지에서 테이블 기대
+            fig_match = self._FIGURE_TITLE_RE.search(full_text)
+            if fig_match:
+                q_num = int(fig_match.group(1))
+                q_title = " ".join(fig_match.group(2).strip().split())
+                pending_q = (q_num, q_title) if q_num not in seen_q else None
+                continue
+
+            # 포맷B 단계2: pending_q가 있을 때 테이블 탐색
+            if pending_q and page_tables:
+                q_num, q_title = pending_q
+                result = self._extract_table(page_tables, q_num, q_title)
+                if result:
+                    results.append(result)
+                    seen_q.add(q_num)
+                pending_q = None
+                continue
+
+            pending_q = None
+
+        return sorted(results, key=lambda r: r.question_number)
