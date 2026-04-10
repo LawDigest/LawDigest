@@ -4730,3 +4730,105 @@ class _KPRIParser:
             pending_q = None
 
         return sorted(results, key=lambda r: r.question_number)
+
+
+class _UNMParser:
+    """(주)유앤미리서치 결과보고서 PDF 파서.
+
+    포맷 특성:
+      - 1질문 1페이지, Q마커와 테이블이 같은 페이지
+      - 질문 마커: '문. 질문텍스트' (페이지 텍스트)
+      - 질문 번호: 문서 내 등장 순서 (명시적 번호 없음)
+      - 테이블 식별: col[0]에 '전 체 ▣' 포함 행을 동적 탐색 (leading ▣ 누락 가능)
+      - N 형식: total_row[0]='▣ 전 체 ▣ (500)' 또는 '전 체 ▣ (500)'
+      - 선택지: header_row[2:] (total_row - 2행), 비율: total_row[2:]
+      - 비율 형식: '.2' → 0.2 (선행 0 없는 소수점 형식)
+    """
+
+    PARSER_KEY = "_UNMParser"
+    _Q_MARKER_RE = re.compile(r"^문\.\s+(.+?)(?:\(※|　|\n\n)", re.MULTILINE | re.DOTALL)
+    # leading ▣ 누락 케이스 포함
+    _TOTAL_MARKER_RE = re.compile(r"전\s*체\s*▣")
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS
+
+    @staticmethod
+    def _cell(val: object) -> str:
+        return (str(val) if val is not None else "").strip()
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        q_counter = 0
+
+        for _outside_text, page_tables, full_text in pages_data:
+            if not full_text or not page_tables:
+                continue
+
+            # '문. 질문텍스트' 마커 탐색
+            q_match = self._Q_MARKER_RE.search(full_text)
+            if not q_match:
+                continue
+
+            q_title = " ".join(q_match.group(1).strip().split())
+
+            for table in page_tables:
+                if not table or len(table) < 3:
+                    continue
+
+                # 전체 행을 동적으로 탐색 (row 인덱스가 가변적)
+                total_row_idx = None
+                for idx, row in enumerate(table):
+                    if row and self._TOTAL_MARKER_RE.search(self._cell(row[0])):
+                        total_row_idx = idx
+                        break
+                if total_row_idx is None or total_row_idx < 2:
+                    continue
+
+                total_row = table[total_row_idx]
+                header_row = table[total_row_idx - 2]  # 헤더는 전체행 2행 위
+                if not header_row or len(header_row) < 3:
+                    continue
+
+                total_cell = self._cell(total_row[0])
+                # N 추출: total_row[0]에서 (N) 파싱
+                n_completed = extract_sample_count(total_cell)
+                if n_completed is None:
+                    continue
+                n_weighted = extract_sample_count(self._cell(total_row[1]) if len(total_row) > 1 else "")
+
+                # 선택지·비율 추출 (col[2:])
+                options: List[str] = []
+                percentages: List[float] = []
+                for c in range(2, len(header_row)):
+                    opt_raw = self._cell(header_row[c] if c < len(header_row) else None)
+                    opt = " ".join(opt_raw.replace("\n", " ").split())
+                    pct_raw = self._cell(total_row[c] if c < len(total_row) else None)
+                    try:
+                        pct = float(pct_raw)
+                    except (ValueError, TypeError):
+                        continue
+                    if opt:
+                        options.append(opt)
+                        percentages.append(pct)
+
+                if not percentages:
+                    continue
+
+                options, percentages = filter_summary_columns(
+                    options, percentages, summary_patterns=self.SUMMARY_PATS
+                )
+                if not percentages:
+                    continue
+
+                q_counter += 1
+                results.append(QuestionResult(
+                    question_number=q_counter,
+                    question_title=q_title,
+                    question_text=q_title,
+                    response_options=options,
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=percentages,
+                ))
+                break
+
+        return results
