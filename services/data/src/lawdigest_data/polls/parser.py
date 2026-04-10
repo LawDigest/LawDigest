@@ -3203,3 +3203,343 @@ class _KIRParser:
         for i, r in enumerate(results):
             r.question_number = i + 1
         return results
+
+
+class _GallupParser:
+    """한국갤럽조사연구소 파서.
+
+    두 가지 포맷을 처리:
+    - 통계표 / 결과집계표: 1페이지 1테이블, full_text에 '표 N. 제목' 마커
+    - 결과분석(데일리 오피니언): text_bundled 포맷 (추후 구현)
+
+    공통 구조:
+    - 전체 행 마커: Col0 셀에 '■' 또는 공백 포함된 '전      체' 포함
+    - col2 = 조사완료 사례수, col3 = 가중값 적용 사례수
+    - col4 이후 = 선택지 비율 (정수, '-' → 0)
+    - 마지막 컬럼 '계' = 100% skip
+    """
+
+    PARSER_KEY = "_GallupParser"
+
+    # 통계표/결과집계표 포맷의 전체 행 마커
+    _TOTAL_RE = re.compile(r"■\s*전\s+체\s*■|■\s*전체\s*■")
+
+    # 질문 마커 — 두 가지 패턴 모두 처리
+    # 패턴1 (통계표): '표 \n제목\n1. \n'
+    # 패턴2 (결과집계표): '표 N. 제목\n'
+    _Q_RE1 = re.compile(r"표\s*\n(.+?)\n(\d+)\.\s*\n", re.DOTALL)
+    _Q_RE2 = re.compile(r"표\s+(\d+)\.\s+(.+?)(?:\n|$)")
+
+    # 메타 페이지 마커 (skip 대상)
+    _META_MARKERS = frozenset({
+        "조사 개요", "조사개요", "응답자 특성표", "조사완료 응답자 특성표",
+        "목   차", "목차",
+    })
+
+    # 결과분석 포맷 감지 마커 (page_tables에 text_bundled 셀 감지)
+    _DAILY_MARKER = re.compile(r"데일리 오피니언|교차집계표")
+
+    @staticmethod
+    def _cell(val) -> str:
+        return re.sub(r"\s+", " ", str(val or "").strip())
+
+    @staticmethod
+    def _parse_pct(s: str) -> Optional[float]:
+        """'-' → None, '42' → 42.0, '0.1%' → 0.1"""
+        s = s.strip().rstrip("%")
+        if s in ("-", "", "None"):
+            return None
+        try:
+            v = float(s)
+            return v if 0.0 <= v <= 100.0 else None
+        except ValueError:
+            return None
+
+    def _extract_question(self, full_text: str) -> Optional[tuple]:
+        """(q_num_str, q_title) 반환, 없으면 None"""
+        m = self._Q_RE1.search(full_text)
+        if m:
+            return m.group(2).strip(), m.group(1).strip()
+        m = self._Q_RE2.search(full_text)
+        if m:
+            return m.group(1).strip(), m.group(2).strip()
+        return None
+
+    def _is_meta_page(self, full_text: str) -> bool:
+        first_line = full_text.split("\n", 3)[1] if "\n" in full_text else full_text[:50]
+        return any(marker in full_text[:300] for marker in self._META_MARKERS)
+
+    def _find_total_row(self, df) -> Optional[int]:
+        """전체 행 인덱스 반환"""
+        for i, row in df.iterrows():
+            c0 = self._cell(row.iloc[0])
+            if self._TOTAL_RE.search(c0):
+                return i
+            # '전      체' 단독 셀
+            if re.match(r"전\s{2,}체$", c0):
+                return i
+        return None
+
+    def _extract_options_from_header(self, df, n_completed_col: int) -> list[str]:
+        """헤더 행에서 선택지 텍스트 추출 (opt_start ~ 마지막 '계' 컬럼 전)"""
+        opt_start = n_completed_col + 2  # col2=완료, col3=가중 → col4부터
+        n_cols = df.shape[1]
+
+        # 마지막 컬럼이 '계'인지 확인
+        opt_end = n_cols
+        for row_idx in range(min(10, len(df))):
+            last_cell = self._cell(df.iloc[row_idx, -1])
+            if last_cell == "계":
+                opt_end = n_cols - 1
+                break
+
+        # 헤더 행에서 선택지 수집 (row3이 주로 선택지 텍스트 포함)
+        candidates: list[str] = [""] * (opt_end - opt_start)
+        for row_idx in range(min(10, len(df))):
+            row = df.iloc[row_idx]
+            for col_i, col_abs in enumerate(range(opt_start, opt_end)):
+                if col_abs >= len(row):
+                    break
+                cell_text = self._cell(row.iloc[col_abs])
+                if cell_text and cell_text not in ("%", "None"):
+                    if not candidates[col_i]:
+                        candidates[col_i] = cell_text
+                    else:
+                        # 멀티라인 헤더 병합
+                        candidates[col_i] = candidates[col_i] + " " + cell_text
+
+        return [c.strip() for c in candidates]
+
+    def _parse_stats_page(self, full_text: str, df) -> Optional["QuestionResult"]:
+        """통계표/결과집계표 한 페이지를 파싱해 QuestionResult 반환"""
+        # 질문 추출
+        q_info = self._extract_question(full_text)
+        if q_info is None:
+            _logger.debug("[Gallup] 질문 마커 없음, SKIP")
+            return None
+
+        q_num_str, q_title = q_info
+
+        # 전체 행 찾기
+        total_row_idx = self._find_total_row(df)
+        if total_row_idx is None:
+            _logger.debug("[Gallup] Q%s SKIP: 전체 행 미발견", q_num_str)
+            return None
+
+        total_row = df.iloc[total_row_idx]
+
+        # n_completed: col2
+        n_completed = extract_sample_count(self._cell(total_row.iloc[2]))
+        if n_completed is None:
+            _logger.debug("[Gallup] Q%s SKIP: n_completed 추출 실패 (col2=%r)", q_num_str, total_row.iloc[2])
+            return None
+
+        # n_weighted: col3
+        n_weighted = extract_sample_count(self._cell(total_row.iloc[3]))
+
+        # 선택지 추출
+        options = self._extract_options_from_header(df, n_completed_col=2)
+
+        # 비율 추출 (전체 행 col4+)
+        opt_start = 4
+        opt_end = 4 + len(options)
+        raw_pcts = []
+        for col_abs in range(opt_start, min(opt_end, df.shape[1])):
+            raw_pcts.append(self._parse_pct(self._cell(total_row.iloc[col_abs])))
+
+        # None → 0.0 변환, 유효 비율만 필터
+        percentages = [p if p is not None else 0.0 for p in raw_pcts]
+
+        if not any(p > 0 for p in percentages):
+            _logger.debug("[Gallup] Q%s SKIP: 비율 전부 0 또는 None", q_num_str)
+            return None
+
+        # 요약 컬럼 필터 (합산 등)
+        options, percentages = filter_summary_columns(
+            options, percentages, summary_patterns=DEFAULT_SUMMARY_PATTERNS
+        )
+        min_len = min(len(options), len(percentages))
+        if min_len == 0:
+            _logger.debug("[Gallup] Q%s SKIP: filter 후 0건", q_num_str)
+            return None
+
+        _logger.debug(
+            "[Gallup] Q%s OK: '%s' n=%d opts=%d pcts=%s",
+            q_num_str, q_title[:30], n_completed, min_len, percentages[:3],
+        )
+
+        return QuestionResult(
+            question_number=int(q_num_str) if q_num_str.isdigit() else 0,
+            question_title=q_title,
+            question_text=q_title,
+            response_options=options[:min_len],
+            overall_n_completed=n_completed,
+            overall_n_weighted=n_weighted,
+            overall_percentages=percentages[:min_len],
+        )
+
+    def _is_daily_format(self, pages_data) -> bool:
+        """결과분석(데일리 오피니언) 포맷인지 감지"""
+        for outside_text, _, full_text in pages_data[:3]:
+            if self._DAILY_MARKER.search(full_text or outside_text or ""):
+                return True
+        return False
+
+    def _parse_daily(self, pages_data) -> list["QuestionResult"]:
+        """결과분석(데일리 오피니언) 포맷 파싱.
+
+        각 페이지의 첫 번째 테이블에서 전체(row 인덱스 1) 행을 파싱.
+        헤더(row 0)에서 컬럼명, row 1의 전체 행에서 비율 추출.
+        셀 값은 단일 값이거나 개행으로 여러 값이 묶인 text_bundled 형태.
+        전국 정기조사이므로 n_completed/n_weighted는 1,001 등 전체.
+        """
+        results = []
+        seen_titles: set[str] = set()
+
+        for pg_idx, (outside_text, page_tables, full_text) in enumerate(pages_data):
+            pg = pg_idx + 1
+            if not page_tables:
+                continue
+
+            ft = full_text or outside_text or ""
+
+            # 질문 제목 추출: outside_text에서 '질문)' 이전 첫 줄을 제목으로 사용
+            # '대통령 직무 수행 평가 질문) ...' → '대통령 직무 수행 평가'
+            # '질문) ...' 만 있는 경우 → 첫 줄 전체 (문항 내용)
+            ot = (outside_text or "").strip()
+            if "질문)" in ot:
+                before_q = ot.split("질문)")[0].strip()
+                q_title_raw = before_q if before_q else ot.split("\n")[0].strip()
+            else:
+                q_title_raw = ot.split("\n")[0].strip()
+            if not q_title_raw:
+                q_title_raw = ft.strip().split("\n")[0].strip()
+            if not q_title_raw or q_title_raw in seen_titles:
+                continue
+            # 메타 페이지 제외
+            if self._is_meta_page(ft):
+                continue
+
+            # 첫 번째 테이블
+            table = page_tables[0]
+            if len(table) < 2:
+                continue
+
+            # 헤더 행(0): 선택지 컬럼명
+            header = [self._cell(c) for c in table[0]]
+
+            # 전체 행 찾기: '전체' 또는 '1,001' 포함하는 첫 번째 데이터 행
+            total_row = None
+            for row in table[1:]:
+                c0 = self._cell(row[0])
+                if c0 in ("전체", "전      체") or self._TOTAL_RE.search(c0):
+                    total_row = row
+                    break
+                # 전체 셀이 빈 경우 row[1]이 사례수인 경우
+                c1 = self._cell(row[1])
+                if re.match(r"[\d,]+$", c1) and not c0:
+                    total_row = row
+                    break
+
+            if total_row is None:
+                _logger.debug("[Gallup-Daily] p%d SKIP: 전체 행 없음", pg)
+                continue
+
+            # 사례수: col1(조사완료) 또는 col2(가중적용)
+            n_completed = extract_sample_count(self._cell(total_row[1]))
+            n_weighted = extract_sample_count(self._cell(total_row[2])) if len(total_row) > 2 else None
+
+            if n_completed is None:
+                _logger.debug("[Gallup-Daily] p%d SKIP: n_completed 없음", pg)
+                continue
+
+            # 선택지와 비율 추출 (col3부터, 마지막 '계' 전까지)
+            opt_start = 3
+            opt_end = len(header)
+            # 마지막 '없음 모름' or 응답거절 컬럼 detect (포함)
+            # '계' 컬럼 제외
+            if header and header[-1] in ("계", ""):
+                opt_end = len(header) - 1
+
+            options = []
+            percentages = []
+            for col_i in range(opt_start, opt_end):
+                if col_i >= len(header) or col_i >= len(total_row):
+                    break
+                opt_text = header[col_i]
+                pct_text = self._cell(total_row[col_i])
+                if not opt_text:
+                    continue
+                pct = self._parse_pct(pct_text.split("\n")[0])  # text_bundled → 첫 값(전체)
+                if pct is None:
+                    continue
+                options.append(opt_text)
+                percentages.append(pct)
+
+            if not options or not any(p > 0 for p in percentages):
+                _logger.debug("[Gallup-Daily] p%d SKIP: 비율 없음", pg)
+                continue
+
+            options, percentages = filter_summary_columns(
+                options, percentages, summary_patterns=DEFAULT_SUMMARY_PATTERNS
+            )
+            min_len = min(len(options), len(percentages))
+            if min_len == 0:
+                continue
+
+            seen_titles.add(q_title_raw)
+            _logger.debug(
+                "[Gallup-Daily] p%d OK: '%s' n=%d opts=%d",
+                pg, q_title_raw[:30], n_completed, min_len,
+            )
+            results.append(
+                QuestionResult(
+                    question_number=len(results) + 1,
+                    question_title=q_title_raw,
+                    question_text=q_title_raw,
+                    response_options=options[:min_len],
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=percentages[:min_len],
+                )
+            )
+
+        for i, r in enumerate(results):
+            r.question_number = i + 1
+        return results
+
+    def parse(self, pages_data) -> list["QuestionResult"]:
+        # 결과분석(데일리) 포맷 감지
+        if self._is_daily_format(pages_data):
+            _logger.debug("[Gallup] 데일리 오피니언 포맷 감지")
+            return self._parse_daily(pages_data)
+
+        # 통계표 / 결과집계표 포맷
+        results = []
+        for pg_idx, (outside_text, page_tables, full_text) in enumerate(pages_data):
+            pg = pg_idx + 1
+            ft = full_text or outside_text or ""
+
+            if not page_tables:
+                continue
+
+            if self._is_meta_page(ft):
+                _logger.debug("[Gallup] p%d SKIP: 메타 페이지", pg)
+                continue
+
+            # 테이블을 DataFrame으로 변환
+            table = page_tables[0]
+            if len(table) < 5:
+                _logger.debug("[Gallup] p%d SKIP: 테이블 행 %d개 (너무 적음)", pg, len(table))
+                continue
+
+            import pandas as pd
+            df = pd.DataFrame(table)
+
+            result = self._parse_stats_page(ft, df)
+            if result is not None:
+                results.append(result)
+
+        for i, r in enumerate(results):
+            r.question_number = i + 1
+        return results

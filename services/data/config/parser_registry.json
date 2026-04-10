@@ -1,5 +1,5 @@
 {
-  "version": "1.4",
+  "version": "1.5",
   "description": "조사기관별 파서 지정. 새 파서 추가 시: (1) parser.py에 PARSER_KEY 클래스 변수를 가진 클래스 작성, (2) 여기에 class/pollster_names 등록.",
   "parsers": {
     "table_format": {
@@ -101,6 +101,11 @@
       "class": "_KIRParser",
       "description": "(주)코리아정보리서치 크로스탭 파서 – 'N. 제목' outside_text 질문 마커, row[0]='합계'/'전체' 전체 행, 질문당 1페이지 1테이블, col4+ 개별 셀 비율",
       "pollster_names": ["(주)코리아정보리서치", "코리아정보리서치"]
+    },
+    "gallup_format": {
+      "class": "_GallupParser",
+      "description": "한국갤럽조사연구소 파서 – 통계표/결과집계표(1페이지 1테이블, full_text '표 N. 제목' 질문 마커, '■ 전      체 ■' 전체 행, col4+ 정수 비율)와 결과분석 데일리 오피니언(text_bundled) 두 포맷 처리",
+      "pollster_names": ["한국갤럽조사연구소", "(주)한국갤럽조사연구소"]
     }
   },
   "unparseable": {
