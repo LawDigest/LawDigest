@@ -1,5 +1,5 @@
 {
-  "version": "1.3",
+  "version": "1.4",
   "description": "조사기관별 파서 지정. 새 파서 추가 시: (1) parser.py에 PARSER_KEY 클래스 변수를 가진 클래스 작성, (2) 여기에 class/pollster_names 등록.",
   "parsers": {
     "table_format": {
@@ -96,6 +96,11 @@
       "class": "_FairPollParser",
       "description": "여론조사공정(주) 크로스탭 파서 – '【 표 N 】 제목' 질문 마커, row[1]=='전체' 전체 행, tables[0]=헤더/tables[1]=데이터, col4+ 개별 셀 비율, 질문당 2페이지 중복 제거",
       "pollster_names": ["여론조사공정(주)", "여론조사공정"]
+    },
+    "kir_format": {
+      "class": "_KIRParser",
+      "description": "(주)코리아정보리서치 크로스탭 파서 – 'N. 제목' outside_text 질문 마커, row[0]='합계'/'전체' 전체 행, 질문당 1페이지 1테이블, col4+ 개별 셀 비율",
+      "pollster_names": ["(주)코리아정보리서치", "코리아정보리서치"]
     }
   },
   "unparseable": {

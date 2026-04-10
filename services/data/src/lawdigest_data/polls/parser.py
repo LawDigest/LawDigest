@@ -3041,3 +3041,165 @@ class _FairPollParser(BaseTableParser):
         for i, r in enumerate(results):
             r.question_number = i + 1
         return results
+
+
+class _KIRParser:
+    """(주)코리아정보리서치 크로스탭 파서.
+
+    포맷 특성:
+      - 질문 제목: outside_text에 'N. 제목' 또는 'N번) ...' 형태
+      - 질문당 1페이지, 테이블 1개
+      - 헤더: row[0] — col0='구분', col1=None, col2='조사완료사례수', col3='가중값적용사례수',
+                        col4+= 선택지 (개행 → 공백 정규화)
+      - 전체 행: row[1] — col0='합계' 또는 '전체', col2=n완료, col3=n가중, col4+=비율
+      - 메타 컬럼: 4개 (구분, None, n완료, n가중)
+    """
+
+    PARSER_KEY = "_KIRParser"
+    TOTAL_MARKERS = frozenset({"합계", "전체"})
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS + (
+        re.compile(r"^계$"),
+    )
+    _META_PAGE_MARKERS = frozenset({"조사개요", "조사방법", "조사완료 응답자", "표본의 특성"})
+    _Q_TITLE_RE = re.compile(r"^\d+[.\)]\s*(.+?)(?:\n|$)", re.MULTILINE)
+    _WEIGHTED_KW = "가중값"
+    _N_KW = "사례수"
+
+    @staticmethod
+    def _extract_pct_cells(row: List, start_col: int, end_col: Optional[int] = None) -> List[float]:
+        """%를 포함한 셀에서 비율 값을 추출한다 (예: '47.0%' → 47.0)."""
+        result: List[float] = []
+        for cell in row[start_col:end_col]:
+            text = str(cell or "").strip().rstrip("%")
+            try:
+                v = float(text)
+            except ValueError:
+                continue
+            if 0.0 <= v <= 100.0:
+                result.append(v)
+        return result
+
+    def _detect_layout(self, header_row: List) -> Tuple[int, int, Optional[int]]:
+        """헤더 행을 분석하여 (완료사례수_col, 선택지_start_col, 가중값_col_or_None) 반환.
+
+        포맷 A: col0=구분, col1=None, col2=완료사례수, col3=가중값사례수, col4+=선택지
+        포맷 B: col0=구분, col1=None, col2=완료사례수, col3+=선택지, col[-1]=가중값사례수
+        """
+        # 헤더 셀을 정규화
+        cells = [re.sub(r"\s+", " ", str(c or "").strip()) for c in header_row]
+
+        # 마지막 컬럼에 '가중값' 키워드가 있으면 포맷 B
+        if cells and self._WEIGHTED_KW in cells[-1]:
+            # col2=완료사례수, col3~col[-2]=선택지, col[-1]=가중값
+            weighted_col = len(cells) - 1
+            return 2, 3, weighted_col
+
+        # 그 외 기본 포맷 A (col3=가중값, col4+=선택지)
+        return 2, 4, None
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+
+        for pg_idx, (outside_text, page_tables, _full_text) in enumerate(pages_data):
+            pg = pg_idx + 1  # 1-based 페이지 번호
+
+            if any(marker in outside_text for marker in self._META_PAGE_MARKERS):
+                _logger.debug("[KIR] p%d SKIP: 메타 페이지", pg)
+                continue
+            if len(page_tables) != 1:
+                _logger.debug("[KIR] p%d SKIP: 테이블 수=%d (1개여야 함)", pg, len(page_tables))
+                continue
+            table = page_tables[0]
+            if len(table) < 2:
+                _logger.debug("[KIR] p%d SKIP: 테이블 행 부족(%d행)", pg, len(table))
+                continue
+
+            title_match = self._Q_TITLE_RE.search(outside_text)
+            if title_match is None:
+                _logger.debug("[KIR] p%d SKIP: 질문 제목 미발견 (outside_text=%r)", pg, outside_text[:80])
+                continue
+            q_title = re.sub(r"\s+", " ", title_match.group(1)).strip()
+            if not q_title:
+                _logger.debug("[KIR] p%d SKIP: 질문 제목 빈 문자열", pg)
+                continue
+
+            header_row = table[0]
+            n_col, opt_start, weighted_col = self._detect_layout(header_row)
+            opt_end = weighted_col  # None이면 끝까지
+
+            options = [
+                re.sub(r"\s+", " ", str(c or "").strip())
+                for c in header_row[opt_start:opt_end]
+                if str(c or "").strip()
+            ]
+            if not options:
+                _logger.debug(
+                    "[KIR] p%d SKIP: 선택지 없음 (header=%r, opt_start=%d, opt_end=%s)",
+                    pg, header_row, opt_start, opt_end,
+                )
+                continue
+
+            total_row = None
+            for row in table[1:4]:
+                if str(row[0] or "").strip() in self.TOTAL_MARKERS:
+                    total_row = row
+                    break
+            if total_row is None:
+                _logger.debug(
+                    "[KIR] p%d SKIP: 전체 행 미발견 (row[0]들=%r)",
+                    pg, [str(r[0] or "").strip() for r in table[1:4]],
+                )
+                continue
+
+            n_completed = extract_sample_count(str(total_row[n_col] or ""))
+            if n_completed is None:
+                _logger.debug(
+                    "[KIR] p%d SKIP: n_completed 추출 실패 (total_row[%d]=%r)",
+                    pg, n_col, total_row[n_col],
+                )
+                continue
+            # 가중값 사례수: 포맷 A는 col3, 포맷 B는 마지막 컬럼
+            n_weighted: Optional[int] = None
+            if weighted_col is not None:
+                n_weighted = extract_sample_count(str(total_row[weighted_col] or ""))
+            else:
+                n_weighted = extract_sample_count(str(total_row[n_col + 1] or ""))
+
+            percentages = self._extract_pct_cells(total_row, start_col=opt_start, end_col=opt_end)
+            if not percentages:
+                _logger.debug(
+                    "[KIR] p%d SKIP: 비율 추출 실패 (total_row[%d:%s]=%r)",
+                    pg, opt_start, opt_end, total_row[opt_start:opt_end],
+                )
+                continue
+
+            options, percentages = filter_summary_columns(
+                options, percentages, summary_patterns=self.SUMMARY_PATS
+            )
+            min_len = min(len(options), len(percentages))
+            if min_len == 0:
+                _logger.debug(
+                    "[KIR] p%d SKIP: filter 후 options/pcts 길이 0 (options=%r, pcts=%r)",
+                    pg, options, percentages,
+                )
+                continue
+
+            _logger.debug(
+                "[KIR] p%d OK: q='%s' n=%s opts=%d pcts=%s",
+                pg, q_title, n_completed, len(options), percentages[:3],
+            )
+            results.append(
+                QuestionResult(
+                    question_number=len(results) + 1,
+                    question_title=q_title,
+                    question_text=q_title,
+                    response_options=options[:min_len],
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=percentages[:min_len],
+                )
+            )
+
+        for i, r in enumerate(results):
+            r.question_number = i + 1
+        return results
