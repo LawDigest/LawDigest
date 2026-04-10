@@ -131,6 +131,11 @@
       "class": "_EveryResearchParser",
       "description": "(주)에브리리서치 결과보고서 파서 – '5. 조사 결과' 섹션 감지, '\\nQN\\n' 질문 마커+다음 페이지 크로스탭, row[0][0]='구분'/row[0][2]='사례 수'/row[2][0]='전체', col4+ 선택지·비율, ①②③ 원문자 마커 제거",
       "pollster_names": ["(주)에브리리서치", "에브리리서치"]
+    },
+    "rnr_format": {
+      "class": "_RNRParser",
+      "description": "(주)알앤써치 결과보고서 파서 – '표N. 제목' 질문 마커, row[0][0]=None/row[1][4+]='%'/row[2][0]='전체' 크로스탭 식별, col4+ 선택지·비율, 연속 페이지 자동 스킵",
+      "pollster_names": ["(주)알앤써치", "알앤써치"]
     }
   },
   "unparseable": {
