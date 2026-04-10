@@ -126,6 +126,11 @@
       "class": "_VisionKoreaParser",
       "description": "(주)비전코리아 결과보고서 파서 – '제3장/조사결과집계표' 챕터 감지, 'QN. 제목' 질문 마커, 'Base=전체' 크로스탭 테이블, '■ 전 체 ■' 전체 행, col4+ '750\\n.'→75.0% 비율 포맷, ★집계컬럼 필터링",
       "pollster_names": ["(주)비전코리아", "비전코리아"]
+    },
+    "every_research_format": {
+      "class": "_EveryResearchParser",
+      "description": "(주)에브리리서치 결과보고서 파서 – '5. 조사 결과' 섹션 감지, '\\nQN\\n' 질문 마커+다음 페이지 크로스탭, row[0][0]='구분'/row[0][2]='사례 수'/row[2][0]='전체', col4+ 선택지·비율, ①②③ 원문자 마커 제거",
+      "pollster_names": ["(주)에브리리서치", "에브리리서치"]
     }
   },
   "unparseable": {

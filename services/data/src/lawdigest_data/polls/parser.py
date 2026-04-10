@@ -4152,3 +4152,135 @@ class _VisionKoreaParser:
                     break
 
         return sorted(results, key=lambda r: r.question_number)
+
+
+class _EveryResearchParser:
+    """(주)에브리리서치 결과보고서 PDF 파서.
+
+    포맷 특성:
+      - 섹션 구조: 5. 조사 결과 → 데이터, 6. 설문지 → 스킵
+      - Q마커 페이지: '\nQN\n' + 'N) 제목' 섹션 헤더 (테이블 없음)
+      - 데이터 테이블 페이지: 다음 페이지에 크로스탭 테이블
+      - 테이블 식별: row[0][0]='구분', row[0][2]='사례 수', row[2][0]='전체'
+      - N 형식: row[2][2]=조사완료, row[2][3]=가중값 적용 (정수 문자열)
+      - 비율 형식: row[2][4:] (소수점 1자리, e.g. '30.8')
+      - 선택지: row[0][4:] (①②③ 숫자 마커 제거)
+    """
+
+    PARSER_KEY = "_EveryResearchParser"
+    _Q_MARKER_RE = re.compile(r"\nQ(\d+)\n")
+    _SECTION_TITLE_RE = re.compile(r"\n\d+\)\s+(.+)\n")
+    _RESULTS_START_RE = re.compile(r"\n5\.\s+조사\s*결과")
+    _QUESTIONNAIRE_RE = re.compile(r"\n6\.\s+설문지")
+    _CIRCLED_NUM_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩]")
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS
+
+    @staticmethod
+    def _cell(val: object) -> str:
+        return (str(val) if val is not None else "").strip()
+
+    def _clean_option(self, raw: str) -> str:
+        """'\n①' 같은 줄바꿈·원문자 마커 제거 후 정리."""
+        raw = raw.replace("\n", " ")
+        raw = self._CIRCLED_NUM_RE.sub("", raw)
+        return " ".join(raw.split())
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_q: set = set()
+        in_results = False
+        pending_q: Optional[tuple] = None  # (q_num, q_title)
+
+        for _outside_text, page_tables, full_text in pages_data:
+            if not full_text:
+                continue
+
+            # 섹션 상태 갱신
+            if self._RESULTS_START_RE.search(full_text):
+                in_results = True
+            if self._QUESTIONNAIRE_RE.search(full_text):
+                in_results = False
+
+            if not in_results:
+                continue
+
+            # Q 마커 탐색 ('\nQN\n' 형식)
+            q_match = self._Q_MARKER_RE.search(full_text)
+            if q_match:
+                q_num = int(q_match.group(1))
+                # Q 마커 앞의 마지막 'N) 제목' 섹션 헤더를 제목으로 사용
+                titles = list(self._SECTION_TITLE_RE.finditer(full_text[:q_match.start()]))
+                q_title = titles[-1].group(1).strip() if titles else f"Q{q_num}"
+                if q_num not in seen_q:
+                    pending_q = (q_num, q_title)
+
+            # 데이터 테이블 탐색
+            if not page_tables or pending_q is None:
+                continue
+
+            q_num, q_title = pending_q
+            if q_num in seen_q:
+                pending_q = None
+                continue
+
+            for table in page_tables:
+                if not table or len(table) < 3:
+                    continue
+                row0 = table[0]
+                row2 = table[2]
+                if not row0 or not row2:
+                    continue
+                # 식별: row[0][0]='구분', row[0][2]='사례 수', row[2][0]='전체'
+                if self._cell(row0[0]) != "구분":
+                    continue
+                if "사례" not in self._cell(row0[2]):
+                    continue
+                if self._cell(row2[0]) != "전체":
+                    continue
+                if len(row0) < 5:
+                    continue
+
+                # N 추출
+                n_completed = extract_sample_count(self._cell(row2[2]) if len(row2) > 2 else "")
+                if n_completed is None:
+                    continue
+                n_weighted = extract_sample_count(self._cell(row2[3]) if len(row2) > 3 else "")
+
+                # 선택지·비율 추출 (col[4:])
+                options: List[str] = []
+                percentages: List[float] = []
+                for c in range(4, len(row0)):
+                    opt_raw = self._cell(row0[c] if c < len(row0) else None)
+                    opt = self._clean_option(opt_raw)
+                    pct_raw = self._cell(row2[c] if c < len(row2) else None)
+                    try:
+                        pct = float(pct_raw)
+                    except (ValueError, TypeError):
+                        continue
+                    if opt:
+                        options.append(opt)
+                        percentages.append(pct)
+
+                if not percentages:
+                    continue
+
+                options, percentages = filter_summary_columns(
+                    options, percentages, summary_patterns=self.SUMMARY_PATS
+                )
+                if not percentages:
+                    continue
+
+                results.append(QuestionResult(
+                    question_number=q_num,
+                    question_title=q_title,
+                    question_text=q_title,
+                    response_options=options,
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=percentages,
+                ))
+                seen_q.add(q_num)
+                pending_q = None
+                break
+
+        return sorted(results, key=lambda r: r.question_number)
