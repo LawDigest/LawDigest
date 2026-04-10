@@ -121,6 +121,11 @@
       "class": "_MonoCommunicationsParser",
       "description": "모노커뮤니케이션즈(모노리서치) 결과보고서 파서 – '[QN – 제목상세결과]' 질문 마커, row[1][0]=None 크로스탭 테이블, row[1][2]=N완료/row[1][-1]=N가중/row[1][3:-1]=비율",
       "pollster_names": ["모노커뮤니케이션즈(모노리서치)", "모노커뮤니케이션즈", "모노리서치"]
+    },
+    "vision_korea_format": {
+      "class": "_VisionKoreaParser",
+      "description": "(주)비전코리아 결과보고서 파서 – '제3장/조사결과집계표' 챕터 감지, 'QN. 제목' 질문 마커, 'Base=전체' 크로스탭 테이블, '■ 전 체 ■' 전체 행, col4+ '750\\n.'→75.0% 비율 포맷, ★집계컬럼 필터링",
+      "pollster_names": ["(주)비전코리아", "비전코리아"]
     }
   },
   "unparseable": {
