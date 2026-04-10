@@ -107,12 +107,17 @@ class ElectionWorkflowManager:
                 )
         else:
             # dry_run: 시도지사 예비후보만 샘플 조회
-            items = client.fetch(
-                "candidate", "getPoelpcddRegistSttusInfoInqire",
-                {"sgId": sg_id, "sgTypecode": "3"},
-            )
-            results = {"시도지사_예비후보_샘플": len(items), "dry_run": True}
-            logger.info("[dry_run] 시도지사 예비후보 %d건 조회 (DB 미반영)", len(items))
+            from lawdigest_data.elections.api_client import NecApiError
+            try:
+                items = client.fetch(
+                    "candidate", "getPoelpcddRegistSttusInfoInqire",
+                    {"sgId": sg_id, "sgTypecode": "3"},
+                )
+                results = {"시도지사_예비후보_샘플": len(items), "dry_run": True}
+                logger.info("[dry_run] 시도지사 예비후보 %d건 조회 (DB 미반영)", len(items))
+            except NecApiError:
+                results = {"예비후보자": 0, "dry_run": True, "note": "데이터 없음"}
+                logger.info("[dry_run] 예비후보자 데이터 없음")
 
         elapsed = round(monotonic() - t0, 3)
         result = {
@@ -141,12 +146,17 @@ class ElectionWorkflowManager:
             with get_session() as session:
                 results["당선인"] = winner_collector.collect_winners(session, sg_id)
         else:
-            items = client.fetch(
-                "winner", "getWinnerInfoInqire",
-                {"sgId": sg_id, "sgTypecode": "3"},
-            )
-            results = {"시도지사_당선인_샘플": len(items), "dry_run": True}
-            logger.info("[dry_run] 시도지사 당선인 %d건 조회 (DB 미반영)", len(items))
+            from lawdigest_data.elections.api_client import NecApiError
+            try:
+                items = client.fetch(
+                    "winner", "getWinnerInfoInqire",
+                    {"sgId": sg_id, "sgTypecode": "3"},
+                )
+                results = {"시도지사_당선인_샘플": len(items), "dry_run": True}
+                logger.info("[dry_run] 시도지사 당선인 %d건 조회 (DB 미반영)", len(items))
+            except NecApiError:
+                results = {"당선인": 0, "dry_run": True, "note": "데이터 없음 (선거 전)"}
+                logger.info("[dry_run] 당선인 데이터 없음 (선거 전)")
 
         elapsed = round(monotonic() - t0, 3)
         result = {
