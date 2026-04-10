@@ -4832,3 +4832,101 @@ class _UNMParser:
                 break
 
         return results
+
+
+class _DiOpinionParser:
+    """(주)디오피니언 결과보고서 PDF 파서.
+
+    포맷 특성:
+      - Q마커와 크로스탭 테이블이 같은 페이지
+      - 질문 마커: '[표N] 제목' (페이지 텍스트, 대괄호 형식)
+      - 테이블 식별: row[0][0]='' (빈 셀), row[1][0]='전 체'
+      - N 형식: row[1][2], row[1][3] (정수 문자열)
+      - 비율 형식: row[1][4:] (소수점 1자리 문자열)
+      - 선택지: row[0][4:]
+    """
+
+    PARSER_KEY = "_DiOpinionParser"
+    _TABLE_TITLE_RE = re.compile(r"\[표(\d+)\]\s*(.+?)(?:\n|$)")
+    _TOTAL_MARKER = "전 체"
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS
+
+    @staticmethod
+    def _cell(val: object) -> str:
+        return (str(val) if val is not None else "").strip()
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_q: set = set()
+
+        for _outside_text, page_tables, full_text in pages_data:
+            if not full_text or not page_tables:
+                continue
+
+            # '[표N] 제목' 마커 탐색
+            title_match = self._TABLE_TITLE_RE.search(full_text)
+            if not title_match:
+                continue
+
+            q_num = int(title_match.group(1))
+            q_title = " ".join(title_match.group(2).strip().split())
+
+            if q_num in seen_q:
+                continue
+
+            for table in page_tables:
+                if not table or len(table) < 2:
+                    continue
+                row0 = table[0]
+                row1 = table[1]
+                if not row0 or not row1:
+                    continue
+                # 테이블 식별: row[1][0]='전 체'
+                if self._cell(row1[0]) != self._TOTAL_MARKER:
+                    continue
+                if len(row0) < 5:
+                    continue
+
+                # N 추출
+                n_completed = extract_sample_count(self._cell(row1[2]) if len(row1) > 2 else "")
+                if n_completed is None:
+                    continue
+                n_weighted = extract_sample_count(self._cell(row1[3]) if len(row1) > 3 else "")
+
+                # 선택지·비율 추출 (col[4:])
+                options: List[str] = []
+                percentages: List[float] = []
+                for c in range(4, len(row0)):
+                    opt_raw = self._cell(row0[c] if c < len(row0) else None)
+                    opt = " ".join(opt_raw.replace("\n", " ").split())
+                    pct_raw = self._cell(row1[c] if c < len(row1) else None)
+                    try:
+                        pct = float(pct_raw)
+                    except (ValueError, TypeError):
+                        continue
+                    if opt:
+                        options.append(opt)
+                        percentages.append(pct)
+
+                if not percentages:
+                    continue
+
+                options, percentages = filter_summary_columns(
+                    options, percentages, summary_patterns=self.SUMMARY_PATS
+                )
+                if not percentages:
+                    continue
+
+                results.append(QuestionResult(
+                    question_number=q_num,
+                    question_title=q_title,
+                    question_text=q_title,
+                    response_options=options,
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=percentages,
+                ))
+                seen_q.add(q_num)
+                break
+
+        return sorted(results, key=lambda r: r.question_number)
