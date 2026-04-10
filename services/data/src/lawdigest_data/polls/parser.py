@@ -3266,7 +3266,6 @@ class _GallupParser:
         return None
 
     def _is_meta_page(self, full_text: str) -> bool:
-        first_line = full_text.split("\n", 3)[1] if "\n" in full_text else full_text[:50]
         return any(marker in full_text[:300] for marker in self._META_MARKERS)
 
     def _find_total_row(self, df) -> Optional[int]:
@@ -3539,6 +3538,210 @@ class _GallupParser:
             result = self._parse_stats_page(ft, df)
             if result is not None:
                 results.append(result)
+
+        for i, r in enumerate(results):
+            r.question_number = i + 1
+        return results
+
+
+class _InnertecParser:
+    """(주)이너텍시스템즈 크로스탭 PDF 파서.
+
+    포맷 특성:
+      - 챕터 4 (교차분석통계표)에서만 파싱 (챕터 3은 도표+크로스탭 혼재로 스킵)
+      - 각 페이지 = 1 질문 (1 문항 × 1 페이지)
+      - 질문 제목: 3행짜리 소형 heading 테이블의 row[1][1] 'N. 제목' 패턴
+      - 교차분석 테이블 구조:
+          row 0    : 빈 행
+          row 1    : 질문 텍스트 (col2, 병합)
+          row 2    : 빈 행
+          row[조사완료] : col2='조사완료', 마지막 열='가중값적용'
+          row[조사완료+1]: col3~N-2 = 선택지 이름 (row[조사완료+2]: 이름 suffix)
+          row[조사완료+2]: col2='사례수', 마지막 열='사례수'
+          '합 계' 행  : col0='합 계', col2=N완료, col3~N-2=%비율, col[-1]=N가중
+      - META_COLS = 3 (col0: 구분, col1: 세부, col2: N_completed)
+    """
+
+    PARSER_KEY = "_InnertecParser"
+    # '제 N 장. 교차분석통계표' 형태만 매칭 (TOC의 '4. 교차분석통계표'는 제외)
+    _CHAP4_RE = re.compile(r"제\s*\d+\s*장[\.\s]*교차분석통계표")
+    _Q_TITLE_RE = re.compile(r"^(\d+)\.\s+(.{2,50})$")
+    _TOTAL_RE = re.compile(r"^합\s*계$")
+    _META_PAGE_RE = re.compile(r"조사의\s*개요|표본의\s*특성|피조사자\s*접촉현황|설문\s*지|질문지")
+
+    @staticmethod
+    def _cell(val: object) -> str:
+        return (val or "").strip() if val is not None else ""
+
+    def _find_crosstab_table(self, page_tables: List) -> Optional[List]:
+        """페이지 테이블 목록에서 교차분석 테이블(대형, ≥10행 ≥8열)을 찾는다."""
+        for t in page_tables:
+            if len(t) >= 10 and t[0] is not None and len(t[0]) >= 8:
+                return t
+        return None
+
+    def _extract_question_title(self, page_tables: List) -> Optional[tuple]:
+        """3행짜리 소형 heading 테이블에서 (question_number, title) 추출."""
+        for t in page_tables:
+            if len(t) != 3:
+                continue
+            row1 = t[1]
+            for cell in row1:
+                if not cell:
+                    continue
+                m = self._Q_TITLE_RE.match(cell.strip())
+                if m and "장" not in m.group(2) and "교차분석" not in m.group(2):
+                    return int(m.group(1)), m.group(2).strip()
+        return None
+
+    def _find_조사완료_row_idx(self, table: List) -> Optional[int]:
+        """'조사완료'가 있는 헤더 행 인덱스를 반환한다."""
+        for i, row in enumerate(table):
+            if any(cell and "조사완료" in cell for cell in (row or [])):
+                return i
+        return None
+
+    def _build_options(self, table: List, header_start: int) -> tuple:
+        """헤더 행(3행) 기반으로 (options, data_col_end) 반환.
+
+        Returns:
+            options: 선택지 이름 목록 (col3 ~ data_col_end)
+            data_col_end: 마지막 데이터 컬럼 인덱스 (inclusive)
+        """
+        header_rows = table[header_start:header_start + 3]
+        n_cols = max(len(r) for r in header_rows if r) if header_rows else 0
+
+        # 마지막 '사례수' 컬럼(=N_weighted)을 제외하기 위해 우측부터 탐색
+        data_col_end = n_cols - 1
+        for row in header_rows:
+            for c_i in range(n_cols - 1, 2, -1):
+                if row and c_i < len(row) and row[c_i] and "사례수" in row[c_i]:
+                    data_col_end = c_i - 1
+                    break
+
+        META_COLS = 3  # col0: 구분1, col1: 구분2, col2: N_completed
+        options: List[str] = []
+        for col_i in range(META_COLS, data_col_end + 1):
+            parts = []
+            for row in header_rows:
+                if not row or col_i >= len(row):
+                    continue
+                val = self._cell(row[col_i])
+                if val and val not in ("%",):
+                    parts.append(val)
+            options.append(" ".join(parts) if parts else f"선택지{col_i - META_COLS + 1}")
+
+        return options, data_col_end
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        in_chap4 = False
+
+        for pg_idx, (outside_text, page_tables, full_text) in enumerate(pages_data):
+            pg = pg_idx + 1
+            ft = full_text or outside_text or ""
+
+            # 챕터 4 시작 감지
+            if self._CHAP4_RE.search(ft):
+                in_chap4 = True
+
+            if not in_chap4:
+                continue
+
+            if not page_tables:
+                _logger.debug("[Innertec] p%d SKIP: 테이블 없음", pg)
+                continue
+
+            # 메타 페이지 스킵
+            if self._META_PAGE_RE.search(ft):
+                _logger.debug("[Innertec] p%d SKIP: 메타 페이지", pg)
+                continue
+
+            # 교차분석 테이블 찾기
+            crosstab = self._find_crosstab_table(page_tables)
+            if crosstab is None:
+                _logger.debug("[Innertec] p%d SKIP: 교차분석 테이블 없음 (%d개 테이블)", pg, len(page_tables))
+                continue
+
+            # 질문 제목 추출 (소형 heading 테이블)
+            q_info = self._extract_question_title(page_tables)
+            if q_info is None:
+                _logger.debug("[Innertec] p%d SKIP: 질문 제목 없음", pg)
+                continue
+            q_num, q_title = q_info
+
+            # 헤더 행 ('조사완료' 포함 행) 위치
+            header_idx = self._find_조사완료_row_idx(crosstab)
+            if header_idx is None:
+                _logger.debug("[Innertec] p%d SKIP: 조사완료 헤더 없음", pg)
+                continue
+
+            # 선택지 및 데이터 컬럼 범위
+            options, data_col_end = self._build_options(crosstab, header_idx)
+            if not options:
+                _logger.debug("[Innertec] p%d SKIP: 선택지 추출 실패", pg)
+                continue
+
+            # '합 계' 데이터 행 탐색
+            total_row: Optional[List] = None
+            for row in crosstab[header_idx + 3:]:
+                if row and self._TOTAL_RE.match(self._cell(row[0])):
+                    total_row = row
+                    break
+
+            if total_row is None:
+                _logger.debug("[Innertec] p%d SKIP: 합 계 행 없음", pg)
+                continue
+
+            # N_completed (col2)
+            n_completed = extract_sample_count(self._cell(total_row[2]) if len(total_row) > 2 else "")
+            if n_completed is None:
+                _logger.debug("[Innertec] p%d SKIP: N_completed 추출 실패", pg)
+                continue
+
+            # N_weighted (data_col_end+1)
+            n_weighted: Optional[int] = None
+            n_w_idx = data_col_end + 1
+            if n_w_idx < len(total_row):
+                n_weighted = extract_sample_count(self._cell(total_row[n_w_idx]))
+
+            # 비율 추출 (col3 ~ data_col_end)
+            META_COLS = 3
+            percentages: List[float] = []
+            for col_i in range(META_COLS, data_col_end + 1):
+                if col_i >= len(total_row):
+                    break
+                raw = self._cell(total_row[col_i])
+                # "XX.X%" 또는 "XX.X" 형태 허용
+                pct_m = re.match(r"(\d{1,3}(?:\.\d+)?)\s*%?$", raw)
+                if pct_m:
+                    percentages.append(float(pct_m.group(1)))
+
+            if not percentages:
+                _logger.debug("[Innertec] p%d SKIP: 비율 없음", pg)
+                continue
+
+            options, percentages = filter_summary_columns(
+                options, percentages, summary_patterns=DEFAULT_SUMMARY_PATTERNS
+            )
+            min_len = min(len(options), len(percentages))
+            if min_len == 0:
+                _logger.debug("[Innertec] p%d SKIP: filter 후 0건", pg)
+                continue
+
+            _logger.debug(
+                "[Innertec] p%d OK: Q%d '%s' n=%d opts=%d pcts=%s",
+                pg, q_num, q_title[:20], n_completed, min_len, percentages[:3],
+            )
+            results.append(QuestionResult(
+                question_number=q_num,
+                question_title=q_title,
+                question_text=q_title,
+                response_options=options[:min_len],
+                overall_n_completed=n_completed,
+                overall_n_weighted=n_weighted,
+                overall_percentages=percentages[:min_len],
+            ))
 
         for i, r in enumerate(results):
             r.question_number = i + 1
