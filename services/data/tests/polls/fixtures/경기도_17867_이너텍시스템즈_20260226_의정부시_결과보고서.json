@@ -1,0 +1,115 @@
+{
+  "pollster": "(주)이너텍시스템즈",
+  "pdf_filename": "경기도_17867_이너텍시스템즈_20260226-의정부시-결과보고서.pdf",
+  "parsed_at": "2026-04-10T05:52:46.808464+00:00",
+  "elapsed_seconds": 6.0,
+  "question_count": 4,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_title": "선생님께서는 다음 중 어느 정당을 지지하십니까? 호명순서는 정당의 국회의원 의석순입니다.",
+      "question_text": "선생님께서는 다음 중 어느 정당을 지지하십니까? 호명순서는 정당의 국회의원 의석순입니다.",
+      "response_options": [
+        "더불어민주당",
+        "국민의힘",
+        "조국혁신당",
+        "진보당",
+        "개혁신당",
+        "기타정당",
+        "없다",
+        "응답싫음"
+      ],
+      "overall_n_completed": 501,
+      "overall_n_weighted": 501,
+      "overall_percentages": [
+        52.7,
+        29.1,
+        1.0,
+        1.0,
+        1.7,
+        1.6,
+        9.9,
+        3.1
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "선생님께서는 다음 중 차기 의정부시장으로 누가 가장 적합하다고 생각하십니까? (로테이션 호명)",
+      "question_text": "선생님께서는 다음 중 차기 의정부시장으로 누가 가장 적합하다고 생각하십니까? (로테이션 호명)",
+      "response_options": [
+        "김동근",
+        "김원기",
+        "박성복",
+        "심화섭",
+        "안병용",
+        "임호석",
+        "정진호",
+        "기타인물",
+        "없다",
+        "잘모름"
+      ],
+      "overall_n_completed": 501,
+      "overall_n_weighted": 501,
+      "overall_percentages": [
+        30.2,
+        8.8,
+        3.0,
+        13.5,
+        12.3,
+        4.0,
+        3.7,
+        0.5,
+        6.6,
+        17.3
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "그럼, 더불어민주당 의정부시장 후보로 누가 가장 적합하다고 생각하십니까?(로테이션 호명)",
+      "question_text": "그럼, 더불어민주당 의정부시장 후보로 누가 가장 적합하다고 생각하십니까?(로테이션 호명)",
+      "response_options": [
+        "김원기",
+        "심화섭",
+        "안병용",
+        "정진호",
+        "기타인물",
+        "적합인물없다",
+        "잘모름"
+      ],
+      "overall_n_completed": 501,
+      "overall_n_weighted": 501,
+      "overall_percentages": [
+        13.6,
+        15.6,
+        20.8,
+        8.5,
+        5.8,
+        16.6,
+        19.1
+      ]
+    },
+    {
+      "question_number": 4,
+      "question_title": "마지막으로, 국민의힘 의정부시장 후보로 누가 가장 적합하다고 생각하십니까? (로테이션 호명)",
+      "question_text": "마지막으로, 국민의힘 의정부시장 후보로 누가 가장 적합하다고 생각하십니까? (로테이션 호명)",
+      "response_options": [
+        "김동근",
+        "박성복",
+        "임호석",
+        "기타인물",
+        "적합인물없다",
+        "잘모름"
+      ],
+      "overall_n_completed": 501,
+      "overall_n_weighted": 501,
+      "overall_percentages": [
+        38.6,
+        9.1,
+        12.5,
+        3.4,
+        24.0,
+        12.4
+      ]
+    }
+  ]
+}

@@ -3543,3 +3543,138 @@ class _GallupParser:
         for i, r in enumerate(results):
             r.question_number = i + 1
         return results
+
+
+class _InnertecParser(BaseTableParser):
+    """이너텍시스템즈 크로스탭 파서.
+
+    포맷 특성:
+      - 문서 구성: 3장(문항별 요약·도표) + 4장(교차분석통계표) + 5장(설문지)
+      - 파싱 대상: 4장 교차분석통계표의 각 질문 테이블
+      - 질문 테이블 식별: row[6] col[0] == '합 계'
+      - 헤더 구조: row[3] col[3+] = 선택지 (row[4]에 세부 선택지 있으면 병합)
+      - 전체 행: row[6], col[2]=조사완료 사례수, col[3+]='XX.X%' 비율, 마지막 col=가중값사례수(제외)
+      - 질문 텍스트: row[0] col[2] (테이블 내장)
+      - 비율 형식: '30.2%' — % 기호 포함 문자열
+    """
+
+    PARSER_KEY = "_InnertecParser"
+
+    # '합 계' 행 위치 (0-indexed): 헤더 6행(0~5) + 데이터 시작
+    _TOTAL_ROW_IDX = 6
+    # 선택지 시작 컬럼: col0=구분, col1=세부, col2=사례수, col3+=선택지
+    _CHOICE_START = 3
+    # 마지막 컬럼은 가중값 사례수 → 제외
+    _CHOICE_END_OFFSET = -1
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_titles: set = set()
+
+        for _outside_text, page_tables, _full_text in pages_data:
+            for table in page_tables:
+                result = self._parse_table(table, len(results) + 1, seen_titles)
+                if result is not None:
+                    results.append(result)
+
+        for i, r in enumerate(results):
+            r.question_number = i + 1
+        return results
+
+    def _parse_table(
+        self,
+        table: List,
+        fallback_q_num: int,
+        seen_titles: set,
+    ) -> Optional[QuestionResult]:
+        if not table or len(table) <= self._TOTAL_ROW_IDX:
+            return None
+
+        # 전체 행 식별: row[6] col[0] == '합 계'
+        total_row = table[self._TOTAL_ROW_IDX]
+        if str(total_row[0] or "").strip() != "합 계":
+            return None
+
+        # 질문 텍스트: row[0] col[2]
+        q_text = str(table[0][2] or "").strip() if len(table[0]) > 2 else ""
+        q_text = re.sub(r"\s+", " ", q_text)
+
+        # 중복 질문 스킵
+        if q_text and q_text in seen_titles:
+            return None
+
+        # 사례수: col[2]
+        if len(total_row) < self._CHOICE_START + 1:
+            return None
+        n_completed = extract_sample_count(str(total_row[2] or ""))
+
+        # 선택지: row[3]~row[5] 범위에서 각 컬럼별로 비어있지 않은 첫 값을 사용
+        # row[3]: 상위 그룹명(예: '지지정당', '잘모름/'), row[4]: 개별 선택지, row[5]: 세부 보완
+        header_rows = [table[i] for i in range(3, min(6, len(table)))]
+
+        end_col = len(total_row) + self._CHOICE_END_OFFSET  # 가중값 사례수 열 제외
+        options: List[str] = []
+        for col_i in range(self._CHOICE_START, end_col):
+            cell = ""
+            # row[4] 우선 (개별 선택지), 없으면 row[3], row[5] 순으로 보완
+            priority = [1, 0, 2]  # row[4], row[3], row[5] 순서
+            for hr_idx in priority:
+                if hr_idx >= len(header_rows):
+                    continue
+                hr = header_rows[hr_idx]
+                val = str(hr[col_i] if col_i < len(hr) else "").strip()
+                if val and val.lower() != "none":
+                    cell = val
+                    break
+            options.append(cell)
+
+        # 비율: 'XX.X%' 형식, col[3...-1]
+        percentages: List[float] = []
+        for col_i in range(self._CHOICE_START, end_col):
+            raw = str(total_row[col_i] if col_i < len(total_row) else "").strip()
+            pct = self._parse_pct_str(raw)
+            percentages.append(pct if pct is not None else 0.0)
+
+        if not percentages or not any(p > 0 for p in percentages):
+            return None
+
+        # 선택지-비율 길이 정렬
+        min_len = min(len(options), len(percentages))
+        if min_len == 0:
+            return None
+        options = options[:min_len]
+        percentages = percentages[:min_len]
+
+        options, percentages = filter_summary_columns(
+            options, percentages, summary_patterns=DEFAULT_SUMMARY_PATTERNS
+        )
+        if not options:
+            return None
+
+        # 가중값 사례수: 마지막 컬럼
+        last_col = len(total_row) - 1
+        n_weighted = (
+            extract_sample_count(str(total_row[last_col] or ""))
+            if last_col >= 0 else n_completed
+        )
+
+        if q_text:
+            seen_titles.add(q_text)
+
+        return QuestionResult(
+            question_number=fallback_q_num,
+            question_title=q_text,
+            question_text=q_text,
+            response_options=options,
+            overall_n_completed=n_completed,
+            overall_n_weighted=n_weighted,
+            overall_percentages=percentages,
+        )
+
+    @staticmethod
+    def _parse_pct_str(text: str) -> Optional[float]:
+        """'30.2%' 형식 문자열에서 float 추출. 실패 시 None."""
+        m = re.search(r"(\d+(?:\.\d+)?)\s*%", text)
+        if m:
+            return float(m.group(1))
+        return None

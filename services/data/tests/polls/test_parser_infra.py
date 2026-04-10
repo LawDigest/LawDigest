@@ -68,6 +68,9 @@ class TestBuildParserKeyMap:
             "_MediaTomatoParser",
             "_KSOIParser",
             "_FairPollParser",
+            "_KIRParser",
+            "_GallupParser",
+            "_InnertecParser",
         }
         assert expected_keys == set(key_map.keys())
 
@@ -175,7 +178,7 @@ class TestPollResultParserRegistry:
     def test_load_from_default_registry(self):
         """기본 경로의 parser_registry.json에서 모든 파서가 로드된다."""
         parser = PollResultParser()
-        assert len(parser._registry) == 19  # 현재 등록된 파서 수
+        assert len(parser._registry) == 22  # 현재 등록된 파서 수
 
     def test_all_pollsters_registered(self):
         parser = PollResultParser()
@@ -219,6 +222,15 @@ class TestPollResultParserRegistry:
             # 여론조사공정
             "여론조사공정(주)",
             "여론조사공정",
+            # 코리아정보리서치
+            "(주)코리아정보리서치",
+            "코리아정보리서치",
+            # 한국갤럽
+            "한국갤럽조사연구소",
+            "(주)한국갤럽조사연구소",
+            # 이너텍시스템즈
+            "(주)이너텍시스템즈",
+            "이너텍시스템즈",
         }
         assert expected == all_keywords
 
