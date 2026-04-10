@@ -314,6 +314,27 @@ python scripts/dev/generate_parser_fixtures.py --pollster "한길리서치" --fo
 
 ---
 
+### `check_pdfs.py` — PDF 존재 여부 확인
+
+다운로드가 완료된 PDF 파일의 상태(파일 존재 여부, 손상 여부 등)를 점검한다.
+`download_pdfs.py` 실행 후 누락된 파일이 없는지 확인할 때 사용한다.
+
+```bash
+# 기본 (첫 번째 타겟)
+python scripts/polls/check_pdfs.py
+
+# 특정 타겟
+python scripts/polls/check_pdfs.py --target gyeonggi_governor_9th
+```
+
+**옵션:**
+
+| 옵션 | 설명 |
+|------|------|
+| `--target SLUG` | 확인할 타겟 slug. 미지정 시 첫 번째 타겟 사용 |
+
+---
+
 ## 파서 개발 단계별 절차
 
 ### 0단계: 대상 PDF 확보
