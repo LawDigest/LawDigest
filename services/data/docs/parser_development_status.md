@@ -10,14 +10,14 @@
 
 | 상태 | 기관 수 | PDF 건수 | 비율 |
 |------|---------|---------|------|
-| ✅ 파서 대응 완료 | 26 | 963 | 73.3% |
-| ❌ 파서 미개발 | 19 | 292 | 22.2% |
+| ✅ 파서 대응 완료 | 40 | 1,245 | 94.8% |
+| ❌ 파서 미개발 | 5 | 10 | 0.8% |
 | ⛔ 구조적 파싱 불가 | 1 | 58 | 4.4% |
 | **합계** | **46** | **1,313** | |
 
 ---
 
-## 1. 파서 대응 완료 (26개 기관, 963건)
+## 1. 파서 대응 완료 (40개 기관, 1,245건)
 
 | 조사기관 | 파서 클래스 | 건수 | 주요 지역 | 기술 특이사항 |
 |---------|-----------|------|----------|-------------|
@@ -46,46 +46,34 @@
 | 한국갤럽조사연구소 | `_GallupParser` | 73 | 강원, 경기, 경남, 광주 외 4개 | 통계표/결과집계표(`표 N. 제목`, `■ 전      체 ■`) + 결과분석 데일리(text_bundled) 두 포맷 자동 감지 |
 | (주)한국갤럽조사연구소 | `_GallupParser` | 1 | 경남 | `_GallupParser` 별칭 공유 (별개 법인 여부 무관하게 동일 포맷) |
 | 넥스트리서치 | `_NextResearchParser` | 2 | 경기도 | `■ 표N.` 질문 마커, `[전체]` 마커, col4+ 개별 셀 |
+| (주)이너텍시스템즈 | `_InnertecParser` | 54 | 강원, 경기, 경남, 경북 외 5개 | 챕터 4(교차분석통계표) 전용, 3행 heading 테이블, `N. 제목` 마커, `합 계` 전체 행, col3~N-2 비율 |
+| (주)리서치뷰 | `_ResearchViewParser` | 46 | 경기, 광주, 서울, 전국 외 3개 | 1질문 1페이지 1테이블, `N. 제목(%)` 마커, row[2][0]='전 체', col4+ 선택지 비율 |
+| 모노커뮤니케이션즈(모노리서치) | `_MonoCommunicationsParser` | 38 | 경기, 경남, 경북, 서울 외 2개 | `[QN – 제목상세결과]` 마커, row[1][0]=None 크로스탭, 완료/가중/비율 동적 위치 |
+| (주)비전코리아 | `_VisionKoreaParser` | 34 | 강원, 경기, 경남, 경북 외 6개 | 챕터 감지, `QN. 제목`+`Base=전체` 크로스탭, `750\n.`→75.0% 비율 포맷, ★컬럼 필터링 |
+| (주)에브리리서치 | `_EveryResearchParser` | 31 | 경기, 경북, 대구, 서울 외 1개 | `\nQN\n` 마커+다음 페이지 크로스탭, row[0][0]='구분', ①②③ 원문자 마커 제거 |
+| (주)알앤써치 | `_RNRParser` | 23 | 경기, 경남, 경북, 광주 외 5개 | `표N. 제목` 마커, row[0][0]=None/row[1][4+]='%'/row[2][0]='전체', 연속 페이지 자동 스킵 |
+| 리서치웰 | `_ResearchwelParser` | 14 | 경북, 대구, 전국, 충남 | `【표N[-N]?】 제목` 마커, row[1][0]='전 체', col4+ 비율 |
+| 한국정책연구원 | `_KPRIParser` | 12 | 광주, 전남, 전북 | 포맷A(2025: `【표N】`+`전 체`) / 포맷B(2026: `[그림N]`+다음페이지+`%`접미사) 자동 분기 |
+| (주)유앤미리서치 | `_UNMParser` | 11 | 강원, 경기, 경남, 전남 외 2개 | `문. 제목` 마커, `전\s*체\s*▣` 동적 전체 행 탐색, 순차 질문 번호 |
+| KPO리서치 | `_KPOParser` | 11 | 경북, 대구 | `Q\d+\.` 마커, row[0][0]='구분'/row[2][0]='전체', col4+ 비율 |
+| (주)디오피니언 | `_DiOpinionParser` | 4 | 경기, 전북 | `[표N] 제목` 마커(대괄호), row[1][0]='전 체', col4+ 비율 |
+| 미디어리서치 | `_MediaResearchParser` | 1 | 전북 | `(문 N) 제목` 마커, `■ 전체 ■` 동적 전체 행, col4+ 비율 |
+| (주)우리리서치 | `_UriResearchParser` | 1 | 광주 | `표N. 제목` 마커, row[1][0]='전 체', col4+ 비율 |
+| (주)경남통계리서치 | `_GyeongnamStatParser` | 2 | 경남 | `[ N. ] 질문)` 이중 마커, row[2][0]='전체', col4+ 비율 |
 
 ---
 
-## 2. 파서 미개발 (19개 기관, 292건)
+## 2. 파서 미개발 (5개 기관, 10건)
 
-우선순위는 건수 기준. Phase 1(50건+)→ Phase 2(20~49건)→ Phase 3(20건 미만) 순으로 개발한다.
+대부분의 기관에 대해 파서 개발이 완료되었으며, 아래 소규모 기관들은 포맷 복잡성 또는 PDF 접근 어려움으로 미개발 상태이다.
 
-### Phase 1 — 즉시 개발 대상 (건수 50건 이상)
-
-| 조사기관 | 건수 | 주요 지역 | 개발 상태 |
-|---------|------|----------|----------|
-| (주)이너텍시스템즈 | 54 | 강원, 경기, 경남, 경북 외 5개 | 🔲 미개발 |
-
-### Phase 2 — 단기 개발 대상 (20~49건)
-
-| 조사기관 | 건수 | 주요 지역 | 개발 상태 |
-|---------|------|----------|----------|
-| (주)리서치뷰 | 46 | 경기, 광주, 서울, 전국 외 3개 | 🔲 미개발 |
-| 모노커뮤니케이션즈(모노리서치) | 38 | 경기, 경남, 경북, 서울 외 2개 | 🔲 미개발 |
-| (주)비전코리아 | 34 | 강원, 경기, 경남, 경북 외 6개 | 🔲 미개발 |
-| (주)에브리리서치 | 31 | 경기, 경북, 대구, 서울 외 1개 | 🔲 미개발 |
-| (주)알앤써치 | 23 | 경기, 경남, 경북, 광주 외 5개 | 🔲 미개발 |
-
-### Phase 3 — 중기 개발 대상 (20건 미만)
-
-| 조사기관 | 건수 | 주요 지역 | 개발 상태 |
-|---------|------|----------|----------|
-| 리서치웰 | 14 | 경북, 대구, 전국, 충남 | 🔲 미개발 |
-| 한국정책연구원 | 12 | 광주, 전남, 전북 | 🔲 미개발 |
-| (주)유앤미리서치 | 11 | 강원, 경기, 경남, 전남 외 2개 | 🔲 미개발 |
-| KPO리서치 | 11 | 경북, 대구 | 🔲 미개발 |
-| (주)디오피니언 | 4 | 경기, 전북 | 🔲 미개발 |
-| 리서치제이 | 3 | 서울, 전남, 충북 | 🔲 미개발 |
-| 서던포스트 | 2 | 경남, 부산 | 🔲 미개발 |
-| 주식회사 한민리서치 | 2 | 전국, 충남 | 🔲 미개발 |
-| (주)피앰아이 | 2 | 전국 | 🔲 미개발 |
-| (주)경남통계리서치 | 2 | 경남 | 🔲 미개발 |
-| 미디어리서치 | 1 | 전북 | 🔲 미개발 |
-| (주)아이소프트뱅크 | 1 | 경남 | 🔲 미개발 |
-| (주)우리리서치 | 1 | 광주 | 🔲 미개발 |
+| 조사기관 | 건수 | 주요 지역 | 미개발 사유 |
+|---------|------|----------|------------|
+| 리서치제이 | 3 | 서울, 전남, 충북 | 포맷 분석 미완료 |
+| 서던포스트 | 2 | 경남, 부산 | 비표준 다중 선택지 포맷 |
+| 주식회사 한민리서치 | 2 | 전국, 충남 | 포맷 분석 미완료 |
+| (주)피앰아이 | 2 | 전국 | 포맷 분석 미완료 |
+| (주)아이소프트뱅크 | 1 | 경남 | 포맷 분석 미완료 |
 
 ---
 
@@ -129,26 +117,41 @@
 
 ```
 PollResultParser
-├── _TableFormatParser        ✅ — 조원씨앤아이, 메타보이스, 메타서치
-├── _DailyResearchParser      ✅ — 데일리리서치
-├── _RealMeterParser          ✅ — 리얼미터
-├── _KoreanResearchParser     ✅ — 한국리서치
-├── _SignalPulseParser        ✅ — 시그널앤펄스
-├── _EmbrainPublicParser      ✅ — 엠브레인퍼블릭
-├── _FlowerResearchParser     ✅ — 여론조사꽃 (GID 디코딩)
-├── _WinjiKoreaParser         ✅ — 윈지코리아컨설팅
-├── _ResearchAndResearchParser✅ — 리서치앤리서치
-├── _HangilResearchParser     ✅ — 한길리서치
-├── _NextResearchParser       ✅ — 넥스트리서치
-├── _STIParser                ✅ — 에스티아이
-├── _IpsosParser              ✅ — 입소스 (NEEDS_FITZ_WORDS)
-├── _KStatResearchParser      ✅ — 케이스탯리서치, 케이스탯컨설팅
-├── _AceResearchParser        ✅ — 에이스리서치
-├── _KopraParser              ✅ — KOPRA
-├── _MediaTomatoParser        ✅ — 미디어토마토
-├── _KSOIParser               ✅ — 케이에스오아이(한국사회여론연구소)
-├── _FairPollParser           ✅ — 여론조사공정(주)
-└── _KIRParser                ✅ — 코리아정보리서치
+├── _TableFormatParser           ✅ — 조원씨앤아이, 메타보이스, 메타서치
+├── _DailyResearchParser         ✅ — 데일리리서치
+├── _RealMeterParser             ✅ — 리얼미터
+├── _KoreanResearchParser        ✅ — 한국리서치
+├── _SignalPulseParser           ✅ — 시그널앤펄스
+├── _EmbrainPublicParser         ✅ — 엠브레인퍼블릭
+├── _FlowerResearchParser        ✅ — 여론조사꽃 (GID 디코딩)
+├── _WinjiKoreaParser            ✅ — 윈지코리아컨설팅
+├── _ResearchAndResearchParser   ✅ — 리서치앤리서치
+├── _HangilResearchParser        ✅ — 한길리서치
+├── _NextResearchParser          ✅ — 넥스트리서치
+├── _STIParser                   ✅ — 에스티아이
+├── _IpsosParser                 ✅ — 입소스 (NEEDS_FITZ_WORDS)
+├── _KStatResearchParser         ✅ — 케이스탯리서치, 케이스탯컨설팅
+├── _AceResearchParser           ✅ — 에이스리서치
+├── _KopraParser                 ✅ — KOPRA
+├── _MediaTomatoParser           ✅ — 미디어토마토
+├── _KSOIParser                  ✅ — 케이에스오아이(한국사회여론연구소)
+├── _FairPollParser              ✅ — 여론조사공정(주)
+├── _KIRParser                   ✅ — 코리아정보리서치
+├── _GallupParser                ✅ — 한국갤럽조사연구소 (통계표+데일리 두 포맷)
+├── _InnertecParser              ✅ — 이너텍시스템즈 (챕터 4 전용)
+├── _ResearchViewParser          ✅ — 리서치뷰 (1질문 1페이지)
+├── _MonoCommunicationsParser    ✅ — 모노커뮤니케이션즈
+├── _VisionKoreaParser           ✅ — 비전코리아 (조사결과집계표 챕터)
+├── _EveryResearchParser         ✅ — 에브리리서치 (Q크로스페이지)
+├── _RNRParser                   ✅ — 알앤써치
+├── _ResearchwelParser           ✅ — 리서치웰
+├── _KPRIParser                  ✅ — 한국정책연구원 (2025/2026 포맷 분기)
+├── _UNMParser                   ✅ — 유앤미리서치
+├── _KPOParser                   ✅ — KPO리서치
+├── _DiOpinionParser             ✅ — 디오피니언
+├── _MediaResearchParser         ✅ — 미디어리서치
+├── _UriResearchParser           ✅ — 우리리서치
+└── _GyeongnamStatParser         ✅ — 경남통계리서치
 ```
 
 ### 공통 인프라 (`table_utils.py` + `parser.py`)
@@ -168,6 +171,9 @@ PollResultParser
 
 | 날짜 | 내용 |
 |------|------|
+| 2026-04-10 | `_MediaResearchParser`·`_UriResearchParser`·`_GyeongnamStatParser` 추가 — 미디어리서치·우리리서치·경남통계리서치 총 4건. **커버리지 94.8%** |
+| 2026-04-10 | `_KPOParser`·`_KPRIParser`·`_UNMParser`·`_DiOpinionParser` 추가 — KPO리서치·한국정책연구원·유앤미리서치·디오피니언 총 38건 |
+| 2026-04-10 | `_ResearchwelParser`·`_RNRParser`·`_EveryResearchParser`·`_VisionKoreaParser`·`_MonoCommunicationsParser`·`_ResearchViewParser`·`_InnertecParser` 추가 — 7개 기관 246건 |
 | 2026-04-10 | `_GallupParser` 추가 — 한국갤럽조사연구소 73건 + (주)한국갤럽조사연구소 1건. 통계표/결과집계표·결과분석 데일리 두 포맷 통합 처리 |
 | 2026-04-10 | 전국 기준으로 문서 전면 개정. 기준 데이터: `all_regions_9th.json` 1,313건, 46개 기관 |
 | 2026-04-10 | `_KIRParser` 추가 — (주)코리아정보리서치 86건 대응 |
