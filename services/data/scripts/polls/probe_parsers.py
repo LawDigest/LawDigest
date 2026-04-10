@@ -94,6 +94,14 @@ def main() -> None:
 
     registry = _BASE / "config" / "parser_registry.json"
     parser   = PollResultParser(registry_path=registry)
+
+    # unparseable 기관 목록 로드 — 구조적 한계로 파싱 불가 판정된 기관
+    _registry_data = json.loads(registry.read_text(encoding="utf-8"))
+    _unparseable_names: set[str] = {
+        p["name"]
+        for p in _registry_data.get("unparseable", {}).get("pollsters", [])
+    }
+
     check    = [
         row for row in json.loads(check_json.read_text())
         if not is_ignored_analysis_filename(row.get("analysis_filename", ""), target)
@@ -115,26 +123,32 @@ def main() -> None:
         pdf_path = pdf_dir / r["analysis_filename"]
 
         t0 = time.monotonic()
-        try:
-            results = parser.parse_pdf(pdf_path, pollster_hint=r["pollster"])
-            q = len(results)
-            flag = "✔" if q > 0 else "✘"
-            error = None
-        except UnknownPollsterError:
-            q = -1
-            flag = "E"
-            pollster_name = r["pollster"]
-            all_keywords = parser.get_registered_pollster_names()
-            close = difflib.get_close_matches(pollster_name, all_keywords, n=3, cutoff=0.3)
-            if close:
-                error = f"파서 없음: '{pollster_name}' — 유사 등록 기관: {close}"
-            else:
-                error = f"파서 없음: '{pollster_name}' (유사 기관 없음)"
-        except Exception as e:
-            q = -1
-            flag = "E"
-            error = str(e)
-        elapsed = time.monotonic() - t0
+        if r["pollster"] in _unparseable_names:
+            q = 0
+            flag = "X"
+            error = f"파싱 불가(구조적 한계): '{r['pollster']}'"
+            elapsed = 0.0
+        else:
+            try:
+                results = parser.parse_pdf(pdf_path, pollster_hint=r["pollster"])
+                q = len(results)
+                flag = "✔" if q > 0 else "✘"
+                error = None
+            except UnknownPollsterError:
+                q = -1
+                flag = "E"
+                pollster_name = r["pollster"]
+                all_keywords = parser.get_registered_pollster_names()
+                close = difflib.get_close_matches(pollster_name, all_keywords, n=3, cutoff=0.3)
+                if close:
+                    error = f"파서 없음: '{pollster_name}' — 유사 등록 기관: {close}"
+                else:
+                    error = f"파서 없음: '{pollster_name}' (유사 기관 없음)"
+            except Exception as e:
+                q = -1
+                flag = "E"
+                error = str(e)
+            elapsed = time.monotonic() - t0
 
         progress = f"{idx}/{total_files}"
         pct = idx / total_files * 100
@@ -165,10 +179,11 @@ def main() -> None:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_path = report_dir / f"probe_{target.slug}_{timestamp}.json"
 
-    total   = len(rows)
-    success = sum(1 for r in rows if r["flag"] == "✔")
-    empty   = sum(1 for r in rows if r["flag"] == "✘")
-    error   = sum(1 for r in rows if r["flag"] == "E")
+    total    = len(rows)
+    success  = sum(1 for r in rows if r["flag"] == "✔")
+    empty    = sum(1 for r in rows if r["flag"] == "✘")
+    excluded = sum(1 for r in rows if r["flag"] == "X")
+    error    = sum(1 for r in rows if r["flag"] == "E")
 
     report = {
         "timestamp": timestamp,
@@ -177,6 +192,7 @@ def main() -> None:
             "total": total,
             "success": success,
             "empty": empty,
+            "excluded": excluded,
             "error": error,
         },
         "rows": rows,
@@ -185,7 +201,7 @@ def main() -> None:
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print()
-    print(f"[ 요약 ] 전체={total}  성공={success}  빈결과={empty}  오류={error}")
+    print(f"[ 요약 ] 전체={total}  성공={success}  빈결과={empty}  제외={excluded}  오류={error}")
     print(f"리포트 저장: {report_path}")
 
 
