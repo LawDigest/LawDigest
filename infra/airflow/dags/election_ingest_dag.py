@@ -123,7 +123,7 @@ with DAG(
     tags=["lawdigest", "election", "ingest"],
     params={
         "execution_mode": Param(
-            "dry_run",
+            "prod",
             type="string",
             enum=["dry_run", "test", "prod"],
             title="실행 모드",
