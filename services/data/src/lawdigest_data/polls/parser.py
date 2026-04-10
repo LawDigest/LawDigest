@@ -22,6 +22,13 @@ from .table_utils import (
     filter_summary_columns,
     find_total_row,
 )
+from .text_table_utils import (
+    extract_ascii_table_blocks,
+    infer_column_spans,
+    merge_multiline_header,
+    normalize_ascii_table_text,
+    slice_line_by_spans,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -5774,3 +5781,605 @@ class _ResearchJParser:
                 options.append(" ".join(parts))
 
         return options
+
+
+class _KoreaResearchInternationalParser:
+    """코리아리서치인터내셔널 ASCII-art 통계표 파서."""
+
+    PARSER_KEY = "_KoreaResearchInternationalParser"
+    NEEDS_FITZ_WORDS = True
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS + (
+        re.compile(r"없다/\s*모름/\s*무응답"),
+        re.compile(r"없음/\s*모름/\s*무응답"),
+        re.compile(r"^(?:T|B)\d\b"),
+        re.compile(r"^계(?:\s|$)"),
+    )
+
+    _TABLE_TITLE_RE = re.compile(r"<표\s*[^>]+>\s*(.+)")
+    _QUESTION_RE = re.compile(r"문\s*\d+(?:-\d+)?\.\s*(.+)")
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+
+        for page_text, page_tables, full_text in pages_data:
+            text = normalize_ascii_table_text(full_text or page_text or "")
+            table_title = self._extract_table_title(text)
+            question_text = self._extract_question_text(text)
+            if not table_title:
+                continue
+            page_words = self._extract_page_words(page_tables)
+
+            for block in extract_ascii_table_blocks(text):
+                result = self._parse_block(block, table_title, question_text, page_words)
+                if result is None:
+                    continue
+                if results and self._should_merge_results(results[-1], result):
+                    self._merge_result(results[-1], result)
+                    continue
+                result.question_number = len(results) + 1
+                results.append(result)
+
+        return results
+
+    def _parse_block(
+        self,
+        block: str,
+        table_title: str,
+        question_text: str,
+        page_words: Optional[List[tuple]] = None,
+    ) -> Optional[QuestionResult]:
+        lines = block.splitlines()
+        if len(lines) < 3:
+            return None
+
+        first_ruler_idx = next(
+            (idx for idx, line in enumerate(lines) if len(infer_column_spans(line)) >= 2),
+            None,
+        )
+        if first_ruler_idx is None:
+            return None
+
+        spans = infer_column_spans(lines[first_ruler_idx])
+        total_idx, total_line = self._find_total_line(lines[first_ruler_idx + 1:], spans)
+        if total_line is None:
+            return None
+        total_line_idx = first_ruler_idx + 1 + total_idx
+
+        ruler_indices_before_total = [
+            idx
+            for idx, line in enumerate(lines[:total_line_idx])
+            if len(infer_column_spans(line)) >= 2
+        ]
+        if ruler_indices_before_total:
+            ref_ruler_idx = max(
+                ruler_indices_before_total,
+                key=lambda idx: (len(infer_column_spans(lines[idx])), idx),
+            )
+            spans = infer_column_spans(lines[ref_ruler_idx])
+        if len(ruler_indices_before_total) >= 2:
+            header_start_idx = ruler_indices_before_total[-2] + 1
+            header_end_idx = ruler_indices_before_total[-1]
+        else:
+            header_start_idx = first_ruler_idx + 1
+            header_end_idx = total_line_idx
+
+        header_lines = [
+            line
+            for line in lines[header_start_idx:header_end_idx]
+            if len(infer_column_spans(line)) < 2
+        ]
+        header = merge_multiline_header(header_lines, spans)
+        if len(header) < 3:
+            return None
+
+        row_cells = slice_line_by_spans(total_line, spans)
+        start_idx = 1
+        end_idx = len(header)
+        n_completed = None
+        n_weighted = None
+
+        while start_idx < len(header) and self._looks_like_leading_meta_header(header[start_idx]):
+            n_val = extract_sample_count(row_cells[start_idx])
+            if "가중값" in header[start_idx]:
+                n_weighted = n_val if n_val is not None else n_weighted
+            elif n_completed is None:
+                n_completed = n_val
+            elif n_weighted is None and n_val is not None:
+                n_weighted = n_val
+            start_idx += 1
+
+        if end_idx > start_idx and self._looks_like_weighted_header(header[-1]):
+            n_weighted = extract_sample_count(row_cells[-1])
+            end_idx -= 1
+
+        options = header[start_idx:end_idx]
+        percentages = self._extract_percentages_from_cells(row_cells[start_idx:end_idx])
+
+        if page_words and self._should_use_words_fallback(options, percentages):
+            word_n_completed, word_percentages, word_n_weighted = self._extract_total_from_words(page_words)
+            if word_percentages:
+                percentages = word_percentages
+            if word_n_completed is not None:
+                n_completed = word_n_completed
+            if word_n_weighted is not None:
+                n_weighted = word_n_weighted
+            word_options = self._extract_options_from_words(page_words, len(percentages))
+            if word_options:
+                options = word_options
+
+        options, percentages = filter_summary_columns(
+            options,
+            percentages,
+            summary_patterns=self.SUMMARY_PATS,
+        )
+        options, percentages = self._filter_combined_summary_columns(options, percentages)
+        options, percentages = self._filter_named_summary_sets(options, percentages)
+        options = self._normalize_option_labels(options)
+        options, percentages = self._dedupe_options(options, percentages)
+
+        min_len = min(len(options), len(percentages))
+        if min_len == 0:
+            return None
+        if n_completed is not None and n_completed < 50:
+            return None
+
+        return QuestionResult(
+            question_number=0,
+            question_title=table_title,
+            question_text=question_text or table_title,
+            response_options=options[:min_len],
+            overall_n_completed=n_completed,
+            overall_n_weighted=n_weighted,
+            overall_percentages=percentages[:min_len],
+        )
+
+    def _find_total_line(
+        self,
+        lines: List[str],
+        spans: List[Tuple[int, int]],
+    ) -> Tuple[Optional[int], Optional[str]]:
+        for idx, line in enumerate(lines):
+            raw_label = self._normalize_total_label(line)
+            cells = slice_line_by_spans(line, spans)
+            cell_label = self._normalize_total_label(cells[0]) if cells else ""
+            if raw_label.startswith("전체") or cell_label == "전체":
+                candidate = line
+                if not self._looks_like_total_candidate(candidate):
+                    next_idx = idx + 1
+                    while next_idx < len(lines) and not lines[next_idx].strip():
+                        next_idx += 1
+                    if next_idx < len(lines):
+                        merged = f"{line} {lines[next_idx].strip()}"
+                        if self._looks_like_total_candidate(merged):
+                            candidate = merged
+                        else:
+                            continue
+                    else:
+                        continue
+                return idx, candidate
+        return None, None
+
+    def _extract_table_title(self, text: str) -> str:
+        match = self._TABLE_TITLE_RE.search(text)
+        if not match:
+            prelude = self._lines_before_first_ruler(text)
+            for idx, line in enumerate(prelude):
+                if self._clean_line(line) != "표":
+                    continue
+                for candidate in prelude[idx + 1:]:
+                    cleaned = self._clean_line(candidate)
+                    if self._is_title_candidate(cleaned):
+                        return cleaned
+            return ""
+        return re.sub(r"\s+", " ", match.group(1)).strip()
+
+    def _extract_question_text(self, text: str) -> str:
+        match = self._QUESTION_RE.search(text)
+        if not match:
+            prelude = self._lines_before_first_ruler(text)
+            capture = False
+            parts: List[str] = []
+            saw_question_mark = False
+            for raw in prelude:
+                cleaned = self._clean_line(raw)
+                if not cleaned:
+                    continue
+                if cleaned == "문":
+                    capture = True
+                    continue
+                if not capture:
+                    continue
+                if cleaned == "?":
+                    saw_question_mark = True
+                    continue
+                if cleaned.startswith("보기"):
+                    break
+                if re.fullmatch(r"[<>\d().\-\[\]]+", cleaned):
+                    continue
+                parts.append(cleaned)
+            if not parts:
+                return ""
+            text_joined = " ".join(parts).strip()
+            return f"{text_joined}?" if saw_question_mark else text_joined
+        return re.sub(r"\s+", " ", match.group(1)).strip()
+
+    def _looks_like_sample_count_header(self, header: str) -> bool:
+        return "조사완료" in header or ("사례수" in header and "가중값" not in header)
+
+    def _looks_like_weighted_header(self, header: str) -> bool:
+        return "가중값" in header
+
+    def _looks_like_leading_meta_header(self, header: str) -> bool:
+        return "사례수" in header or "가중값" in header
+
+    def _extract_percentages_from_cells(self, cells: List[str]) -> List[float]:
+        percentages: List[float] = []
+        for cell in cells:
+            text = str(cell or "").replace(",", "").strip()
+            if not text:
+                continue
+            try:
+                percentages.append(float(text))
+            except ValueError:
+                continue
+        return percentages
+
+    def _filter_combined_summary_columns(
+        self,
+        options: List[str],
+        percentages: List[float],
+    ) -> Tuple[List[str], List[float]]:
+        normalized_options = [re.sub(r"\s+", "", opt) for opt in options]
+        has_none_bucket = any(
+            opt in {"없다", "없음"} or opt.startswith("없다/") or opt.startswith("없음/")
+            for opt in normalized_options
+        )
+        if not has_none_bucket:
+            return options, percentages
+
+        filtered_options: List[str] = []
+        filtered_percentages: List[float] = []
+        for opt, pct, normalized in zip(options, percentages, normalized_options):
+            if (
+                (normalized.startswith("없다/") and normalized != "없다/")
+                or (normalized.startswith("없음/") and normalized != "없음/")
+            ):
+                continue
+            filtered_options.append(opt)
+            filtered_percentages.append(pct)
+        return filtered_options, filtered_percentages
+
+    def _merge_result(self, existing: QuestionResult, new: QuestionResult) -> None:
+        seen = set(existing.response_options)
+        for opt, pct in zip(new.response_options, new.overall_percentages):
+            if opt in seen:
+                continue
+            existing.response_options.append(opt)
+            existing.overall_percentages.append(pct)
+            seen.add(opt)
+
+        existing.overall_n_completed = self._pick_larger_n(
+            existing.overall_n_completed,
+            new.overall_n_completed,
+        )
+        existing.overall_n_weighted = self._pick_larger_n(
+            existing.overall_n_weighted,
+            new.overall_n_weighted,
+        )
+        if len(new.question_text) > len(existing.question_text):
+            existing.question_text = new.question_text
+
+    def _pick_larger_n(self, left: Optional[int], right: Optional[int]) -> Optional[int]:
+        values = [v for v in (left, right) if v is not None]
+        return max(values) if values else None
+
+    def _normalize_option_labels(self, options: List[str]) -> List[str]:
+        normalized = [re.sub(r"\s+", " ", opt).strip() for opt in options]
+        for idx in range(len(normalized) - 1):
+            current = normalized[idx]
+            nxt = normalized[idx + 1]
+            if "기타" in current and "무응답" in nxt and "름/" in nxt:
+                normalized[idx] = "기타"
+                normalized[idx + 1] = "모름/ 무응답"
+        normalized = [re.sub(r"\s*/\s*", "/ ", opt).strip().rstrip("/") for opt in normalized]
+        return normalized
+
+    def _extract_page_words(self, page_tables: List) -> Optional[List[tuple]]:
+        if not page_tables:
+            return None
+        first = page_tables[0]
+        if not first or not isinstance(first, list):
+            return None
+        if not isinstance(first[0], tuple):
+            return None
+        return first
+
+    def _should_use_words_fallback(
+        self,
+        options: List[str],
+        percentages: List[float],
+    ) -> bool:
+        if not options or not percentages:
+            return True
+        if len(options) != len(percentages):
+            return True
+        if sum(percentages) < 75:
+            return True
+        if sum(percentages) > 115:
+            return True
+        compact = [re.sub(r"\s+", "", opt) for opt in options]
+        if any(not opt for opt in compact):
+            return True
+        if sum(1 for opt in compact if len(opt) <= 2) >= max(2, len(compact) // 3):
+            return True
+        return False
+
+    def _extract_options_from_words(
+        self,
+        page_words: List[tuple],
+        expected_count: int,
+    ) -> List[str]:
+        total_words = self._find_total_word_line(page_words)
+        if not total_words:
+            return []
+
+        percent_words = [
+            w for w in total_words
+            if self._looks_like_percent_word(str(w[4]))
+        ]
+        if len(percent_words) < expected_count:
+            return []
+
+        percent_words = percent_words[:expected_count]
+        centers = [((w[0] + w[2]) / 2) for w in percent_words]
+
+        ruler_lines = self._find_ruler_word_lines(page_words)
+        total_y = round(total_words[0][1], 1)
+        ruler_ys = [y for y in ruler_lines if y < total_y]
+        if not ruler_ys:
+            return []
+        current_ruler_y = max(ruler_ys)
+        prev_ruler_y = max((y for y in ruler_ys if y < current_ruler_y), default=current_ruler_y - 80.0)
+
+        boundaries = self._column_boundaries(centers)
+        buckets: List[List[tuple]] = [[] for _ in centers]
+        for word in page_words:
+            x0, y0, x1, _y1, text, *_rest = word
+            if not (prev_ruler_y < y0 < current_ruler_y):
+                continue
+            if self._is_dash_text(str(text)):
+                continue
+            center = (x0 + x1) / 2
+            idx = self._find_bucket_index(center, boundaries)
+            if idx is None:
+                continue
+            buckets[idx].append(word)
+
+        results: List[str] = []
+        for bucket in buckets:
+            bucket.sort(key=lambda w: (round(w[1], 1), w[0]))
+            tokens = [str(w[4]) for w in bucket]
+            results.append(self._normalize_word_bucket(tokens))
+        return results
+
+    def _extract_total_from_words(
+        self,
+        page_words: List[tuple],
+    ) -> Tuple[Optional[int], List[float], Optional[int]]:
+        total_words = self._find_total_word_line(page_words)
+        if not total_words:
+            return None, [], None
+
+        texts = [str(w[4]) for w in total_words]
+        n_values = [
+            extract_sample_count(text)
+            for text in texts
+            if re.match(r"^\(\d[\d,]*\)$", text)
+        ]
+        percentages = [
+            float(text)
+            for text in texts
+            if self._looks_like_percent_word(text)
+        ]
+
+        n_completed = n_values[0] if n_values else None
+        n_weighted = n_values[-1] if len(n_values) >= 2 else None
+        return n_completed, percentages, n_weighted
+
+    def _find_total_word_line(self, page_words: List[tuple]) -> Optional[List[tuple]]:
+        lines = self._group_words_by_y(page_words)
+        for words in lines:
+            texts = [str(w[4]) for w in words]
+            joined = "".join(texts)
+            if "전체" not in joined:
+                continue
+            number_tokens = [t for t in texts if re.match(r"^\(?\d[\d,]*(?:\.\d+)?\)?$", t)]
+            if len(number_tokens) >= 3:
+                return words
+        return None
+
+    def _find_ruler_word_lines(self, page_words: List[tuple]) -> List[float]:
+        lines = self._group_words_by_y(page_words)
+        result: List[float] = []
+        for words in lines:
+            if sum(1 for w in words if self._is_dash_text(str(w[4]))) >= 2:
+                result.append(round(words[0][1], 1))
+        return result
+
+    def _group_words_by_y(self, page_words: List[tuple]) -> List[List[tuple]]:
+        grouped: Dict[float, List[tuple]] = {}
+        for word in page_words:
+            y = round(word[1], 1)
+            grouped.setdefault(y, []).append(word)
+        return [sorted(words, key=lambda w: w[0]) for _y, words in sorted(grouped.items())]
+
+    def _column_boundaries(self, centers: List[float]) -> List[Tuple[float, float]]:
+        boundaries: List[Tuple[float, float]] = []
+        for idx, center in enumerate(centers):
+            left = (centers[idx - 1] + center) / 2 if idx > 0 else center - 20.0
+            right = (center + centers[idx + 1]) / 2 if idx + 1 < len(centers) else center + 20.0
+            boundaries.append((left, right))
+        return boundaries
+
+    def _find_bucket_index(
+        self,
+        center: float,
+        boundaries: List[Tuple[float, float]],
+    ) -> Optional[int]:
+        for idx, (left, right) in enumerate(boundaries):
+            if left <= center < right:
+                return idx
+        return None
+
+    def _normalize_word_bucket(self, tokens: List[str]) -> str:
+        if not tokens:
+            return ""
+        text = " ".join(tokens)
+        text = re.sub(r"\s+/\s+", "/ ", text)
+        text = re.sub(r"\s+\)", ")", text)
+        text = re.sub(r"\(\s+", "(", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+
+    def _looks_like_percent_word(self, text: str) -> bool:
+        return bool(re.match(r"^\d+(?:\.\d+)?$", text))
+
+    def _is_dash_text(self, text: str) -> bool:
+        return bool(re.match(r"^-{3,}$", text))
+
+    def _filter_named_summary_sets(
+        self,
+        options: List[str],
+        percentages: List[float],
+    ) -> Tuple[List[str], List[float]]:
+        if len(options) != len(percentages):
+            return options, percentages
+
+        normalized = [re.sub(r"\s+", "", opt) for opt in options]
+        drop_indexes: set[int] = set()
+
+        if any(opt in {"관심있음", "관심있다", "관심있음", "관심있음"} or opt == "관심있음" for opt in normalized):
+            for idx, opt in enumerate(normalized):
+                if opt in {"관심있음", "관심있다", "관심있는편이다", "관심없음", "관심없는편이다"}:
+                    if idx >= 5:
+                        drop_indexes.add(idx)
+            self._drop_duplicate_last(options, normalized, "모름/무응답", drop_indexes)
+
+        if any(opt in {"긍정", "부정"} for opt in normalized):
+            for idx, opt in enumerate(normalized):
+                if opt in {"긍정", "부정"}:
+                    drop_indexes.add(idx)
+            self._drop_duplicate_last(options, normalized, "모름/무응답", drop_indexes)
+
+        if any(opt in {"긍정평가", "부정평가"} for opt in normalized):
+            for idx, opt in enumerate(normalized):
+                if opt in {"긍정평가", "부정평가"}:
+                    drop_indexes.add(idx)
+
+        if any(opt in {"찬성", "반대"} for opt in normalized):
+            for idx, opt in enumerate(normalized):
+                if opt in {"찬성", "반대"}:
+                    drop_indexes.add(idx)
+
+        if any(opt in {"공감함", "공감하지않음"} for opt in normalized):
+            for idx, opt in enumerate(normalized):
+                if opt in {"공감함", "공감하지않음"}:
+                    drop_indexes.add(idx)
+
+        if any(opt in {"관심층", "무관심층", "관심", "무관심"} for opt in normalized):
+            for idx, opt in enumerate(normalized):
+                if opt in {"관심층", "무관심층", "관심", "무관심"}:
+                    drop_indexes.add(idx)
+
+        if any(opt in {"반영함", "반영하지않음"} for opt in normalized):
+            for idx, opt in enumerate(normalized):
+                if opt in {"반영함", "반영하지않음"}:
+                    drop_indexes.add(idx)
+
+        if any(opt in {"필요함", "필요하지않음"} for opt in normalized):
+            for idx, opt in enumerate(normalized):
+                if opt in {"필요함", "필요하지않음"}:
+                    drop_indexes.add(idx)
+
+        if any(opt.startswith("보합전망") for opt in normalized):
+            for idx, opt in enumerate(normalized):
+                if opt.startswith("보합전망"):
+                    drop_indexes.add(idx)
+
+        if any("적극적투표층" == opt for opt in normalized):
+            for idx, opt in enumerate(normalized):
+                if opt in {"적극적투표층", "소극적투표층", "비투표층"}:
+                    drop_indexes.add(idx)
+
+        if not drop_indexes:
+            return options, percentages
+
+        kept_options: List[str] = []
+        kept_percentages: List[float] = []
+        for idx, (opt, pct) in enumerate(zip(options, percentages)):
+            if idx in drop_indexes:
+                continue
+            kept_options.append(opt)
+            kept_percentages.append(pct)
+        return kept_options, kept_percentages
+
+    def _dedupe_options(
+        self,
+        options: List[str],
+        percentages: List[float],
+    ) -> Tuple[List[str], List[float]]:
+        seen: set[str] = set()
+        kept_options: List[str] = []
+        kept_percentages: List[float] = []
+        for opt, pct in zip(options, percentages):
+            key = re.sub(r"\s+", "", opt)
+            if key in seen:
+                continue
+            seen.add(key)
+            kept_options.append(opt)
+            kept_percentages.append(pct)
+        return kept_options, kept_percentages
+
+    def _drop_duplicate_last(
+        self,
+        options: List[str],
+        normalized: List[str],
+        target: str,
+        drop_indexes: set[int],
+    ) -> None:
+        indexes = [idx for idx, opt in enumerate(normalized) if opt == target]
+        for idx in indexes[1:]:
+            drop_indexes.add(idx)
+
+    def _should_merge_results(self, left: QuestionResult, right: QuestionResult) -> bool:
+        if left.question_title != right.question_title:
+            return False
+        return re.sub(r"\s+", " ", left.question_text).strip() == re.sub(r"\s+", " ", right.question_text).strip()
+
+    def _lines_before_first_ruler(self, text: str) -> List[str]:
+        lines = normalize_ascii_table_text(text).splitlines()
+        for idx, line in enumerate(lines):
+            if len(infer_column_spans(line)) >= 2:
+                return lines[:idx]
+        return lines
+
+    def _clean_line(self, line: str) -> str:
+        return re.sub(r"\s+", " ", str(line or "")).strip()
+
+    def _is_title_candidate(self, line: str) -> bool:
+        if not line or line in {"표", "문", "?"}:
+            return False
+        if re.fullmatch(r"[<>\d().\-\[\]]+", line):
+            return False
+        if "지방선거" in line and "지지도" not in line and "평가" not in line and "현안" not in line:
+            return False
+        return True
+
+    def _normalize_total_label(self, cell: str) -> str:
+        return re.sub(r"[\s■▣\[\]]+", "", str(cell or ""))
+
+    def _looks_like_total_candidate(self, line: str) -> bool:
+        if extract_sample_count(line) is None:
+            return False
+        number_tokens = re.findall(r"\d+(?:\.\d+)?", line.replace(",", ""))
+        return len(number_tokens) >= 3
