@@ -39,6 +39,7 @@ from lawdigest_data.polls.parser import (
     _TableFormatParser,
     _DailyResearchParser,
     _WinjiKoreaParser,
+    _FairPollParser,
 )
 
 # ── PARSER_KEY 자동 탐색 ─────────────────────────────────────────────────────
@@ -66,6 +67,7 @@ class TestBuildParserKeyMap:
             "_KopraParser",
             "_MediaTomatoParser",
             "_KSOIParser",
+            "_FairPollParser",
         }
         assert expected_keys == set(key_map.keys())
 
@@ -173,7 +175,7 @@ class TestPollResultParserRegistry:
     def test_load_from_default_registry(self):
         """기본 경로의 parser_registry.json에서 모든 파서가 로드된다."""
         parser = PollResultParser()
-        assert len(parser._registry) == 18  # 현재 등록된 파서 수
+        assert len(parser._registry) == 19  # 현재 등록된 파서 수
 
     def test_all_pollsters_registered(self):
         parser = PollResultParser()
@@ -214,6 +216,9 @@ class TestPollResultParserRegistry:
             "케이에스오아이 주식회사(한국사회여론연구소)",
             "KSOI",
             "한국사회여론연구소",
+            # 여론조사공정
+            "여론조사공정(주)",
+            "여론조사공정",
         }
         assert expected == all_keywords
 

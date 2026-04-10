@@ -2918,3 +2918,126 @@ class _KSOIParser(BaseTableParser):
             r.question_number = i + 1
         return results
 
+
+class _FairPollParser(BaseTableParser):
+    """여론조사공정(주) 크로스탭 파서.
+
+    포맷 특성:
+      - 질문 제목: 테이블 바로 위 outside_text에 '【 표 N 】 제목' 형태로 존재
+      - 크로스탭 페이지: 질문당 2페이지 — 첫 페이지만 파싱 (seen_table_nums로 중복 방지)
+      - 페이지당 테이블 2개: tables[0]=헤더, tables[1]=실제 데이터
+      - 전체 행: tables[1]의 row[0]='', row[1]='전체'
+      - 메타 컬럼: 4개 (빈칸, 구분값, n완료, n가중) → 비율은 col4부터
+      - 소계 컬럼(①+②, ③+④ 등): SUMMARY_PATS로 필터
+    """
+
+    PARSER_KEY = "_FairPollParser"
+    TOTAL_MARKERS = ("전체",)
+    META_COLS = 4          # 데이터 테이블: col0=구분범주, col1=구분값, col2=n완료, col3=n가중
+    HEADER_OPT_COL = 3    # 헤더 테이블: col0=구분, col1=사례수(merged), col2=None, col3~=선택지
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS + (
+        re.compile(r"^계$"),
+        re.compile(r"^긍정\s*평가"),
+        re.compile(r"^부정\s*평가"),
+        re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩]\s*\+\s*[①②③④⑤⑥⑦⑧⑨⑩]"),  # ①+② 소계
+    )
+
+    _TABLE_TITLE_RE = re.compile(r"【\s*표\s*(\d+)\s*】\s*(.+)")
+    _META_OPT_KEYWORDS = frozenset({"가중값", "사례수"})
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_table_nums: set = set()
+
+        for outside_text, page_tables, _full_text in pages_data:
+            if not page_tables:
+                continue
+
+            title_match = self._TABLE_TITLE_RE.search(outside_text)
+            if title_match is None:
+                continue
+            table_num = title_match.group(1)
+            q_title = title_match.group(2).strip()
+
+            if table_num in seen_table_nums:
+                continue
+            seen_table_nums.add(table_num)
+
+            # 데이터 테이블은 두 번째 (tables[1]) — 헤더(tables[0])에서 선택지 추출
+            if len(page_tables) < 2:
+                continue
+            header_table = page_tables[0]
+            data_table = page_tables[1]
+
+            if not header_table or not data_table:
+                continue
+
+            # 전체 행: row[1]=='전체'인 첫 번째 행
+            total_row = None
+            for row in data_table[:5]:
+                if str(row[1] or "").strip() == "전체":
+                    total_row = row
+                    break
+            if total_row is None:
+                continue
+
+            # 선택지: 헤더 테이블 첫 행의 col3~ (헤더는 col3부터 시작, 개행 → 공백 정규화)
+            options = [
+                re.sub(r"\s+", " ", str(c or "").strip())
+                for c in header_table[0][self.HEADER_OPT_COL:]
+                if str(c or "").strip()
+            ]
+            if not options:
+                continue
+
+            if any(
+                any(kw in opt for kw in self._META_OPT_KEYWORDS)
+                for opt in options
+            ):
+                continue
+
+            n_completed = extract_sample_count(str(total_row[2] or ""))
+            n_weighted = extract_sample_count(str(total_row[3] or ""))
+            if n_completed is None:
+                continue
+
+            percentages = extract_percentages_from_cells(total_row, start_col=self.META_COLS)
+            if not percentages:
+                continue
+
+            options, percentages = filter_summary_columns(
+                options, percentages, summary_patterns=self.SUMMARY_PATS
+            )
+            min_len = min(len(options), len(percentages))
+            if min_len == 0:
+                continue
+
+            # 중복 선택지 이름 재등장 시 소계 영역 — 컷
+            seen_opts: set = set()
+            deduped_opts: list = []
+            deduped_pcts: list = []
+            for opt, pct in zip(options[:min_len], percentages[:min_len]):
+                if opt in seen_opts:
+                    break
+                seen_opts.add(opt)
+                deduped_opts.append(opt)
+                deduped_pcts.append(pct)
+            options, percentages = deduped_opts, deduped_pcts
+            if not options:
+                continue
+
+            results.append(
+                QuestionResult(
+                    question_number=len(results) + 1,
+                    question_title=q_title,
+                    question_text=q_title,
+                    response_options=options,
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=percentages,
+                )
+            )
+
+        for i, r in enumerate(results):
+            r.question_number = i + 1
+        return results
