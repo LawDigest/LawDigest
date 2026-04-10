@@ -4930,3 +4930,298 @@ class _DiOpinionParser:
                 break
 
         return sorted(results, key=lambda r: r.question_number)
+
+
+class _MediaResearchParser:
+    """미디어리서치 결과보고서 PDF 파서.
+
+    포맷 특성:
+      - Q마커와 크로스탭 테이블이 같은 페이지
+      - 질문 마커: '(문 N) 질문텍스트' (페이지 텍스트)
+      - 테이블 식별: row[2][0]에 '■ 전체 ■' 포함
+      - N 형식: row[2][2], row[2][3] (괄호 포함 형식)
+      - 비율 형식: row[2][4:]
+      - 선택지: row[0][4:]
+    """
+
+    PARSER_KEY = "_MediaResearchParser"
+    _Q_MARKER_RE = re.compile(r"\(문\s+(\d+)\)\s+(.+?)(?:\n|$)")
+    _TOTAL_MARKER_RE = re.compile(r"■\s*전체\s*■")
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS
+
+    @staticmethod
+    def _cell(val: object) -> str:
+        return (str(val) if val is not None else "").strip()
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_q: set = set()
+
+        for _outside_text, page_tables, full_text in pages_data:
+            if not full_text or not page_tables:
+                continue
+
+            # '(문 N) 질문텍스트' 마커 탐색
+            q_match = self._Q_MARKER_RE.search(full_text)
+            if not q_match:
+                continue
+
+            q_num = int(q_match.group(1))
+            q_title = " ".join(q_match.group(2).strip().split())
+
+            if q_num in seen_q:
+                continue
+
+            for table in page_tables:
+                if not table or len(table) < 3:
+                    continue
+
+                # '■ 전체 ■' 행 동적 탐색
+                total_row_idx = None
+                for idx, row in enumerate(table):
+                    if row and self._TOTAL_MARKER_RE.search(self._cell(row[0])):
+                        total_row_idx = idx
+                        break
+                if total_row_idx is None or total_row_idx < 2:
+                    continue
+
+                total_row = table[total_row_idx]
+                header_row = table[total_row_idx - 2]
+                if not header_row or len(header_row) < 5:
+                    continue
+
+                n_completed = extract_sample_count(self._cell(total_row[2]) if len(total_row) > 2 else "")
+                if n_completed is None:
+                    continue
+                n_weighted = extract_sample_count(self._cell(total_row[3]) if len(total_row) > 3 else "")
+
+                options: List[str] = []
+                percentages: List[float] = []
+                for c in range(4, len(header_row)):
+                    opt_raw = self._cell(header_row[c] if c < len(header_row) else None)
+                    opt = " ".join(opt_raw.replace("\n", " ").split())
+                    pct_raw = self._cell(total_row[c] if c < len(total_row) else None)
+                    try:
+                        pct = float(pct_raw)
+                    except (ValueError, TypeError):
+                        continue
+                    if opt:
+                        options.append(opt)
+                        percentages.append(pct)
+
+                if not percentages:
+                    continue
+
+                options, percentages = filter_summary_columns(
+                    options, percentages, summary_patterns=self.SUMMARY_PATS
+                )
+                if not percentages:
+                    continue
+
+                results.append(QuestionResult(
+                    question_number=q_num,
+                    question_title=q_title,
+                    question_text=q_title,
+                    response_options=options,
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=percentages,
+                ))
+                seen_q.add(q_num)
+                break
+
+        return sorted(results, key=lambda r: r.question_number)
+
+
+class _UriResearchParser:
+    """(주)우리리서치 결과보고서 PDF 파서.
+
+    포맷 특성:
+      - Q마커와 크로스탭 테이블이 같은 페이지
+      - 질문 마커: '표N. 제목' (페이지 텍스트)
+      - 테이블 식별: row[0][0]='구 분 (%)', row[1][0]='전 체'
+      - N 형식: row[1][2], row[1][3] (괄호 포함 형식)
+      - 비율 형식: row[1][4:]
+      - 선택지: row[0][4:]
+    """
+
+    PARSER_KEY = "_UriResearchParser"
+    _TABLE_TITLE_RE = re.compile(r"표(\d+)\.\s+(.+?)(?:\n|$)")
+    _TOTAL_MARKER = "전 체"
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS
+
+    @staticmethod
+    def _cell(val: object) -> str:
+        return (str(val) if val is not None else "").strip()
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_q: set = set()
+
+        for _outside_text, page_tables, full_text in pages_data:
+            if not full_text or not page_tables:
+                continue
+
+            # '표N. 제목' 마커 탐색
+            title_match = self._TABLE_TITLE_RE.search(full_text)
+            if not title_match:
+                continue
+
+            q_num = int(title_match.group(1))
+            q_title = " ".join(title_match.group(2).strip().split())
+
+            if q_num in seen_q:
+                continue
+
+            for table in page_tables:
+                if not table or len(table) < 2:
+                    continue
+                row0 = table[0]
+                row1 = table[1]
+                if not row0 or not row1:
+                    continue
+                if self._cell(row1[0]) != self._TOTAL_MARKER:
+                    continue
+                if len(row0) < 5:
+                    continue
+
+                n_completed = extract_sample_count(self._cell(row1[2]) if len(row1) > 2 else "")
+                if n_completed is None:
+                    continue
+                n_weighted = extract_sample_count(self._cell(row1[3]) if len(row1) > 3 else "")
+
+                options: List[str] = []
+                percentages: List[float] = []
+                for c in range(4, len(row0)):
+                    opt_raw = self._cell(row0[c] if c < len(row0) else None)
+                    opt = " ".join(opt_raw.replace("\n", " ").split())
+                    pct_raw = self._cell(row1[c] if c < len(row1) else None)
+                    try:
+                        pct = float(pct_raw)
+                    except (ValueError, TypeError):
+                        continue
+                    if opt:
+                        options.append(opt)
+                        percentages.append(pct)
+
+                if not percentages:
+                    continue
+
+                options, percentages = filter_summary_columns(
+                    options, percentages, summary_patterns=self.SUMMARY_PATS
+                )
+                if not percentages:
+                    continue
+
+                results.append(QuestionResult(
+                    question_number=q_num,
+                    question_title=q_title,
+                    question_text=q_title,
+                    response_options=options,
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=percentages,
+                ))
+                seen_q.add(q_num)
+                break
+
+        return sorted(results, key=lambda r: r.question_number)
+
+
+class _GyeongnamStatParser:
+    """(주)경남통계리서치 결과보고서 PDF 파서.
+
+    포맷 특성:
+      - Q마커와 크로스탭 테이블이 같은 페이지
+      - 질문 번호: 페이지 텍스트에서 '[ N. ]' 패턴
+      - 질문 제목: '질문) 텍스트' 패턴
+      - 테이블 식별: row[0][0]='구분', row[2][0]='전체'
+      - N 형식: row[2][2], row[2][3] (괄호 포함 형식)
+      - 비율 형식: row[2][4:]
+      - 선택지: row[0][4:]
+    """
+
+    PARSER_KEY = "_GyeongnamStatParser"
+    _Q_NUM_RE = re.compile(r"\[\s*(\d+)\.\s*\]")
+    _Q_TITLE_RE = re.compile(r"질문\)\s+(.+?)(?:\n|$)")
+    _TOTAL_MARKER = "전체"
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS
+
+    @staticmethod
+    def _cell(val: object) -> str:
+        return (str(val) if val is not None else "").strip()
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_q: set = set()
+
+        for _outside_text, page_tables, full_text in pages_data:
+            if not full_text or not page_tables:
+                continue
+
+            num_match = self._Q_NUM_RE.search(full_text)
+            title_match = self._Q_TITLE_RE.search(full_text)
+            if not num_match or not title_match:
+                continue
+
+            q_num = int(num_match.group(1))
+            q_title = " ".join(title_match.group(1).strip().split())
+
+            if q_num in seen_q:
+                continue
+
+            for table in page_tables:
+                if not table or len(table) < 3:
+                    continue
+                row0 = table[0]
+                row2 = table[2]
+                if not row0 or not row2:
+                    continue
+                if self._cell(row0[0]) != "구분":
+                    continue
+                if self._cell(row2[0]) != self._TOTAL_MARKER:
+                    continue
+                if len(row0) < 5:
+                    continue
+
+                n_completed = extract_sample_count(self._cell(row2[2]) if len(row2) > 2 else "")
+                if n_completed is None:
+                    continue
+                n_weighted = extract_sample_count(self._cell(row2[3]) if len(row2) > 3 else "")
+
+                options: List[str] = []
+                percentages: List[float] = []
+                for c in range(4, len(row0)):
+                    opt_raw = self._cell(row0[c] if c < len(row0) else None)
+                    opt = " ".join(opt_raw.replace("\n", " ").split())
+                    pct_raw = self._cell(row2[c] if c < len(row2) else None)
+                    try:
+                        pct = float(pct_raw)
+                    except (ValueError, TypeError):
+                        continue
+                    if opt:
+                        options.append(opt)
+                        percentages.append(pct)
+
+                if not percentages:
+                    continue
+
+                options, percentages = filter_summary_columns(
+                    options, percentages, summary_patterns=self.SUMMARY_PATS
+                )
+                if not percentages:
+                    continue
+
+                results.append(QuestionResult(
+                    question_number=q_num,
+                    question_title=q_title,
+                    question_text=q_title,
+                    response_options=options,
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=percentages,
+                ))
+                seen_q.add(q_num)
+                break
+
+        return sorted(results, key=lambda r: r.question_number)

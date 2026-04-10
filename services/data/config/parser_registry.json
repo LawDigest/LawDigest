@@ -161,6 +161,21 @@
       "class": "_DiOpinionParser",
       "description": "(주)디오피니언 결과보고서 파서 – '[표N] 제목' 질문 마커, row[1][0]='전 체' 전체 행, col4+ 선택지·비율",
       "pollster_names": ["(주)디오피니언", "디오피니언"]
+    },
+    "mediaresearch_format": {
+      "class": "_MediaResearchParser",
+      "description": "미디어리서치 크로스탭 파서 – '(문 N) 제목' 질문 마커, '■ 전체 ■' 전체 행, col4+ 선택지·비율",
+      "pollster_names": ["미디어리서치"]
+    },
+    "uriresearch_format": {
+      "class": "_UriResearchParser",
+      "description": "(주)우리리서치 크로스탭 파서 – '표N. 제목' 질문 마커, row[1][0]='전 체' 전체 행, col4+ 선택지·비율",
+      "pollster_names": ["(주)우리리서치", "우리리서치"]
+    },
+    "gyeongnam_stat_format": {
+      "class": "_GyeongnamStatParser",
+      "description": "(주)경남통계리서치 크로스탭 파서 – '[N.] 질문) 제목' 질문 마커, row[2][0]='전체' 전체 행, col4+ 선택지·비율",
+      "pollster_names": ["(주)경남통계리서치", "경남통계리서치"]
     }
   },
   "unparseable": {
