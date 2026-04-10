@@ -176,6 +176,26 @@
       "class": "_GyeongnamStatParser",
       "description": "(주)경남통계리서치 크로스탭 파서 – '[N.] 질문) 제목' 질문 마커, row[2][0]='전체' 전체 행, col4+ 선택지·비율",
       "pollster_names": ["(주)경남통계리서치", "경남통계리서치"]
+    },
+    "isoftbank_format": {
+      "class": "_ISoftBankParser",
+      "description": "(주)아이소프트뱅크 결과보고서 파서 – 'N 질문텍스트?' Q페이지 마커, CrossTab 페이지 row[0][0]='구분'/row[1][0]='합계', col4+ 선택지·비율",
+      "pollster_names": ["(주)아이소프트뱅크", "아이소프트뱅크"]
+    },
+    "southernpost_format": {
+      "class": "_SouthernPostParser",
+      "description": "서던포스트 결과보고서 파서 – 'N. 제목 <표M>' Q마커, 두 번째 테이블 '◈ 전 체 ◈' 전체 행, col3:-1 선택지·비율",
+      "pollster_names": ["서던포스트"]
+    },
+    "hanmin_format": {
+      "class": "_HanMinParser",
+      "description": "주식회사 한민리서치 결과보고서 파서 – 그래프 1행 테이블 'option\\n%' 셀, [n=N] N 추출, [제목] 질문 마커",
+      "pollster_names": ["주식회사 한민리서치", "한민리서치"]
+    },
+    "pmi_format": {
+      "class": "_PMIParser",
+      "description": "(주)피앰아이 결과표 파서 – '표\\n제목\\nN\\n【\\n】' Q마커, BASE:ALL/'▣ 전 체 ▣' 포맷A + 사례수헤더 포맷B, 요약컬럼 필터",
+      "pollster_names": ["(주)피앰아이", "피앰아이"]
     }
   },
   "unparseable": {
