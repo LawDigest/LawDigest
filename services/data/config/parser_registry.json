@@ -116,6 +116,11 @@
       "class": "_ResearchViewParser",
       "description": "리서치뷰 크로스탭 PDF 파서 – 1질문 1페이지 1테이블, row[0][0]='N. 제목(%)' 질문 마커, row[2][0]='전 체' 전체 행, col4+ 선택지 비율, 없음/모름 필터링",
       "pollster_names": ["리서치뷰", "(주)리서치뷰"]
+    },
+    "mono_communications_format": {
+      "class": "_MonoCommunicationsParser",
+      "description": "모노커뮤니케이션즈(모노리서치) 결과보고서 파서 – '[QN – 제목상세결과]' 질문 마커, row[1][0]=None 크로스탭 테이블, row[1][2]=N완료/row[1][-1]=N가중/row[1][3:-1]=비율",
+      "pollster_names": ["모노커뮤니케이션즈(모노리서치)", "모노커뮤니케이션즈", "모노리서치"]
     }
   },
   "unparseable": {

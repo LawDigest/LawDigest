@@ -3895,3 +3895,120 @@ class _ResearchViewParser:
                 seen.add(r.question_number)
                 unique.append(r)
         return unique
+
+
+class _MonoCommunicationsParser:
+    """모노커뮤니케이션즈(모노리서치) 크로스탭 결과보고서 PDF 파서.
+
+    포맷 특성:
+      - 결과보고서 형식: 1질문 = 요약페이지 + 크로스탭 페이지 2장 이상
+      - 질문 마커: 페이지 텍스트의 '[QN – 제목상세결과]' 패턴
+      - 크로스탭 테이블 식별: row[1][0]=None, row[1][2]=N완료 (숫자)
+      - row[0][2]: '조사완료사례수' (N 헤더), row[0][3:-1]: 선택지 이름
+      - row[1][2]: N_completed, row[1][3:-1]: 비율, row[1][-1]: N_weighted
+      - 각 질문이 2+ 페이지에 반복 → 첫 번째 크로스탭만 사용 (중복 제거)
+      - '잘모름/무응답', '지지후보없거나잘모름', '가중적용사례' 컬럼 필터링
+    """
+
+    PARSER_KEY = "_MonoCommunicationsParser"
+    _Q_MARKER_RE = re.compile(r"\[Q(\d+)\s*[–\-]\s*(.+?)(?:상세결과)?\]")
+    _META_COLS = 3  # col0: 그룹, col1: 서브, col2: N_completed
+    _SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS + (
+        re.compile(r"잘\s*모름"),
+        re.compile(r"무응답"),
+        re.compile(r"지지\s*후보\s*없"),
+        re.compile(r"가중\s*적용\s*사례"),
+        re.compile(r"^없음$"),
+        re.compile(r"^모름$"),
+    )
+
+    @staticmethod
+    def _cell(val: object) -> str:
+        return (val or "").strip() if val is not None else ""
+
+    def _is_crosstab_table(self, table: List) -> bool:
+        """크로스탭 테이블 판별: row[1][0]=None, row[1][2]가 숫자."""
+        if len(table) < 2 or not table[1]:
+            return False
+        row1 = table[1]
+        if len(row1) < 4:
+            return False
+        if row1[0] is not None:
+            return False
+        n_val = self._cell(row1[2])
+        return bool(re.match(r"^\d+", n_val))
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        seen_q: set = set()
+
+        for _pg_idx, (_outside_text, page_tables, full_text) in enumerate(pages_data):
+            if not page_tables or not full_text:
+                continue
+
+            # 크로스탭 테이블 페이지인지 확인 ([QN - 상세결과] + 크로스탭 구조)
+            for m in self._Q_MARKER_RE.finditer(full_text):
+                q_num = int(m.group(1))
+                q_title = m.group(2).strip()
+                if q_num in seen_q:
+                    continue
+
+                # 크로스탭 테이블 탐색
+                for table in page_tables:
+                    if not self._is_crosstab_table(table):
+                        continue
+                    row0 = table[0]
+                    row1 = table[1]
+                    n_cols = len(row0)
+
+                    # N_completed (row1[2])
+                    n_completed = extract_sample_count(self._cell(row1[2]))
+                    if n_completed is None:
+                        continue
+
+                    # N_weighted (row1[-1])
+                    n_weighted = extract_sample_count(self._cell(row1[-1]))
+
+                    # 선택지: row0[3:-1]
+                    options = []
+                    for c in range(self._META_COLS, n_cols - 1):
+                        val = self._cell(row0[c] if c < len(row0) else None)
+                        val = val.replace("\n", " ").strip()
+                        options.append(val if val else f"선택지{c - self._META_COLS + 1}")
+
+                    # 비율: row1[3:-1]
+                    percentages: List[float] = []
+                    for c in range(self._META_COLS, n_cols - 1):
+                        raw = self._cell(row1[c] if c < len(row1) else None)
+                        pm = re.match(r"(\d{1,3}(?:\.\d+)?)\s*%?$", raw)
+                        if pm:
+                            percentages.append(float(pm.group(1)))
+
+                    if not percentages:
+                        continue
+
+                    min_len = min(len(options), len(percentages))
+                    if min_len == 0:
+                        continue
+
+                    options, percentages = filter_summary_columns(
+                        options[:min_len],
+                        percentages[:min_len],
+                        summary_patterns=self._SUMMARY_PATS,
+                    )
+                    if not percentages:
+                        continue
+
+                    results.append(QuestionResult(
+                        question_number=q_num,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    ))
+                    seen_q.add(q_num)
+                    break  # 이 페이지에서 이 질문 완료
+
+        return sorted(results, key=lambda r: r.question_number)
