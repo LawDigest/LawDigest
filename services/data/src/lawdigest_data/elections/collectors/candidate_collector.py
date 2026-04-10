@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from lawdigest_data.elections.api_client import NecApiClient
 from lawdigest_data.elections.models.candidates import Candidate, CandidateType, Winner
-from lawdigest_data.elections.models.codes import DistrictCode, SgTypecode
+from lawdigest_data.elections.models.codes import ElectionCode, SgTypecode
 from lawdigest_data.elections.utils.normalizer import normalize_election_name, normalize_region
 
 logger = logging.getLogger(__name__)
@@ -122,22 +122,13 @@ def _upsert_batch(
 def _get_distinct_typecodes(session: Session, sg_id: str) -> list[int]:
     """DB에서 해당 선거의 선거종류코드 목록을 가져온다."""
     result = session.execute(
-        select(DistrictCode.sg_typecode)
-        .where(DistrictCode.sg_id == sg_id)
+        select(ElectionCode.sg_typecode)
+        .where(ElectionCode.sg_id == sg_id)
         .distinct()
     )
-    return [row[0] for row in result.all()]
+    # 대표선거명(0)은 제외
+    return [row[0] for row in result.all() if row[0] != 0]
 
-
-def _get_distinct_districts(
-    session: Session, sg_id: str, sg_typecode: int,
-) -> list[tuple[str, str]]:
-    """DB에서 (sdName, sggName) 쌍 목록을 가져온다."""
-    result = session.execute(
-        select(DistrictCode.sd_name, DistrictCode.sgg_name)
-        .where(DistrictCode.sg_id == sg_id, DistrictCode.sg_typecode == sg_typecode)
-    )
-    return [(row[0], row[1]) for row in result.all()]
 
 
 class CandidateCollector:
@@ -176,30 +167,29 @@ class CandidateCollector:
         total = 0
         for tc in typecodes:
             tc_name = SgTypecode(tc).name if tc in SgTypecode._value2member_map_ else str(tc)
-            districts = _get_distinct_districts(session, sg_id, tc)
-            logger.info("  sgTypecode=%d (%s): %d개 선거구", tc, tc_name, len(districts))
+            logger.info("  sgTypecode=%d (%s) 전체 조회 중...", tc, tc_name)
+
+            try:
+                # sdName/sggName 생략 → 해당 선거종류의 전체 후보자를 한번에 조회
+                items = self.client.fetch(
+                    "candidate", operation,
+                    {"sgId": sg_id, "sgTypecode": str(tc)},
+                )
+            except Exception as e:
+                logger.warning("  수집 실패 (sgTypecode=%d): %s", tc, e)
+                continue
 
             batch: list[dict[str, Any]] = []
-            for sd_name, sgg_name in districts:
-                try:
-                    items = self.client.fetch(
-                        "candidate", operation,
-                        {"sgId": sg_id, "sgTypecode": str(tc), "sdName": sd_name, "sggName": sgg_name},
-                    )
-                except Exception as e:
-                    logger.warning("  수집 실패 (%s/%s): %s", sd_name, sgg_name, e)
-                    continue
-
-                for item in items:
-                    row = _map_row(item, _CANDIDATE_FIELD_MAP)
-                    row["candidate_type"] = candidate_type.value
-                    _enrich_with_normalized(row)
-                    batch.append(row)
+            for item in items:
+                row = _map_row(item, _CANDIDATE_FIELD_MAP)
+                row["candidate_type"] = candidate_type.value
+                _enrich_with_normalized(row)
+                batch.append(row)
 
             if batch:
                 count = _upsert_batch(session, Candidate, batch, ["huboid", "sg_id", "candidate_type"])
                 session.flush()
-                logger.info("  sgTypecode=%d: %d건 upsert", tc, count)
+                logger.info("  sgTypecode=%d (%s): %d건 upsert", tc, tc_name, count)
                 total += count
 
         logger.info("%s 후보자 총 %d건 수집 완료", candidate_type.value, total)
@@ -220,29 +210,28 @@ class WinnerCollector:
         total = 0
         for tc in typecodes:
             tc_name = SgTypecode(tc).name if tc in SgTypecode._value2member_map_ else str(tc)
-            districts = _get_distinct_districts(session, sg_id, tc)
-            logger.info("  sgTypecode=%d (%s): %d개 선거구", tc, tc_name, len(districts))
+            logger.info("  sgTypecode=%d (%s) 전체 조회 중...", tc, tc_name)
+
+            try:
+                # sdName/sggName 생략 → 해당 선거종류의 전체 당선인을 한번에 조회
+                items = self.client.fetch(
+                    "winner", "getWinnerInfoInqire",
+                    {"sgId": sg_id, "sgTypecode": str(tc)},
+                )
+            except Exception as e:
+                logger.warning("  수집 실패 (sgTypecode=%d): %s", tc, e)
+                continue
 
             batch: list[dict[str, Any]] = []
-            for sd_name, sgg_name in districts:
-                try:
-                    items = self.client.fetch(
-                        "winner", "getWinnerInfoInqire",
-                        {"sgId": sg_id, "sgTypecode": str(tc), "sdName": sd_name, "sggName": sgg_name},
-                    )
-                except Exception as e:
-                    logger.warning("  수집 실패 (%s/%s): %s", sd_name, sgg_name, e)
-                    continue
-
-                for item in items:
-                    row = _map_row(item, _WINNER_FIELD_MAP)
-                    _enrich_with_normalized(row)
-                    batch.append(row)
+            for item in items:
+                row = _map_row(item, _WINNER_FIELD_MAP)
+                _enrich_with_normalized(row)
+                batch.append(row)
 
             if batch:
                 count = _upsert_batch(session, Winner, batch, ["huboid", "sg_id"])
                 session.flush()
-                logger.info("  sgTypecode=%d: %d건 upsert", tc, count)
+                logger.info("  sgTypecode=%d (%s): %d건 upsert", tc, tc_name, count)
                 total += count
 
         # 후보자 테이블과 FK 연결
