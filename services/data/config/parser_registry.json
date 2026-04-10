@@ -141,6 +141,11 @@
       "class": "_ResearchwelParser",
       "description": "리서치웰 결과보고서 파서 – '【표N([-N]?)】 제목' 질문 마커, row[1][0]='전 체' 전체 행, col4+ 선택지·비율",
       "pollster_names": ["리서치웰"]
+    },
+    "kpo_format": {
+      "class": "_KPOParser",
+      "description": "KPO리서치 결과보고서 파서 – 'QN. 제목' 질문 마커, row[0][0]='구분'/row[2][0]='전체' 크로스탭 식별, col4+ 선택지·비율",
+      "pollster_names": ["KPO리서치"]
     }
   },
   "unparseable": {
