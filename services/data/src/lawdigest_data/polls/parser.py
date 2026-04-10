@@ -5645,3 +5645,132 @@ class _PMIParser:
                 break  # 페이지당 첫 번째 유효 테이블만
 
         return sorted(results, key=lambda r: r.question_number)
+
+
+class _ResearchJParser:
+    """리서치제이 결과보고서 파서.
+
+    포맷:
+    - 홀수 결과 페이지: 'QN. 제목' 텍스트만 (테이블 없음)
+    - 짝수 결과 페이지: 크로스탭 테이블 (1개)
+    - 전체 행: row[2]=='전체', N=첫 번째 (N), WN=두 번째 (N), 비율=이후 float 값
+    - 선택지: row[0]에서 각 데이터 컬럼(D)에 대해 D, D-1, D+1 순서로 헤더 탐색
+    """
+
+    PARSER_KEY = "_ResearchJParser"
+    _Q_RE = re.compile(r"Q(\d+)\.\s+(.+?)\s*\n")
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS
+
+    def parse(self, path: str) -> list:
+        import fitz
+
+        doc = fitz.open(path)
+        results = []
+
+        for page in doc:
+            text = page.get_text()
+            tables = page.find_tables()
+            if not tables.tables:
+                continue
+
+            t = tables.tables[0]
+            rows = t.extract()
+
+            # 전체 행 탐색 (항상 row[2]=='전체')
+            total_row = None
+            for row in rows:
+                if len(row) > 2 and row[2] == "전체":
+                    total_row = row
+                    break
+            if total_row is None:
+                continue
+
+            # Q 번호·제목 추출
+            m = self._Q_RE.search(text)
+            if not m:
+                continue
+            q_num = int(m.group(1))
+            q_title = m.group(2).strip()
+
+            # N, WN 추출 (전체 행의 첫/두 번째 (N) 패턴)
+            n_re = re.compile(r"^\((\d[\d,]*)\)\s*$")
+            n_vals: list = []
+            for cell in total_row:
+                if cell is None:
+                    continue
+                nm = n_re.match(str(cell).strip())
+                if nm:
+                    n_vals.append(int(nm.group(1).replace(",", "")))
+            n_completed = n_vals[0] if n_vals else 0
+            n_weighted = n_vals[1] if len(n_vals) > 1 else n_completed
+
+            # 비율 컬럼 추출 (col >= 9 이후의 float 값)
+            pct_cols: list = []
+            pcts: list = []
+            for c, cell in enumerate(total_row):
+                if c < 9 or cell is None or not str(cell).strip():
+                    continue
+                try:
+                    v = float(str(cell).strip())
+                    pct_cols.append(c)
+                    pcts.append(v)
+                except ValueError:
+                    pass
+
+            if not pcts:
+                continue
+
+            # 선택지 이름 추출
+            options = self._extract_options(rows, pct_cols)
+            options, pcts = filter_summary_columns(options, pcts, summary_patterns=self.SUMMARY_PATS)
+
+            if not pcts:
+                continue
+
+            results.append(
+                QuestionResult(
+                    question_number=q_num,
+                    question_title=q_title,
+                    question_text=q_title,
+                    response_options=options,
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=pcts,
+                )
+            )
+
+        doc.close()
+        return sorted(results, key=lambda r: r.question_number)
+
+    def _extract_options(self, rows: list, pct_cols: list) -> list:
+        """각 데이터 컬럼에 대해 헤더 컬럼을 탐색해 선택지 이름 반환.
+
+        탐색 순서: D(동일) → D-1(왼쪽) → D+1(오른쪽)
+        여러 행에 걸친 선택지(예: '기타\\n다른\\n인물')는 rows 0~2 합산.
+        """
+        n_header = min(3, len(rows))
+        n_cols = len(rows[0])
+        used: set = set()
+        options: list = []
+
+        for D in pct_cols:
+            best = None
+            for c in (D, D - 1, D + 1):
+                if 0 <= c < n_cols and c not in used:
+                    cell = rows[0][c]
+                    if cell is not None and str(cell).strip():
+                        best = c
+                        break
+
+            if best is None:
+                options.append(f"선택지{len(options) + 1}")
+            else:
+                used.add(best)
+                parts: list = []
+                for r in range(n_header):
+                    cell = rows[r][best] if r < len(rows) else None
+                    if cell is not None and str(cell).strip():
+                        parts.append(str(cell).strip().replace("\n", " "))
+                options.append(" ".join(parts))
+
+        return options

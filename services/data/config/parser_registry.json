@@ -196,6 +196,11 @@
       "class": "_PMIParser",
       "description": "(주)피앰아이 결과표 파서 – '표\\n제목\\nN\\n【\\n】' Q마커, BASE:ALL/'▣ 전 체 ▣' 포맷A + 사례수헤더 포맷B, 요약컬럼 필터",
       "pollster_names": ["(주)피앰아이", "피앰아이"]
+    },
+    "researchj_format": {
+      "class": "_ResearchJParser",
+      "description": "리서치제이 결과보고서 파서 – 'QN. 제목' 데이터 페이지(테이블 有), row[2]='전체', N/WN=(N)패턴, col9+ float 비율, 헤더 D/D-1/D+1 탐색",
+      "pollster_names": ["리서치제이"]
     }
   },
   "unparseable": {
