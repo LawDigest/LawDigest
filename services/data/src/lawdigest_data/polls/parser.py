@@ -3746,3 +3746,152 @@ class _InnertecParser:
         for i, r in enumerate(results):
             r.question_number = i + 1
         return results
+
+
+class _ResearchViewParser:
+    """리서치뷰 크로스탭 PDF 파서.
+
+    포맷 특성:
+      - 1 질문 = 1 페이지 = 1 테이블
+      - 질문 페이지 식별: row[0][0]이 'N. 제목\n(%)' 패턴과 일치
+      - 표준 포맷: row[N][0]=='전 체'인 행 사용 (지역 여론조사)
+      - 추이 포맷: row[2][0]가 날짜 패턴 (전국정기조사) →
+        인구통계 행 이전의 마지막 날짜 행 = 최신 조사 결과
+      - col[2]: 조사완료 사례수, col[3]: 가중값적용 사례수, col[4+]: 비율
+      - META_COLS = 4
+      - '없음', '모름', '없음/모름' 컬럼 필터링
+    """
+
+    PARSER_KEY = "_ResearchViewParser"
+    _Q_TITLE_RE = re.compile(r"^(\d+)\.\s+(.+?)(?:\n|\s*\(%\)|\s*$)", re.DOTALL)
+    _TOTAL_MARKER = "전 체"
+    _DATE_ROW_RE = re.compile(r"^\d{4}년")  # "2026년 3월..." 패턴
+    _DEMO_KEYS = {"성별", "연령", "남성", "여성", "지역", "직업", "학력"}
+    META_COLS = 4
+    _SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS + (
+        re.compile(r"^없음$"),
+        re.compile(r"^모름$"),
+        re.compile(r"^없음\s*/\s*모름$|^없음모름$"),
+        re.compile(r"^모름\s*/\s*기타$|^모름기타$"),
+    )
+
+    @staticmethod
+    def _cell(val: object) -> str:
+        return (val or "").strip() if val is not None else ""
+
+    def _parse_q_title(self, table: List) -> Optional[tuple]:
+        """테이블 row[0][0]에서 질문 번호·제목 추출."""
+        if not table or not table[0]:
+            return None
+        raw = self._cell(table[0][0])
+        m = self._Q_TITLE_RE.match(raw)
+        if not m:
+            return None
+        title = m.group(2).strip()
+        title = re.sub(r"\s*\(%\)\s*$", "", title).strip()
+        return int(m.group(1)), title
+
+    def _build_options(self, table: List) -> List[str]:
+        """row[1][META_COLS:]에서 선택지 이름 추출."""
+        if len(table) < 2:
+            return []
+        header = table[1]
+        options = []
+        for col_i in range(self.META_COLS, len(header)):
+            val = self._cell(header[col_i])
+            val = val.replace("\n", " ").strip()
+            options.append(val if val else f"선택지{col_i - self.META_COLS + 1}")
+        return options
+
+    def _find_total_row(self, table: List) -> Optional[List]:
+        """전체/최신 데이터 행 탐색.
+
+        - 표준 포맷: '전 체' 행 반환
+        - 추이 포맷: 인구통계 행 이전의 마지막 날짜 행 반환
+        """
+        # 표준 포맷 우선
+        for row in table[2:]:
+            if row and self._cell(row[0]) == self._TOTAL_MARKER:
+                return row
+        # 추이 포맷: row[2][0]가 날짜 패턴인 경우
+        if len(table) > 2 and table[2] and self._DATE_ROW_RE.match(self._cell(table[2][0])):
+            last_date_row = None
+            for row in table[2:]:
+                if not row:
+                    continue
+                v = self._cell(row[0])
+                if self._DATE_ROW_RE.match(v):
+                    last_date_row = row
+                elif v in self._DEMO_KEYS or (row[1] and self._cell(row[1]) in self._DEMO_KEYS):
+                    break
+            return last_date_row
+        return None
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results: List[QuestionResult] = []
+        for _pg_idx, (_outside_text, page_tables, _full_text) in enumerate(pages_data):
+            if not page_tables:
+                continue
+            for table in page_tables:
+                q_info = self._parse_q_title(table)
+                if q_info is None:
+                    continue
+                q_num, q_title = q_info
+
+                total_row = self._find_total_row(table)
+                if total_row is None:
+                    continue
+
+                if len(total_row) <= self.META_COLS:
+                    continue
+
+                n_completed = extract_sample_count(
+                    self._cell(total_row[2]) if len(total_row) > 2 else ""
+                )
+                if n_completed is None:
+                    continue
+                n_weighted = extract_sample_count(
+                    self._cell(total_row[3]) if len(total_row) > 3 else ""
+                )
+
+                options = self._build_options(table)
+                percentages: List[float] = []
+                for col_i in range(self.META_COLS, len(total_row)):
+                    raw = self._cell(total_row[col_i])
+                    m = re.match(r"(\d{1,3}(?:\.\d+)?)\s*%?$", raw)
+                    if m:
+                        percentages.append(float(m.group(1)))
+
+                if not percentages:
+                    continue
+
+                min_len = min(len(options), len(percentages))
+                if min_len == 0:
+                    continue
+
+                options, percentages = filter_summary_columns(
+                    options[:min_len],
+                    percentages[:min_len],
+                    summary_patterns=self._SUMMARY_PATS,
+                )
+                if not percentages:
+                    continue
+
+                results.append(QuestionResult(
+                    question_number=q_num,
+                    question_title=q_title,
+                    question_text=q_title,
+                    response_options=options,
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=percentages,
+                ))
+
+        # 중복 제거: 같은 질문번호가 여러 번 나오면 첫 번째만 유지
+        seen: set = set()
+        unique: List[QuestionResult] = []
+        for r in results:
+            if r.question_number not in seen:
+                seen.add(r.question_number)
+                unique.append(r)
+        return unique

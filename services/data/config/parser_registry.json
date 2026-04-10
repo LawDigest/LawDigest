@@ -111,6 +111,11 @@
       "class": "_InnertecParser",
       "description": "(주)이너텍시스템즈 크로스탭 파서 – 챕터 4(교차분석통계표) 전용, 3행 heading 테이블에서 'N. 제목' 질문 마커, row[0]='합 계' 전체 행, col3~N-2 개별 셀 비율",
       "pollster_names": ["이너텍시스템즈", "(주)이너텍시스템즈"]
+    },
+    "research_view_format": {
+      "class": "_ResearchViewParser",
+      "description": "리서치뷰 크로스탭 PDF 파서 – 1질문 1페이지 1테이블, row[0][0]='N. 제목(%)' 질문 마커, row[2][0]='전 체' 전체 행, col4+ 선택지 비율, 없음/모름 필터링",
+      "pollster_names": ["리서치뷰", "(주)리서치뷰"]
     }
   },
   "unparseable": {
