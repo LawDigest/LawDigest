@@ -173,6 +173,63 @@ python -m pytest tests/polls/ -x -q
 
 * `response_options` 개수 = `overall_percentages` 개수
 
+### 4.5단계: 파싱 실패 원인 디버깅
+
+파서를 작성했는데 결과가 0건이거나 비율이 비어 있다면, **DEBUG 로그**와 **probe_parsers `--verbose` 플래그**를 활용한다.
+
+#### 방법 1: probe_parsers --verbose
+
+`probe_parsers.py`는 기본적으로 INFO 로그만 출력한다.  
+`--verbose` 플래그를 추가하면 `parser.py` 모듈의 **DEBUG 로그**가 함께 출력된다.
+
+```bash
+python scripts/polls/probe_parsers.py --target <slug> --verbose
+```
+
+#### 방법 2: 단일 PDF 직접 실행 (임시 스크립트)
+
+```python
+import sys, logging
+
+# DEBUG 로그 활성화 (parser.py만)
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
+logging.getLogger("lawdigest_data.polls.parser").setLevel(logging.DEBUG)
+
+from pathlib import Path
+from lawdigest_data.polls.parser import PollResultParser
+
+pp = PollResultParser()
+results = pp.parse_pdf(Path("파일명.pdf"), pollster_hint="기관명")
+print(f"{len(results)}건")
+```
+
+#### 파서 내 DEBUG 로그 작성 규칙
+
+새 파서 클래스에는 반드시 단계별 SKIP 원인을 `_logger.debug()`로 기록한다.
+
+```python
+# 페이지 인덱스를 1-based로 출력 (pg = pg_idx + 1)
+_logger.debug("[XXX] p%d SKIP: 사유 (%r)", pg, 추가_컨텍스트)
+_logger.debug("[XXX] p%d OK: q='%s' n=%s opts=%d pcts=%s", pg, q_title, n, len(opts), pcts[:3])
+```
+
+**SKIP 체크리스트** — 이 순서로 조건을 확인하고 각각 debug 로그를 남긴다:
+
+| 순서 | 조건 | 로그 키워드 |
+|------|------|------------|
+| 1 | 메타 페이지 (조사개요 등) | `SKIP: 메타 페이지` |
+| 2 | 테이블 수 불일치 | `SKIP: 테이블 수=N` |
+| 3 | 테이블 행 부족 | `SKIP: 테이블 행 부족` |
+| 4 | 질문 제목 미발견 | `SKIP: 질문 제목 미발견` |
+| 5 | 선택지 없음 | `SKIP: 선택지 없음 (header=...)` |
+| 6 | 전체 행 미발견 | `SKIP: 전체 행 미발견` |
+| 7 | n_completed 추출 실패 | `SKIP: n_completed 추출 실패` |
+| 8 | 비율 추출 실패 | `SKIP: 비율 추출 실패 (cells=...)` |
+| 9 | filter 후 길이 0 | `SKIP: filter 후 길이 0` |
+
+> **주의**: `extract_percentages_from_cells()`는 `%` 기호가 없는 순수 숫자 문자열만 처리한다.  
+> `'47.0%'` 형태의 셀은 빈 리스트를 반환한다. 이 경우 `.rstrip("%")` 후 `float()` 변환하는 커스텀 메서드를 파서에 추가해야 한다.
+
 ### 5단계: PR 제출
 
 ```bash
