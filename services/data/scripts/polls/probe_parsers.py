@@ -15,8 +15,9 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
-import signal
+import logging
 import sys
 import time
 import warnings
@@ -28,10 +29,12 @@ warnings.filterwarnings("ignore")
 _BASE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_BASE / "src"))
 
-import re as _re
+import re as _re  # noqa: E402
 
-from lawdigest_data.polls.parser import PollResultParser  # noqa: E402
-from lawdigest_data.polls.targets import load_targets     # noqa: E402
+from lawdigest_data.polls.parser import PollResultParser, UnknownPollsterError  # noqa: E402
+from lawdigest_data.polls.targets import is_ignored_analysis_filename, load_targets  # noqa: E402
+
+# PDF 파서 타임아웃 없음 — 느린 파일(여론조사꽃 GID 디코딩 등)도 완료까지 대기
 
 _UNSAFE = _re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
@@ -39,17 +42,6 @@ _UNSAFE = _re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 def _safe_dirname(name: str) -> str:
     name = _UNSAFE.sub("_", name)
     return name.strip(". ") or "_"
-
-# PDF 파서 타임아웃 (초)
-PDF_TIMEOUT = 20
-
-
-class _Timeout(Exception):
-    pass
-
-
-def _handler(signum, frame):
-    raise _Timeout()
 
 
 def main() -> None:
@@ -59,7 +51,15 @@ def main() -> None:
         default=None,
         help="poll_targets.json의 slug (미지정 시 첫 번째 타겟 사용)",
     )
+    ap.add_argument(
+        "--verbose",
+        action="store_true",
+        help="DEBUG 로그 출력 (단계별 타이밍)",
+    )
     args = ap.parse_args()
+
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG, format="%(name)s %(levelname)s %(message)s")
 
     # ── 타겟 로드 ──────────────────────────────────────────────────────────────
     targets = load_targets(_BASE / "config" / "poll_targets.json")
@@ -94,38 +94,74 @@ def main() -> None:
 
     registry = _BASE / "config" / "parser_registry.json"
     parser   = PollResultParser(registry_path=registry)
-    check    = json.loads(check_json.read_text())
 
-    print(f"{'번호':<8} {'Q':>3}  {'초':>4}  {'조사기관':<30}  파일명")
-    print("-" * 95)
+    # unparseable 기관 목록 로드 — 구조적 한계로 파싱 불가 판정된 기관
+    _registry_data = json.loads(registry.read_text(encoding="utf-8"))
+    _unparseable_names: set[str] = {
+        p["name"]
+        for p in _registry_data.get("unparseable", {}).get("pollsters", [])
+    }
+
+    check    = [
+        row for row in json.loads(check_json.read_text())
+        if not is_ignored_analysis_filename(row.get("analysis_filename", ""), target)
+    ]
+
+    sorted_check = [
+        r for r in sorted(check, key=lambda x: x["registered_date"])
+        if (pdf_dir / r["analysis_filename"]).exists()
+    ]
+    total_files = len(sorted_check)
+
+    print(f"총 {total_files}개 파일 처리 시작\n")
+    print(f"{'번호':<8} {'진행':>8}  {'Q':>3}  {'초':>5}  {'조사기관':<30}  파일명")
+    print("-" * 105)
 
     rows = []
-    for r in sorted(check, key=lambda x: x["registered_date"]):
+    t_session_start = time.monotonic()
+    for idx, r in enumerate(sorted_check, start=1):
         pdf_path = pdf_dir / r["analysis_filename"]
-        if not pdf_path.exists():
-            continue
 
-        signal.signal(signal.SIGALRM, _handler)
-        signal.alarm(PDF_TIMEOUT)
         t0 = time.monotonic()
-        try:
-            results = parser.parse_pdf(pdf_path, pollster_hint=r["pollster"])
-            q = len(results)
-            flag = "✔" if q > 0 else "✘"
-            error = None
-        except _Timeout:
-            q = -99
-            flag = "T"
-            error = "timeout"
-        except Exception as e:
-            q = -1
-            flag = "E"
-            error = str(e)
-        finally:
-            signal.alarm(0)
-        elapsed = time.monotonic() - t0
+        if r["pollster"] in _unparseable_names:
+            q = 0
+            flag = "X"
+            error = f"파싱 불가(구조적 한계): '{r['pollster']}'"
+            elapsed = 0.0
+        else:
+            try:
+                results = parser.parse_pdf(pdf_path, pollster_hint=r["pollster"])
+                q = len(results)
+                flag = "✔" if q > 0 else "✘"
+                error = None
+            except UnknownPollsterError:
+                q = -1
+                flag = "E"
+                pollster_name = r["pollster"]
+                all_keywords = parser.get_registered_pollster_names()
+                close = difflib.get_close_matches(pollster_name, all_keywords, n=3, cutoff=0.3)
+                if close:
+                    error = f"파서 없음: '{pollster_name}' — 유사 등록 기관: {close}"
+                else:
+                    error = f"파서 없음: '{pollster_name}' (유사 기관 없음)"
+            except Exception as e:
+                q = -1
+                flag = "E"
+                error = str(e)
+            elapsed = time.monotonic() - t0
 
-        print(f"{r['registration_number']:<8} {q:>3}{flag}  {elapsed:>4.1f}s  {r['pollster']:<30}  {r['analysis_filename'][:38]}")
+        progress = f"{idx}/{total_files}"
+        pct = idx / total_files * 100
+        elapsed_session = time.monotonic() - t_session_start
+        avg = elapsed_session / idx
+        eta = avg * (total_files - idx)
+        eta_str = f"ETA {eta:>4.0f}s" if idx < total_files else "완료     "
+
+        print(
+            f"{r['registration_number']:<8} [{progress:>7}|{pct:>3.0f}%]  "
+            f"{q:>3}{flag}  {elapsed:>4.1f}s  {r['pollster']:<30}  "
+            f"{r['analysis_filename'][:30]}  {eta_str}"
+        )
         sys.stdout.flush()
 
         rows.append({
@@ -143,11 +179,11 @@ def main() -> None:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_path = report_dir / f"probe_{target.slug}_{timestamp}.json"
 
-    total   = len(rows)
-    success = sum(1 for r in rows if r["flag"] == "✔")
-    empty   = sum(1 for r in rows if r["flag"] == "✘")
-    timeout = sum(1 for r in rows if r["flag"] == "T")
-    error   = sum(1 for r in rows if r["flag"] == "E")
+    total    = len(rows)
+    success  = sum(1 for r in rows if r["flag"] == "✔")
+    empty    = sum(1 for r in rows if r["flag"] == "✘")
+    excluded = sum(1 for r in rows if r["flag"] == "X")
+    error    = sum(1 for r in rows if r["flag"] == "E")
 
     report = {
         "timestamp": timestamp,
@@ -156,7 +192,7 @@ def main() -> None:
             "total": total,
             "success": success,
             "empty": empty,
-            "timeout": timeout,
+            "excluded": excluded,
             "error": error,
         },
         "rows": rows,
@@ -165,7 +201,7 @@ def main() -> None:
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
     print()
-    print(f"[ 요약 ] 전체={total}  성공={success}  빈결과={empty}  타임아웃={timeout}  오류={error}")
+    print(f"[ 요약 ] 전체={total}  성공={success}  빈결과={empty}  제외={excluded}  오류={error}")
     print(f"리포트 저장: {report_path}")
 
 

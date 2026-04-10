@@ -21,6 +21,7 @@ import re
 import sys
 import time
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -29,9 +30,11 @@ from urllib3.util.retry import Retry
 _BASE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_BASE / "src"))
 
-from lawdigest_data.polls.targets import load_targets  # noqa: E402
+import re as _re
 
-_UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+from lawdigest_data.polls.targets import is_ignored_analysis_filename, load_targets  # noqa: E402
+
+_UNSAFE = _re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
 def _safe_dirname(name: str) -> str:
@@ -74,6 +77,13 @@ def _safe_filename(text: str, fallback: str) -> str:
     return (cleaned or fallback)[:180]
 
 
+def _ascii_header_value(url: str) -> str:
+    """HTTP header에 안전하게 실을 수 있도록 URL을 ASCII로 정규화한다."""
+    parts = urlsplit(url)
+    query = urlencode(parse_qsl(parts.query, keep_blank_values=True), doseq=True)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, query, parts.fragment))
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="NESDC 여론조사 PDF 다운로드")
     ap.add_argument(
@@ -100,8 +110,6 @@ def main() -> None:
         target = targets[0]
         log.info("타겟 미지정 — 첫 번째 타겟 사용: %s", target.slug)
 
-    ignored_filenames = set(target.ignored_analysis_filenames or ())
-
     # ── 경로 설정 ──────────────────────────────────────────────────────────────
     check_json = _BASE / "output" / "polls" / "checks" / f"{target.slug}.json"
     pdf_dir    = (
@@ -116,9 +124,13 @@ def main() -> None:
         sys.exit(1)
 
     records = json.loads(check_json.read_text(encoding="utf-8"))
-    download_targets = [r for r in records if r.get("has_pdf") and r.get("analysis_url")]
-    if ignored_filenames:
-        download_targets = [r for r in download_targets if r.get("analysis_filename") not in ignored_filenames]
+    download_targets = [
+        r
+        for r in records
+        if r.get("has_pdf")
+        and r.get("analysis_url")
+        and not is_ignored_analysis_filename(r.get("analysis_filename", ""), target)
+    ]
     log.info("다운로드 대상: %d건", len(download_targets))
     log.info("저장 경로: %s", pdf_dir)
     log.info("딜레이: %.1f~%.1fs / 요청", MIN_DELAY, MAX_DELAY)
@@ -152,8 +164,12 @@ def main() -> None:
             pass
 
         try:
-            resp = session.get(r["analysis_url"], timeout=60, stream=True,
-                               headers={"Referer": r["detail_url"]})
+            resp = session.get(
+                r["analysis_url"],
+                timeout=60,
+                stream=True,
+                headers={"Referer": _ascii_header_value(r["detail_url"])},
+            )
             resp.raise_for_status()
 
             content = resp.content

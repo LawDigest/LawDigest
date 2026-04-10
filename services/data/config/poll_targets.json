@@ -1,18 +1,40 @@
 {
-  "version": "1.1",
-  "description": "수집 대상 선거 목록. NESDC 서버 사이드 필터(poll_gubuncd, search_cnd, search_wrd)로 1차 수집 후, region/election_names/pollsters로 클라이언트 사이드 추가 필터링한다. searchCnd 코드: 4=시·도, 1=조사기관명, 3=여론조사명칭(지역) (docs/nesdc_search_api.md 참고).",
+  "version": "2.0",
+  "description": "수집 대상 선거 목록. 지역(regions), 선거(elections), 실행 타겟(targets)을 분리해 광역시·도 확장을 지원한다.",
+  "regions": {
+    "gyeonggi": {
+      "search_cnd": "4",
+      "search_wrd": "경기도",
+      "region": "경기도 전체"
+    },
+    "seoul": {
+      "search_cnd": "4",
+      "search_wrd": "서울특별시",
+      "region": "서울특별시 전체"
+    }
+  },
+  "elections": {
+    "local_9th_governor": {
+      "poll_gubuncd": "VT026",
+      "election_type": "제9회 전국동시지방선거",
+      "election_names": ["광역단체장선거"]
+    }
+  },
   "targets": [
     {
       "slug": "gyeonggi_governor_9th",
-      "poll_gubuncd": "VT026",
-      "election_type": "제9회 전국동시지방선거",
-      "search_cnd": "4",
-      "search_wrd": "경기도",
-      "region": "경기도 전체",
-      "election_names": ["광역단체장선거"],
-      "pollsters": null,
+      "region_key": "gyeonggi",
+      "election_key": "local_9th_governor",
       "ignored_analysis_filenames": [
         "2026 기후위기 국민 인식조사_09_경기_TABLE_등록_0306.pdf"
+      ]
+    },
+    {
+      "slug": "seoul_mayor_9th",
+      "region_key": "seoul",
+      "election_key": "local_9th_governor",
+      "ignored_analysis_filenames": [
+        "2026 기후위기 국민 인식조사_01_서울_TABLE_등록0306.pdf"
       ]
     }
   ]
