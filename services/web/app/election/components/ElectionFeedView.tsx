@@ -15,6 +15,7 @@ import PartyRingSelector from './shared/PartyRingSelector';
 import DistrictMapPicker, { SelectedRegion } from './shared/DistrictMapPicker';
 import ElectionFeedCardList from './ElectionFeedCardList';
 import SubTabBar from './shared/SubTabBar';
+import { ActiveFilterBadge } from './feed';
 
 type FeedSubView = 'all' | 'party' | 'candidate' | 'region';
 
@@ -37,6 +38,18 @@ export default function ElectionFeedView({ confirmedRegion }: ElectionFeedViewPr
   const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(
     confirmedRegion ? { regionCode: confirmedRegion.regionCode, regionName: confirmedRegion.regionName } : null,
   );
+
+  function activeFilterLabel(): string | null {
+    if (subView === 'party' && selectedParty) return selectedParty;
+    if (subView === 'region' && selectedRegion) return selectedRegion.regionName;
+    return null;
+  }
+
+  function emptyMessage(): string {
+    if (subView === 'party' && selectedParty) return `${selectedParty}의 피드가 아직 없습니다.`;
+    if (subView === 'region' && selectedRegion) return `${selectedRegion.regionName}의 피드가 아직 없습니다.`;
+    return '아직 등록된 선거 피드가 없습니다.';
+  }
 
   function filterItems(): FeedItem[] {
     if (subView === 'party' && selectedParty) {
@@ -74,9 +87,24 @@ export default function ElectionFeedView({ confirmedRegion }: ElectionFeedViewPr
         />
       )}
 
+      {/* 활성 필터 배지 */}
+      {(() => {
+        const activeLabel = activeFilterLabel();
+        return activeLabel ? (
+          <ActiveFilterBadge
+            label={activeLabel}
+            onClear={() => {
+              setSubView('all');
+              setSelectedParty(null);
+              setSelectedRegion(null);
+            }}
+          />
+        ) : null;
+      })()}
+
       {/* 피드 카드 리스트 */}
       <div className="mt-3">
-        <ElectionFeedCardList items={filterItems()} />
+        <ElectionFeedCardList items={filterItems()} emptyMessage={emptyMessage()} />
       </div>
     </div>
   );

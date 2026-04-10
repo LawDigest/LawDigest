@@ -3,6 +3,37 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import ElectionFeedView from './ElectionFeedView';
 
+vi.mock('./feed', () => ({
+  ActiveFilterBadge: ({ label, onClear }: { label: string; onClear: () => void }) => (
+    <div>
+      <span>{label} 필터 적용 중</span>
+      <button type="button" onClick={onClear}>
+        해제
+      </button>
+    </div>
+  ),
+}));
+
+vi.mock('./shared/SubTabBar', () => ({
+  default: ({
+    tabs,
+    active,
+    onChange,
+  }: {
+    tabs: { key: string; label: string }[];
+    active: string;
+    onChange: (key: string) => void;
+  }) => (
+    <div role="tablist">
+      {tabs.map((t) => (
+        <button key={t.key} role="tab" aria-selected={active === t.key} type="button" onClick={() => onChange(t.key)}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  ),
+}));
+
 vi.mock('./shared/PartyRingSelector', () => ({
   default: ({ parties, onSelect }: { parties: { name: string }[]; onSelect: (n: string) => void }) => (
     <div>
@@ -47,5 +78,27 @@ describe('ElectionFeedView', () => {
     render(<ElectionFeedView confirmedRegion={null} />);
     fireEvent.click(screen.getByRole('tab', { name: '정당별' }));
     expect(screen.getByText('더불어민주당')).toBeInTheDocument();
+  });
+});
+
+describe('ElectionFeedView — ActiveFilterBadge', () => {
+  it('초기 상태에서는 필터 배지가 표시되지 않는다', () => {
+    render(<ElectionFeedView confirmedRegion={null} />);
+    expect(screen.queryByText(/필터 적용 중/)).not.toBeInTheDocument();
+  });
+
+  it('정당을 선택하면 필터 배지가 나타난다', () => {
+    render(<ElectionFeedView confirmedRegion={null} />);
+    fireEvent.click(screen.getByRole('tab', { name: '정당별' }));
+    fireEvent.click(screen.getByText('더불어민주당'));
+    expect(screen.getByText('더불어민주당 필터 적용 중')).toBeInTheDocument();
+  });
+
+  it('필터 배지 해제 버튼 클릭 시 배지가 사라진다', () => {
+    render(<ElectionFeedView confirmedRegion={null} />);
+    fireEvent.click(screen.getByRole('tab', { name: '정당별' }));
+    fireEvent.click(screen.getByText('더불어민주당'));
+    fireEvent.click(screen.getByText('해제'));
+    expect(screen.queryByText(/필터 적용 중/)).not.toBeInTheDocument();
   });
 });

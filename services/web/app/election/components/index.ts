@@ -22,7 +22,6 @@ export { default as ElectionPollView } from './ElectionPollView';
 export { default as ElectionDistrictView } from './ElectionDistrictView';
 export { default as PollRegionPanel } from './PollRegionPanel';
 export { default as FeedRegionPanel } from './FeedRegionPanel';
-export { default as BillMiniCard } from './BillMiniCard';
 export { default as ElectionFeedCardList } from './ElectionFeedCardList';
 export { default as PartyRingSelector } from './shared/PartyRingSelector';
 export { default as DistrictMapPicker } from './shared/DistrictMapPicker';
