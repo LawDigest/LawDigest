@@ -20,6 +20,7 @@ from lawdigest_data.polls.parser import (
     PollParser,
     PollResultParser,
     UnknownPollsterError,
+    _should_discard_question_result,
     _build_parser_key_map,
     _AceResearchParser,
     _EmbrainPublicParser,
@@ -41,6 +42,7 @@ from lawdigest_data.polls.parser import (
     _WinjiKoreaParser,
     _FairPollParser,
 )
+from lawdigest_data.polls.models import QuestionResult
 
 # ── PARSER_KEY 자동 탐색 ─────────────────────────────────────────────────────
 
@@ -76,6 +78,65 @@ class TestBuildParserKeyMap:
         assert key_map["_WinjiKoreaParser"] is _WinjiKoreaParser
         assert key_map["_FlowerResearchParser"] is _FlowerResearchParser
         assert key_map["_DailyResearchParser"] is _DailyResearchParser
+
+
+class TestParserQualityDiscard:
+    def test_discards_winji_style_broken_party_options(self):
+        result = QuestionResult(
+            question_number=1,
+            question_title="정당지지도",
+            question_text="",
+            response_options=[
+                "기타 지지하는",
+                "더불어 조국 잘",
+                "국민의힘 진보당 개혁신당 다른 정당이",
+                "선택지6",
+            ],
+            overall_n_completed=1000,
+            overall_n_weighted=1000,
+            overall_percentages=[42.7, 31.8, 2.2, 3.1],
+        )
+
+        assert _should_discard_question_result(result) is True
+
+    def test_discards_media_tomato_style_merged_labels(self):
+        result = QuestionResult(
+            question_number=1,
+            question_title="정당 지지도",
+            question_text="",
+            response_options=["민주당국민의힘", "혁신당개혁신당진보당", "그 외", "잘 모름"],
+            overall_n_completed=1000,
+            overall_n_weighted=1000,
+            overall_percentages=[39.9, 2.0, 3.4, 1.9],
+        )
+
+        assert _should_discard_question_result(result) is True
+
+    def test_discards_mojibake_question_result(self):
+        result = QuestionResult(
+            question_number=1,
+            question_title="먚鰃믅믅鱮 (1)",
+            question_text="",
+            response_options=["꾍랹 긁묁鰃", "긁륝 증", "롽 먚鰃"],
+            overall_n_completed=2000,
+            overall_n_weighted=2000,
+            overall_percentages=[56.1, 29.3, 3.1],
+        )
+
+        assert _should_discard_question_result(result) is True
+
+    def test_keeps_clean_matchup_question_result(self):
+        result = QuestionResult(
+            question_number=1,
+            question_title="오세훈 대 김민석",
+            question_text="",
+            response_options=["오세훈", "김민석", "기타 후보", "없음", "잘 모름"],
+            overall_n_completed=1000,
+            overall_n_weighted=1000,
+            overall_percentages=[40.6, 44.2, 3.2, 7.9, 4.1],
+        )
+
+        assert _should_discard_question_result(result) is False
 
 
 # ── PARSER_KEY 클래스 변수 존재 여부 ─────────────────────────────────────────

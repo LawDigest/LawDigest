@@ -22,6 +22,7 @@ from .table_utils import (
     filter_summary_columns,
     find_total_row,
 )
+from .validation import quality_screen_question_result
 
 _logger = logging.getLogger(__name__)
 
@@ -36,6 +37,11 @@ PageData = Tuple[str, List, str]
 
 class UnknownPollsterError(ValueError):
     """등록된 파서가 없는 조사기관에 대해 발생하는 예외."""
+
+
+def _should_discard_question_result(result: QuestionResult) -> bool:
+    """복구 불가능한 parser 출력은 즉시 폐기한다."""
+    return bool(quality_screen_question_result(result))
 
 
 def _should_scan_tables_for_page(parser_class: type, full_text: str) -> bool:
@@ -581,6 +587,8 @@ class BaseTableParser:
                 result.question_number = q_counter
                 if not result.question_title:
                     result.question_title = self._extract_title(page_text, full_text)
+                if _should_discard_question_result(result):
+                    continue
                 results.append(result)
 
         return results
@@ -1317,7 +1325,7 @@ class _FlowerResearchParser(BaseTableParser):
 
         for i, r in enumerate(results):
             r.question_number = i + 1
-        return results
+        return [r for r in results if not _should_discard_question_result(r)]
 
 
 class _WinjiKoreaParser(BaseTableParser):
@@ -1349,6 +1357,8 @@ class _WinjiKoreaParser(BaseTableParser):
                 q_counter += 1
                 result.question_number = q_counter
                 result.question_title = page_title
+                if _should_discard_question_result(result):
+                    continue
                 results.append(result)
 
         return results
@@ -2169,7 +2179,7 @@ class _KStatResearchParser(BaseTableParser):
                     len(results) + 1,
                     seen_pct_sigs,
                 )
-                if result is not None:
+                if result is not None and not _should_discard_question_result(result):
                     results.append(result)
 
         return results
@@ -2248,17 +2258,18 @@ class _KStatResearchParser(BaseTableParser):
             return  # 병합 성공/실패 관계없이 새 질문으로 추가하지 않음
 
         q_title = f"Q{fallback_q_num}"
-        results.append(
-            QuestionResult(
-                question_number=fallback_q_num,
-                question_title=q_title,
-                question_text=q_title,
-                response_options=options[:min_len],
-                overall_n_completed=n_completed,
-                overall_n_weighted=n_weighted,
-                overall_percentages=percentages[:min_len],
-            )
+        candidate = QuestionResult(
+            question_number=fallback_q_num,
+            question_title=q_title,
+            question_text=q_title,
+            response_options=options[:min_len],
+            overall_n_completed=n_completed,
+            overall_n_weighted=n_weighted,
+            overall_percentages=percentages[:min_len],
         )
+        if _should_discard_question_result(candidate):
+            return
+        results.append(candidate)
 
     def _build_12_result(
         self,
@@ -2562,7 +2573,7 @@ class _AceResearchParser(BaseTableParser):
 
         for i, r in enumerate(results):
             r.question_number = i + 1
-        return results
+        return [r for r in results if not _should_discard_question_result(r)]
 
 
 class _MediaTomatoParser(BaseTableParser):
@@ -2695,7 +2706,7 @@ class _MediaTomatoParser(BaseTableParser):
 
         for i, r in enumerate(results):
             r.question_number = i + 1
-        return results
+        return [r for r in results if not _should_discard_question_result(r)]
 
 
 class _KopraParser(BaseTableParser):
