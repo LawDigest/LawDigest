@@ -43,6 +43,31 @@ public class ElectionController {
         return BaseResponse.ok(pollQueryService.getOverview(electionId, regionCode));
     }
 
+    @Operation(summary = "여론조사 정당별", description = "선택 정당 기준 여론조사 추이와 지역 분포를 반환합니다.")
+    @GetMapping("/polls/party")
+    public BaseResponse<ElectionPollPartyResponse> getPollParty(
+            @RequestParam("election_id") String electionId,
+            @RequestParam("party_name") String partyName) {
+        return BaseResponse.ok(pollQueryService.getParty(electionId, partyName));
+    }
+
+    @Operation(summary = "여론조사 지역별", description = "선택 지역 기준 여론조사 스냅샷과 조사 목록을 반환합니다.")
+    @GetMapping("/polls/region")
+    public BaseResponse<ElectionPollRegionResponse> getPollRegion(
+            @RequestParam("election_id") String electionId,
+            @RequestParam("region_code") String regionCode) {
+        return BaseResponse.ok(pollQueryService.getRegion(electionId, regionCode));
+    }
+
+    @Operation(summary = "여론조사 후보자별", description = "선택 지역 기준 후보자 여론조사 시계열과 비교 데이터를 반환합니다.")
+    @GetMapping("/polls/candidate")
+    public BaseResponse<ElectionPollCandidateResponse> getPollCandidate(
+            @RequestParam("election_id") String electionId,
+            @RequestParam("region_code") String regionCode,
+            @RequestParam(value = "candidate_name", required = false) String candidateName) {
+        return BaseResponse.ok(pollQueryService.getCandidate(electionId, regionCode, candidateName));
+    }
+
     @Operation(summary = "지도 데이터", description = "지역별 후보자 수 등 지도 표시용 데이터를 반환합니다.")
     @GetMapping("/map")
     public BaseResponse<ElectionMapResponse> getMap(

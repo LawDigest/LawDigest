@@ -1,6 +1,9 @@
 package com.everyones.lawmaking.service.election.poll;
 
+import com.everyones.lawmaking.common.dto.response.election.ElectionPollCandidateResponse;
 import com.everyones.lawmaking.common.dto.response.election.ElectionPollOverviewResponse;
+import com.everyones.lawmaking.common.dto.response.election.ElectionPollPartyResponse;
+import com.everyones.lawmaking.common.dto.response.election.ElectionPollRegionResponse;
 import com.everyones.lawmaking.domain.entity.poll.PollOption;
 import com.everyones.lawmaking.domain.entity.poll.PollQuestion;
 import com.everyones.lawmaking.domain.entity.poll.PollSurvey;
@@ -13,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,20 +50,20 @@ public class PollQueryService {
         String electionLabel = pollNormalizationService.normalizeElectionLabel(electionId);
         String regionLabel = pollNormalizationService.normalizeRegionLabel(regionCode, null);
 
-        List<SurveySnapshot> snapshots = pollSurveyRepository
+        List<PartySurveySnapshot> snapshots = pollSurveyRepository
                 .findByElectionTypeAndRegionOrderBySurveyEndDateDesc(electionLabel, regionLabel)
                 .stream()
-                .map(this::toSurveySnapshot)
+                .map(this::toPartySurveySnapshot)
                 .flatMap(Optional::stream)
                 .toList();
 
         List<ElectionPollOverviewResponse.LatestSurveyResponse> latestSurveys = snapshots.stream()
-                .map(this::toLatestSurveyResponse)
+                .map(this::toOverviewLatestSurveyResponse)
                 .toList();
 
         List<ElectionPollOverviewResponse.PartyTrendPoint> partyTrend = snapshots.stream()
-                .sorted(Comparator.comparing(SurveySnapshot::surveyEndDate, Comparator.nullsLast(Comparator.naturalOrder())))
-                .map(this::toTrendPoint)
+                .sorted(Comparator.comparing(PartySurveySnapshot::surveyEndDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(this::toOverviewTrendPoint)
                 .toList();
 
         return ElectionPollOverviewResponse.builder()
@@ -71,33 +73,169 @@ public class PollQueryService {
                 .build();
     }
 
-    private Optional<SurveySnapshot> toSurveySnapshot(PollSurvey survey) {
+    public ElectionPollPartyResponse getParty(String electionId, String partyName) {
+        String electionLabel = pollNormalizationService.normalizeElectionLabel(electionId);
+        String normalizedParty = pollNormalizationService.normalizePartyName(partyName);
+
+        List<PartySurveySnapshot> snapshots = pollSurveyRepository.findByElectionTypeOrderBySurveyEndDateDesc(electionLabel)
+                .stream()
+                .map(this::toPartySurveySnapshot)
+                .flatMap(Optional::stream)
+                .filter(snapshot -> snapshot.findPercentage(normalizedParty).isPresent())
+                .toList();
+
+        List<ElectionPollPartyResponse.TrendPoint> trendSeries = snapshots.stream()
+                .sorted(Comparator.comparing(PartySurveySnapshot::surveyEndDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(snapshot -> ElectionPollPartyResponse.TrendPoint.builder()
+                        .survey(toPartySurveyReference(snapshot))
+                        .percentage(snapshot.findPercentage(normalizedParty).orElse(BigDecimal.ZERO))
+                        .build())
+                .toList();
+
+        Map<String, PartySurveySnapshot> latestByRegion = new LinkedHashMap<>();
+        for (PartySurveySnapshot snapshot : snapshots) {
+            latestByRegion.putIfAbsent(snapshot.regionName(), snapshot);
+        }
+
+        List<ElectionPollPartyResponse.RegionalDistributionItem> regionalDistribution = latestByRegion.values().stream()
+                .map(snapshot -> ElectionPollPartyResponse.RegionalDistributionItem.builder()
+                        .regionName(snapshot.regionName())
+                        .percentage(snapshot.findPercentage(normalizedParty).orElse(BigDecimal.ZERO))
+                        .build())
+                .sorted(Comparator.comparing(ElectionPollPartyResponse.RegionalDistributionItem::getPercentage).reversed())
+                .toList();
+
+        return ElectionPollPartyResponse.builder()
+                .selectedParty(normalizedParty)
+                .trendSeries(trendSeries)
+                .regionalDistribution(regionalDistribution)
+                .build();
+    }
+
+    public ElectionPollRegionResponse getRegion(String electionId, String regionCode) {
+        String electionLabel = pollNormalizationService.normalizeElectionLabel(electionId);
+        String regionLabel = pollNormalizationService.normalizeRegionLabel(regionCode, null);
+
+        List<PollSurvey> surveys = pollSurveyRepository.findByElectionTypeAndRegionOrderBySurveyEndDateDesc(electionLabel, regionLabel);
+        List<PartySurveySnapshot> partySnapshots = surveys.stream()
+                .map(this::toPartySurveySnapshot)
+                .flatMap(Optional::stream)
+                .toList();
+
+        List<CandidateSurveySnapshot> matchupSnapshots = getCandidateSnapshots(surveys, PollQuestionClassifier.QuestionType.MATCHUP);
+        List<CandidateSurveySnapshot> fitSnapshots = getCandidateSnapshots(surveys, PollQuestionClassifier.QuestionType.CANDIDATE_FIT);
+        List<CandidateSurveySnapshot> preferredCandidateSnapshots = !matchupSnapshots.isEmpty() ? matchupSnapshots : fitSnapshots;
+
+        List<ElectionPollRegionResponse.SurveySummary> latestSurveys = surveys.stream()
+                .map(this::toRegionSurveySummary)
+                .toList();
+
+        List<ElectionPollRegionResponse.PartySnapshot> partySnapshot = partySnapshots.isEmpty()
+                ? List.of()
+                : partySnapshots.get(0).snapshot().stream()
+                .map(snapshot -> ElectionPollRegionResponse.PartySnapshot.builder()
+                        .partyName(snapshot.getPartyName())
+                        .percentage(snapshot.getPercentage())
+                        .build())
+                .toList();
+
+        List<ElectionPollRegionResponse.CandidateSnapshot> candidateSnapshot = preferredCandidateSnapshots.isEmpty()
+                ? List.of()
+                : preferredCandidateSnapshots.get(0).snapshot().stream()
+                .map(snapshot -> ElectionPollRegionResponse.CandidateSnapshot.builder()
+                        .candidateName(snapshot.getCandidateName())
+                        .percentage(snapshot.getPercentage())
+                        .build())
+                .toList();
+
+        return ElectionPollRegionResponse.builder()
+                .regionName(regionLabel)
+                .partySnapshot(partySnapshot)
+                .candidateSnapshot(candidateSnapshot)
+                .latestSurveys(latestSurveys)
+                .build();
+    }
+
+    public ElectionPollCandidateResponse getCandidate(String electionId, String regionCode, String candidateName) {
+        String electionLabel = pollNormalizationService.normalizeElectionLabel(electionId);
+        String regionLabel = pollNormalizationService.normalizeRegionLabel(regionCode, null);
+
+        List<PollSurvey> surveys = pollSurveyRepository.findByElectionTypeAndRegionOrderBySurveyEndDateDesc(electionLabel, regionLabel);
+        List<CandidateSurveySnapshot> matchupSnapshots = getCandidateSnapshots(surveys, PollQuestionClassifier.QuestionType.MATCHUP);
+        List<CandidateSurveySnapshot> fitSnapshots = getCandidateSnapshots(surveys, PollQuestionClassifier.QuestionType.CANDIDATE_FIT);
+
+        boolean useMatchup = !matchupSnapshots.isEmpty();
+        List<CandidateSurveySnapshot> selectedSnapshots = useMatchup ? matchupSnapshots : fitSnapshots;
+
+        if (selectedSnapshots.isEmpty()) {
+            return ElectionPollCandidateResponse.builder()
+                    .selectedCandidate(pollNormalizationService.normalizeCandidateName(candidateName))
+                    .basisQuestionKind(null)
+                    .candidateOptions(List.of())
+                    .series(List.of())
+                    .comparisonSeries(List.of())
+                    .latestSnapshot(List.of())
+                    .build();
+        }
+
+        List<ElectionPollCandidateResponse.CandidateSnapshot> latestSnapshot = selectedSnapshots.get(0).snapshot();
+        List<String> candidateOptions = latestSnapshot.stream()
+                .filter(snapshot -> !UNDECIDED.equals(snapshot.getCandidateName()))
+                .map(ElectionPollCandidateResponse.CandidateSnapshot::getCandidateName)
+                .toList();
+
+        String normalizedCandidate = pollNormalizationService.normalizeCandidateName(candidateName);
+        String selectedCandidate = candidateOptions.contains(normalizedCandidate)
+                ? normalizedCandidate
+                : candidateOptions.get(0);
+
+        List<CandidateSurveySnapshot> orderedSnapshots = selectedSnapshots.stream()
+                .sorted(Comparator.comparing(CandidateSurveySnapshot::surveyEndDate, Comparator.nullsLast(Comparator.naturalOrder())))
+                .toList();
+
+        List<ElectionPollCandidateResponse.CandidateTrendPoint> series = buildCandidateTrendSeries(orderedSnapshots, selectedCandidate);
+        List<ElectionPollCandidateResponse.CandidateSeries> comparisonSeries = candidateOptions.stream()
+                .filter(option -> !option.equals(selectedCandidate))
+                .map(option -> ElectionPollCandidateResponse.CandidateSeries.builder()
+                        .candidateName(option)
+                        .series(buildCandidateTrendSeries(orderedSnapshots, option))
+                        .build())
+                .toList();
+
+        return ElectionPollCandidateResponse.builder()
+                .selectedCandidate(selectedCandidate)
+                .basisQuestionKind(useMatchup ? PollQuestionClassifier.QuestionType.MATCHUP.name() : PollQuestionClassifier.QuestionType.CANDIDATE_FIT.name())
+                .candidateOptions(candidateOptions)
+                .series(series)
+                .comparisonSeries(comparisonSeries)
+                .latestSnapshot(latestSnapshot)
+                .build();
+    }
+
+    private List<CandidateSurveySnapshot> getCandidateSnapshots(
+            List<PollSurvey> surveys,
+            PollQuestionClassifier.QuestionType questionType
+    ) {
+        return surveys.stream()
+                .map(survey -> toCandidateSurveySnapshot(survey, questionType))
+                .flatMap(Optional::stream)
+                .toList();
+    }
+
+    private Optional<PartySurveySnapshot> toPartySurveySnapshot(PollSurvey survey) {
         return pollQuestionRepository.findByRegistrationNumberOrderByQuestionNumberAsc(survey.getRegistrationNumber())
                 .stream()
                 .filter(question -> pollQuestionClassifier.classify(question.getQuestionTitle(), null)
                         == PollQuestionClassifier.QuestionType.PARTY_SUPPORT)
                 .findFirst()
-                .map(question -> buildSurveySnapshot(survey, question));
+                .map(question -> buildPartySurveySnapshot(survey, question));
     }
 
-    private SurveySnapshot buildSurveySnapshot(PollSurvey survey, PollQuestion question) {
-        Map<String, BigDecimal> aggregated = new LinkedHashMap<>();
-        BigDecimal undecided = BigDecimal.ZERO;
-
-        for (PollOption option : pollOptionRepository.findByQuestionIdOrderByOptionIdAsc(question.getQuestionId())) {
-            BigDecimal percentage = option.getPercentage() == null ? BigDecimal.ZERO : option.getPercentage();
-            if (isUndecidedOption(option.getOptionName())) {
-                undecided = undecided.add(percentage);
-                continue;
-            }
-
-            String normalizedParty = pollNormalizationService.normalizePartyName(option.getOptionName());
-            aggregated.merge(normalizedParty, percentage, BigDecimal::add);
-        }
-
-        if (undecided.compareTo(BigDecimal.ZERO) > 0) {
-            aggregated.put(UNDECIDED, undecided);
-        }
+    private PartySurveySnapshot buildPartySurveySnapshot(PollSurvey survey, PollQuestion question) {
+        Map<String, BigDecimal> aggregated = aggregateOptions(
+                pollOptionRepository.findByQuestionIdOrderByOptionIdAsc(question.getQuestionId()),
+                option -> pollNormalizationService.normalizePartyName(option.getOptionName())
+        );
 
         List<ElectionPollOverviewResponse.PartySnapshot> snapshot = aggregated.entrySet().stream()
                 .map(entry -> ElectionPollOverviewResponse.PartySnapshot.builder()
@@ -107,12 +245,75 @@ public class PollQueryService {
                 .sorted(Comparator.comparing(ElectionPollOverviewResponse.PartySnapshot::getPercentage).reversed())
                 .toList();
 
-        return new SurveySnapshot(
+        return new PartySurveySnapshot(
                 survey.getRegistrationNumber(),
                 survey.getPollster(),
                 survey.getSurveyEndDate(),
+                survey.getRegion(),
                 snapshot
         );
+    }
+
+    private Optional<CandidateSurveySnapshot> toCandidateSurveySnapshot(
+            PollSurvey survey,
+            PollQuestionClassifier.QuestionType questionType
+    ) {
+        return pollQuestionRepository.findByRegistrationNumberOrderByQuestionNumberAsc(survey.getRegistrationNumber())
+                .stream()
+                .filter(question -> pollQuestionClassifier.classify(question.getQuestionTitle(), null) == questionType)
+                .findFirst()
+                .map(question -> buildCandidateSurveySnapshot(survey, question, questionType));
+    }
+
+    private CandidateSurveySnapshot buildCandidateSurveySnapshot(
+            PollSurvey survey,
+            PollQuestion question,
+            PollQuestionClassifier.QuestionType questionType
+    ) {
+        Map<String, BigDecimal> aggregated = aggregateOptions(
+                pollOptionRepository.findByQuestionIdOrderByOptionIdAsc(question.getQuestionId()),
+                option -> pollNormalizationService.normalizeCandidateName(option.getOptionName())
+        );
+
+        List<ElectionPollCandidateResponse.CandidateSnapshot> snapshot = aggregated.entrySet().stream()
+                .map(entry -> ElectionPollCandidateResponse.CandidateSnapshot.builder()
+                        .candidateName(entry.getKey())
+                        .percentage(entry.getValue())
+                        .build())
+                .sorted(Comparator.comparing(ElectionPollCandidateResponse.CandidateSnapshot::getPercentage).reversed())
+                .toList();
+
+        return new CandidateSurveySnapshot(
+                survey.getRegistrationNumber(),
+                survey.getPollster(),
+                survey.getSurveyEndDate(),
+                questionType,
+                snapshot
+        );
+    }
+
+    private Map<String, BigDecimal> aggregateOptions(
+            List<PollOption> options,
+            java.util.function.Function<PollOption, String> normalizer
+    ) {
+        Map<String, BigDecimal> aggregated = new LinkedHashMap<>();
+        BigDecimal undecided = BigDecimal.ZERO;
+
+        for (PollOption option : options) {
+            BigDecimal percentage = option.getPercentage() == null ? BigDecimal.ZERO : option.getPercentage();
+            if (isUndecidedOption(option.getOptionName())) {
+                undecided = undecided.add(percentage);
+                continue;
+            }
+
+            aggregated.merge(normalizer.apply(option), percentage, BigDecimal::add);
+        }
+
+        if (undecided.compareTo(BigDecimal.ZERO) > 0) {
+            aggregated.put(UNDECIDED, undecided);
+        }
+
+        return aggregated;
     }
 
     private ElectionPollOverviewResponse.LeadingPartyResponse buildLeadingParty(
@@ -148,7 +349,7 @@ public class PollQueryService {
                 .build();
     }
 
-    private ElectionPollOverviewResponse.PartyTrendPoint toTrendPoint(SurveySnapshot snapshot) {
+    private ElectionPollOverviewResponse.PartyTrendPoint toOverviewTrendPoint(PartySurveySnapshot snapshot) {
         return ElectionPollOverviewResponse.PartyTrendPoint.builder()
                 .survey(ElectionPollOverviewResponse.SurveyReference.builder()
                         .registrationNumber(snapshot.registrationNumber())
@@ -159,13 +360,47 @@ public class PollQueryService {
                 .build();
     }
 
-    private ElectionPollOverviewResponse.LatestSurveyResponse toLatestSurveyResponse(SurveySnapshot snapshot) {
+    private ElectionPollOverviewResponse.LatestSurveyResponse toOverviewLatestSurveyResponse(PartySurveySnapshot snapshot) {
         return ElectionPollOverviewResponse.LatestSurveyResponse.builder()
                 .registrationNumber(snapshot.registrationNumber())
                 .pollster(snapshot.pollster())
                 .surveyEndDate(snapshot.surveyEndDate())
                 .snapshot(snapshot.snapshot())
                 .build();
+    }
+
+    private ElectionPollPartyResponse.SurveyReference toPartySurveyReference(PartySurveySnapshot snapshot) {
+        return ElectionPollPartyResponse.SurveyReference.builder()
+                .registrationNumber(snapshot.registrationNumber())
+                .pollster(snapshot.pollster())
+                .surveyEndDate(snapshot.surveyEndDate())
+                .build();
+    }
+
+    private ElectionPollRegionResponse.SurveySummary toRegionSurveySummary(PollSurvey survey) {
+        return ElectionPollRegionResponse.SurveySummary.builder()
+                .registrationNumber(survey.getRegistrationNumber())
+                .pollster(survey.getPollster())
+                .surveyEndDate(survey.getSurveyEndDate())
+                .build();
+    }
+
+    private List<ElectionPollCandidateResponse.CandidateTrendPoint> buildCandidateTrendSeries(
+            List<CandidateSurveySnapshot> snapshots,
+            String candidateName
+    ) {
+        return snapshots.stream()
+                .map(snapshot -> snapshot.findPercentage(candidateName)
+                        .map(percentage -> ElectionPollCandidateResponse.CandidateTrendPoint.builder()
+                                .survey(ElectionPollCandidateResponse.SurveyReference.builder()
+                                        .registrationNumber(snapshot.registrationNumber())
+                                        .pollster(snapshot.pollster())
+                                        .surveyEndDate(snapshot.surveyEndDate())
+                                        .build())
+                                .percentage(percentage)
+                                .build()))
+                .flatMap(Optional::stream)
+                .toList();
     }
 
     private boolean isUndecidedOption(String optionName) {
@@ -178,11 +413,33 @@ public class PollQueryService {
         return false;
     }
 
-    private record SurveySnapshot(
+    private record PartySurveySnapshot(
             String registrationNumber,
             String pollster,
             LocalDate surveyEndDate,
+            String regionName,
             List<ElectionPollOverviewResponse.PartySnapshot> snapshot
     ) {
+        Optional<BigDecimal> findPercentage(String partyName) {
+            return snapshot.stream()
+                    .filter(item -> item.getPartyName().equals(partyName))
+                    .map(ElectionPollOverviewResponse.PartySnapshot::getPercentage)
+                    .findFirst();
+        }
+    }
+
+    private record CandidateSurveySnapshot(
+            String registrationNumber,
+            String pollster,
+            LocalDate surveyEndDate,
+            PollQuestionClassifier.QuestionType questionType,
+            List<ElectionPollCandidateResponse.CandidateSnapshot> snapshot
+    ) {
+        Optional<BigDecimal> findPercentage(String candidateName) {
+            return snapshot.stream()
+                    .filter(item -> item.getCandidateName().equals(candidateName))
+                    .map(ElectionPollCandidateResponse.CandidateSnapshot::getPercentage)
+                    .findFirst();
+        }
     }
 }

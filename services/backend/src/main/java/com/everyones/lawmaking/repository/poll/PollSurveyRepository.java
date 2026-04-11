@@ -7,5 +7,7 @@ import java.util.List;
 
 public interface PollSurveyRepository extends JpaRepository<PollSurvey, String> {
 
+    List<PollSurvey> findByElectionTypeOrderBySurveyEndDateDesc(String electionType);
+
     List<PollSurvey> findByElectionTypeAndRegionOrderBySurveyEndDateDesc(String electionType, String region);
 }

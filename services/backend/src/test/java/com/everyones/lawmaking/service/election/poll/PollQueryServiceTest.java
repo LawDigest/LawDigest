@@ -1,6 +1,9 @@
 package com.everyones.lawmaking.service.election.poll;
 
+import com.everyones.lawmaking.common.dto.response.election.ElectionPollCandidateResponse;
 import com.everyones.lawmaking.common.dto.response.election.ElectionPollOverviewResponse;
+import com.everyones.lawmaking.common.dto.response.election.ElectionPollPartyResponse;
+import com.everyones.lawmaking.common.dto.response.election.ElectionPollRegionResponse;
 import com.everyones.lawmaking.domain.entity.poll.PollOption;
 import com.everyones.lawmaking.domain.entity.poll.PollQuestion;
 import com.everyones.lawmaking.domain.entity.poll.PollSurvey;
@@ -20,6 +23,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -205,10 +209,176 @@ class PollQueryServiceTest {
                 .getPercentage()).isEqualByComparingTo("15.60");
     }
 
+    @Test
+    void buildsPartyResponseWithTrendSeriesAndRegionalDistribution() {
+        persistSurvey("서울-101", "제9회 전국동시지방선거", "서울특별시 전체", "한국갤럽", LocalDate.of(2026, 3, 20));
+        persistSurvey("서울-102", "제9회 전국동시지방선거", "서울특별시 전체", "한국리서치", LocalDate.of(2026, 4, 2));
+        persistSurvey("경기-201", "제9회 전국동시지방선거", "경기도 전체", "넥스트리서치", LocalDate.of(2026, 4, 1));
+
+        Long seoulOldQuestion = persistQuestion("서울-101", 1, "정당지지도");
+        Long seoulLatestQuestion = persistQuestion("서울-102", 1, "정당지지도");
+        Long gyeonggiQuestion = persistQuestion("경기-201", 1, "정당지지도");
+
+        persistOption(seoulOldQuestion, "더불어 민주당", "37.00");
+        persistOption(seoulOldQuestion, "국민의힘", "35.00");
+
+        persistOption(seoulLatestQuestion, "더불어 민주당", "42.50");
+        persistOption(seoulLatestQuestion, "국민의힘", "36.20");
+
+        persistOption(gyeonggiQuestion, "더불어 민주당", "48.30");
+        persistOption(gyeonggiQuestion, "국민의힘", "31.00");
+
+        entityManager.flush();
+
+        PollQueryService pollQueryService = new PollQueryService(
+                pollSurveyRepository,
+                pollQuestionRepository,
+                pollOptionRepository,
+                classifier,
+                normalizationService
+        );
+
+        ElectionPollPartyResponse response = pollQueryService.getParty("local-2026", "더불어민주당");
+
+        assertThat(response.getSelectedParty()).isEqualTo("더불어민주당");
+        assertThat(response.getTrendSeries()).hasSize(3);
+        assertThat(response.getTrendSeries())
+                .extracting(point -> point.getSurvey().getRegistrationNumber())
+                .containsExactly("서울-101", "경기-201", "서울-102");
+        assertThat(response.getRegionalDistribution()).hasSize(2);
+        assertThat(response.getRegionalDistribution())
+                .extracting(ElectionPollPartyResponse.RegionalDistributionItem::getRegionName)
+                .containsExactly("경기도 전체", "서울특별시 전체");
+    }
+
+    @Test
+    void buildsRegionResponseWithPartySnapshotCandidateSnapshotAndLatestSurveys() {
+        persistSurvey("서울-301", "제9회 전국동시지방선거", "서울특별시 전체", "한국갤럽", LocalDate.of(2026, 4, 1));
+        persistSurvey("서울-302", "제9회 전국동시지방선거", "서울특별시 전체", "한국리서치", LocalDate.of(2026, 4, 2));
+
+        Long partyQuestion = persistQuestion("서울-302", 1, "정당지지도");
+        Long matchupQuestion = persistQuestion("서울-302", 2, "가상대결 - 김동연 vs 양향자");
+
+        persistOption(partyQuestion, "더불어 민주당", "42.50");
+        persistOption(partyQuestion, "국민의힘", "36.20");
+        persistOption(partyQuestion, "모름", "5.10");
+
+        persistOption(matchupQuestion, "김동연", "45.10");
+        persistOption(matchupQuestion, "양향자", "39.20");
+        persistOption(matchupQuestion, "없음", "10.00");
+
+        entityManager.flush();
+
+        PollQueryService pollQueryService = new PollQueryService(
+                pollSurveyRepository,
+                pollQuestionRepository,
+                pollOptionRepository,
+                classifier,
+                normalizationService
+        );
+
+        ElectionPollRegionResponse response = pollQueryService.getRegion("local-2026", "11");
+
+        assertThat(response.getRegionName()).isEqualTo("서울특별시 전체");
+        assertThat(response.getPartySnapshot())
+                .extracting(ElectionPollRegionResponse.PartySnapshot::getPartyName)
+                .contains("더불어민주당", "국민의힘", "undecided");
+        assertThat(response.getCandidateSnapshot())
+                .extracting(ElectionPollRegionResponse.CandidateSnapshot::getCandidateName)
+                .contains("김동연", "양향자", "undecided");
+        assertThat(response.getLatestSurveys()).hasSize(2);
+        assertThat(response.getLatestSurveys().get(0).getRegistrationNumber()).isEqualTo("서울-302");
+    }
+
+    @Test
+    void prefersMatchupForCandidateResponse() {
+        persistSurvey("서울-401", "제9회 전국동시지방선거", "서울특별시 전체", "한국리서치", LocalDate.of(2026, 4, 2));
+
+        Long fitQuestion = persistQuestion("서울-401", 1, "서울시장 후보 적합도");
+        Long matchupQuestion = persistQuestion("서울-401", 2, "가상대결 - 김동연 vs 양향자");
+
+        persistOption(fitQuestion, "김동연", "41.00");
+        persistOption(fitQuestion, "양향자", "35.00");
+
+        persistOption(matchupQuestion, "김동연", "45.10");
+        persistOption(matchupQuestion, "양향자", "39.20");
+        persistOption(matchupQuestion, "모름", "5.70");
+
+        entityManager.flush();
+
+        PollQueryService pollQueryService = new PollQueryService(
+                pollSurveyRepository,
+                pollQuestionRepository,
+                pollOptionRepository,
+                classifier,
+                normalizationService
+        );
+
+        ElectionPollCandidateResponse response = pollQueryService.getCandidate("local-2026", "11", "김동연");
+
+        assertThat(response.getBasisQuestionKind()).isEqualTo("MATCHUP");
+        assertThat(response.getSelectedCandidate()).isEqualTo("김동연");
+        assertThat(response.getCandidateOptions()).containsExactly("김동연", "양향자");
+    }
+
+    @Test
+    void fallsBackToCandidateFitWhenMatchupIsMissing() {
+        persistSurvey("경기-501", "제9회 전국동시지방선거", "경기도 전체", "넥스트리서치", LocalDate.of(2026, 4, 3));
+
+        Long fitQuestion = persistQuestion("경기-501", 1, "경기도지사 진보 후보 적합도");
+
+        persistOption(fitQuestion, "김 동 연", "44.20");
+        persistOption(fitQuestion, "김후보", "31.00");
+        persistOption(fitQuestion, "없음", "7.00");
+
+        entityManager.flush();
+
+        PollQueryService pollQueryService = new PollQueryService(
+                pollSurveyRepository,
+                pollQuestionRepository,
+                pollOptionRepository,
+                classifier,
+                normalizationService
+        );
+
+        ElectionPollCandidateResponse response = pollQueryService.getCandidate("local-2026", "41", "김동연");
+
+        assertThat(response.getBasisQuestionKind()).isEqualTo("CANDIDATE_FIT");
+        assertThat(response.getSelectedCandidate()).isEqualTo("김동연");
+        assertThat(response.getCandidateOptions()).contains("김동연", "김후보");
+    }
+
+    private void persistSurvey(
+            String registrationNumber,
+            String electionType,
+            String region,
+            String pollster,
+            LocalDate surveyEndDate
+    ) {
+        entityManager.persist(PollSurvey.builder()
+                .registrationNumber(registrationNumber)
+                .electionType(electionType)
+                .region(region)
+                .electionName(electionType)
+                .pollster(pollster)
+                .sponsor("테스트의뢰기관")
+                .surveyStartDate(surveyEndDate.minusDays(1))
+                .surveyEndDate(surveyEndDate)
+                .sampleSize(1000)
+                .marginOfError("95% 신뢰수준 ±3.1%p")
+                .sourceUrl("https://example.com/" + registrationNumber)
+                .pdfPath("/tmp/" + registrationNumber + ".pdf")
+                .build());
+    }
+
     private Long persistPartySupportQuestion(String registrationNumber, String title) {
+        return persistQuestion(registrationNumber, 1, title);
+    }
+
+    private Long persistQuestion(String registrationNumber, int questionNumber, String title) {
         PollQuestion question = PollQuestion.builder()
                 .registrationNumber(registrationNumber)
-                .questionNumber(1)
+                .questionNumber(questionNumber)
                 .questionTitle(title)
                 .nCompleted(1000)
                 .nWeighted(1000)
