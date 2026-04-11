@@ -38,7 +38,7 @@ const shouldUseElectionFallback =
   publicDomain.includes('127.0.0.1') ||
   publicDomain.includes('localhost');
 
-const shouldRecoverWithMock = (error: unknown) => {
+export const shouldRecoverWithMock = (error: unknown) => {
   if (!shouldUseElectionFallback) {
     return false;
   }
@@ -51,7 +51,7 @@ const shouldRecoverWithMock = (error: unknown) => {
     return true;
   }
 
-  return error.response.status === 401 || error.response.status >= 500;
+  return error.response.status >= 500;
 };
 
 const withElectionFallback = async <T>(request: Promise<BaseResponse<T>>, fallback: () => BaseResponse<T>) => {
