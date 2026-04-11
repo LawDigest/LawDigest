@@ -248,8 +248,12 @@ public class PollQueryService {
         return new PartySurveySnapshot(
                 survey.getRegistrationNumber(),
                 survey.getPollster(),
+                survey.getSponsor(),
                 survey.getSurveyEndDate(),
+                survey.getSampleSize(),
+                survey.getMarginOfError(),
                 survey.getRegion(),
+                question.getQuestionTitle(),
                 snapshot
         );
     }
@@ -364,7 +368,11 @@ public class PollQueryService {
         return ElectionPollOverviewResponse.LatestSurveyResponse.builder()
                 .registrationNumber(snapshot.registrationNumber())
                 .pollster(snapshot.pollster())
+                .sponsor(snapshot.sponsor())
                 .surveyEndDate(snapshot.surveyEndDate())
+                .sampleSize(snapshot.sampleSize())
+                .marginOfError(snapshot.marginOfError())
+                .questionTitle(snapshot.questionTitle())
                 .snapshot(snapshot.snapshot())
                 .build();
     }
@@ -381,8 +389,26 @@ public class PollQueryService {
         return ElectionPollRegionResponse.SurveySummary.builder()
                 .registrationNumber(survey.getRegistrationNumber())
                 .pollster(survey.getPollster())
+                .sponsor(survey.getSponsor())
                 .surveyEndDate(survey.getSurveyEndDate())
+                .sampleSize(survey.getSampleSize())
+                .marginOfError(survey.getMarginOfError())
+                .questionTitle(resolveRepresentativeQuestionTitle(survey.getRegistrationNumber()))
                 .build();
+    }
+
+    private String resolveRepresentativeQuestionTitle(String registrationNumber) {
+        return pollQuestionRepository.findByRegistrationNumberOrderByQuestionNumberAsc(registrationNumber)
+                .stream()
+                .filter(question -> {
+                    PollQuestionClassifier.QuestionType type = pollQuestionClassifier.classify(question.getQuestionTitle(), null);
+                    return type == PollQuestionClassifier.QuestionType.PARTY_SUPPORT
+                            || type == PollQuestionClassifier.QuestionType.MATCHUP
+                            || type == PollQuestionClassifier.QuestionType.CANDIDATE_FIT;
+                })
+                .map(PollQuestion::getQuestionTitle)
+                .findFirst()
+                .orElse(null);
     }
 
     private List<ElectionPollCandidateResponse.CandidateTrendPoint> buildCandidateTrendSeries(
@@ -416,8 +442,12 @@ public class PollQueryService {
     private record PartySurveySnapshot(
             String registrationNumber,
             String pollster,
+            String sponsor,
             LocalDate surveyEndDate,
+            Integer sampleSize,
+            String marginOfError,
             String regionName,
+            String questionTitle,
             List<ElectionPollOverviewResponse.PartySnapshot> snapshot
     ) {
         Optional<BigDecimal> findPercentage(String partyName) {

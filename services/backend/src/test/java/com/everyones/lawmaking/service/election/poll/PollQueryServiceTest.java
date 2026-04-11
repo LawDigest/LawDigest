@@ -192,6 +192,10 @@ class PollQueryServiceTest {
 
         assertThat(response.getLatestSurveys()).hasSize(2);
         assertThat(response.getLatestSurveys().get(0).getRegistrationNumber()).isEqualTo("서울-002");
+        assertThat(response.getLatestSurveys().get(0).getSponsor()).isEqualTo("테스트의뢰기관");
+        assertThat(response.getLatestSurveys().get(0).getSampleSize()).isEqualTo(1000);
+        assertThat(response.getLatestSurveys().get(0).getMarginOfError()).isEqualTo("95% 신뢰수준 ±3.1%p");
+        assertThat(response.getLatestSurveys().get(0).getQuestionTitle()).isEqualTo("정당 지지도");
 
         java.util.Optional<ElectionPollOverviewResponse.PartySnapshot> undecided = response.getLatestSurveys().get(0)
                 .getSnapshot()
@@ -288,6 +292,9 @@ class PollQueryServiceTest {
                 .contains("김동연", "양향자", "undecided");
         assertThat(response.getLatestSurveys()).hasSize(2);
         assertThat(response.getLatestSurveys().get(0).getRegistrationNumber()).isEqualTo("서울-302");
+        assertThat(response.getLatestSurveys().get(0).getSponsor()).isEqualTo("테스트의뢰기관");
+        assertThat(response.getLatestSurveys().get(0).getSampleSize()).isEqualTo(1000);
+        assertThat(response.getLatestSurveys().get(0).getQuestionTitle()).isEqualTo("정당지지도");
     }
 
     @Test

@@ -41,6 +41,10 @@ public class ElectionPollRegionResponse {
     public static class SurveySummary {
         private String registrationNumber;
         private String pollster;
+        private String sponsor;
         private LocalDate surveyEndDate;
+        private Integer sampleSize;
+        private String marginOfError;
+        private String questionTitle;
     }
 }

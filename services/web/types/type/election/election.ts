@@ -121,7 +121,11 @@ export interface ElectionPollSnapshotItem {
 export interface ElectionPollLatestSurvey {
   registration_number: string;
   pollster: string;
+  sponsor: string;
   survey_end_date: string;
+  sample_size: number;
+  margin_of_error: string;
+  question_title: string;
   snapshot: ElectionPollSnapshotItem[];
 }
 
@@ -145,7 +149,17 @@ export interface ElectionPollRegionResponse {
   region_name: string;
   party_snapshot: ElectionPollSnapshotItem[];
   candidate_snapshot: ElectionPollRegionCandidateSnapshot[];
-  latest_surveys: ElectionPollSurveyReference[];
+  latest_surveys: ElectionPollRegionSurveySummary[];
+}
+
+export interface ElectionPollRegionSurveySummary {
+  registration_number: string;
+  pollster: string;
+  sponsor: string;
+  survey_end_date: string;
+  sample_size: number;
+  margin_of_error: string;
+  question_title: string;
 }
 
 export interface ElectionPollRegionCandidateSnapshot {

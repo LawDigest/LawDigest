@@ -5,13 +5,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Layout } from '@/components';
 import { useGetElectionSelector } from '../apis/queries';
 import { compareElectionSelectorItems, getDefaultElectionId } from '../utils/compareRules';
+import { inferElectionFamilyFromId } from '../utils/electionLabels';
 import ElectionHeader from './ElectionHeader';
 import ElectionInnerTabBar, { ElectionInnerTab } from './ElectionInnerTabBar';
-import ElectionMapTabView from './ElectionMapTabView';
 import ElectionFeedView from './ElectionFeedView';
 import ElectionPollView from './ElectionPollView';
 import ElectionDistrictView from './ElectionDistrictView';
 import ElectionSelector from './ElectionSelector';
+import RegionalElectionView from './RegionalElectionView';
+import PresidentialElectionView from './PresidentialElectionView';
 
 // 2026 전국동시지방선거
 const LOCAL_ELECTION_DATE = new Date('2026-06-03');
@@ -66,6 +68,7 @@ export default function ElectionMapShell() {
 
   const electionName = selectedElection?.election_name ?? LOCAL_ELECTION_NAME;
   const electionDate = selectedElection?.election_date ? new Date(selectedElection.election_date) : LOCAL_ELECTION_DATE;
+  const electionFamily = inferElectionFamilyFromId(selectedElectionId);
 
   const handleTabChange = useCallback(
     (tab: ElectionInnerTab) => {
@@ -91,7 +94,17 @@ export default function ElectionMapShell() {
         )}
         <ElectionInnerTabBar activeTab={activeTab} onChange={handleTabChange} />
 
-        {activeTab === 'map' && <ElectionMapTabView />}
+        {activeTab === 'map' &&
+          (electionFamily === 'president' ? (
+            <PresidentialElectionView electionId={selectedElectionId} />
+          ) : (
+            <RegionalElectionView
+              electionId={selectedElectionId}
+              regionCode={confirmedRegion?.regionCode ?? '11'}
+              regionType="PROVINCE"
+              regionName={confirmedRegion?.regionName ?? '서울특별시'}
+            />
+          ))}
         {activeTab === 'feed' && (
           <ElectionFeedView confirmedRegion={confirmedRegion} selectedElectionId={selectedElectionId} />
         )}

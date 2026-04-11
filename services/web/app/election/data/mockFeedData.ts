@@ -23,6 +23,10 @@ export interface PollFeedItem {
   type: 'poll';
   id: string;
   pollster: string;
+  sponsor?: string;
+  questionTitle?: string;
+  sampleSize?: number;
+  marginOfError?: string;
   publishedAt: string;
   results: { partyName: string; pct: number; delta: number; color: string }[];
   region: string;

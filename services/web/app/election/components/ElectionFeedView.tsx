@@ -54,6 +54,10 @@ export default function ElectionFeedView({ confirmedRegion, selectedElectionId }
       type: 'poll',
       id: `poll-${survey.registration_number}`,
       pollster: survey.pollster,
+      sponsor: survey.sponsor,
+      questionTitle: survey.question_title,
+      sampleSize: survey.sample_size,
+      marginOfError: survey.margin_of_error,
       publishedAt: `${survey.survey_end_date}T00:00:00Z`,
       results: survey.snapshot.map((snapshot) => ({
         partyName: snapshot.party_name,

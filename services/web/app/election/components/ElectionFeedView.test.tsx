@@ -11,7 +11,11 @@ vi.mock('../apis/queries', () => ({
           {
             registration_number: '서울-002',
             pollster: '한국리서치',
+            sponsor: '경인일보',
             survey_end_date: '2026-04-02',
+            sample_size: 1000,
+            margin_of_error: '95% 신뢰수준 ±3.1%p',
+            question_title: '정당지지도',
             snapshot: [
               { party_name: '더불어민주당', percentage: 42.5 },
               { party_name: '국민의힘', percentage: 36.2 },

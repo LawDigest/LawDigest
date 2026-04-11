@@ -129,7 +129,10 @@ function OverviewView({ regionName, data }: { regionName: string; data: Election
               className="rounded-xl bg-default-50 dark:bg-dark-b px-3 py-2 flex items-center justify-between">
               <div>
                 <p className="text-[12px] font-semibold text-gray-4 dark:text-white">{survey.pollster}</p>
-                <p className="text-[10px] text-gray-2">{survey.registration_number}</p>
+                <p className="text-[10px] text-gray-2">
+                  {survey.sponsor} · 표본 {survey.sample_size}명 · {survey.margin_of_error}
+                </p>
+                <p className="text-[10px] text-gray-2">{survey.question_title}</p>
               </div>
               <p className="text-[11px] text-gray-2">{survey.survey_end_date}</p>
             </div>

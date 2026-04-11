@@ -25,6 +25,20 @@ export default function PollCard({ item }: PollCardProps) {
         <span className="text-[10px] text-gray-400 shrink-0">{item.region}</span>
         <span className="ml-auto text-[10px] text-gray-400 shrink-0">{timeAgo(item.publishedAt)}</span>
       </div>
+      {item.questionTitle ? (
+        <p className="mb-2 text-[11px] text-gray-600 dark:text-gray-300">{item.questionTitle}</p>
+      ) : null}
+      {(item.sponsor || item.sampleSize || item.marginOfError) && (
+        <p className="mb-3 text-[10px] text-gray-400">
+          {[
+            item.sponsor ? `${item.sponsor} 의뢰` : null,
+            item.sampleSize ? `표본 ${item.sampleSize}명` : null,
+            item.marginOfError ? item.marginOfError : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+      )}
       <div className="space-y-2.5">
         {item.results.map((r) => (
           <div key={r.partyName} className="flex items-center gap-2">

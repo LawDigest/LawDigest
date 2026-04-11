@@ -59,7 +59,11 @@ class ElectionPollControllerTest {
                                 ElectionPollOverviewResponse.LatestSurveyResponse.builder()
                                         .registrationNumber("서울-002")
                                         .pollster("한국리서치")
+                                        .sponsor("경인일보")
                                         .surveyEndDate(LocalDate.of(2026, 4, 2))
+                                        .sampleSize(1000)
+                                        .marginOfError("95% 신뢰수준 ±3.1%p")
+                                        .questionTitle("정당지지도")
                                         .snapshot(List.of(
                                                 ElectionPollOverviewResponse.PartySnapshot.builder()
                                                         .partyName("더불어민주당")
@@ -81,6 +85,10 @@ class ElectionPollControllerTest {
                 .andExpect(jsonPath("$.data.leading_party.party_name").value("더불어민주당"))
                 .andExpect(jsonPath("$.data.leading_party.undecided").value(15.60))
                 .andExpect(jsonPath("$.data.party_trend[0].survey.registration_number").value("서울-002"))
+                .andExpect(jsonPath("$.data.latest_surveys[0].sponsor").value("경인일보"))
+                .andExpect(jsonPath("$.data.latest_surveys[0].sample_size").value(1000))
+                .andExpect(jsonPath("$.data.latest_surveys[0].margin_of_error").value("95% 신뢰수준 ±3.1%p"))
+                .andExpect(jsonPath("$.data.latest_surveys[0].question_title").value("정당지지도"))
                 .andExpect(jsonPath("$.data.latest_surveys[0].snapshot[1].party_name").value("undecided"))
                 .andExpect(jsonPath("$.data.latest_surveys[0].snapshot[1].percentage").value(15.60));
     }
@@ -149,7 +157,11 @@ class ElectionPollControllerTest {
                                 ElectionPollRegionResponse.SurveySummary.builder()
                                         .registrationNumber("서울-002")
                                         .pollster("한국리서치")
+                                        .sponsor("경인일보")
                                         .surveyEndDate(LocalDate.of(2026, 4, 2))
+                                        .sampleSize(1000)
+                                        .marginOfError("95% 신뢰수준 ±3.1%p")
+                                        .questionTitle("가상대결 - 김동연 vs 양향자")
                                         .build()
                         ))
                         .build());
@@ -161,7 +173,10 @@ class ElectionPollControllerTest {
                 .andExpect(jsonPath("$.data.region_name").value("서울특별시 전체"))
                 .andExpect(jsonPath("$.data.party_snapshot[0].party_name").value("더불어민주당"))
                 .andExpect(jsonPath("$.data.candidate_snapshot[0].candidate_name").value("김동연"))
-                .andExpect(jsonPath("$.data.latest_surveys[0].registration_number").value("서울-002"));
+                .andExpect(jsonPath("$.data.latest_surveys[0].registration_number").value("서울-002"))
+                .andExpect(jsonPath("$.data.latest_surveys[0].sponsor").value("경인일보"))
+                .andExpect(jsonPath("$.data.latest_surveys[0].sample_size").value(1000))
+                .andExpect(jsonPath("$.data.latest_surveys[0].question_title").value("가상대결 - 김동연 vs 양향자"));
     }
 
     @Test
