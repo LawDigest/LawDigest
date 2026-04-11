@@ -1,0 +1,295 @@
+{
+  "pollster": "(주)코리아리서치인터내셔널",
+  "pdf_filename": "(NBS)_통계표_177차_최종.pdf",
+  "parsed_at": "2026-04-11T02:33:12.349976+00:00",
+  "elapsed_seconds": 5.2,
+  "question_count": 14,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_title": "국정운영 평가",
+      "question_text": "국정운영 평가",
+      "response_options": [
+        "①매우 잘하고 있다",
+        "②잘하는 편이다",
+        "③잘못 하는 편이다",
+        "④매우 잘못 하고 있다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        38.0,
+        31.0,
+        11.0,
+        11.0,
+        10.0
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "국정운영 신뢰도",
+      "question_text": "국정운영 신뢰도",
+      "response_options": [
+        "①매우 올바른 방향으로 가고 있다",
+        "②대체로 올바른 방향으로 가고 있다",
+        "③대체로 잘못된 방향으로 가고 있다",
+        "④매우 잘못된 방향으로 가고 있다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        27.0,
+        40.0,
+        14.0,
+        11.0,
+        8.0
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "주요 정책 평가_1)재해, 재난 대비 등 국민생활 안전정책",
+      "question_text": "주요 정책 평가_1)재해, 재난 대비 등 국민생활 안전정책",
+      "response_options": [
+        "①매우 잘하고 있다",
+        "②잘하는 편이다",
+        "③잘못 하는 편이다",
+        "④매우 잘못하고 있다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        32.0,
+        40.0,
+        13.0,
+        8.0,
+        7.0
+      ]
+    },
+    {
+      "question_number": 4,
+      "question_title": "주요 정책 평가_2)노사관계 및 노동시장 구조개선 등 노동정책",
+      "question_text": "주요 정책 평가_2)노사관계 및 노동시장 구조개선 등 노동정책",
+      "response_options": [
+        "①매우 잘하고 있다",
+        "②잘하는 편이다",
+        "③잘못 하는 편이다",
+        "④매우 잘못하고 있다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        22.0,
+        36.0,
+        17.0,
+        12.0,
+        13.0
+      ]
+    },
+    {
+      "question_number": 5,
+      "question_title": "주요 정책 평가_3)미래인재 양성 및 교육격차 해소 등 교육정책",
+      "question_text": "주요 정책 평가_3)미래인재 양성 및 교육격차 해소 등 교육정책",
+      "response_options": [
+        "①매우 잘하고 있다",
+        "②잘하는 편이다",
+        "③잘못 하는 편이다",
+        "④매우 잘못하고 있다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        23.0,
+        38.0,
+        16.0,
+        8.0,
+        14.0
+      ]
+    },
+    {
+      "question_number": 6,
+      "question_title": "주요 정책 평가_4)국민연금, 기초연금 등 각종 연금 정책",
+      "question_text": "주요 정책 평가_4)국민연금, 기초연금 등 각종 연금 정책",
+      "response_options": [
+        "①매우 잘하고 있다",
+        "②잘하는 편이다",
+        "③잘못 하는 편이다",
+        "④매우 잘못하고 있다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        19.0,
+        37.0,
+        19.0,
+        12.0,
+        13.0
+      ]
+    },
+    {
+      "question_number": 7,
+      "question_title": "주요 정책 평가_5)지방 경쟁력 강화 등 지역균형발전 정책",
+      "question_text": "주요 정책 평가_5)지방 경쟁력 강화 등 지역균형발전 정책",
+      "response_options": [
+        "①매우 잘하고 있다",
+        "②잘하는 편이다",
+        "③잘못 하는 편이다",
+        "④매우 잘못하고 있다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        28.0,
+        35.0,
+        16.0,
+        10.0,
+        12.0
+      ]
+    },
+    {
+      "question_number": 8,
+      "question_title": "정당지지도",
+      "question_text": "정당지지도",
+      "response_options": [
+        "더불어 민주당",
+        "국민의 힘",
+        "조국 혁신당",
+        "개혁 신당",
+        "진보당",
+        "그외 다른 정당",
+        "지지 하는 정당이 없다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        46.0,
+        18.0,
+        2.0,
+        2.0,
+        1.0,
+        2.0,
+        29.0,
+        1.0
+      ]
+    },
+    {
+      "question_number": 9,
+      "question_title": "22대 국회 평가_1)더불어민주당은 집권 여당의 역할을 잘한다",
+      "question_text": "22대 국회 평가_1)더불어민주당은 집권 여당의 역할을 잘한다",
+      "response_options": [
+        "①매우 그렇다",
+        "②그런 편이다",
+        "③그렇지 않은 편이다",
+        "④매우 그렇지 않다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        17.0,
+        35.0,
+        20.0,
+        20.0,
+        8.0
+      ]
+    },
+    {
+      "question_number": 10,
+      "question_title": "22대 국회 평가_2)국민의힘은 제1야당의 역할을 잘한다",
+      "question_text": "22대 국회 평가_2)국민의힘은 제1야당의 역할을 잘한다",
+      "response_options": [
+        "①매우 그렇다",
+        "②그런 편이다",
+        "③그렇지 않은 편이다",
+        "④매우 그렇지 않다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        3.0,
+        13.0,
+        29.0,
+        46.0,
+        9.0
+      ]
+    },
+    {
+      "question_number": 11,
+      "question_title": "지방선거 성격",
+      "question_text": "지방선거 성격",
+      "response_options": [
+        "현 정부의 국정 안정을 위해 여당에 힘을 실어줘야실어줘야 한다",
+        "현 정부를 견제 하기 위해 야당에 힘을 한다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        53.0,
+        34.0,
+        13.0
+      ]
+    },
+    {
+      "question_number": 12,
+      "question_title": "추경 찬반",
+      "question_text": "추경 찬반",
+      "response_options": [
+        "중동 사태로 인한 민생경제 어려움을 고려해 추경에 찬성한다",
+        "지방 선거를 앞두고 정치적 으로 활용될수 있어 추경에 반대한다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        53.0,
+        34.0,
+        13.0
+      ]
+    },
+    {
+      "question_number": 13,
+      "question_title": "미국-이란 충돌, 경제 영향 지속 기간 전망",
+      "question_text": "미국-이란 충돌, 경제 영향 지속 기간 전망",
+      "response_options": [
+        "6개월 정도 영향을 미칠 것이다",
+        "올해 연말까지 영향을 미칠 것이다",
+        "내년 까지도 영향을 미칠 것이다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        36.0,
+        34.0,
+        24.0,
+        7.0
+      ]
+    },
+    {
+      "question_number": 14,
+      "question_title": "차량 5부제 민간 확대",
+      "question_text": "차량 5부제 민간 확대",
+      "response_options": [
+        "찬성 한다",
+        "반대 한다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 1002,
+      "overall_n_weighted": 1002,
+      "overall_percentages": [
+        59.0,
+        36.0,
+        6.0
+      ]
+    }
+  ]
+}

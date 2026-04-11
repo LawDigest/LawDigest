@@ -5966,10 +5966,10 @@ class _KoreaResearchInternationalParser:
             for idx, line in enumerate(prelude):
                 if self._clean_line(line) != "표":
                     continue
-                for candidate in prelude[idx + 1:]:
+                for rel_idx, candidate in enumerate(prelude[idx + 1:], start=idx + 1):
                     cleaned = self._clean_line(candidate)
                     if self._is_title_candidate(cleaned):
-                        return cleaned
+                        return self._repair_split_leading_number(cleaned, prelude, rel_idx)
             return ""
         return re.sub(r"\s+", " ", match.group(1)).strip()
 
@@ -6082,6 +6082,8 @@ class _KoreaResearchInternationalParser:
                 normalized[idx] = "기타"
                 normalized[idx + 1] = "모름/ 무응답"
         normalized = [re.sub(r"\s*/\s*", "/ ", opt).strip().rstrip("/") for opt in normalized]
+        normalized = [re.sub(r"\s+,", "", opt).strip() for opt in normalized]
+        normalized = [re.sub(r"못했다\s+모름/", "못했다/ 모름/", opt) for opt in normalized]
         return normalized
 
     def _extract_page_words(self, page_tables: List) -> Optional[List[tuple]]:
@@ -6365,6 +6367,22 @@ class _KoreaResearchInternationalParser:
 
     def _clean_line(self, line: str) -> str:
         return re.sub(r"\s+", " ", str(line or "")).strip()
+
+    def _repair_split_leading_number(
+        self,
+        candidate: str,
+        prelude: List[str],
+        candidate_idx: int,
+    ) -> str:
+        if not candidate.startswith("회 "):
+            return candidate
+        window = prelude[max(0, candidate_idx - 2):candidate_idx + 3]
+        digit_matches = []
+        for line in window:
+            digit_matches.extend(re.findall(r"\b\d+\b", line))
+        if not digit_matches:
+            return candidate
+        return f"{digit_matches[-1]}{candidate}"
 
     def _is_title_candidate(self, line: str) -> bool:
         if not line or line in {"표", "문", "?"}:

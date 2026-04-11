@@ -44,6 +44,32 @@ _SPLIT_PAGE_B = """
                     ---------------------------- -------- -------- -------- -------- -------- -------- -------- --------
 """.strip("\n")
 
+_JEJU_TITLE_SPLIT_PAGE = """
+제회 지방선거 제주특별자치도 여론조사
+차
+9
+(2
+)
+7 l
+표
+회 지선 관심도
+<
+1> 9
+문
+오는 월 일에 도지사
+교육감 등을 뽑는 지방선거가 있습니다
+1.
+6
+3
+,
+?
+          ---------------------------- -------- -------- -------- -------- -------- -------- -------- -------- -------- --------
+          BASE:전체                     조사완료
+          ---------------------------- -------- -------- -------- -------- -------- -------- -------- -------- -------- --------
+          전                        체   (800)      28       48       16        6        1       76       23        1     (800)
+          ---------------------------- -------- -------- -------- -------- -------- -------- -------- -------- -------- --------
+""".strip("\n")
+
 
 class TestKoreaResearchInternationalParser:
     def test_parses_ascii_art_page_into_question_result(self) -> None:
@@ -111,4 +137,24 @@ class TestKoreaResearchInternationalParser:
             1.0,
             15.0,
             6.0,
+        ]
+
+    def test_extracts_title_when_leading_digit_is_split_from_text(self) -> None:
+        parser = _KoreaResearchInternationalParser()
+
+        title = parser._extract_table_title(_JEJU_TITLE_SPLIT_PAGE)
+
+        assert title == "9회 지선 관심도"
+
+    def test_normalizes_option_label_punctuation_from_words_fallback(self) -> None:
+        parser = _KoreaResearchInternationalParser()
+
+        normalized = parser._normalize_option_labels([
+            "이정선 현 광주 광역시 교육감 ,",
+            "결정 못했다 모름/ 무응답",
+        ])
+
+        assert normalized == [
+            "이정선 현 광주 광역시 교육감",
+            "결정 못했다/ 모름/ 무응답",
         ]
