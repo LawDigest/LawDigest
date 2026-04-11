@@ -1,5 +1,6 @@
 package com.everyones.lawmaking.service.election.poll;
 
+import com.everyones.lawmaking.common.dto.response.election.ElectionPollOverviewResponse;
 import com.everyones.lawmaking.domain.entity.poll.PollOption;
 import com.everyones.lawmaking.domain.entity.poll.PollQuestion;
 import com.everyones.lawmaking.domain.entity.poll.PollSurvey;
@@ -19,7 +20,6 @@ import org.springframework.test.context.ActiveProfiles;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -52,6 +52,9 @@ class PollQueryServiceTest {
 
     @Autowired
     private PollOptionRepository pollOptionRepository;
+
+    private final PollQuestionClassifier classifier = new PollQuestionClassifier();
+    private final PollNormalizationService normalizationService = new PollNormalizationService();
 
     @Test
     void loadsSurveyQuestionsAndOptionsForElectionAndRegion() {
@@ -113,5 +116,113 @@ class PollQueryServiceTest {
         assertThat(options)
                 .extracting(PollOption::getOptionName)
                 .containsExactly("김후보", "이후보");
+    }
+
+    @Test
+    void buildsOverviewAndAggregatesUndecidedOptions() {
+        PollSurvey earlierSurvey = PollSurvey.builder()
+                .registrationNumber("서울-001")
+                .electionType("제9회 전국동시지방선거")
+                .region("서울특별시 전체")
+                .electionName("제9회 전국동시지방선거")
+                .pollster("한국갤럽")
+                .sponsor("테스트의뢰기관")
+                .surveyStartDate(LocalDate.of(2026, 3, 25))
+                .surveyEndDate(LocalDate.of(2026, 3, 26))
+                .sampleSize(1000)
+                .marginOfError("95% 신뢰수준 ±3.1%p")
+                .sourceUrl("https://example.com/poll/1")
+                .pdfPath("/tmp/poll-1.pdf")
+                .build();
+        PollSurvey latestSurvey = PollSurvey.builder()
+                .registrationNumber("서울-002")
+                .electionType("제9회 전국동시지방선거")
+                .region("서울특별시 전체")
+                .electionName("제9회 전국동시지방선거")
+                .pollster("한국리서치")
+                .sponsor("테스트의뢰기관")
+                .surveyStartDate(LocalDate.of(2026, 4, 1))
+                .surveyEndDate(LocalDate.of(2026, 4, 2))
+                .sampleSize(1000)
+                .marginOfError("95% 신뢰수준 ±3.1%p")
+                .sourceUrl("https://example.com/poll/2")
+                .pdfPath("/tmp/poll-2.pdf")
+                .build();
+        entityManager.persist(earlierSurvey);
+        entityManager.persist(latestSurvey);
+
+        Long earlierQuestionId = persistPartySupportQuestion(earlierSurvey.getRegistrationNumber(), "정당지지도");
+        Long latestQuestionId = persistPartySupportQuestion(latestSurvey.getRegistrationNumber(), "정당 지지도");
+
+        persistOption(earlierQuestionId, "더불어 민주당", "38.00");
+        persistOption(earlierQuestionId, "국민의힘", "34.00");
+        persistOption(earlierQuestionId, "없음", "12.00");
+        persistOption(earlierQuestionId, "잘모름", "4.00");
+
+        persistOption(latestQuestionId, "더불어 민주당", "42.50");
+        persistOption(latestQuestionId, "국민의힘", "36.20");
+        persistOption(latestQuestionId, "지지정당 없음", "9.30");
+        persistOption(latestQuestionId, "모름", "5.10");
+        persistOption(latestQuestionId, "무응답", "1.20");
+
+        entityManager.flush();
+
+        PollQueryService pollQueryService = new PollQueryService(
+                pollSurveyRepository,
+                pollQuestionRepository,
+                pollOptionRepository,
+                classifier,
+                normalizationService
+        );
+
+        var response = pollQueryService.getOverview("local-2026", "11");
+
+        assertThat(response.getLeadingParty().getPartyName()).isEqualTo("더불어민주당");
+        assertThat(response.getLeadingParty().getPercentage()).isEqualByComparingTo("42.50");
+        assertThat(response.getLeadingParty().getUndecided()).isEqualByComparingTo("15.60");
+
+        assertThat(response.getPartyTrend()).hasSize(2);
+        assertThat(response.getPartyTrend())
+                .extracting(trend -> trend.getSurvey().getRegistrationNumber())
+                .containsExactly("서울-001", "서울-002");
+
+        assertThat(response.getLatestSurveys()).hasSize(2);
+        assertThat(response.getLatestSurveys().get(0).getRegistrationNumber()).isEqualTo("서울-002");
+
+        java.util.Optional<ElectionPollOverviewResponse.PartySnapshot> undecided = response.getLatestSurveys().get(0)
+                .getSnapshot()
+                .stream()
+                .filter(option -> option.getPartyName().equals("undecided"))
+                .findFirst();
+        assertThat(undecided).isPresent();
+        assertThat(response.getLatestSurveys().get(0).getSnapshot())
+                .extracting(snapshot -> snapshot.getPartyName())
+                .contains("더불어민주당", "국민의힘", "undecided");
+        assertThat(response.getLatestSurveys().get(0).getSnapshot().stream()
+                .filter(snapshot -> snapshot.getPartyName().equals("undecided"))
+                .findFirst()
+                .orElseThrow()
+                .getPercentage()).isEqualByComparingTo("15.60");
+    }
+
+    private Long persistPartySupportQuestion(String registrationNumber, String title) {
+        PollQuestion question = PollQuestion.builder()
+                .registrationNumber(registrationNumber)
+                .questionNumber(1)
+                .questionTitle(title)
+                .nCompleted(1000)
+                .nWeighted(1000)
+                .build();
+        entityManager.persist(question);
+        entityManager.flush();
+        return question.getQuestionId();
+    }
+
+    private void persistOption(Long questionId, String optionName, String percentage) {
+        entityManager.persist(PollOption.builder()
+                .questionId(questionId)
+                .optionName(optionName)
+                .percentage(new BigDecimal(percentage))
+                .build());
     }
 }
