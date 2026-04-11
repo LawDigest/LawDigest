@@ -275,14 +275,14 @@ def test_upsert_polls_step_uses_survey_metadata(monkeypatch, tmp_path):
                     "survey_end_date": "2026-03-21",
                     "sample_size": 1000,
                     "margin_of_error": "±3.1%",
-                    "questions": [
-                        {
-                            "question_number": 1,
-                            "question_title": "Q1",
-                            "response_options": ["A", "B"],
-                            "overall_n_completed": 500,
-                            "overall_n_weighted": 500,
-                            "overall_percentages": [40.0, 60.0],
+                        "questions": [
+                            {
+                                "question_number": 1,
+                                "question_title": "정당지지도",
+                                "response_options": ["A", "B"],
+                                "overall_n_completed": 500,
+                                "overall_n_weighted": 500,
+                                "overall_percentages": [40.0, 60.0],
                         }
                     ],
                 }
@@ -338,6 +338,75 @@ def test_upsert_polls_step_uses_survey_metadata(monkeypatch, tmp_path):
         {"option_name": "A", "percentage": 40.0},
         {"option_name": "B", "percentage": 60.0},
     ]
+
+
+def test_upsert_polls_step_skips_quality_screen_failures(monkeypatch, tmp_path):
+    workflow_module = _load_workflow_module()
+
+    artifact_path = tmp_path / "results.json"
+    artifact_path.write_text(
+        json.dumps(
+            [
+                {
+                    "registration_number": "REG-2",
+                    "source_url": "https://example.com/detail/2",
+                    "pdf_path": "/tmp/result-2.pdf",
+                    "election_type": "제9회 전국동시지방선거",
+                    "region": "서울특별시 전체",
+                    "election_name": "광역단체장선거",
+                    "pollster": "테스트기관",
+                    "sponsor": "테스트스폰서",
+                    "survey_start_date": "2026-03-20",
+                    "survey_end_date": "2026-03-21",
+                    "sample_size": 1000,
+                    "margin_of_error": "±3.1%",
+                    "questions": [
+                        {
+                            "question_number": 1,
+                            "question_title": "정당지지도",
+                            "response_options": ["선택지1", "선택지2"],
+                            "overall_n_completed": 500,
+                            "overall_n_weighted": 500,
+                            "overall_percentages": [40.0, 60.0],
+                        }
+                    ],
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    captured: dict[str, object] = {}
+
+    class _FakeDB:
+        def ensure_tables(self):
+            pass
+
+        def upsert_surveys(self, rows):
+            captured["survey_rows"] = rows
+            return len(rows)
+
+        def upsert_questions(self, rows):
+            captured["question_rows"] = rows
+            return 77
+
+        def replace_options(self, question_id, options):
+            captured["options"] = options
+            return len(options)
+
+    monkeypatch.setattr(
+        workflow_module.PollsWorkflowManager,
+        "_build_db_manager",
+        lambda self: _FakeDB(),
+    )
+
+    result = workflow_module.PollsWorkflowManager("test").upsert_polls_step(str(artifact_path))
+
+    assert result["upserted_surveys"] == 1
+    assert result["upserted_questions"] == 0
+    assert "question_rows" not in captured
+    assert "options" not in captured
 
 
 def _load_polls_ingest_dag_module():

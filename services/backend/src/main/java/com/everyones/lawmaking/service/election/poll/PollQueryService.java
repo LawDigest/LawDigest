@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -36,6 +37,7 @@ public class PollQueryService {
             "무응답",
             "모름",
             "잘모름",
+            "잘모르겠다",
             "의견유보",
             "기타"
     );
@@ -128,6 +130,7 @@ public class PollQueryService {
 
         List<ElectionPollRegionResponse.SurveySummary> latestSurveys = surveys.stream()
                 .map(this::toRegionSurveySummary)
+                .filter(Objects::nonNull)
                 .toList();
 
         List<ElectionPollRegionResponse.PartySnapshot> partySnapshot = partySnapshots.isEmpty()
@@ -227,6 +230,8 @@ public class PollQueryService {
                 .stream()
                 .filter(question -> pollQuestionClassifier.classify(question.getQuestionTitle(), null)
                         == PollQuestionClassifier.QuestionType.PARTY_SUPPORT)
+                .filter(this::isMeaningfulQuestionTitle)
+                .filter(this::hasUsablePartyOptions)
                 .findFirst()
                 .map(question -> buildPartySurveySnapshot(survey, question));
     }
@@ -265,6 +270,8 @@ public class PollQueryService {
         return pollQuestionRepository.findByRegistrationNumberOrderByQuestionNumberAsc(survey.getRegistrationNumber())
                 .stream()
                 .filter(question -> pollQuestionClassifier.classify(question.getQuestionTitle(), null) == questionType)
+                .filter(this::isMeaningfulQuestionTitle)
+                .filter(this::hasUsableCandidateOptions)
                 .findFirst()
                 .map(question -> buildCandidateSurveySnapshot(survey, question, questionType));
     }
@@ -386,6 +393,10 @@ public class PollQueryService {
     }
 
     private ElectionPollRegionResponse.SurveySummary toRegionSurveySummary(PollSurvey survey) {
+        String representativeQuestionTitle = resolveRepresentativeQuestionTitle(survey.getRegistrationNumber());
+        if (representativeQuestionTitle == null) {
+            return null;
+        }
         return ElectionPollRegionResponse.SurveySummary.builder()
                 .registrationNumber(survey.getRegistrationNumber())
                 .pollster(survey.getPollster())
@@ -393,22 +404,47 @@ public class PollQueryService {
                 .surveyEndDate(survey.getSurveyEndDate())
                 .sampleSize(survey.getSampleSize())
                 .marginOfError(survey.getMarginOfError())
-                .questionTitle(resolveRepresentativeQuestionTitle(survey.getRegistrationNumber()))
+                .questionTitle(representativeQuestionTitle)
                 .build();
     }
 
     private String resolveRepresentativeQuestionTitle(String registrationNumber) {
         return pollQuestionRepository.findByRegistrationNumberOrderByQuestionNumberAsc(registrationNumber)
                 .stream()
+                .filter(this::isMeaningfulQuestionTitle)
                 .filter(question -> {
                     PollQuestionClassifier.QuestionType type = pollQuestionClassifier.classify(question.getQuestionTitle(), null);
                     return type == PollQuestionClassifier.QuestionType.PARTY_SUPPORT
                             || type == PollQuestionClassifier.QuestionType.MATCHUP
                             || type == PollQuestionClassifier.QuestionType.CANDIDATE_FIT;
                 })
+                .filter(question -> {
+                    PollQuestionClassifier.QuestionType type = pollQuestionClassifier.classify(question.getQuestionTitle(), null);
+                    return type == PollQuestionClassifier.QuestionType.PARTY_SUPPORT
+                            ? hasUsablePartyOptions(question)
+                            : hasUsableCandidateOptions(question);
+                })
                 .map(PollQuestion::getQuestionTitle)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private boolean isMeaningfulQuestionTitle(PollQuestion question) {
+        return pollNormalizationService.isMeaningfulQuestionTitle(question.getQuestionTitle());
+    }
+
+    private boolean hasUsablePartyOptions(PollQuestion question) {
+        return pollOptionRepository.findByQuestionIdOrderByOptionIdAsc(question.getQuestionId())
+                .stream()
+                .filter(option -> !isUndecidedOption(option.getOptionName()))
+                .noneMatch(option -> pollNormalizationService.isSuspiciousPartyOption(option.getOptionName()));
+    }
+
+    private boolean hasUsableCandidateOptions(PollQuestion question) {
+        return pollOptionRepository.findByQuestionIdOrderByOptionIdAsc(question.getQuestionId())
+                .stream()
+                .filter(option -> !isUndecidedOption(option.getOptionName()))
+                .noneMatch(option -> pollNormalizationService.isSuspiciousCandidateOption(option.getOptionName()));
     }
 
     private List<ElectionPollCandidateResponse.CandidateTrendPoint> buildCandidateTrendSeries(

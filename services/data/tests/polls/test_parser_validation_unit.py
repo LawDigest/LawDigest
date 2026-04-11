@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from lawdigest_data.polls.models import QuestionResult
 from lawdigest_data.polls.validation import (
+    quality_screen_question_result,
     validate_parse_results,
     validate_question_result,
 )
@@ -89,6 +90,40 @@ class TestQuestionTitle:
     def test_whitespace_only_title_is_invalid(self):
         errors = validate_question_result(_make_q(question_title="   "))
         assert _has_error_containing(errors, "제목")
+
+
+class TestQualityScreening:
+    def test_rejects_placeholder_question_title(self):
+        errors = quality_screen_question_result(_make_q(question_title="Q7"))
+        assert _has_error_containing(errors, "placeholder")
+
+    def test_rejects_placeholder_options(self):
+        errors = quality_screen_question_result(
+            _make_q(response_options=["선택지1", "선택지2"], overall_percentages=[38.0, 27.0])
+        )
+        assert _has_error_containing(errors, "placeholder")
+
+    def test_rejects_merged_party_labels(self):
+        errors = quality_screen_question_result(
+            _make_q(
+                response_options=["민주당국민의힘", "혁신당개혁신당진보당", "잘 모르겠다"],
+                overall_percentages=[39.9, 2.0, 17.5],
+            )
+        )
+        assert _has_error_containing(errors, "병합")
+
+    def test_rejects_mojibake_text(self):
+        errors = quality_screen_question_result(
+            _make_q(
+                question_title="먚鰃믅믅鱮 (1)",
+                response_options=["꾍랹 긁묁鰃", "긁륝 증", "롽 먚鰃"],
+                overall_percentages=[56.1, 29.3, 3.1],
+            )
+        )
+        assert _has_error_containing(errors, "문자 깨짐")
+
+    def test_allows_clean_question_result(self):
+        assert quality_screen_question_result(_make_q()) == []
 
 
 # ── 선택지 / 비율 ─────────────────────────────────────────────────────────────

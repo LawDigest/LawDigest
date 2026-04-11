@@ -1,7 +1,8 @@
-"""여론조사 파싱 결과 속성 검증 모듈."""
+"""여론조사 파싱 결과 속성 검증 및 품질 스크리닝 모듈."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Dict, List
 
 from .models import QuestionResult
@@ -18,6 +19,20 @@ _PCT_VALUE_MAX = 100.0
 
 # 최소 허용 표본 수
 _N_MIN = 50
+
+_QUESTION_PLACEHOLDER_RE = re.compile(r"^Q\d+$", re.IGNORECASE)
+_OPTION_PLACEHOLDER_RE = re.compile(r"^선택지\d+$")
+_CORRUPTED_TEXT_RE = re.compile(r"[\u4e00-\u9fff]")
+_GENERIC_OPTION_RE = re.compile(r"^(정당|후보|인물)$")
+_PARTY_KEYWORDS = (
+    "더불어민주",
+    "국민의힘",
+    "조국혁신",
+    "개혁신당",
+    "진보당",
+    "기본소득당",
+    "사회민주당",
+)
 
 
 @dataclass(frozen=True)
@@ -90,6 +105,60 @@ def validate_question_result(r: QuestionResult) -> List[ValidationError]:
         ))
 
     return errors
+
+
+def quality_screen_question_result(r: QuestionResult) -> List[ValidationError]:
+    """적재/노출 전에 복구 불가능한 질문을 차단한다."""
+    errors: List[ValidationError] = []
+
+    title = (r.question_title or "").strip()
+    if _QUESTION_PLACEHOLDER_RE.fullmatch(title):
+        errors.append(ValidationError("question_title", f"질문 제목 placeholder 감지: {title}"))
+    elif _looks_corrupted_text(title):
+        errors.append(ValidationError("question_title", f"질문 제목 문자 깨짐 감지: {title}"))
+
+    for index, option in enumerate(r.response_options or []):
+        label = (option or "").strip()
+        if not label:
+            errors.append(ValidationError(f"response_options[{index}]", "빈 선택지 감지"))
+            continue
+        if _OPTION_PLACEHOLDER_RE.fullmatch(label):
+            errors.append(ValidationError(f"response_options[{index}]", f"선택지 placeholder 감지: {label}"))
+            continue
+        if _looks_corrupted_text(label):
+            errors.append(ValidationError(f"response_options[{index}]", f"선택지 문자 깨짐 감지: {label}"))
+            continue
+        if _looks_like_merged_party_label(label):
+            errors.append(ValidationError(f"response_options[{index}]", f"정당 선택지 병합 감지: {label}"))
+            continue
+        if _GENERIC_OPTION_RE.fullmatch(label):
+            errors.append(ValidationError(f"response_options[{index}]", f"의미 없는 일반 선택지 감지: {label}"))
+
+    return errors
+
+
+def _looks_corrupted_text(text: str) -> bool:
+    normalized = (text or "").strip()
+    if not normalized:
+        return False
+    return bool(_CORRUPTED_TEXT_RE.search(normalized))
+
+
+def _looks_like_merged_party_label(label: str) -> bool:
+    normalized = re.sub(r"\s+", "", label or "")
+    if not normalized:
+        return False
+
+    if sum(1 for keyword in _PARTY_KEYWORDS if keyword in normalized) >= 2:
+        return True
+
+    suspicious_fragments = (
+        "더불어조국잘",
+        "기타지지하는",
+        "민주당혁신당모르겠다",
+        "없음잘모름",
+    )
+    return any(fragment in normalized for fragment in suspicious_fragments)
 
 
 def validate_parse_results(

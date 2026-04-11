@@ -290,7 +290,7 @@ class PollQueryServiceTest {
         assertThat(response.getCandidateSnapshot())
                 .extracting(ElectionPollRegionResponse.CandidateSnapshot::getCandidateName)
                 .contains("김동연", "양향자", "undecided");
-        assertThat(response.getLatestSurveys()).hasSize(2);
+        assertThat(response.getLatestSurveys()).hasSize(1);
         assertThat(response.getLatestSurveys().get(0).getRegistrationNumber()).isEqualTo("서울-302");
         assertThat(response.getLatestSurveys().get(0).getSponsor()).isEqualTo("테스트의뢰기관");
         assertThat(response.getLatestSurveys().get(0).getSampleSize()).isEqualTo(1000);
@@ -353,6 +353,84 @@ class PollQueryServiceTest {
         assertThat(response.getBasisQuestionKind()).isEqualTo("CANDIDATE_FIT");
         assertThat(response.getSelectedCandidate()).isEqualTo("김동연");
         assertThat(response.getCandidateOptions()).contains("김동연", "김후보");
+    }
+
+    @Test
+    void excludesBrokenPartySupportQuestionsFromOverview() {
+        persistSurvey("서울-999", "제9회 전국동시지방선거", "서울특별시 전체", "윈지코리아컨설팅", LocalDate.of(2026, 4, 5));
+
+        Long brokenQuestion = persistQuestion("서울-999", 1, "정당지지도");
+        persistOption(brokenQuestion, "선택지1", "38.00");
+        persistOption(brokenQuestion, "민주당국민의힘", "27.00");
+        persistOption(brokenQuestion, "잘 모르겠다", "15.00");
+
+        entityManager.flush();
+
+        PollQueryService pollQueryService = new PollQueryService(
+                pollSurveyRepository,
+                pollQuestionRepository,
+                pollOptionRepository,
+                classifier,
+                normalizationService
+        );
+
+        ElectionPollOverviewResponse response = pollQueryService.getOverview("local-2026", "11");
+
+        assertThat(response.getLatestSurveys()).isEmpty();
+        assertThat(response.getPartyTrend()).isEmpty();
+        assertThat(response.getLeadingParty()).isNull();
+    }
+
+    @Test
+    void filtersPlaceholderQuestionTitlesFromRegionSurveySummaries() {
+        persistSurvey("서울-888", "제9회 전국동시지방선거", "서울특별시 전체", "케이스탯리서치", LocalDate.of(2026, 4, 6));
+
+        Long brokenQuestion = persistQuestion("서울-888", 1, "Q1");
+        persistOption(brokenQuestion, "정원오", "34.00");
+        persistOption(brokenQuestion, "오세훈", "26.00");
+        persistOption(brokenQuestion, "잘 모르겠다", "16.00");
+
+        entityManager.flush();
+
+        PollQueryService pollQueryService = new PollQueryService(
+                pollSurveyRepository,
+                pollQuestionRepository,
+                pollOptionRepository,
+                classifier,
+                normalizationService
+        );
+
+        ElectionPollRegionResponse response = pollQueryService.getRegion("local-2026", "11");
+
+        assertThat(response.getLatestSurveys()).isEmpty();
+    }
+
+    @Test
+    void canonicalizesUndecidedCandidateAliasesIntoSingleBucket() {
+        persistSurvey("서울-777", "제9회 전국동시지방선거", "서울특별시 전체", "여론조사공정(주)", LocalDate.of(2026, 4, 7));
+
+        Long matchupQuestion = persistQuestion("서울-777", 1, "가상대결 - 박주민 vs 박수민");
+        persistOption(matchupQuestion, "박주민", "40.70");
+        persistOption(matchupQuestion, "박수민", "20.90");
+        persistOption(matchupQuestion, "없다", "28.30");
+        persistOption(matchupQuestion, "잘 모르겠다", "10.20");
+
+        entityManager.flush();
+
+        PollQueryService pollQueryService = new PollQueryService(
+                pollSurveyRepository,
+                pollQuestionRepository,
+                pollOptionRepository,
+                classifier,
+                normalizationService
+        );
+
+        ElectionPollCandidateResponse response = pollQueryService.getCandidate("local-2026", "11", "박주민");
+
+        assertThat(response.getLatestSnapshot())
+                .extracting(ElectionPollCandidateResponse.CandidateSnapshot::getCandidateName)
+                .containsExactly("박주민", "undecided", "박수민");
+        assertThat(response.getLatestSnapshot().get(1).getPercentage()).isEqualByComparingTo("38.50");
     }
 
     private void persistSurvey(

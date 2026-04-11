@@ -12,8 +12,9 @@ from typing import Any, Dict, List, Optional
 
 from ..core.WorkFlowManager import WorkFlowManager
 from .crawler import NesdcCrawler
-from .models import ListRecord, PollDetail
+from .models import ListRecord, PollDetail, QuestionResult
 from .targets import PollTarget, load_targets, parse_title_region
+from .validation import quality_screen_question_result
 
 logger = logging.getLogger(__name__)
 
@@ -453,6 +454,23 @@ class PollsWorkflowManager:
             upserted_surveys += db.upsert_surveys(survey_rows)
 
             for q in rs.get("questions") or []:
+                screened = quality_screen_question_result(QuestionResult(
+                    question_number=q["question_number"],
+                    question_title=q["question_title"],
+                    question_text=q.get("question_text", ""),
+                    response_options=q["response_options"],
+                    overall_n_completed=q.get("overall_n_completed"),
+                    overall_n_weighted=q.get("overall_n_weighted"),
+                    overall_percentages=q["overall_percentages"],
+                ))
+                if screened:
+                    logger.warning(
+                        "[polls_ingest.upsert] 품질 스크린 탈락: reg=%s q=%s reasons=%s",
+                        rs.get("registration_number"),
+                        q["question_number"],
+                        [error.message for error in screened],
+                    )
+                    continue
                 q_rows = [{
                     "registration_number": rs.get("registration_number"),
                     "question_number": q["question_number"],
