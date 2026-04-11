@@ -165,6 +165,46 @@ class TestWinjiQuestionnaireExtraction:
         ]
 
 
+class TestMediaTomatoOptionRecovery:
+    def test_recovers_standard_party_options(self):
+        recovered = _MediaTomatoParser._recover_known_options(
+            "정당 지지도",
+            ["민주당국민의힘", "조국", "혁신당개혁신당진보당", "그 외", "다른", "정당", "없음", "잘 모름"],
+            8,
+        )
+
+        assert recovered == [
+            "더불어민주당",
+            "국민의힘",
+            "조국혁신당",
+            "진보당",
+            "개혁신당",
+            "그 외 다른 정당",
+            "없음",
+            "잘 모름",
+        ]
+
+    def test_recovers_standard_progressive_candidate_options(self):
+        recovered = _MediaTomatoParser._recover_known_options(
+            "범진보 서울시장 후보 경쟁력",
+            ["박주민", "조국", "김민석서영교전현희강훈식박홍근", "그 외", "인물", "없음", "잘 모름"],
+            10,
+        )
+
+        assert recovered == [
+            "박주민",
+            "조국",
+            "김민석",
+            "서영교",
+            "전현희",
+            "강훈식",
+            "박홍근",
+            "그 외 인물",
+            "없음",
+            "잘 모름",
+        ]
+
+
 # ── PARSER_KEY 클래스 변수 존재 여부 ─────────────────────────────────────────
 
 

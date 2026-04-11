@@ -2636,6 +2636,28 @@ class _MediaTomatoParser(BaseTableParser):
         r"사례수\n(.*?)(?:조사완료\n)?가중값적용",
         re.DOTALL,
     )
+    _STANDARD_PARTY_OPTIONS = [
+        "더불어민주당",
+        "국민의힘",
+        "조국혁신당",
+        "진보당",
+        "개혁신당",
+        "그 외 다른 정당",
+        "없음",
+        "잘 모름",
+    ]
+    _STANDARD_PROGRESSIVE_OPTIONS = [
+        "박주민",
+        "조국",
+        "김민석",
+        "서영교",
+        "전현희",
+        "강훈식",
+        "박홍근",
+        "그 외 인물",
+        "없음",
+        "잘 모름",
+    ]
 
     @staticmethod
     def _parse_options_from_header(header_text: str) -> List[str]:
@@ -2652,6 +2674,17 @@ class _MediaTomatoParser(BaseTableParser):
                 continue
             opts.append(ln)
         return opts
+
+    @classmethod
+    def _recover_known_options(cls, q_title: str, options: List[str], n_opts: int) -> List[str]:
+        normalized = re.sub(r"\s+", "", q_title)
+        if normalized == "정당지지도" and n_opts == len(cls._STANDARD_PARTY_OPTIONS):
+            return cls._STANDARD_PARTY_OPTIONS.copy()
+
+        if "범진보서울시장후보경쟁력" in normalized and n_opts == len(cls._STANDARD_PROGRESSIVE_OPTIONS):
+            return cls._STANDARD_PROGRESSIVE_OPTIONS.copy()
+
+        return options
 
     def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
@@ -2721,6 +2754,7 @@ class _MediaTomatoParser(BaseTableParser):
             while len(options) < n_opts:
                 options.insert(0, f"선택지{len(options) + 1}")
             options = options[:n_opts]
+            options = self._recover_known_options(q_title, options, n_opts)
 
             results.append(
                 QuestionResult(
