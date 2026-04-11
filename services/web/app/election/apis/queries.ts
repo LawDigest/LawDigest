@@ -10,6 +10,10 @@ import {
   ElectionViewMode,
 } from '@/types';
 import {
+  getElectionPollCandidate,
+  getElectionPollOverview,
+  getElectionPollParty,
+  getElectionPollRegion,
   postElectionRegionConfirm,
   postElectionRegionResolve,
   getElectionCandidateDetail,
@@ -57,6 +61,23 @@ type ElectionQueryKeys = {
     electionId: ElectionId;
     candidateId: ElectionCandidateId;
   }) => readonly [ElectionQueryRoot, 'candidate-detail', ElectionId, ElectionCandidateId];
+  pollOverview: (args: {
+    electionId: ElectionId;
+    regionCode: ElectionRegionCode;
+  }) => readonly [ElectionQueryRoot, 'poll-overview', ElectionId, ElectionRegionCode];
+  pollParty: (args: {
+    electionId: ElectionId;
+    partyName: string;
+  }) => readonly [ElectionQueryRoot, 'poll-party', ElectionId, string];
+  pollRegion: (args: {
+    electionId: ElectionId;
+    regionCode: ElectionRegionCode;
+  }) => readonly [ElectionQueryRoot, 'poll-region', ElectionId, ElectionRegionCode];
+  pollCandidate: (args: {
+    electionId: ElectionId;
+    regionCode: ElectionRegionCode;
+    candidateName?: string | null;
+  }) => readonly [ElectionQueryRoot, 'poll-candidate', ElectionId, ElectionRegionCode, string | null | undefined];
 };
 
 export const ELECTION_QUERY_KEYS = {
@@ -70,6 +91,11 @@ export const ELECTION_QUERY_KEYS = {
   candidates: ({ electionId, regionCode, officeType }) =>
     ['/election', 'candidates', electionId, regionCode, officeType] as const,
   candidateDetail: ({ electionId, candidateId }) => ['/election', 'candidate-detail', electionId, candidateId] as const,
+  pollOverview: ({ electionId, regionCode }) => ['/election', 'poll-overview', electionId, regionCode] as const,
+  pollParty: ({ electionId, partyName }) => ['/election', 'poll-party', electionId, partyName] as const,
+  pollRegion: ({ electionId, regionCode }) => ['/election', 'poll-region', electionId, regionCode] as const,
+  pollCandidate: ({ electionId, regionCode, candidateName }) =>
+    ['/election', 'poll-candidate', electionId, regionCode, candidateName] as const,
 } satisfies ElectionQueryKeys;
 
 export const ELECTION_MUTATION_KEYS = {
@@ -129,6 +155,39 @@ export const useGetElectionCandidateDetail = (electionId: ElectionId, candidateI
   useQuery({
     queryKey: ELECTION_QUERY_KEYS.candidateDetail({ electionId, candidateId }),
     queryFn: () => getElectionCandidateDetail(electionId, candidateId),
+  });
+
+export const useGetElectionPollOverview = (electionId: ElectionId, regionCode: ElectionRegionCode, enabled = true) =>
+  useQuery({
+    queryKey: ELECTION_QUERY_KEYS.pollOverview({ electionId, regionCode }),
+    queryFn: () => getElectionPollOverview(electionId, regionCode),
+    enabled: enabled && !!electionId && !!regionCode,
+  });
+
+export const useGetElectionPollParty = (electionId: ElectionId, partyName: string | null, enabled = true) =>
+  useQuery({
+    queryKey: ELECTION_QUERY_KEYS.pollParty({ electionId, partyName: partyName ?? '' }),
+    queryFn: () => getElectionPollParty(electionId, partyName ?? ''),
+    enabled: enabled && !!electionId && !!partyName,
+  });
+
+export const useGetElectionPollRegion = (electionId: ElectionId, regionCode: ElectionRegionCode, enabled = true) =>
+  useQuery({
+    queryKey: ELECTION_QUERY_KEYS.pollRegion({ electionId, regionCode }),
+    queryFn: () => getElectionPollRegion(electionId, regionCode),
+    enabled: enabled && !!electionId && !!regionCode,
+  });
+
+export const useGetElectionPollCandidate = (
+  electionId: ElectionId,
+  regionCode: ElectionRegionCode,
+  candidateName?: string | null,
+  enabled = true,
+) =>
+  useQuery({
+    queryKey: ELECTION_QUERY_KEYS.pollCandidate({ electionId, regionCode, candidateName }),
+    queryFn: () => getElectionPollCandidate(electionId, regionCode, candidateName),
+    enabled: enabled && !!electionId && !!regionCode,
   });
 
 const invalidateElectionQueries = (queryClient: ReturnType<typeof useQueryClient>) => {

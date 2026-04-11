@@ -1,39 +1,93 @@
 'use client';
 
-import { MOCK_POLL_DATA } from '../data/mockPollData';
+import { ElectionPollRegionResponse } from '@/types';
 
 interface PollRegionPanelProps {
-  region: string;
+  response: ElectionPollRegionResponse | null | undefined;
 }
 
-export default function PollRegionPanel({ region }: PollRegionPanelProps) {
-  const pollData = MOCK_POLL_DATA[region];
+function SnapshotBar({ label, percentage, color }: { label: string; percentage: number; color: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs">
+        <span className="text-gray-3 dark:text-gray-1">{label}</span>
+        <span className="font-semibold text-gray-4 dark:text-white">{percentage}%</span>
+      </div>
+      <div className="h-2 w-full rounded-full bg-default-100 dark:bg-dark-b overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${percentage}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+}
+
+function getBarColor(name: string) {
+  if (name.includes('더불어민주')) return '#152484';
+  if (name.includes('국민의힘')) return '#C9151E';
+  if (name === 'undecided') return '#999999';
+  return '#5b6475';
+}
+
+export default function PollRegionPanel({ response }: PollRegionPanelProps) {
+  if (!response) {
+    return <p className="px-4 py-6 text-sm text-gray-2">해당 지역의 여론조사 결과가 없습니다.</p>;
+  }
 
   return (
-    <div className="space-y-3 px-4">
-      <h3 className="text-sm font-semibold text-gray-4 dark:text-white">{region} 여론조사</h3>
-      {pollData ? (
-        <div className="rounded-2xl border border-gray-1 dark:border-dark-l bg-white dark:bg-dark-pb p-4 space-y-3">
-          <p className="text-[11px] text-gray-2">{pollData.source}</p>
-          {[
-            { name: '더불어민주당', pct: pollData.c1Pct, color: '#152484' },
-            { name: '국민의힘', pct: pollData.c2Pct, color: '#C9151E' },
-            { name: '기타', pct: pollData.otherPct, color: '#999' },
-          ].map((item) => (
-            <div key={item.name} className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-3 dark:text-gray-1">{item.name}</span>
-                <span className="font-semibold text-gray-4 dark:text-white">{item.pct}%</span>
-              </div>
-              <div className="h-2 w-full rounded-full bg-default-100 dark:bg-dark-b overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${item.pct}%`, backgroundColor: item.color }} />
-              </div>
-            </div>
-          ))}
+    <div className="space-y-4 px-4">
+      <h3 className="text-sm font-semibold text-gray-4 dark:text-white">{response.region_name} 여론조사</h3>
+
+      <div className="rounded-2xl border border-gray-1 dark:border-dark-l bg-white dark:bg-dark-pb p-4 space-y-4">
+        <div className="space-y-3">
+          <p className="text-[11px] font-semibold text-gray-3 dark:text-gray-1">정당 스냅샷</p>
+          {response.party_snapshot.length > 0 ? (
+            response.party_snapshot.map((item) => (
+              <SnapshotBar
+                key={item.party_name}
+                label={item.party_name}
+                percentage={item.percentage}
+                color={getBarColor(item.party_name)}
+              />
+            ))
+          ) : (
+            <p className="text-sm text-gray-2">정당 스냅샷이 없습니다.</p>
+          )}
         </div>
-      ) : (
-        <p className="text-sm text-gray-2">해당 지역의 여론조사 결과가 없습니다.</p>
-      )}
+
+        <div className="space-y-3">
+          <p className="text-[11px] font-semibold text-gray-3 dark:text-gray-1">후보 스냅샷</p>
+          {response.candidate_snapshot.length > 0 ? (
+            response.candidate_snapshot.map((item) => (
+              <SnapshotBar
+                key={item.candidate_name}
+                label={item.candidate_name}
+                percentage={item.percentage}
+                color={getBarColor(item.candidate_name)}
+              />
+            ))
+          ) : (
+            <p className="text-sm text-gray-2">후보 스냅샷이 없습니다.</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-[11px] font-semibold text-gray-3 dark:text-gray-1">최신 조사</p>
+          {response.latest_surveys.length > 0 ? (
+            response.latest_surveys.map((survey) => (
+              <div
+                key={survey.registration_number}
+                className="flex items-center justify-between rounded-xl bg-default-50 dark:bg-dark-b px-3 py-2">
+                <div>
+                  <p className="text-[12px] font-semibold text-gray-4 dark:text-white">{survey.pollster}</p>
+                  <p className="text-[10px] text-gray-2">{survey.registration_number}</p>
+                </div>
+                <p className="text-[11px] text-gray-2">{survey.survey_end_date}</p>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-gray-2">표시할 조사가 없습니다.</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

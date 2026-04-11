@@ -35,6 +35,7 @@ export default function ElectionMapShell() {
   const activeTab: ElectionInnerTab = isValidTab(tabParam) ? tabParam : 'map';
 
   const [confirmedRegion, setConfirmedRegion] = useState<ConfirmedRegion | null>(DEFAULT_REGION);
+  const [selectedElectionId] = useState('local-2026');
 
   const handleTabChange = useCallback(
     (tab: ElectionInnerTab) => {
@@ -53,7 +54,9 @@ export default function ElectionMapShell() {
 
         {activeTab === 'map' && <ElectionMapTabView />}
         {activeTab === 'feed' && <ElectionFeedView confirmedRegion={confirmedRegion} />}
-        {activeTab === 'poll' && <ElectionPollView confirmedRegion={confirmedRegion} />}
+        {activeTab === 'poll' && (
+          <ElectionPollView confirmedRegion={confirmedRegion} selectedElectionId={selectedElectionId} />
+        )}
         {activeTab === 'district' && (
           <ElectionDistrictView confirmedRegion={confirmedRegion} onRegionChange={setConfirmedRegion} />
         )}
