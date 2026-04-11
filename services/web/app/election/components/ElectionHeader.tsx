@@ -7,7 +7,14 @@ interface ElectionHeaderProps {
   electionDate: Date;
 }
 
+function isValidDate(value: Date): boolean {
+  return !Number.isNaN(value.getTime());
+}
+
 function calcDday(electionDate: Date): number {
+  if (!isValidDate(electionDate)) {
+    return 0;
+  }
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const target = new Date(electionDate);
@@ -28,6 +35,9 @@ function getDdayColor(dday: number): string {
 }
 
 function formatDate(date: Date): string {
+  if (!isValidDate(date)) {
+    return '날짜 미정';
+  }
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
