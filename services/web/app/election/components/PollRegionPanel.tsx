@@ -3,7 +3,8 @@
 import { ElectionPollRegionResponse } from '@/types';
 
 interface PollRegionPanelProps {
-  response: ElectionPollRegionResponse | null | undefined;
+  response?: ElectionPollRegionResponse | null | undefined;
+  region?: string;
 }
 
 function SnapshotBar({ label, percentage, color }: { label: string; percentage: number; color: string }) {
@@ -27,14 +28,21 @@ function getBarColor(name: string) {
   return '#5b6475';
 }
 
-export default function PollRegionPanel({ response }: PollRegionPanelProps) {
+export default function PollRegionPanel({ response, region }: PollRegionPanelProps) {
+  const regionName = response?.region_name ?? region ?? '선택 지역';
+
   if (!response) {
-    return <p className="px-4 py-6 text-sm text-gray-2">해당 지역의 여론조사 결과가 없습니다.</p>;
+    return (
+      <div className="space-y-3 px-4">
+        <h3 className="text-sm font-semibold text-gray-4 dark:text-white">{regionName} 여론조사</h3>
+        <p className="py-3 text-sm text-gray-2">해당 지역의 여론조사 결과가 없습니다.</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4 px-4">
-      <h3 className="text-sm font-semibold text-gray-4 dark:text-white">{response.region_name} 여론조사</h3>
+      <h3 className="text-sm font-semibold text-gray-4 dark:text-white">{regionName} 여론조사</h3>
 
       <div className="rounded-2xl border border-gray-1 dark:border-dark-l bg-white dark:bg-dark-pb p-4 space-y-4">
         <div className="space-y-3">
