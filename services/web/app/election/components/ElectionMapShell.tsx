@@ -1,14 +1,17 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Layout } from '@/components';
+import { useGetElectionSelector } from '../apis/queries';
+import { compareElectionSelectorItems, getDefaultElectionId } from '../utils/compareRules';
 import ElectionHeader from './ElectionHeader';
 import ElectionInnerTabBar, { ElectionInnerTab } from './ElectionInnerTabBar';
 import ElectionMapTabView from './ElectionMapTabView';
 import ElectionFeedView from './ElectionFeedView';
 import ElectionPollView from './ElectionPollView';
 import ElectionDistrictView from './ElectionDistrictView';
+import ElectionSelector from './ElectionSelector';
 
 // 2026 전국동시지방선거
 const LOCAL_ELECTION_DATE = new Date('2026-06-03');
@@ -30,12 +33,39 @@ function isValidTab(value: string | null): value is ElectionInnerTab {
 export default function ElectionMapShell() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const selectorQuery = useGetElectionSelector();
 
   const tabParam = searchParams.get('tab');
   const activeTab: ElectionInnerTab = isValidTab(tabParam) ? tabParam : 'map';
 
   const [confirmedRegion, setConfirmedRegion] = useState<ConfirmedRegion | null>(DEFAULT_REGION);
-  const [selectedElectionId] = useState('local-2026');
+  const [selectedElectionId, setSelectedElectionId] = useState('local-2026');
+
+  const sortedElections = useMemo(
+    () => [...(selectorQuery.data?.data.elections ?? [])].sort(compareElectionSelectorItems),
+    [selectorQuery.data?.data.elections],
+  );
+
+  useEffect(() => {
+    if (!selectorQuery.data?.data) {
+      return;
+    }
+
+    setSelectedElectionId((current) => {
+      if (selectorQuery.data?.data.elections.some((election) => election.election_id === current)) {
+        return current;
+      }
+      return getDefaultElectionId(selectorQuery.data.data);
+    });
+  }, [selectorQuery.data?.data]);
+
+  const selectedElection = useMemo(
+    () => sortedElections.find((election) => election.election_id === selectedElectionId) ?? null,
+    [selectedElectionId, sortedElections],
+  );
+
+  const electionName = selectedElection?.election_name ?? LOCAL_ELECTION_NAME;
+  const electionDate = selectedElection?.election_date ? new Date(selectedElection.election_date) : LOCAL_ELECTION_DATE;
 
   const handleTabChange = useCallback(
     (tab: ElectionInnerTab) => {
@@ -49,11 +79,22 @@ export default function ElectionMapShell() {
   return (
     <Layout nav logo>
       <div className="flex flex-col w-full md:max-w-[768px] mx-auto">
-        <ElectionHeader electionName={LOCAL_ELECTION_NAME} electionDate={LOCAL_ELECTION_DATE} />
+        <ElectionHeader electionName={electionName} electionDate={electionDate} />
+        {sortedElections.length > 0 && (
+          <div className="px-5 pt-4">
+            <ElectionSelector
+              elections={sortedElections}
+              selectedElectionId={selectedElectionId}
+              onChange={setSelectedElectionId}
+            />
+          </div>
+        )}
         <ElectionInnerTabBar activeTab={activeTab} onChange={handleTabChange} />
 
         {activeTab === 'map' && <ElectionMapTabView />}
-        {activeTab === 'feed' && <ElectionFeedView confirmedRegion={confirmedRegion} />}
+        {activeTab === 'feed' && (
+          <ElectionFeedView confirmedRegion={confirmedRegion} selectedElectionId={selectedElectionId} />
+        )}
         {activeTab === 'poll' && (
           <ElectionPollView confirmedRegion={confirmedRegion} selectedElectionId={selectedElectionId} />
         )}
