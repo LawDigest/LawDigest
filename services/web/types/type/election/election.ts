@@ -88,6 +88,104 @@ export interface ElectionCandidateDetailResponse {
   manifesto_items: string[];
 }
 
+export interface ElectionPollOverviewResponse {
+  leading_party: ElectionPollLeadingParty | null;
+  party_trend: ElectionPollTrendPoint[];
+  latest_surveys: ElectionPollLatestSurvey[];
+}
+
+export interface ElectionPollLeadingParty {
+  party_name: string;
+  percentage: number;
+  runner_up_party: string | null;
+  gap: number;
+  undecided: number;
+}
+
+export interface ElectionPollTrendPoint {
+  survey: ElectionPollSurveyReference;
+  snapshot: ElectionPollSnapshotItem[];
+}
+
+export interface ElectionPollSurveyReference {
+  registration_number: string;
+  pollster: string;
+  survey_end_date: string;
+}
+
+export interface ElectionPollSnapshotItem {
+  party_name: string;
+  percentage: number;
+}
+
+export interface ElectionPollLatestSurvey {
+  registration_number: string;
+  pollster: string;
+  sponsor: string;
+  survey_end_date: string;
+  sample_size: number;
+  margin_of_error: string;
+  question_title: string;
+  snapshot: ElectionPollSnapshotItem[];
+}
+
+export interface ElectionPollPartyResponse {
+  selected_party: string;
+  trend_series: ElectionPollPartyTrendPoint[];
+  regional_distribution: ElectionPollRegionalDistributionItem[];
+}
+
+export interface ElectionPollPartyTrendPoint {
+  survey: ElectionPollSurveyReference;
+  percentage: number;
+}
+
+export interface ElectionPollRegionalDistributionItem {
+  region_name: string;
+  percentage: number;
+}
+
+export interface ElectionPollRegionResponse {
+  region_name: string;
+  party_snapshot: ElectionPollSnapshotItem[];
+  candidate_snapshot: ElectionPollRegionCandidateSnapshot[];
+  latest_surveys: ElectionPollRegionSurveySummary[];
+}
+
+export interface ElectionPollRegionSurveySummary {
+  registration_number: string;
+  pollster: string;
+  sponsor: string;
+  survey_end_date: string;
+  sample_size: number;
+  margin_of_error: string;
+  question_title: string;
+}
+
+export interface ElectionPollRegionCandidateSnapshot {
+  candidate_name: string;
+  percentage: number;
+}
+
+export interface ElectionPollCandidateResponse {
+  selected_candidate: string | null;
+  basis_question_kind: string | null;
+  candidate_options: string[];
+  series: ElectionPollCandidateTrendPoint[];
+  comparison_series: ElectionPollCandidateSeries[];
+  latest_snapshot: ElectionPollRegionCandidateSnapshot[];
+}
+
+export interface ElectionPollCandidateTrendPoint {
+  survey: ElectionPollSurveyReference;
+  percentage: number;
+}
+
+export interface ElectionPollCandidateSeries {
+  candidate_name: string;
+  series: ElectionPollCandidateTrendPoint[];
+}
+
 export type ElectionQueryContract = {
   selectorKey: readonly ['/election', 'selector'];
   candidateDetailKey: readonly ['/election', 'candidate-detail', ElectionId, ElectionCandidateId];

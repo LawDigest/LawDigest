@@ -3,6 +3,30 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import ElectionFeedView from './ElectionFeedView';
 
+vi.mock('../apis/queries', () => ({
+  useGetElectionPollOverview: () => ({
+    data: {
+      data: {
+        latest_surveys: [
+          {
+            registration_number: '서울-002',
+            pollster: '한국리서치',
+            sponsor: '경인일보',
+            survey_end_date: '2026-04-02',
+            sample_size: 1000,
+            margin_of_error: '95% 신뢰수준 ±3.1%p',
+            question_title: '정당지지도',
+            snapshot: [
+              { party_name: '더불어민주당', percentage: 42.5 },
+              { party_name: '국민의힘', percentage: 36.2 },
+            ],
+          },
+        ],
+      },
+    },
+  }),
+}));
+
 vi.mock('./feed', () => ({
   ActiveFilterBadge: ({ label, onClear }: { label: string; onClear: () => void }) => (
     <div>
@@ -56,7 +80,12 @@ vi.mock('./ElectionFeedCardList', () => ({
 
 describe('ElectionFeedView', () => {
   it('서브 뷰 탭을 렌더링한다', () => {
-    render(<ElectionFeedView confirmedRegion={{ regionCode: '11', regionName: '서울특별시' }} />);
+    render(
+      <ElectionFeedView
+        confirmedRegion={{ regionCode: '11', regionName: '서울특별시' }}
+        selectedElectionId="local-2026"
+      />,
+    );
     expect(screen.getByText('전체')).toBeInTheDocument();
     expect(screen.getByText('정당별')).toBeInTheDocument();
     expect(screen.getByText('후보자별')).toBeInTheDocument();
@@ -64,18 +93,18 @@ describe('ElectionFeedView', () => {
   });
 
   it('기본 뷰는 "전체" 탭이다', () => {
-    render(<ElectionFeedView confirmedRegion={null} />);
+    render(<ElectionFeedView confirmedRegion={null} selectedElectionId="local-2026" />);
     const allTab = screen.getByRole('tab', { name: '전체' });
     expect(allTab).toHaveAttribute('aria-selected', 'true');
   });
 
   it('피드 카드 리스트가 렌더링된다', () => {
-    render(<ElectionFeedView confirmedRegion={null} />);
+    render(<ElectionFeedView confirmedRegion={null} selectedElectionId="local-2026" />);
     expect(screen.getByTestId('feed-card-list')).toBeInTheDocument();
   });
 
   it('"정당별" 탭 클릭 시 PartyRingSelector가 나타난다', () => {
-    render(<ElectionFeedView confirmedRegion={null} />);
+    render(<ElectionFeedView confirmedRegion={null} selectedElectionId="local-2026" />);
     fireEvent.click(screen.getByRole('tab', { name: '정당별' }));
     expect(screen.getByText('더불어민주당')).toBeInTheDocument();
   });
@@ -83,19 +112,19 @@ describe('ElectionFeedView', () => {
 
 describe('ElectionFeedView — ActiveFilterBadge', () => {
   it('초기 상태에서는 필터 배지가 표시되지 않는다', () => {
-    render(<ElectionFeedView confirmedRegion={null} />);
+    render(<ElectionFeedView confirmedRegion={null} selectedElectionId="local-2026" />);
     expect(screen.queryByText(/필터 적용 중/)).not.toBeInTheDocument();
   });
 
   it('정당을 선택하면 필터 배지가 나타난다', () => {
-    render(<ElectionFeedView confirmedRegion={null} />);
+    render(<ElectionFeedView confirmedRegion={null} selectedElectionId="local-2026" />);
     fireEvent.click(screen.getByRole('tab', { name: '정당별' }));
     fireEvent.click(screen.getByText('더불어민주당'));
     expect(screen.getByText('더불어민주당 필터 적용 중')).toBeInTheDocument();
   });
 
   it('필터 배지 해제 버튼 클릭 시 배지가 사라진다', () => {
-    render(<ElectionFeedView confirmedRegion={null} />);
+    render(<ElectionFeedView confirmedRegion={null} selectedElectionId="local-2026" />);
     fireEvent.click(screen.getByRole('tab', { name: '정당별' }));
     fireEvent.click(screen.getByText('더불어민주당'));
     fireEvent.click(screen.getByText('해제'));

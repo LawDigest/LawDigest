@@ -3,6 +3,7 @@ package com.everyones.lawmaking.controller;
 import com.everyones.lawmaking.common.dto.response.election.*;
 import com.everyones.lawmaking.global.BaseResponse;
 import com.everyones.lawmaking.service.election.ElectionService;
+import com.everyones.lawmaking.service.election.poll.PollQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import java.util.Map;
 public class ElectionController {
 
     private final ElectionService electionService;
+    private final PollQueryService pollQueryService;
 
     @Operation(summary = "선거 선택기", description = "전체 선거 목록과 기본 선거 ID를 반환합니다.")
     @GetMapping("/selector")
@@ -31,6 +33,39 @@ public class ElectionController {
             @RequestParam(value = "region_type", required = false) String regionType,
             @RequestParam(value = "region_code", required = false) String regionCode) {
         return BaseResponse.ok(electionService.getOverview(electionId, regionType, regionCode));
+    }
+
+    @Operation(summary = "여론조사 개요", description = "선거와 지역 기준의 여론조사 overview 데이터를 반환합니다.")
+    @GetMapping("/polls/overview")
+    public BaseResponse<ElectionPollOverviewResponse> getPollOverview(
+            @RequestParam("election_id") String electionId,
+            @RequestParam("region_code") String regionCode) {
+        return BaseResponse.ok(pollQueryService.getOverview(electionId, regionCode));
+    }
+
+    @Operation(summary = "여론조사 정당별", description = "선택 정당 기준 여론조사 추이와 지역 분포를 반환합니다.")
+    @GetMapping("/polls/party")
+    public BaseResponse<ElectionPollPartyResponse> getPollParty(
+            @RequestParam("election_id") String electionId,
+            @RequestParam("party_name") String partyName) {
+        return BaseResponse.ok(pollQueryService.getParty(electionId, partyName));
+    }
+
+    @Operation(summary = "여론조사 지역별", description = "선택 지역 기준 여론조사 스냅샷과 조사 목록을 반환합니다.")
+    @GetMapping("/polls/region")
+    public BaseResponse<ElectionPollRegionResponse> getPollRegion(
+            @RequestParam("election_id") String electionId,
+            @RequestParam("region_code") String regionCode) {
+        return BaseResponse.ok(pollQueryService.getRegion(electionId, regionCode));
+    }
+
+    @Operation(summary = "여론조사 후보자별", description = "선택 지역 기준 후보자 여론조사 시계열과 비교 데이터를 반환합니다.")
+    @GetMapping("/polls/candidate")
+    public BaseResponse<ElectionPollCandidateResponse> getPollCandidate(
+            @RequestParam("election_id") String electionId,
+            @RequestParam("region_code") String regionCode,
+            @RequestParam(value = "candidate_name", required = false) String candidateName) {
+        return BaseResponse.ok(pollQueryService.getCandidate(electionId, regionCode, candidateName));
     }
 
     @Operation(summary = "지도 데이터", description = "지역별 후보자 수 등 지도 표시용 데이터를 반환합니다.")

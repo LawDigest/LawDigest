@@ -6,7 +6,11 @@ import {
   ElectionCandidateListResponse,
   ElectionId,
   ElectionMapResponse,
+  ElectionPollCandidateResponse,
   ElectionOverviewResponse,
+  ElectionPollOverviewResponse,
+  ElectionPollPartyResponse,
+  ElectionPollRegionResponse,
   ElectionRegionCode,
   ElectionRegionPanelResponse,
   ElectionRegionResolveRequest,
@@ -132,6 +136,34 @@ export const getElectionCandidateDetail = (electionId: ElectionId, candidateId: 
     }),
     () => getMockElectionCandidateDetail(electionId, candidateId),
   );
+
+export const getElectionPollOverview = (electionId: ElectionId, regionCode: ElectionRegionCode) =>
+  http.get<ElectionPollOverviewResponse>({
+    url: '/election/polls/overview',
+    params: { election_id: electionId, region_code: regionCode },
+  });
+
+export const getElectionPollParty = (electionId: ElectionId, partyName: string) =>
+  http.get<ElectionPollPartyResponse>({
+    url: '/election/polls/party',
+    params: { election_id: electionId, party_name: partyName },
+  });
+
+export const getElectionPollRegion = (electionId: ElectionId, regionCode: ElectionRegionCode) =>
+  http.get<ElectionPollRegionResponse>({
+    url: '/election/polls/region',
+    params: { election_id: electionId, region_code: regionCode },
+  });
+
+export const getElectionPollCandidate = (
+  electionId: ElectionId,
+  regionCode: ElectionRegionCode,
+  candidateName?: string | null,
+) =>
+  http.get<ElectionPollCandidateResponse>({
+    url: '/election/polls/candidate',
+    params: { election_id: electionId, region_code: regionCode, candidate_name: candidateName ?? undefined },
+  });
 
 export const postElectionRegionResolve = (body: ElectionRegionResolveRequest) =>
   withElectionFallback(

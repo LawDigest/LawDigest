@@ -106,6 +106,101 @@
       "class": "_GallupParser",
       "description": "한국갤럽조사연구소 파서 – 통계표/결과집계표(1페이지 1테이블, full_text '표 N. 제목' 질문 마커, '■ 전      체 ■' 전체 행, col4+ 정수 비율)와 결과분석 데일리 오피니언(text_bundled) 두 포맷 처리",
       "pollster_names": ["한국갤럽조사연구소", "(주)한국갤럽조사연구소"]
+    },
+    "innertec_format": {
+      "class": "_InnertecParser",
+      "description": "(주)이너텍시스템즈 크로스탭 파서 – 챕터 4(교차분석통계표) 전용, 3행 heading 테이블에서 'N. 제목' 질문 마커, row[0]='합 계' 전체 행, col3~N-2 개별 셀 비율",
+      "pollster_names": ["이너텍시스템즈", "(주)이너텍시스템즈"]
+    },
+    "research_view_format": {
+      "class": "_ResearchViewParser",
+      "description": "리서치뷰 크로스탭 PDF 파서 – 1질문 1페이지 1테이블, row[0][0]='N. 제목(%)' 질문 마커, row[2][0]='전 체' 전체 행, col4+ 선택지 비율, 없음/모름 필터링",
+      "pollster_names": ["리서치뷰", "(주)리서치뷰"]
+    },
+    "mono_communications_format": {
+      "class": "_MonoCommunicationsParser",
+      "description": "모노커뮤니케이션즈(모노리서치) 결과보고서 파서 – '[QN – 제목상세결과]' 질문 마커, row[1][0]=None 크로스탭 테이블, row[1][2]=N완료/row[1][-1]=N가중/row[1][3:-1]=비율",
+      "pollster_names": ["모노커뮤니케이션즈(모노리서치)", "모노커뮤니케이션즈", "모노리서치"]
+    },
+    "vision_korea_format": {
+      "class": "_VisionKoreaParser",
+      "description": "(주)비전코리아 결과보고서 파서 – '제3장/조사결과집계표' 챕터 감지, 'QN. 제목' 질문 마커, 'Base=전체' 크로스탭 테이블, '■ 전 체 ■' 전체 행, col4+ '750\\n.'→75.0% 비율 포맷, ★집계컬럼 필터링",
+      "pollster_names": ["(주)비전코리아", "비전코리아"]
+    },
+    "every_research_format": {
+      "class": "_EveryResearchParser",
+      "description": "(주)에브리리서치 결과보고서 파서 – '5. 조사 결과' 섹션 감지, '\\nQN\\n' 질문 마커+다음 페이지 크로스탭, row[0][0]='구분'/row[0][2]='사례 수'/row[2][0]='전체', col4+ 선택지·비율, ①②③ 원문자 마커 제거",
+      "pollster_names": ["(주)에브리리서치", "에브리리서치"]
+    },
+    "rnr_format": {
+      "class": "_RNRParser",
+      "description": "(주)알앤써치 결과보고서 파서 – '표N. 제목' 질문 마커, row[0][0]=None/row[1][4+]='%'/row[2][0]='전체' 크로스탭 식별, col4+ 선택지·비율, 연속 페이지 자동 스킵",
+      "pollster_names": ["(주)알앤써치", "알앤써치"]
+    },
+    "researchwel_format": {
+      "class": "_ResearchwelParser",
+      "description": "리서치웰 결과보고서 파서 – '【표N([-N]?)】 제목' 질문 마커, row[1][0]='전 체' 전체 행, col4+ 선택지·비율",
+      "pollster_names": ["리서치웰"]
+    },
+    "kpo_format": {
+      "class": "_KPOParser",
+      "description": "KPO리서치 결과보고서 파서 – 'QN. 제목' 질문 마커, row[0][0]='구분'/row[2][0]='전체' 크로스탭 식별, col4+ 선택지·비율",
+      "pollster_names": ["KPO리서치"]
+    },
+    "kpri_format": {
+      "class": "_KPRIParser",
+      "description": "한국정책연구원 결과보고서 파서 – '【표N】 제목' 질문 마커, row[0][0]='구 분'/row[1][0]='전 체' 크로스탭 식별, col4+ 선택지·비율",
+      "pollster_names": ["한국정책연구원"]
+    },
+    "unm_format": {
+      "class": "_UNMParser",
+      "description": "(주)유앤미리서치 결과보고서 파서 – '문. 제목' 질문 마커, row[2][0]에 '▣ 전 체 ▣ (N)' 전체 행, col2+ 선택지·비율",
+      "pollster_names": ["(주)유앤미리서치", "유앤미리서치"]
+    },
+    "diopinion_format": {
+      "class": "_DiOpinionParser",
+      "description": "(주)디오피니언 결과보고서 파서 – '[표N] 제목' 질문 마커, row[1][0]='전 체' 전체 행, col4+ 선택지·비율",
+      "pollster_names": ["(주)디오피니언", "디오피니언"]
+    },
+    "mediaresearch_format": {
+      "class": "_MediaResearchParser",
+      "description": "미디어리서치 크로스탭 파서 – '(문 N) 제목' 질문 마커, '■ 전체 ■' 전체 행, col4+ 선택지·비율",
+      "pollster_names": ["미디어리서치"]
+    },
+    "uriresearch_format": {
+      "class": "_UriResearchParser",
+      "description": "(주)우리리서치 크로스탭 파서 – '표N. 제목' 질문 마커, row[1][0]='전 체' 전체 행, col4+ 선택지·비율",
+      "pollster_names": ["(주)우리리서치", "우리리서치"]
+    },
+    "gyeongnam_stat_format": {
+      "class": "_GyeongnamStatParser",
+      "description": "(주)경남통계리서치 크로스탭 파서 – '[N.] 질문) 제목' 질문 마커, row[2][0]='전체' 전체 행, col4+ 선택지·비율",
+      "pollster_names": ["(주)경남통계리서치", "경남통계리서치"]
+    },
+    "isoftbank_format": {
+      "class": "_ISoftBankParser",
+      "description": "(주)아이소프트뱅크 결과보고서 파서 – 'N 질문텍스트?' Q페이지 마커, CrossTab 페이지 row[0][0]='구분'/row[1][0]='합계', col4+ 선택지·비율",
+      "pollster_names": ["(주)아이소프트뱅크", "아이소프트뱅크"]
+    },
+    "southernpost_format": {
+      "class": "_SouthernPostParser",
+      "description": "서던포스트 결과보고서 파서 – 'N. 제목 <표M>' Q마커, 두 번째 테이블 '◈ 전 체 ◈' 전체 행, col3:-1 선택지·비율",
+      "pollster_names": ["서던포스트"]
+    },
+    "hanmin_format": {
+      "class": "_HanMinParser",
+      "description": "주식회사 한민리서치 결과보고서 파서 – 그래프 1행 테이블 'option\\n%' 셀, [n=N] N 추출, [제목] 질문 마커",
+      "pollster_names": ["주식회사 한민리서치", "한민리서치"]
+    },
+    "pmi_format": {
+      "class": "_PMIParser",
+      "description": "(주)피앰아이 결과표 파서 – '표\\n제목\\nN\\n【\\n】' Q마커, BASE:ALL/'▣ 전 체 ▣' 포맷A + 사례수헤더 포맷B, 요약컬럼 필터",
+      "pollster_names": ["(주)피앰아이", "피앰아이"]
+    },
+    "researchj_format": {
+      "class": "_ResearchJParser",
+      "description": "리서치제이 결과보고서 파서 – 'QN. 제목' 데이터 페이지(테이블 有), row[2]='전체', N/WN=(N)패턴, col9+ float 비율, 헤더 D/D-1/D+1 탐색",
+      "pollster_names": ["리서치제이"]
     }
   },
   "unparseable": {
