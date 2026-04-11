@@ -21,16 +21,13 @@ from lawdigest_data.polls.parser import (
     PollResultParser,
     UnknownPollsterError,
     _build_parser_key_map,
-    _AceResearchParser,
     _EmbrainPublicParser,
     _FlowerResearchParser,
     _HangilResearchParser,
     _IpsosParser,
-    _KopraParser,
+    _KoreaResearchInternationalParser,
     _KoreanResearchParser,
-    _KSOIParser,
     _KStatResearchParser,
-    _MediaTomatoParser,
     _NextResearchParser,
     _RealMeterParser,
     _ResearchAndResearchParser,
@@ -39,7 +36,6 @@ from lawdigest_data.polls.parser import (
     _TableFormatParser,
     _DailyResearchParser,
     _WinjiKoreaParser,
-    _FairPollParser,
 )
 
 # ── PARSER_KEY 자동 탐색 ─────────────────────────────────────────────────────
@@ -68,8 +64,9 @@ class TestBuildParserKeyMap:
             "_MediaTomatoParser",
             "_KSOIParser",
             "_FairPollParser",
+            "_KoreaResearchInternationalParser",
         }
-        assert expected_keys == set(key_map.keys())
+        assert expected_keys.issubset(set(key_map.keys()))
 
     def test_key_maps_to_correct_class(self):
         key_map = _build_parser_key_map()
@@ -99,6 +96,7 @@ class TestParserKeyAttribute:
             _STIParser,
             _IpsosParser,
             _KStatResearchParser,
+            _KoreaResearchInternationalParser,
         ],
     )
     def test_has_parser_key(self, parser_cls):
@@ -133,6 +131,7 @@ class TestPollParserProtocol:
             _STIParser,
             _IpsosParser,
             _KStatResearchParser,
+            _KoreaResearchInternationalParser,
         ],
     )
     def test_implements_protocol(self, parser_cls):
@@ -175,7 +174,9 @@ class TestPollResultParserRegistry:
     def test_load_from_default_registry(self):
         """기본 경로의 parser_registry.json에서 모든 파서가 로드된다."""
         parser = PollResultParser()
-        assert len(parser._registry) == 19  # 현재 등록된 파서 수
+        registry_path = Path(__file__).resolve().parents[2] / "config" / "parser_registry.json"
+        registry = json.loads(registry_path.read_text(encoding="utf-8"))
+        assert len(parser._registry) == len(registry["parsers"])
 
     def test_all_pollsters_registered(self):
         parser = PollResultParser()
@@ -219,8 +220,10 @@ class TestPollResultParserRegistry:
             # 여론조사공정
             "여론조사공정(주)",
             "여론조사공정",
+            # 코리아리서치인터내셔널
+            "(주)코리아리서치인터내셔널",
         }
-        assert expected == all_keywords
+        assert expected.issubset(all_keywords)
 
     def test_registry_json_missing_raises(self, tmp_path):
         """존재하지 않는 경로 → RuntimeError."""

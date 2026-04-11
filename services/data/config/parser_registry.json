@@ -201,19 +201,15 @@
       "class": "_ResearchJParser",
       "description": "리서치제이 결과보고서 파서 – 'QN. 제목' 데이터 페이지(테이블 有), row[2]='전체', N/WN=(N)패턴, col9+ float 비율, 헤더 D/D-1/D+1 탐색",
       "pollster_names": ["리서치제이"]
+    },
+    "korea_research_international_format": {
+      "class": "_KoreaResearchInternationalParser",
+      "description": "(주)코리아리서치인터내셔널 ASCII-art 통계표 파서 – '<표 N>' 제목, '문N' 본문, '전 체' 전체 행, 구분선 기반 헤더 병합 후 words fallback 보정",
+      "pollster_names": ["(주)코리아리서치인터내셔널", "코리아리서치인터내셔널"]
     }
   },
   "unparseable": {
     "description": "구조적 한계로 파싱이 불가능한 기관 목록. probe_parsers.py에서 'X'(제외) 플래그로 처리되며 오류로 집계되지 않는다.",
-    "pollsters": [
-      {
-        "name": "(주)코리아리서치인터내셔널",
-        "reason": "ASCII-art 테이블 구조 (--- 구분선 기반). fitz find_tables()로 테이블을 인식하지 못하며, 줄 기반 슬라이싱도 행 길이 초과(~135자)로 컬럼 정렬 불가. 파싱 불가 판정 (2026-04-10).",
-        "affected_files": [
-          "통계표(251231)_MBC_제9회 지방선거 1차 여론조사(서울).pdf",
-          "3.통계표(260213)_MBC_제9회 지방선거 2차 여론조사(서울).pdf"
-        ]
-      }
-    ]
+    "pollsters": []
   }
 }

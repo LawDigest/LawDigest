@@ -1,0 +1,318 @@
+{
+  "pollster": "(주)코리아리서치인터내셔널",
+  "pdf_filename": "2.통계표(260405)(최종)_제주컨소시엄_제9회 지방선거 제주특별자치도 여론조사(2차).pdf",
+  "parsed_at": "2026-04-11T02:33:05.375955+00:00",
+  "elapsed_seconds": 3.7,
+  "question_count": 15,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_title": "9회 지선 관심도",
+      "question_text": "오는 월 일에 도지사 교육감 등을 뽑는 지방선거가 있습니다 , 선생님께서는 이번 지방선거에 얼마나 관심이 있으십니까?",
+      "response_options": [
+        "매우 관심이 있다",
+        "관심 있는 편이다",
+        "관심 없는 편이다",
+        "전혀 관심이 없다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        28.0,
+        48.0,
+        16.0,
+        6.0,
+        1.0
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "9회 지선 인식",
+      "question_text": "선생님께서는 이번 지방선거에 대한 다음 의견 중 어디에 더 공감하십니까",
+      "response_options": [
+        "현 정부의 국정안정을 위해 여당에 힘을 실어줘야 한다",
+        "현 정부를 견제하기 위해 야당에 힘을 실어줘야 한다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        69.0,
+        20.0,
+        11.0
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "제주도지사 더불어민주당 후보 지지도",
+      "question_text": "오는 월 일에 있는 지방선거에 더불어민주당 제주도지사 출마 후보로 거론되고 있는 다음 인물 중 선생님께서는 누구를 가장 지지하십니까",
+      "response_options": [
+        "문대림 현 더불어 민주당 국회의원",
+        "오영훈 현 제주특별 자치도 지사",
+        "위성곤 현 더불어 민주당 국회의원",
+        "없다",
+        "결정 못했다/ 모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        33.0,
+        21.0,
+        20.0,
+        21.0,
+        5.0
+      ]
+    },
+    {
+      "question_number": 4,
+      "question_title": "더불어민주당 내 제주도지사 결선 가상대결",
+      "question_text": "만약 더불어민주당 후보 결선이 문대림 오영훈의 양자대결 구도로 치러진다면 (A) , (B) 선생님께서는 누구를 가장 지지하십니까",
+      "response_options": [
+        "문대림",
+        "오영훈",
+        "없다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        45.0,
+        27.0,
+        27.0,
+        2.0
+      ]
+    },
+    {
+      "question_number": 5,
+      "question_title": "더불어민주당 내 제주도지사 결선 가상대결",
+      "question_text": "만약 더불어민주당 후보 결선이 오영훈 위성곤의 양자대결 구도로 치러진다면 (A) , (B) 선생님께서는 누구를 가장 지지하십니까",
+      "response_options": [
+        "위성곤",
+        "오영훈",
+        "없다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        39.0,
+        30.0,
+        29.0,
+        2.0
+      ]
+    },
+    {
+      "question_number": 6,
+      "question_title": "더불어민주당 내 제주도지사 결선 가상대결",
+      "question_text": "만약 더불어민주당 후보 결선이 문대림 위성곤의 양자대결 구도로 치러진다면 (A) , (B) 선생님께서는 누구를 가장 지지하십니까",
+      "response_options": [
+        "문대림",
+        "위성곤",
+        "없다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        39.0,
+        32.0,
+        27.0,
+        2.0
+      ]
+    },
+    {
+      "question_number": 7,
+      "question_title": "제주도지사 가상대결",
+      "question_text": "만약 내일이 선거일이고 제주도지사 선거가 김명호 문대림 문성유 양윤녕의 대결 구도로 치러진다면 (A) , (B) , (C) , (D) , 다음 인물 중 선생님께서는 누구를 가장 지지하십니까",
+      "response_options": [
+        "더불어 민주당 문대림 현 더불어 민주당 국회의원",
+        "국민의힘 문성유 전 기획재정부 기획조정 실장",
+        "진보당 김명호 현 진보당 제주특별 자치도당 위원장",
+        "무소속 양윤녕 전 소나무당 (대표 송영길) 제주특별 자치도당 위원장",
+        "없다",
+        "결정 못했다/ 모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        51.0,
+        11.0,
+        2.0,
+        1.0,
+        31.0,
+        4.0
+      ]
+    },
+    {
+      "question_number": 8,
+      "question_title": "제주도지사 가상대결",
+      "question_text": "만약 내일이 선거일이고 제주도지사 선거가 김명호 문성유 양윤녕 위성곤의 대결 구도로 치러진다면 (A) , (B) , (C) , (D) , 다음 인물 중 선생님께서는 누구를 가장 지지하십니까",
+      "response_options": [
+        "더불어 민주당 위성곤 현 더불어 민주당 국회의원",
+        "국민의힘 문성유 전 기획재정부 기획조정 실장",
+        "진보당 김명호 현 진보당 제주특별 자치도당 위원장",
+        "무소속 양윤녕 전 소나무당 (대표 송영길) 제주특별 자치도당 위원장",
+        "없다",
+        "결정 못했다/ 모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        48.0,
+        13.0,
+        1.0,
+        0.0,
+        33.0,
+        4.0
+      ]
+    },
+    {
+      "question_number": 9,
+      "question_title": "제주도지사 가상대결",
+      "question_text": "만약 내일이 선거일이고 제주도지사 선거가 김명호 문성유 양윤녕 오영훈의 대결 구도로 치러진다면 (A) , (B) , (C) , (D) , 다음 인물 중 선생님께서는 누구를 가장 지지하십니까",
+      "response_options": [
+        "더불어 민주당 오영훈 현 제주특별 자치도지사",
+        "국민의힘 문성유 전 기획재정부 기획조정 실장",
+        "진보당 김명호 현 진보당 제주특별 자치도당 위원장",
+        "무소속 양윤녕 전 소나무당 (대표 송영길) 제주특별 자치도당 위원장",
+        "없다",
+        "결정 못했다/ 모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        43.0,
+        12.0,
+        2.0,
+        1.0,
+        38.0,
+        4.0
+      ]
+    },
+    {
+      "question_number": 10,
+      "question_title": "제주도교육감 후보 지지도",
+      "question_text": "만약 내일이 선거일이고 제주특별자치도 교육감 선거가 고의숙 김광수 송문석의 대결 구도로 치러진다면 (A) , (B) , (C) , 다음 인물 중 선생님께서는 누구를 가장 지지하십니까",
+      "response_options": [
+        "김광수 현 제주특별 자치도 교육감",
+        "고의숙 전 제 12 대 제주특별 자치도 의회 교육의원",
+        "송문석 전 서귀 중앙여자 중학교 교장",
+        "없다",
+        "결정 못했다/ 모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        35.0,
+        20.0,
+        5.0,
+        33.0,
+        6.0
+      ]
+    },
+    {
+      "question_number": 11,
+      "question_title": "제주도 교육감 진보 후보 단일화 의견",
+      "question_text": "선생님께서는 제주도 교육감으로 거론되는 진보 후보들의 단일화가 필요하다고 보십니까",
+      "response_options": [
+        "필요하다",
+        "필요하지 않다",
+        "결정 못했다/ 모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        52.0,
+        34.0,
+        14.0
+      ]
+    },
+    {
+      "question_number": 12,
+      "question_title": "제주도 교육감 가상대결",
+      "question_text": "만약 내일이 선거일이고 제주도 교육감 선거가 고의숙 김광수의 대결 구도로 치러진다면 (A) , (B) , 다음 인물 중 선생님께서는 누구를 가장 지지하십니까",
+      "response_options": [
+        "김광수 현 제주특별 자치도 교육감",
+        "고의숙 전 제 12 대 제주특별 자치도 의회 교육의원",
+        "없다",
+        "결정 못했다/ 모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        42.0,
+        24.0,
+        30.0,
+        4.0
+      ]
+    },
+    {
+      "question_number": 13,
+      "question_title": "제주도 교육감 가상대결",
+      "question_text": "만약 내일이 선거일이고 제주도 교육감 선거가 김광수 송문석의 대결 구도로 치러진다면 (A) , (B) , 다음 인물 중 선생님께서는 누구를 가장 지지하십니까",
+      "response_options": [
+        "김광수 현 제주특별 자치도 교육감",
+        "송문석 전 서귀 중앙여자 중학교 교장",
+        "없다",
+        "결정 못했다/ 모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        47.0,
+        12.0,
+        38.0,
+        3.0
+      ]
+    },
+    {
+      "question_number": 14,
+      "question_title": "정당지지도",
+      "question_text": "선생님께서는 다음 중 어느 정당을 지지하십니까 순서는 무작위순입니다 재질문 그래도 조금이라도 더 낫다고 생각되는 정당은요?",
+      "response_options": [
+        "더불어 민주당",
+        "국민의힘",
+        "조국 혁신당",
+        "개혁신당",
+        "진보당",
+        "그 외 다른 정당",
+        "없다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        63.0,
+        18.0,
+        3.0,
+        1.0,
+        1.0,
+        1.0,
+        12.0,
+        1.0
+      ]
+    },
+    {
+      "question_number": 15,
+      "question_title": "국정운영평가",
+      "question_text": "선생님께서는 이재명 대통령이 대통령으로서 일을 잘하고 있다고 생각하십니까 잘못하고 있다고 생각하십니까?",
+      "response_options": [
+        "매우 잘하고 있다",
+        "잘하고 있는 편이다",
+        "잘못하고 있는 편이다",
+        "매우 잘못하고 있다",
+        "모름/ 무응답"
+      ],
+      "overall_n_completed": 800,
+      "overall_n_weighted": 800,
+      "overall_percentages": [
+        42.0,
+        37.0,
+        8.0,
+        8.0,
+        5.0
+      ]
+    }
+  ]
+}
