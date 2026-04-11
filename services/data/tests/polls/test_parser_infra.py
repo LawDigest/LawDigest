@@ -139,6 +139,32 @@ class TestParserQualityDiscard:
         assert _should_discard_question_result(result) is False
 
 
+class TestWinjiQuestionnaireExtraction:
+    def test_extracts_options_from_questionnaire_blocks(self):
+        pages_data = [
+            (
+                "",
+                [],
+                "[정당지지도]\nQ2. 평소 지지하는 정당은?\n"
+                "① 더불어민주당\n② 국민의힘\n③ 조국혁신당\n④ 진보당\n"
+                "⑤ 개혁신당\n⑥ 기타 다른 정당\n⑦ 지지하는 정당이 없다\n⑧ 잘 모르겠다\n"
+            )
+        ]
+
+        extracted = _WinjiKoreaParser._extract_questionnaire_options_by_qnum(pages_data)
+
+        assert extracted[2] == [
+            "더불어민주당",
+            "국민의힘",
+            "조국혁신당",
+            "진보당",
+            "개혁신당",
+            "기타 다른 정당",
+            "지지하는 정당이 없다",
+            "잘 모르겠다",
+        ]
+
+
 # ── PARSER_KEY 클래스 변수 존재 여부 ─────────────────────────────────────────
 
 

@@ -1338,30 +1338,60 @@ class _WinjiKoreaParser(BaseTableParser):
 
     PARSER_KEY = "_WinjiKoreaParser"
 
-    _TABLE_HEADER_RE = re.compile(r"표\s*\d+(?:-\d+)?\s*\n([^\n]+)", re.MULTILINE)
+    _TABLE_HEADER_RE = re.compile(r"표\s*(\d+)(?:-\d+)?\s*\n([^\n]+)", re.MULTILINE)
     QUESTION_PAGE_RE = re.compile(r"표\s*\d+")
+    _QUESTIONNAIRE_BLOCK_RE = re.compile(r"\[[^\]]+\]\s*Q(\d+)\.\s*(.+?)(?=\n\[|\nQ\d+\.|$)", re.DOTALL)
+    _QUESTIONNAIRE_OPTION_RE = re.compile(r"[①②③④⑤⑥⑦⑧⑨⑩]\s*([^①②③④⑤⑥⑦⑧⑨⑩\n]+)")
 
     def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
         q_counter = 0
+        questionnaire_options_by_qnum = self._extract_questionnaire_options_by_qnum(pages_data)
 
         for _page_text, page_tables, page_full in pages_data:
             page_title = ""
+            page_q_num: Optional[int] = None
             for m in self._TABLE_HEADER_RE.finditer(page_full):
-                page_title = re.sub(r"\s+", " ", m.group(1)).strip()
+                page_q_num = int(m.group(1))
+                page_title = re.sub(r"\s+", " ", m.group(2)).strip()
 
             for table in page_tables:
                 result = self._parse_table_dual(table)
                 if result is None:
                     continue
                 q_counter += 1
-                result.question_number = q_counter
+                result.question_number = page_q_num or q_counter
                 result.question_title = page_title
+                questionnaire_options = questionnaire_options_by_qnum.get(result.question_number)
+                if questionnaire_options and len(questionnaire_options) == len(result.overall_percentages):
+                    result.response_options = questionnaire_options
                 if _should_discard_question_result(result):
                     continue
                 results.append(result)
 
         return results
+
+    @classmethod
+    def _extract_questionnaire_options_by_qnum(cls, pages_data: List[PageData]) -> Dict[int, List[str]]:
+        options_by_qnum: Dict[int, List[str]] = {}
+
+        for _page_text, _page_tables, full_text in pages_data:
+            for match in cls._QUESTIONNAIRE_BLOCK_RE.finditer(full_text or ""):
+                q_num = int(match.group(1))
+                raw_options = [
+                    re.sub(r"\s+", " ", option).strip()
+                    for option in cls._QUESTIONNAIRE_OPTION_RE.findall(match.group(0))
+                ]
+                cleaned_options = [
+                    option for option in raw_options
+                    if option
+                    and option != "~"
+                    and "보기 로테이션" not in option
+                ]
+                if cleaned_options:
+                    options_by_qnum[q_num] = cleaned_options
+
+        return options_by_qnum
 
     @staticmethod
     def _parse_table_dual(table: List[List]) -> Optional[QuestionResult]:
