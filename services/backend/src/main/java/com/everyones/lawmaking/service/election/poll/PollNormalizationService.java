@@ -2,6 +2,7 @@ package com.everyones.lawmaking.service.election.poll;
 
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -22,8 +23,20 @@ public class PollNormalizationService {
             "20260603", "제9회 전국동시지방선거"
     );
 
-    private static final Map<String, String> PARTY_ALIAS_MAP = Map.of(
-            "더불어 민주당", "더불어민주당"
+    private static final List<String> CANONICAL_PARTY_NAMES = List.of(
+            "더불어민주당",
+            "국민의힘",
+            "개혁신당",
+            "조국혁신당",
+            "진보당",
+            "정의당",
+            "기본소득당",
+            "새로운미래",
+            "자유통일당",
+            "민주노동당",
+            "노동당",
+            "녹색당",
+            "무소속"
     );
 
     private static final Map<String, String> CANDIDATE_ALIAS_MAP = Map.of(
@@ -50,7 +63,16 @@ public class PollNormalizationService {
     }
 
     public String normalizePartyName(String partyName) {
-        return PARTY_ALIAS_MAP.getOrDefault(normalizeValue(partyName), normalizeValue(partyName));
+        String normalizedValue = normalizeValue(partyName);
+        if (normalizedValue.isEmpty() || normalizedValue.equals("undecided")) {
+            return normalizedValue;
+        }
+
+        String collapsedValue = collapseSpaces(normalizedValue);
+        return CANONICAL_PARTY_NAMES.stream()
+                .filter(canonicalName -> collapseSpaces(canonicalName).equals(collapsedValue))
+                .findFirst()
+                .orElse(normalizedValue);
     }
 
     public String normalizeCandidateName(String candidateName) {
