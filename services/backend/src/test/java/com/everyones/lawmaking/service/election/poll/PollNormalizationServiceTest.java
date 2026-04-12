@@ -21,6 +21,12 @@ class PollNormalizationServiceTest {
     }
 
     @Test
+    void mapsRealElectionIdToPollElectionLabel() {
+        assertThat(normalizationService.normalizeElectionLabel("20260603"))
+                .isEqualTo("제9회 전국동시지방선거");
+    }
+
+    @Test
     void normalizesPartyAlias() {
         assertThat(normalizationService.normalizePartyName("더불어 민주당"))
                 .isEqualTo("더불어민주당");

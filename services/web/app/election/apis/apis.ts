@@ -1,9 +1,12 @@
 import { AxiosError } from 'axios';
 import http from '@/api';
 import {
+  BookmarkRequest,
+  BookmarkResponse,
   ElectionCandidateId,
   ElectionCandidateDetailResponse,
   ElectionCandidateListResponse,
+  ElectionFeedResponse,
   ElectionId,
   ElectionMapResponse,
   ElectionPollCandidateResponse,
@@ -38,7 +41,7 @@ const shouldUseElectionFallback =
   publicDomain.includes('127.0.0.1') ||
   publicDomain.includes('localhost');
 
-const shouldRecoverWithMock = (error: unknown) => {
+export const shouldRecoverWithMock = (error: unknown) => {
   if (!shouldUseElectionFallback) {
     return false;
   }
@@ -51,7 +54,7 @@ const shouldRecoverWithMock = (error: unknown) => {
     return true;
   }
 
-  return error.response.status === 401 || error.response.status >= 500;
+  return error.response.status >= 500;
 };
 
 const withElectionFallback = async <T>(request: Promise<BaseResponse<T>>, fallback: () => BaseResponse<T>) => {
@@ -182,3 +185,35 @@ export const postElectionRegionConfirm = (body: ElectionRegionResolveRequest) =>
     }),
     () => postMockElectionRegionConfirm(body),
   );
+
+export const getElectionFeed = (
+  electionId: ElectionId,
+  cursor?: string | null,
+  limit = 20,
+  type?: string | null,
+  party?: string | null,
+  regionCode?: string | null,
+) =>
+  http.get<ElectionFeedResponse>({
+    url: '/election/feed',
+    params: {
+      election_id: electionId,
+      cursor: cursor ?? undefined,
+      limit,
+      type: type ?? undefined,
+      party: party ?? undefined,
+      region_code: regionCode ?? undefined,
+    },
+  });
+
+export const addElectionBookmark = (body: BookmarkRequest) =>
+  http.post<BookmarkResponse>({ url: '/election/feed/bookmark', data: body });
+
+export const removeElectionBookmark = (body: BookmarkRequest) =>
+  http.delete<BookmarkResponse>({ url: '/election/feed/bookmark', data: body });
+
+export const getElectionBookmarkStatus = (feedType: string, feedItemId: string) =>
+  http.get<BookmarkResponse>({
+    url: '/election/feed/bookmark',
+    params: { feed_type: feedType, feed_item_id: feedItemId },
+  });

@@ -155,6 +155,21 @@ describe('ElectionPollView', () => {
     expect(screen.getAllByText('더불어민주당').length).toBeGreaterThan(0);
   });
 
+  it('전체 뷰에서 예전 레이아웃 핵심 섹션과 조사 메타를 렌더링한다', () => {
+    render(
+      <ElectionPollView
+        confirmedRegion={{ regionCode: '11', regionName: '서울특별시' }}
+        selectedElectionId="local-2026"
+      />,
+    );
+
+    expect(screen.getByText('현재 정당지지율')).toBeInTheDocument();
+    expect(screen.getByText('최신 여론조사')).toBeInTheDocument();
+    expect(screen.getAllByText('한국리서치').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/경인일보 의뢰/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/n=1,000 · 95% 신뢰수준 ±3.1%p/)).toBeInTheDocument();
+  });
+
   it('"정당별" 탭 클릭 시 PartyRingSelector가 나타난다', () => {
     render(
       <ElectionPollView

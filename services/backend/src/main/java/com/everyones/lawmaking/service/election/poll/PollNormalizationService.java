@@ -18,7 +18,8 @@ public class PollNormalizationService {
     );
 
     private static final Map<String, String> ELECTION_LABEL_BY_ID = Map.of(
-            "local-2026", "제9회 전국동시지방선거"
+            "local-2026", "제9회 전국동시지방선거",
+            "20260603", "제9회 전국동시지방선거"
     );
 
     private static final Map<String, String> PARTY_ALIAS_MAP = Map.of(

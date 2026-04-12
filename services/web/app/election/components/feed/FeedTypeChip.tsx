@@ -2,7 +2,7 @@
 
 import { type SnsPlatform } from '../../data/mockFeedData';
 
-type FeedType = 'poll' | 'sns' | 'bill' | 'youtube' | 'image';
+type FeedType = 'poll' | 'sns' | 'bill' | 'youtube' | 'image' | 'pledge' | 'schedule' | 'news';
 
 interface FeedTypeChipProps {
   type: FeedType;
@@ -15,6 +15,9 @@ const CHIP_CONFIG: Record<FeedType, { label: string; icon: string; className: st
   bill: { label: '법안', icon: 'gavel', className: 'bg-green-50 text-green-700' },
   youtube: { label: '영상', icon: 'play_circle', className: 'bg-purple-50 text-purple-600' },
   image: { label: '이미지', icon: 'image', className: 'bg-gray-50 text-gray-500' },
+  pledge: { label: '공약', icon: 'task_alt', className: 'bg-indigo-50 text-indigo-600' },
+  schedule: { label: '일정', icon: 'calendar_month', className: 'bg-teal-50 text-teal-600' },
+  news: { label: '뉴스', icon: 'newspaper', className: 'bg-orange-50 text-orange-600' },
 };
 
 const PLATFORM_ICON: Record<SnsPlatform, string> = {

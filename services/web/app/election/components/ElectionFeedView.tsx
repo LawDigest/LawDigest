@@ -1,21 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { useGetElectionPollOverview } from '../apis/queries';
+import { useEffect, useRef, useState } from 'react';
+import { ElectionFeedItem, BillFeedPayload, PollFeedPayload } from '@/types';
+import { useGetElectionFeed } from '../apis/queries';
 import { ConfirmedRegion } from './ElectionMapShell';
-import {
-  MOCK_FEED_ITEMS,
-  FeedItem,
-  SnsFeedItem,
-  PollFeedItem,
-  BillMiniCardProps,
-  YoutubeFeedItem,
-} from '../data/mockFeedData';
+import { BillMiniCardProps, PollFeedItem } from '../data/mockFeedData';
 import PartyRingSelector from './shared/PartyRingSelector';
 import DistrictMapPicker, { SelectedRegion } from './shared/DistrictMapPicker';
-import ElectionFeedCardList from './ElectionFeedCardList';
 import SubTabBar from './shared/SubTabBar';
-import { ActiveFilterBadge } from './feed';
+import { ActiveFilterBadge, BillCard, NewsCard, PledgeCard, PollCard, ScheduleCard } from './feed';
 
 type FeedSubView = 'all' | 'party' | 'candidate' | 'region';
 
@@ -31,11 +24,45 @@ interface ElectionFeedViewProps {
   selectedElectionId: string;
 }
 
-function getPartyColor(partyName: string) {
-  if (partyName.includes('더불어민주')) return '#152484';
-  if (partyName.includes('국민의힘')) return '#C9151E';
-  if (partyName === 'undecided') return '#999999';
-  return '#5b6475';
+function renderFeedItem(item: ElectionFeedItem) {
+  if (item.type === 'pledge') {
+    return <PledgeCard key={item.id} item={item} />;
+  }
+  if (item.type === 'schedule') {
+    return <ScheduleCard key={item.id} item={item} />;
+  }
+  if (item.type === 'bill') {
+    const p = item.payload as BillFeedPayload;
+    const adapted: BillMiniCardProps = {
+      type: 'bill',
+      id: item.id,
+      briefSummary: p.summary ?? p.bill_name ?? '',
+      billName: p.bill_name ?? '',
+      billStage: p.stage ?? '',
+      proposeDate: p.propose_date ?? item.published_at,
+      partyName: p.proposers ?? '',
+    };
+    return <BillCard key={item.id} item={adapted} />;
+  }
+  if (item.type === 'poll') {
+    const p = item.payload as PollFeedPayload;
+    const adapted: PollFeedItem = {
+      type: 'poll',
+      id: item.id,
+      pollster: p.pollster ?? '',
+      sponsor: p.sponsor ?? undefined,
+      sampleSize: p.sample_size ?? undefined,
+      marginOfError: p.margin_of_error ?? undefined,
+      publishedAt: item.published_at,
+      results: [],
+      region: p.region ?? '',
+    };
+    return <PollCard key={item.id} item={adapted} />;
+  }
+  if (item.type === 'news') {
+    return <NewsCard key={item.id} item={item} />;
+  }
+  return null;
 }
 
 export default function ElectionFeedView({ confirmedRegion, selectedElectionId }: ElectionFeedViewProps) {
@@ -44,36 +71,32 @@ export default function ElectionFeedView({ confirmedRegion, selectedElectionId }
   const [selectedRegion, setSelectedRegion] = useState<SelectedRegion | null>(
     confirmedRegion ? { regionCode: confirmedRegion.regionCode, regionName: confirmedRegion.regionName } : null,
   );
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const regionCode = selectedRegion?.regionCode ?? confirmedRegion?.regionCode ?? '';
-  const regionName = selectedRegion?.regionName ?? confirmedRegion?.regionName ?? '';
-  const pollOverviewQuery = useGetElectionPollOverview(selectedElectionId, regionCode, !!regionCode);
+  const partyFilter = subView === 'party' ? selectedParty : null;
+  const regionFilter = subView === 'region' || subView === 'candidate' ? selectedRegion?.regionCode ?? null : null;
 
-  const realPollItems: PollFeedItem[] =
-    pollOverviewQuery.data?.data.latest_surveys.map((survey) => ({
-      type: 'poll',
-      id: `poll-${survey.registration_number}`,
-      pollster: survey.pollster,
-      sponsor: survey.sponsor,
-      questionTitle: survey.question_title,
-      sampleSize: survey.sample_size,
-      marginOfError: survey.margin_of_error,
-      publishedAt: `${survey.survey_end_date}T00:00:00Z`,
-      results: survey.snapshot.map((snapshot) => ({
-        partyName: snapshot.party_name,
-        pct: snapshot.percentage,
-        delta: 0,
-        color: getPartyColor(snapshot.party_name),
-      })),
-      region: regionName,
-    })) ?? [];
+  const feedQuery = useGetElectionFeed(selectedElectionId, null, partyFilter, regionFilter);
 
-  const feedItems = [...MOCK_FEED_ITEMS.filter((item) => item.type !== 'poll'), ...realPollItems];
+  const allItems: ElectionFeedItem[] = feedQuery.data?.pages.flatMap((page) => page.data.items) ?? [];
 
-  const parties =
-    pollOverviewQuery.data?.data.latest_surveys?.[0]?.snapshot
-      ?.filter((snapshot) => snapshot.party_name !== 'undecided')
-      .map((snapshot) => ({ name: snapshot.party_name, color: getPartyColor(snapshot.party_name) })) ?? [];
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && feedQuery.hasNextPage && !feedQuery.isFetchingNextPage) {
+          feedQuery.fetchNextPage();
+        }
+      },
+      { rootMargin: '200px' },
+    );
+
+    if (sentinel) {
+      observer.observe(sentinel);
+    }
+
+    return () => observer.disconnect();
+  }, [feedQuery]);
 
   function activeFilterLabel(): string | null {
     if (subView === 'party' && selectedParty) return selectedParty;
@@ -87,34 +110,13 @@ export default function ElectionFeedView({ confirmedRegion, selectedElectionId }
     return '아직 등록된 선거 피드가 없습니다.';
   }
 
-  function filterItems(): FeedItem[] {
-    if (subView === 'party' && selectedParty) {
-      return feedItems.filter((item) => {
-        if (item.type === 'sns') return (item as SnsFeedItem).partyName === selectedParty;
-        if (item.type === 'youtube') return (item as YoutubeFeedItem).partyName === selectedParty;
-        if (item.type === 'poll') return (item as PollFeedItem).results.some((r) => r.partyName === selectedParty);
-        if (item.type === 'bill') return (item as BillMiniCardProps).partyName === selectedParty;
-        if (item.type === 'image') return item.partyName === selectedParty;
-        return true;
-      });
-    }
-    if (subView === 'region' && selectedRegion?.regionName) {
-      return feedItems.filter((item) =>
-        'region' in item ? (item as SnsFeedItem | PollFeedItem).region === selectedRegion.regionName : true,
-      );
-    }
-    return feedItems;
-  }
-
   return (
     <div className="flex flex-col">
       {/* 서브 뷰 탭 */}
       <SubTabBar tabs={SUB_TABS} active={subView} onChange={setSubView} />
 
       {/* 서브 필터 영역 */}
-      {subView === 'party' && (
-        <PartyRingSelector parties={parties} selected={selectedParty} onSelect={setSelectedParty} />
-      )}
+      {subView === 'party' && <PartyRingSelector parties={[]} selected={selectedParty} onSelect={setSelectedParty} />}
       {(subView === 'region' || subView === 'candidate') && (
         <DistrictMapPicker
           selected={selectedRegion}
@@ -139,8 +141,20 @@ export default function ElectionFeedView({ confirmedRegion, selectedElectionId }
       })()}
 
       {/* 피드 카드 리스트 */}
-      <div className="mt-3">
-        <ElectionFeedCardList items={filterItems()} emptyMessage={emptyMessage()} />
+      <div className="mt-3 space-y-3 px-4 pb-6">
+        {feedQuery.isLoading && <p className="text-center py-12 text-sm text-gray-400">피드를 불러오는 중...</p>}
+        {!feedQuery.isLoading && allItems.length === 0 && (
+          <p className="text-center py-12 text-sm text-gray-400">{emptyMessage()}</p>
+        )}
+        {allItems.map(renderFeedItem)}
+
+        {/* 무한 스크롤 sentinel */}
+        <div ref={sentinelRef} className="h-1" />
+
+        {feedQuery.isFetchingNextPage && <p className="text-center py-4 text-sm text-gray-400">더 불러오는 중...</p>}
+        {!feedQuery.hasNextPage && allItems.length > 0 && (
+          <p className="text-center py-4 text-xs text-gray-300">모든 피드를 불러왔습니다.</p>
+        )}
       </div>
     </div>
   );

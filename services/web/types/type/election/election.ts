@@ -215,3 +215,80 @@ export interface ElectionRegionResolveResponse {
 }
 
 export type ElectionUiTemplate = ValueOf<typeof ELECTION_UI_TEMPLATE>;
+
+// ── 선거 피드 ──────────────────────────────────────────────────────────────
+
+export type FeedContentType = 'all' | 'news' | 'poll' | 'pledge' | 'sns' | 'youtube' | 'bill' | 'schedule';
+
+export interface PledgeFeedPayload {
+  pledge_id: number;
+  candidate_name: string | null;
+  party_name: string | null;
+  region: string | null;
+  prms_title: string | null;
+  summary: string | null;
+}
+
+export interface PollFeedPayload {
+  registration_number: string;
+  pollster: string | null;
+  sponsor: string | null;
+  survey_end_date: string | null;
+  region: string | null;
+  election_name: string | null;
+  sample_size: number | null;
+  margin_of_error: string | null;
+  source_url: string | null;
+}
+
+export interface ScheduleFeedPayload {
+  title: string;
+  description: string | null;
+  event_date: string;
+  event_type: string;
+}
+
+export interface BillFeedPayload {
+  bill_id: string;
+  bill_name: string | null;
+  proposers: string | null;
+  committee: string | null;
+  propose_date: string | null;
+  stage: string | null;
+  summary: string | null;
+}
+
+export interface NewsFeedPayload {
+  news_id: number;
+  title: string;
+  description: string | null;
+  link: string;
+  source: string | null;
+  thumbnail_url: string | null;
+  matched_party: string | null;
+  matched_region: string | null;
+}
+
+export interface ElectionFeedItem {
+  id: string;
+  type: FeedContentType;
+  published_at: string;
+  payload: PledgeFeedPayload | PollFeedPayload | ScheduleFeedPayload | BillFeedPayload | NewsFeedPayload;
+}
+
+export interface ElectionFeedResponse {
+  items: ElectionFeedItem[];
+  next_cursor: string | null;
+  has_more: boolean;
+}
+
+export interface BookmarkRequest {
+  feed_type: string;
+  feed_item_id: string;
+}
+
+export interface BookmarkResponse {
+  bookmarked: boolean;
+  feed_type: string;
+  feed_item_id: string;
+}
