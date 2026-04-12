@@ -609,9 +609,9 @@ class BaseTableParser:
         if not percentages:
             return None
 
-        # 길이 맞춤
-        while len(options) < len(percentages):
-            options.append(f"선택지{len(options) + 1}")
+        # 옵션 수가 비율 수보다 적으면 파싱 실패로 처리
+        if len(options) < len(percentages):
+            return None
         options = options[: len(percentages)]
 
         return QuestionResult(
@@ -1391,8 +1391,8 @@ class _WinjiKoreaParser(BaseTableParser):
                 if header_row is not None:
                     options = extract_options_from_row(header_row, start_col=4)
                     options = options[: len(pcts_a)]
-                while len(options) < len(pcts_a):
-                    options.append(f"선택지{len(options) + 1}")
+                if len(options) < len(pcts_a):
+                    return None
 
                 return QuestionResult(
                     question_number=0,
@@ -1422,8 +1422,8 @@ class _WinjiKoreaParser(BaseTableParser):
             raw = re.sub(r"[\n\x00]+", "\n", str(table[0][3] or "")).split("\n")
             options_b = [o.strip() for o in raw if o.strip() and o.lower() != "none"]
             options_b = options_b[: len(pcts_b)]
-        while len(options_b) < len(pcts_b):
-            options_b.append(f"선택지{len(options_b) + 1}")
+        if len(options_b) < len(pcts_b):
+            return None
 
         return QuestionResult(
             question_number=0,
@@ -2211,9 +2211,9 @@ class _KStatResearchParser(BaseTableParser):
             return
         seen_pct_sigs.add(sig)
 
-        # 선택지가 없으면 fallback (선택지 수 = 비율 수)
+        # 선택지가 없으면 파싱 실패로 처리
         if not options:
-            options = [f"선택지{i+1}" for i in range(len(percentages))]
+            return
 
         min_len = min(len(options), len(percentages))
         if min_len == 0:
@@ -2453,8 +2453,6 @@ class _KStatResearchParser(BaseTableParser):
             if not any(s in merged for s in ("사례수", "가중값", "조사완료")):
                 candidates.append(merged)
         filtered = [c for c in candidates if len(c) < 30 and c]
-        while len(filtered) < count:
-            filtered.append(f"선택지{len(filtered) + 1}")
         return filtered[:count]
 
 
@@ -2676,9 +2674,9 @@ class _MediaTomatoParser(BaseTableParser):
 
             # 비율 수보다 많으면 마지막 N개 사용 (합계/모름 등 끝 항목 우선)
             options = candidates[-n_opts:] if len(candidates) >= n_opts else candidates
-            # 부족하면 placeholder로 앞을 채움
-            while len(options) < n_opts:
-                options.insert(0, f"선택지{len(options) + 1}")
+            # 선택지 수가 부족하면 파싱 실패로 처리
+            if len(options) < n_opts:
+                continue
             options = options[:n_opts]
 
             results.append(
@@ -3629,7 +3627,8 @@ class _InnertecParser:
                 val = self._cell(row[col_i])
                 if val and val not in ("%",):
                     parts.append(val)
-            options.append(" ".join(parts) if parts else f"선택지{col_i - META_COLS + 1}")
+            if parts:
+                options.append(" ".join(parts))
 
         return options, data_col_end
 
@@ -3800,7 +3799,8 @@ class _ResearchViewParser:
         for col_i in range(self.META_COLS, len(header)):
             val = self._cell(header[col_i])
             val = val.replace("\n", " ").strip()
-            options.append(val if val else f"선택지{col_i - self.META_COLS + 1}")
+            if val:
+                options.append(val)
         return options
 
     def _find_total_row(self, table: List) -> Optional[List]:
@@ -3974,7 +3974,8 @@ class _MonoCommunicationsParser:
                     for c in range(self._META_COLS, n_cols - 1):
                         val = self._cell(row0[c] if c < len(row0) else None)
                         val = val.replace("\n", " ").strip()
-                        options.append(val if val else f"선택지{c - self._META_COLS + 1}")
+                        if val:
+                            options.append(val)
 
                     # 비율: row1[3:-1]
                     percentages: List[float] = []
@@ -4126,8 +4127,8 @@ class _VisionKoreaParser:
                         opt = opt_raw.replace("\n", " ").strip()
                         pct_raw = self._cell(total_row[c] if c < len(total_row) else None)
                         pct = self._parse_pct(pct_raw)
-                        if pct is not None:
-                            options.append(opt if opt else f"선택지{c - 3}")
+                        if pct is not None and opt:
+                            options.append(opt)
                             percentages.append(pct)
 
                     if not percentages:
@@ -5763,7 +5764,7 @@ class _ResearchJParser:
                         break
 
             if best is None:
-                options.append(f"선택지{len(options) + 1}")
+                continue
             else:
                 used.add(best)
                 parts: list = []
