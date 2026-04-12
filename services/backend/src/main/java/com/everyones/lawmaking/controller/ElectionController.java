@@ -1,13 +1,18 @@
 package com.everyones.lawmaking.controller;
 
+import com.everyones.lawmaking.common.dto.request.BookmarkRequest;
 import com.everyones.lawmaking.common.dto.response.election.*;
 import com.everyones.lawmaking.global.BaseResponse;
 import com.everyones.lawmaking.service.election.ElectionService;
+import com.everyones.lawmaking.service.election.feed.ElectionFeedBookmarkService;
 import com.everyones.lawmaking.service.election.feed.ElectionFeedService;
 import com.everyones.lawmaking.service.election.poll.PollQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -21,6 +26,7 @@ public class ElectionController {
     private final ElectionService electionService;
     private final PollQueryService pollQueryService;
     private final ElectionFeedService electionFeedService;
+    private final ElectionFeedBookmarkService electionFeedBookmarkService;
 
     @Operation(summary = "선거 선택기", description = "전체 선거 목록과 기본 선거 ID를 반환합니다.")
     @GetMapping("/selector")
@@ -137,5 +143,34 @@ public class ElectionController {
             @RequestParam(value = "party", required = false) String party,
             @RequestParam(value = "region_code", required = false) String regionCode) {
         return BaseResponse.ok(electionFeedService.getFeed(electionId, cursor, limit, type, party, regionCode));
+    }
+
+    @Operation(summary = "피드 북마크 추가", description = "선거 피드 아이템을 북마크에 추가합니다.")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping("/feed/bookmark")
+    public BaseResponse<Map<String, Object>> addBookmark(
+            Authentication authentication,
+            @Valid @RequestBody BookmarkRequest request) {
+        return BaseResponse.ok(electionFeedBookmarkService.addBookmark(
+                authentication, request.feedType(), request.feedItemId()));
+    }
+
+    @Operation(summary = "피드 북마크 삭제", description = "선거 피드 아이템 북마크를 삭제합니다.")
+    @DeleteMapping("/feed/bookmark")
+    public BaseResponse<Map<String, Object>> removeBookmark(
+            Authentication authentication,
+            @Valid @RequestBody BookmarkRequest request) {
+        return BaseResponse.ok(electionFeedBookmarkService.removeBookmark(
+                authentication, request.feedType(), request.feedItemId()));
+    }
+
+    @Operation(summary = "피드 북마크 상태 조회", description = "선거 피드 아이템의 북마크 여부를 조회합니다.")
+    @GetMapping("/feed/bookmark")
+    public BaseResponse<Map<String, Object>> getBookmarkStatus(
+            Authentication authentication,
+            @RequestParam("feed_type") String feedType,
+            @RequestParam("feed_item_id") String feedItemId) {
+        return BaseResponse.ok(electionFeedBookmarkService.getBookmarkStatus(
+                authentication, feedType, feedItemId));
     }
 }

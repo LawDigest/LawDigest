@@ -2,6 +2,7 @@
 
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  BookmarkRequest,
   ElectionId,
   ElectionCandidateId,
   ElectionRegionCode,
@@ -10,6 +11,7 @@ import {
   ElectionViewMode,
 } from '@/types';
 import {
+  addElectionBookmark,
   getElectionFeed,
   getElectionPollCandidate,
   getElectionPollOverview,
@@ -17,6 +19,7 @@ import {
   getElectionPollRegion,
   postElectionRegionConfirm,
   postElectionRegionResolve,
+  removeElectionBookmark,
   getElectionCandidateDetail,
   getElectionCandidates,
   getElectionMap,
@@ -232,4 +235,14 @@ export const useGetElectionFeed = (
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => (lastPage.data.has_more ? lastPage.data.next_cursor : undefined),
     enabled: enabled && !!electionId,
+  });
+
+export const useAddElectionBookmark = () =>
+  useMutation({
+    mutationFn: (body: BookmarkRequest) => addElectionBookmark(body),
+  });
+
+export const useRemoveElectionBookmark = () =>
+  useMutation({
+    mutationFn: (body: BookmarkRequest) => removeElectionBookmark(body),
   });

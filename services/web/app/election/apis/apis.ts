@@ -1,6 +1,8 @@
 import { AxiosError } from 'axios';
 import http from '@/api';
 import {
+  BookmarkRequest,
+  BookmarkResponse,
   ElectionCandidateId,
   ElectionCandidateDetailResponse,
   ElectionCandidateListResponse,
@@ -202,4 +204,16 @@ export const getElectionFeed = (
       party: party ?? undefined,
       region_code: regionCode ?? undefined,
     },
+  });
+
+export const addElectionBookmark = (body: BookmarkRequest) =>
+  http.post<BookmarkResponse>({ url: '/election/feed/bookmark', data: body });
+
+export const removeElectionBookmark = (body: BookmarkRequest) =>
+  http.delete<BookmarkResponse>({ url: '/election/feed/bookmark', data: body });
+
+export const getElectionBookmarkStatus = (feedType: string, feedItemId: string) =>
+  http.get<BookmarkResponse>({
+    url: '/election/feed/bookmark',
+    params: { feed_type: feedType, feed_item_id: feedItemId },
   });

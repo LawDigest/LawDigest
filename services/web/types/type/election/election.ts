@@ -258,15 +258,37 @@ export interface BillFeedPayload {
   summary: string | null;
 }
 
+export interface NewsFeedPayload {
+  news_id: number;
+  title: string;
+  description: string | null;
+  link: string;
+  source: string | null;
+  thumbnail_url: string | null;
+  matched_party: string | null;
+  matched_region: string | null;
+}
+
 export interface ElectionFeedItem {
   id: string;
   type: FeedContentType;
   published_at: string;
-  payload: PledgeFeedPayload | PollFeedPayload | ScheduleFeedPayload | BillFeedPayload;
+  payload: PledgeFeedPayload | PollFeedPayload | ScheduleFeedPayload | BillFeedPayload | NewsFeedPayload;
 }
 
 export interface ElectionFeedResponse {
   items: ElectionFeedItem[];
   next_cursor: string | null;
   has_more: boolean;
+}
+
+export interface BookmarkRequest {
+  feed_type: string;
+  feed_item_id: string;
+}
+
+export interface BookmarkResponse {
+  bookmarked: boolean;
+  feed_type: string;
+  feed_item_id: string;
 }

@@ -8,7 +8,7 @@ import { BillMiniCardProps, PollFeedItem } from '../data/mockFeedData';
 import PartyRingSelector from './shared/PartyRingSelector';
 import DistrictMapPicker, { SelectedRegion } from './shared/DistrictMapPicker';
 import SubTabBar from './shared/SubTabBar';
-import { ActiveFilterBadge, BillCard, PledgeCard, PollCard, ScheduleCard } from './feed';
+import { ActiveFilterBadge, BillCard, NewsCard, PledgeCard, PollCard, ScheduleCard } from './feed';
 
 type FeedSubView = 'all' | 'party' | 'candidate' | 'region';
 
@@ -58,6 +58,9 @@ function renderFeedItem(item: ElectionFeedItem) {
       region: p.region ?? '',
     };
     return <PollCard key={item.id} item={adapted} />;
+  }
+  if (item.type === 'news') {
+    return <NewsCard key={item.id} item={item} />;
   }
   return null;
 }
