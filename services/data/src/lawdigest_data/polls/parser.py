@@ -1223,6 +1223,48 @@ class _FlowerResearchParser(BaseTableParser):
     _Q_TEXT_RE = re.compile(r"Q[\s\n]+(.+?)(?:\?|？)", re.DOTALL)
 
     @staticmethod
+    def _detect_table_variant(table: List[List]) -> str:
+        """질문 테이블의 세부 포맷을 감지한다.
+
+        ARS는 하위 응답 분포가 여러 비율 컬럼에 나뉘고,
+        CATI는 일부 하위 행이 첫 비율 컬럼 하나에 뭉쳐 들어오는 경우가 있다.
+        """
+        if not table or len(table) < 2:
+            return "ars"
+
+        for row in table[2:]:
+            if len(row) < 5:
+                continue
+
+            pct_cells = row[3:-1]
+            if not pct_cells:
+                continue
+
+            non_empty_indexes = [
+                idx for idx, cell in enumerate(pct_cells) if str(cell or "").strip()
+            ]
+            if len(non_empty_indexes) != 1:
+                continue
+
+            only_cell = str(pct_cells[non_empty_indexes[0]] or "")
+            if "\n" not in only_cell:
+                continue
+
+            first_line = only_cell.splitlines()[0]
+            if len(extract_percentages_from_bunched_cell(first_line, max_count=2)) >= 2:
+                return "cati"
+
+        return "ars"
+
+    @staticmethod
+    def _normalize_option_label(label: str, variant: str) -> str:
+        text = re.sub(r"[\n\x00\s]+", " ", str(label or "")).strip()
+        if variant == "cati":
+            text = text.replace("ù", "·")
+            text = text.replace("· ", "·")
+        return text
+
+    @staticmethod
     def _find_total_row_fallback(table: List[List]) -> Optional[Tuple[int, List]]:
         """'전체' 라벨이 깨진 경우 첫 데이터 행을 전체행으로 간주한다."""
         for i, row in enumerate(table[1:], start=1):
@@ -1256,10 +1298,15 @@ class _FlowerResearchParser(BaseTableParser):
                 continue
             _, total_row = found
 
+            table_variant = self._detect_table_variant(tbl)
+
             # 선택지: 헤더 row col 3 ~ -1
             options = extract_options_from_row(tbl[0], start_col=3, end_col=-1)
             if not options:
                 continue
+            options = [
+                self._normalize_option_label(option, table_variant) for option in options
+            ]
 
             n_completed = extract_sample_count(str(total_row[2] or ""))
             n_weighted = extract_sample_count(str(total_row[-1] or ""))

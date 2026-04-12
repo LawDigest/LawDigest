@@ -1,0 +1,206 @@
+{
+  "pollster": "여론조사꽃",
+  "pdf_filename": "결과표_20251216_여론조사꽃_부산시장_1000_ARS조사_v01.pdf",
+  "parsed_at": "2026-04-12T05:40:32.480805+00:00",
+  "elapsed_seconds": null,
+  "question_count": 9,
+  "questions": [
+    {
+      "question_number": 1,
+      "question_title": "응답자 특성별 가중값 배율",
+      "question_text": "응답자 특성별 가중값 배율",
+      "response_options": [
+        "가중값 적용 기준(B)",
+        "가중값 배율 (B/A)"
+      ],
+      "overall_n_completed": null,
+      "overall_n_weighted": null,
+      "overall_percentages": [
+        100.0,
+        1.0
+      ]
+    },
+    {
+      "question_number": 2,
+      "question_title": "정당지지도 (1)",
+      "question_text": "( 그래도 조금이라도 더 낫거나 호감이 가는 정당은 어디입니까?",
+      "response_options": [
+        "더불어 민주당",
+        "국민의 힘",
+        "조국 혁신당",
+        "진보당",
+        "개혁 신당",
+        "그 외 다른 정당",
+        "지지 정당 없음",
+        "잘 모름"
+      ],
+      "overall_n_completed": 1008,
+      "overall_n_weighted": 1008,
+      "overall_percentages": [
+        43.2,
+        43.1,
+        3.2,
+        2.3,
+        3.2,
+        2.0,
+        2.1,
+        0.9
+      ]
+    },
+    {
+      "question_number": 3,
+      "question_title": "지방선거 인식 (1)",
+      "question_text": "지방선거 인식 (1)",
+      "response_options": [
+        "현 정부를 지원하기 위해 여당에 힘을 실어줘야 한다",
+        "현 정부를 견제하기 위해 야당에 힘을 실어줘야 한다",
+        "잘 모름"
+      ],
+      "overall_n_completed": 1008,
+      "overall_n_weighted": 1008,
+      "overall_percentages": [
+        44.8,
+        46.6,
+        8.5
+      ]
+    },
+    {
+      "question_number": 4,
+      "question_title": "부산시장 진보 후보 적합도 (1)",
+      "question_text": "부산시장 진보 후보 적합도 (1)",
+      "response_options": [
+        "전 재 수",
+        "조 국",
+        "박 재 호",
+        "이 재 성",
+        "그 외 다른 인물",
+        "적합한 인물이 없다",
+        "잘 모름"
+      ],
+      "overall_n_completed": 1008,
+      "overall_n_weighted": 1008,
+      "overall_percentages": [
+        26.0,
+        15.3,
+        5.9,
+        5.6,
+        10.9,
+        25.3,
+        10.9
+      ]
+    },
+    {
+      "question_number": 5,
+      "question_title": "부산시장 보수 후보 적합도 (1)",
+      "question_text": "부산시장 보수 후보 적합도 (1)",
+      "response_options": [
+        "박 형 준",
+        "조 경 태",
+        "김 도 읍",
+        "서 병 수",
+        "박 수 영",
+        "정 이 한",
+        "그 외 다른 인물",
+        "적합한 인물이 없다",
+        "잘 모름"
+      ],
+      "overall_n_completed": 1008,
+      "overall_n_weighted": 1008,
+      "overall_percentages": [
+        15.2,
+        13.9,
+        10.4,
+        8.6,
+        6.4,
+        2.8,
+        7.5,
+        27.4,
+        7.7
+      ]
+    },
+    {
+      "question_number": 6,
+      "question_title": "가상대결 A - 박재호  vs 박형준 (1)",
+      "question_text": "가상대결 A - 박재호  vs 박형준 (1)",
+      "response_options": [
+        "더불어민주당 박재호",
+        "국민의힘 박형준",
+        "그 외 다른 인물",
+        "투표할 인물이 없다",
+        "잘 모름"
+      ],
+      "overall_n_completed": 1008,
+      "overall_n_weighted": 1008,
+      "overall_percentages": [
+        25.6,
+        38.1,
+        19.3,
+        11.5,
+        5.5
+      ]
+    },
+    {
+      "question_number": 7,
+      "question_title": "가상대결 B - 이재성  vs 박형준 (1)",
+      "question_text": "가상대결 B - 이재성  vs 박형준 (1)",
+      "response_options": [
+        "더불어민주당 이재성",
+        "국민의힘 박형준",
+        "그 외 다른 인물",
+        "투표할 인물이 없다",
+        "잘 모름"
+      ],
+      "overall_n_completed": 1008,
+      "overall_n_weighted": 1008,
+      "overall_percentages": [
+        29.9,
+        39.2,
+        16.4,
+        9.6,
+        4.9
+      ]
+    },
+    {
+      "question_number": 8,
+      "question_title": "가상대결 C - 전재수  vs 박형준 (1)",
+      "question_text": "가상대결 C - 전재수  vs 박형준 (1)",
+      "response_options": [
+        "더불어민주당 전재수",
+        "국민의힘 박형준",
+        "그 외 다른 인물",
+        "투표할 인물이 없다",
+        "잘 모름"
+      ],
+      "overall_n_completed": 1008,
+      "overall_n_weighted": 1008,
+      "overall_percentages": [
+        43.4,
+        38.8,
+        8.1,
+        6.0,
+        3.7
+      ]
+    },
+    {
+      "question_number": 9,
+      "question_title": "가상대결 D - 조국  vs 박형준 (1)",
+      "question_text": "가상대결 D - 조국  vs 박형준 (1)",
+      "response_options": [
+        "국민의힘 박형준",
+        "조국혁신당 조국",
+        "그 외 다른 인물",
+        "투표할 인물이 없다",
+        "잘 모름"
+      ],
+      "overall_n_completed": 1008,
+      "overall_n_weighted": 1008,
+      "overall_percentages": [
+        40.8,
+        37.3,
+        9.8,
+        8.1,
+        4.0
+      ]
+    }
+  ]
+}

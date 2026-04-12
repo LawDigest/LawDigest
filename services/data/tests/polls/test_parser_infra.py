@@ -21,16 +21,12 @@ from lawdigest_data.polls.parser import (
     PollResultParser,
     UnknownPollsterError,
     _build_parser_key_map,
-    _AceResearchParser,
     _EmbrainPublicParser,
     _FlowerResearchParser,
     _HangilResearchParser,
     _IpsosParser,
-    _KopraParser,
     _KoreanResearchParser,
-    _KSOIParser,
     _KStatResearchParser,
-    _MediaTomatoParser,
     _NextResearchParser,
     _RealMeterParser,
     _ResearchAndResearchParser,
@@ -39,7 +35,6 @@ from lawdigest_data.polls.parser import (
     _TableFormatParser,
     _DailyResearchParser,
     _WinjiKoreaParser,
-    _FairPollParser,
 )
 
 # ── PARSER_KEY 자동 탐색 ─────────────────────────────────────────────────────
@@ -257,6 +252,72 @@ class TestSelectParser:
     def test_select_flower_research(self):
         cls = self.parser._select_parser("여론조사꽃")
         assert cls is _FlowerResearchParser
+
+
+class TestFlowerResearchFormatDetection:
+    def setup_method(self):
+        self.parser = _FlowerResearchParser()
+
+    def test_detects_ars_table_variant(self):
+        table = [
+            [
+                "Base=전체\n(단위: %)",
+                None,
+                "조사\n완료",
+                "더불어\n민주당",
+                "국민의\n힘",
+                "잘\n모름",
+                "가중값\n적용\n사례수",
+            ],
+            ["전체", None, "(1008)", "43.2", "43.1", "8.5", "(1008)"],
+            [
+                "성별",
+                "남성\n여성",
+                "(499)\n(509)",
+                "43.5",
+                "42.8",
+                "8.0",
+                "(488)\n(520)",
+            ],
+        ]
+
+        assert self.parser._detect_table_variant(table) == "ars"
+
+    def test_detects_cati_table_variant(self):
+        table = [
+            [
+                "Base=전체\n(단위: %)",
+                None,
+                "조사\n완료",
+                "더불어\n민주당",
+                "국민의\n힘",
+                "모름ù\n무응답",
+                "가중값\n적용\n사례수",
+            ],
+            ["전체", None, "(2013)", "44.8", "36.3", "6.4", "(2013)"],
+            [
+                "성별",
+                "남성\n여성",
+                "(1007)\n(1006)",
+                "44.3 36.4 5.3\n45.3 36.1 7.4",
+                None,
+                None,
+                "(973)\n(1040)",
+            ],
+        ]
+
+        assert self.parser._detect_table_variant(table) == "cati"
+
+    def test_normalizes_cati_option_labels(self):
+        assert (
+            self.parser._normalize_option_label("모름ù\n무응답", "cati")
+            == "모름·무응답"
+        )
+
+
+class TestSelectParserErrors:
+    def setup_method(self):
+        self.parser = PollResultParser()
 
     def test_select_realmeter(self):
         cls = self.parser._select_parser("리얼미터")
