@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ElectionId,
   ElectionCandidateId,
@@ -10,6 +10,7 @@ import {
   ElectionViewMode,
 } from '@/types';
 import {
+  getElectionFeed,
   getElectionPollCandidate,
   getElectionPollOverview,
   getElectionPollParty,
@@ -217,3 +218,18 @@ export const usePostElectionRegionConfirm = () => {
     },
   });
 };
+
+export const useGetElectionFeed = (
+  electionId: ElectionId,
+  type?: string | null,
+  party?: string | null,
+  regionCode?: string | null,
+  enabled = true,
+) =>
+  useInfiniteQuery({
+    queryKey: ['/election', 'feed', electionId, type, party, regionCode] as const,
+    queryFn: ({ pageParam }) => getElectionFeed(electionId, pageParam as string | null, 20, type, party, regionCode),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => (lastPage.data.has_more ? lastPage.data.next_cursor : undefined),
+    enabled: enabled && !!electionId,
+  });

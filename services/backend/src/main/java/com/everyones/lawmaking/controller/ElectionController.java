@@ -3,6 +3,7 @@ package com.everyones.lawmaking.controller;
 import com.everyones.lawmaking.common.dto.response.election.*;
 import com.everyones.lawmaking.global.BaseResponse;
 import com.everyones.lawmaking.service.election.ElectionService;
+import com.everyones.lawmaking.service.election.feed.ElectionFeedService;
 import com.everyones.lawmaking.service.election.poll.PollQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,6 +20,7 @@ public class ElectionController {
 
     private final ElectionService electionService;
     private final PollQueryService pollQueryService;
+    private final ElectionFeedService electionFeedService;
 
     @Operation(summary = "선거 선택기", description = "전체 선거 목록과 기본 선거 ID를 반환합니다.")
     @GetMapping("/selector")
@@ -123,5 +125,17 @@ public class ElectionController {
                 body.get("election_id"),
                 body.get("region_code"),
                 body.get("region_name")));
+    }
+
+    @Operation(summary = "선거 피드", description = "커서 기반 페이지네이션으로 통합 선거 피드를 반환합니다.")
+    @GetMapping("/feed")
+    public BaseResponse<ElectionFeedResponse> getFeed(
+            @RequestParam("election_id") String electionId,
+            @RequestParam(value = "cursor", required = false) String cursor,
+            @RequestParam(value = "limit", defaultValue = "20") int limit,
+            @RequestParam(value = "type", required = false) String type,
+            @RequestParam(value = "party", required = false) String party,
+            @RequestParam(value = "region_code", required = false) String regionCode) {
+        return BaseResponse.ok(electionFeedService.getFeed(electionId, cursor, limit, type, party, regionCode));
     }
 }

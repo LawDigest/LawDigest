@@ -1,0 +1,56 @@
+[
+  {
+    "id": "schedule-local-2026-voter-roll-write",
+    "electionId": "20260603",
+    "title": "선거인명부 작성",
+    "description": "제9회 전국동시지방선거 선거인명부 작성 기간 (2026-04-24 ~ 2026-05-03)",
+    "eventDate": "2026-04-24",
+    "eventEndDate": "2026-05-03",
+    "eventType": "VOTER_ROLL"
+  },
+  {
+    "id": "schedule-local-2026-voter-roll-view",
+    "electionId": "20260603",
+    "title": "선거인명부 열람",
+    "description": "제9회 전국동시지방선거 선거인명부 열람 기간 (2026-05-04 ~ 2026-05-06)",
+    "eventDate": "2026-05-04",
+    "eventEndDate": "2026-05-06",
+    "eventType": "VOTER_ROLL"
+  },
+  {
+    "id": "schedule-local-2026-candidate-registration",
+    "electionId": "20260603",
+    "title": "후보자 등록",
+    "description": "제9회 전국동시지방선거 후보자 등록 기간 (2026-05-14 ~ 2026-05-15)",
+    "eventDate": "2026-05-14",
+    "eventEndDate": "2026-05-15",
+    "eventType": "REGISTRATION"
+  },
+  {
+    "id": "schedule-local-2026-campaign-period",
+    "electionId": "20260603",
+    "title": "선거운동 기간",
+    "description": "제9회 전국동시지방선거 공식 선거운동 기간 (2026-05-16 ~ 2026-06-02)",
+    "eventDate": "2026-05-16",
+    "eventEndDate": "2026-06-02",
+    "eventType": "CAMPAIGN"
+  },
+  {
+    "id": "schedule-local-2026-early-voting",
+    "electionId": "20260603",
+    "title": "사전투표",
+    "description": "제9회 전국동시지방선거 사전투표 (2026-05-29 ~ 2026-05-30, 오전 6시 ~ 오후 6시)",
+    "eventDate": "2026-05-29",
+    "eventEndDate": "2026-05-30",
+    "eventType": "EARLY_VOTING"
+  },
+  {
+    "id": "schedule-local-2026-election-day",
+    "electionId": "20260603",
+    "title": "선거일 (투표)",
+    "description": "제9회 전국동시지방선거 투표일 (오전 6시 ~ 오후 6시)",
+    "eventDate": "2026-06-03",
+    "eventEndDate": "2026-06-03",
+    "eventType": "VOTING_DAY"
+  }
+]

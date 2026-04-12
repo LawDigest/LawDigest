@@ -5,3 +5,5 @@ export { default as YoutubeCard } from './YoutubeCard';
 export { default as PollCard } from './PollCard';
 export { default as BillCard } from './BillCard';
 export { default as ImageCard } from './ImageCard';
+export { default as PledgeCard } from './PledgeCard';
+export { default as ScheduleCard } from './ScheduleCard';

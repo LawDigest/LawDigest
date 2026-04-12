@@ -137,4 +137,17 @@ public interface BillRepository extends JpaRepository<Bill, String>, BillReposit
             "where b.assemblyNumber = :currentAssemblyNumber")
     BillStateCountResponse findStateCount(@Param("currentAssemblyNumber") int currentAssemblyNumber);
 
+    @Query("SELECT b FROM Bill b WHERE b.assemblyNumber = :assemblyNumber " +
+           "ORDER BY b.proposeDate DESC, b.id DESC")
+    List<Bill> findFeedItemsFirst(@Param("assemblyNumber") int assemblyNumber, Pageable pageable);
+
+    @Query("SELECT b FROM Bill b WHERE b.assemblyNumber = :assemblyNumber AND " +
+           "(b.proposeDate < :cursorDate OR (b.proposeDate = :cursorDate AND b.id < :cursorId)) " +
+           "ORDER BY b.proposeDate DESC, b.id DESC")
+    List<Bill> findFeedItems(
+            @Param("assemblyNumber") int assemblyNumber,
+            @Param("cursorDate") java.time.LocalDate cursorDate,
+            @Param("cursorId") String cursorId,
+            Pageable pageable);
+
 }

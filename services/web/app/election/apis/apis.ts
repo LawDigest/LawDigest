@@ -4,6 +4,7 @@ import {
   ElectionCandidateId,
   ElectionCandidateDetailResponse,
   ElectionCandidateListResponse,
+  ElectionFeedResponse,
   ElectionId,
   ElectionMapResponse,
   ElectionPollCandidateResponse,
@@ -182,3 +183,23 @@ export const postElectionRegionConfirm = (body: ElectionRegionResolveRequest) =>
     }),
     () => postMockElectionRegionConfirm(body),
   );
+
+export const getElectionFeed = (
+  electionId: ElectionId,
+  cursor?: string | null,
+  limit = 20,
+  type?: string | null,
+  party?: string | null,
+  regionCode?: string | null,
+) =>
+  http.get<ElectionFeedResponse>({
+    url: '/election/feed',
+    params: {
+      election_id: electionId,
+      cursor: cursor ?? undefined,
+      limit,
+      type: type ?? undefined,
+      party: party ?? undefined,
+      region_code: regionCode ?? undefined,
+    },
+  });
