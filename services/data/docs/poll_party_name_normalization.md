@@ -8,6 +8,7 @@
 
 - 적재 단계: `services/data/src/lawdigest_data/polls/workflow.py`
 - 적재용 유틸: `services/data/src/lawdigest_data/polls/normalization.py`
+- 백필 스크립트: `services/data/scripts/db/backfill_poll_party_option_names.py`
 - 조회 단계: `services/backend/src/main/java/com/everyones/lawmaking/service/election/poll/PollNormalizationService.java`
 - 표시 단계: `services/web/app/election/utils/partyName.ts`
 
@@ -47,3 +48,11 @@
 - 새 변형 표기가 발견되면 먼저 canonical 목록으로 흡수 가능한지 확인한다.
 - 공백 차이 외 별도 별칭이 필요한 경우에는 데이터/백엔드/프런트 정규화 구현을 함께 갱신한다.
 - parser 결과 JSON은 원문 보존이 가능하지만, `PollOption.option_name`에는 canonical 값이 적재되도록 유지한다.
+
+## 기존 데이터 백필
+
+- preview:
+  `python3 services/data/scripts/db/backfill_poll_party_option_names.py --mode test`
+- apply:
+  `python3 services/data/scripts/db/backfill_poll_party_option_names.py --mode test --apply`
+- 운영 DB 반영 시에는 `--mode prod --apply`를 사용하되, preview를 먼저 실행한다.
