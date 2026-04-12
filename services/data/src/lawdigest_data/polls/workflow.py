@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 from ..core.WorkFlowManager import WorkFlowManager
 from .crawler import NesdcCrawler
 from .models import ListRecord, PollDetail
+from .normalization import normalize_party_name
 from .targets import PollTarget, load_targets, parse_title_region
 
 logger = logging.getLogger(__name__)
@@ -474,7 +475,12 @@ class PollsWorkflowManager:
                                 pct,
                             )
                             continue
-                        options.append({"option_name": opt, "percentage": normalized_pct})
+                        options.append(
+                            {
+                                "option_name": normalize_party_name(opt),
+                                "percentage": normalized_pct,
+                            }
+                        )
                     upserted_questions += db.replace_options(q_id, options)
 
         logger.info(

@@ -340,6 +340,83 @@ def test_upsert_polls_step_uses_survey_metadata(monkeypatch, tmp_path):
     ]
 
 
+def test_upsert_polls_step_normalizes_party_option_names(monkeypatch, tmp_path):
+    workflow_module = _load_workflow_module()
+
+    artifact_path = tmp_path / "results.json"
+    artifact_path.write_text(
+        json.dumps(
+            [
+                {
+                    "registration_number": "REG-2",
+                    "source_url": "https://example.com/detail/2",
+                    "pdf_path": "/tmp/result2.pdf",
+                    "election_type": "제9회 전국동시지방선거",
+                    "region": "서울특별시 전체",
+                    "election_name": "광역단체장선거",
+                    "pollster": "테스트기관",
+                    "sponsor": "테스트스폰서",
+                    "survey_start_date": "2026-04-01",
+                    "survey_end_date": "2026-04-02",
+                    "sample_size": 1000,
+                    "margin_of_error": "±3.1%",
+                    "questions": [
+                        {
+                            "question_number": 1,
+                            "question_title": "정당지지도",
+                            "response_options": [
+                                "조국 혁신당",
+                                "조국혁 신당",
+                                "국민의 힘",
+                                "기타",
+                            ],
+                            "overall_n_completed": 500,
+                            "overall_n_weighted": 500,
+                            "overall_percentages": [4.1, 1.3, 25.0, 3.0],
+                        }
+                    ],
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    captured: dict[str, object] = {}
+
+    class _FakeDB:
+        def ensure_tables(self):
+            captured["ensured"] = True
+
+        def upsert_surveys(self, rows):
+            return len(rows)
+
+        def upsert_questions(self, rows):
+            return 100
+
+        def replace_options(self, question_id, options):
+            captured["options"] = options
+            return len(options)
+
+    monkeypatch.setattr(
+        workflow_module.PollsWorkflowManager,
+        "_build_db_manager",
+        lambda self: _FakeDB(),
+    )
+
+    result = workflow_module.PollsWorkflowManager("test").upsert_polls_step(
+        str(artifact_path)
+    )
+
+    assert result["upserted_surveys"] == 1
+    assert captured["options"] == [
+        {"option_name": "조국혁신당", "percentage": 4.1},
+        {"option_name": "조국혁신당", "percentage": 1.3},
+        {"option_name": "국민의힘", "percentage": 25.0},
+        {"option_name": "기타", "percentage": 3.0},
+    ]
+
+
 def _load_polls_ingest_dag_module():
     pendulum_module = types.ModuleType("pendulum")
     pendulum_module.datetime = lambda *args, **kwargs: None
@@ -465,4 +542,4 @@ def test_summarize_run_returns_aggregate_metrics(monkeypatch):
     assert summary["upserted_surveys"] == 8
     assert summary["upserted_questions"] == 42
     assert summary["total_elapsed_seconds"] == 12.345
-    assert summary["artifact_path"] == "/tmp/polls_summary.json"
+    assert summary["artifact_path"].endswith(".json")

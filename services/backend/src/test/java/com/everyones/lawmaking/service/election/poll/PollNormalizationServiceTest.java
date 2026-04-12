@@ -33,6 +33,16 @@ class PollNormalizationServiceTest {
     }
 
     @Test
+    void normalizesPartyNamesWithIrregularSpaces() {
+        assertThat(normalizationService.normalizePartyName("국민의 힘"))
+                .isEqualTo("국민의힘");
+        assertThat(normalizationService.normalizePartyName("조국 혁신당"))
+                .isEqualTo("조국혁신당");
+        assertThat(normalizationService.normalizePartyName("조국혁 신당"))
+                .isEqualTo("조국혁신당");
+    }
+
+    @Test
     void normalizesCandidateAlias() {
         assertThat(normalizationService.normalizeCandidateName("김 동 연"))
                 .isEqualTo("김동연");

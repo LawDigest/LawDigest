@@ -15,6 +15,7 @@ import {
   useGetElectionPollParty,
   useGetElectionPollRegion,
 } from '../apis/queries';
+import { aggregatePartySnapshots, normalizePartyName } from '../utils/partyName';
 import { ConfirmedRegion } from './ElectionMapShell';
 import PartyRingSelector from './shared/PartyRingSelector';
 import DistrictMapPicker, { SelectedRegion } from './shared/DistrictMapPicker';
@@ -35,11 +36,13 @@ const SUB_TABS: { key: PollSubView; label: string }[] = [
 ];
 
 function getColorForName(name: string) {
-  if (name.includes('더불어민주')) return '#152484';
-  if (name.includes('국민의힘')) return '#C9151E';
-  if (name.includes('개혁신당')) return '#FF7210';
-  if (name.includes('조국')) return '#6A3FA0';
-  if (name === 'undecided') return '#999999';
+  const normalizedName = normalizePartyName(name);
+
+  if (normalizedName.includes('더불어민주')) return '#152484';
+  if (normalizedName.includes('국민의힘')) return '#C9151E';
+  if (normalizedName.includes('개혁신당')) return '#FF7210';
+  if (normalizedName.includes('조국')) return '#6A3FA0';
+  if (normalizedName === 'undecided') return '#999999';
   return '#5b6475';
 }
 
@@ -64,7 +67,7 @@ function filterOutUndecided<T extends { label: string }>(items: T[]) {
 
 function mapSurveySnapshot(snapshot: ElectionPollSnapshotItem[]) {
   return filterOutUndecided(
-    snapshot.map((item) => ({
+    aggregatePartySnapshots(snapshot).map((item) => ({
       label: item.party_name,
       pct: item.percentage,
       color: getColorForName(item.party_name),
@@ -333,9 +336,13 @@ function OverviewView({
   }
 
   const filteredTrend = getTrendWindow(data.party_trend, timeFilter);
-  const trendLabels = filteredTrend.map((point) => formatCompactDate(point.survey.survey_end_date));
+  const normalizedTrend = filteredTrend.map((point) => ({
+    ...point,
+    snapshot: aggregatePartySnapshots(point.snapshot),
+  }));
+  const trendLabels = normalizedTrend.map((point) => formatCompactDate(point.survey.survey_end_date));
   const partyNames = Array.from(
-    new Set(filteredTrend.flatMap((point) => point.snapshot.map((snapshot) => snapshot.party_name))),
+    new Set(normalizedTrend.flatMap((point) => point.snapshot.map((snapshot) => snapshot.party_name))),
   );
   const latestSurvey = data.latest_surveys[0];
   const latestSnapshot = latestSurvey ? mapSurveySnapshot(latestSurvey.snapshot) : [];
@@ -344,6 +351,8 @@ function OverviewView({
   const trailingCandidates = candidateSnapshot.slice(Math.ceil(candidateSnapshot.length / 2));
   const leadMax = Math.max(...leadCandidates.map((item) => item.percentage), 1);
   const trailingMax = Math.max(...trailingCandidates.map((item) => item.percentage), 1);
+  const leadingPartyName = normalizePartyName(data.leading_party?.party_name);
+  const runnerUpPartyName = normalizePartyName(data.leading_party?.runner_up_party);
 
   return (
     <div className="space-y-5 px-4 pb-8 pt-3">
@@ -378,16 +387,16 @@ function OverviewView({
           icon="bar_chart"
           label="1위 정당 지지율"
           value={`${data.leading_party?.percentage ?? 0}%`}
-          sub={`${data.leading_party?.party_name ?? '데이터 없음'} · 최신 조사 기준`}
+          sub={`${leadingPartyName || '데이터 없음'} · 최신 조사 기준`}
           changeLabel={data.leading_party?.runner_up_party ? `${data.leading_party.gap}%p 격차` : undefined}
           positive
-          accentColor={getColorForName(data.leading_party?.party_name ?? '')}
+          accentColor={getColorForName(leadingPartyName)}
         />
         <StatCard
           icon="trending_down"
           label="1·2위 지지율 격차"
           value={`${data.leading_party?.gap ?? 0}%p`}
-          sub={`${data.leading_party?.party_name ?? '데이터 없음'} vs ${data.leading_party?.runner_up_party ?? '후속 정당 없음'}`}
+          sub={`${leadingPartyName || '데이터 없음'} vs ${runnerUpPartyName || '후속 정당 없음'}`}
           changeLabel={data.leading_party?.runner_up_party ? '최신 기준' : undefined}
           positive
           accentColor="#555"
@@ -428,7 +437,7 @@ function OverviewView({
                 labels: trendLabels,
                 datasets: partyNames.map((partyName) => ({
                   label: partyName,
-                  data: filteredTrend.map(
+                  data: normalizedTrend.map(
                     (point) => point.snapshot.find((snapshot) => snapshot.party_name === partyName)?.percentage ?? null,
                   ),
                   borderColor: getColorForName(partyName),
@@ -604,7 +613,7 @@ export default function ElectionPollView({ confirmedRegion, selectedElectionId }
 
   const availableParties = useMemo(
     () =>
-      overviewQuery.data?.data?.latest_surveys?.[0]?.snapshot
+      aggregatePartySnapshots(overviewQuery.data?.data?.latest_surveys?.[0]?.snapshot ?? [])
         ?.filter((snapshot) => snapshot.party_name !== 'undecided')
         .map((snapshot) => ({ name: snapshot.party_name, color: getColorForName(snapshot.party_name) })) ?? [],
     [overviewQuery.data?.data?.latest_surveys],
@@ -635,7 +644,7 @@ export default function ElectionPollView({ confirmedRegion, selectedElectionId }
             <div className="space-y-4 px-4">
               <div className="rounded-2xl border border-gray-1 bg-white p-4 dark:border-dark-l dark:bg-dark-pb">
                 <h3 className="mb-3 text-[13px] font-bold text-gray-4 dark:text-white">
-                  {partyQuery.data.data.selected_party} 지역별 지지율
+                  {normalizePartyName(partyQuery.data.data.selected_party)} 지역별 지지율
                 </h3>
                 <div className="space-y-3">
                   {partyQuery.data.data.regional_distribution.map((item) => (
@@ -643,7 +652,7 @@ export default function ElectionPollView({ confirmedRegion, selectedElectionId }
                       key={item.region_name}
                       label={item.region_name}
                       percentage={item.percentage}
-                      color={getColorForName(partyQuery.data!.data.selected_party)}
+                      color={getColorForName(normalizePartyName(partyQuery.data!.data.selected_party))}
                     />
                   ))}
                 </div>
@@ -657,9 +666,9 @@ export default function ElectionPollView({ confirmedRegion, selectedElectionId }
                       labels: partyQuery.data.data.trend_series.map((item) => item.survey.survey_end_date),
                       datasets: [
                         {
-                          label: partyQuery.data.data.selected_party,
+                          label: normalizePartyName(partyQuery.data.data.selected_party),
                           data: partyQuery.data.data.trend_series.map((item) => item.percentage),
-                          borderColor: getColorForName(partyQuery.data.data.selected_party),
+                          borderColor: getColorForName(normalizePartyName(partyQuery.data.data.selected_party)),
                           backgroundColor: 'transparent',
                           tension: 0.35,
                         },
