@@ -1,6 +1,7 @@
 'use client';
 
 import { ElectionPollRegionResponse } from '@/types';
+import { aggregatePartySnapshots, normalizePartyName } from '../utils/partyName';
 
 interface PollRegionPanelProps {
   response?: ElectionPollRegionResponse | null | undefined;
@@ -22,14 +23,17 @@ function SnapshotBar({ label, percentage, color }: { label: string; percentage: 
 }
 
 function getBarColor(name: string) {
-  if (name.includes('더불어민주')) return '#152484';
-  if (name.includes('국민의힘')) return '#C9151E';
-  if (name === 'undecided') return '#999999';
+  const normalizedName = normalizePartyName(name);
+
+  if (normalizedName.includes('더불어민주')) return '#152484';
+  if (normalizedName.includes('국민의힘')) return '#C9151E';
+  if (normalizedName === 'undecided') return '#999999';
   return '#5b6475';
 }
 
 export default function PollRegionPanel({ response, region }: PollRegionPanelProps) {
   const regionName = response?.region_name ?? region ?? '선택 지역';
+  const normalizedPartySnapshot = aggregatePartySnapshots(response?.party_snapshot ?? []);
 
   if (!response) {
     return (
@@ -47,8 +51,8 @@ export default function PollRegionPanel({ response, region }: PollRegionPanelPro
       <div className="rounded-2xl border border-gray-1 dark:border-dark-l bg-white dark:bg-dark-pb p-4 space-y-4">
         <div className="space-y-3">
           <p className="text-[11px] font-semibold text-gray-3 dark:text-gray-1">정당 스냅샷</p>
-          {response.party_snapshot.length > 0 ? (
-            response.party_snapshot.map((item) => (
+          {normalizedPartySnapshot.length > 0 ? (
+            normalizedPartySnapshot.map((item) => (
               <SnapshotBar
                 key={item.party_name}
                 label={item.party_name}

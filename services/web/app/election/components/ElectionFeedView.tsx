@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useGetElectionPollOverview } from '../apis/queries';
+import { aggregatePartySnapshots, normalizePartyName } from '../utils/partyName';
 import { ConfirmedRegion } from './ElectionMapShell';
 import {
   MOCK_FEED_ITEMS,
@@ -32,9 +33,11 @@ interface ElectionFeedViewProps {
 }
 
 function getPartyColor(partyName: string) {
-  if (partyName.includes('더불어민주')) return '#152484';
-  if (partyName.includes('국민의힘')) return '#C9151E';
-  if (partyName === 'undecided') return '#999999';
+  const normalizedPartyName = normalizePartyName(partyName);
+
+  if (normalizedPartyName.includes('더불어민주')) return '#152484';
+  if (normalizedPartyName.includes('국민의힘')) return '#C9151E';
+  if (normalizedPartyName === 'undecided') return '#999999';
   return '#5b6475';
 }
 
@@ -59,7 +62,7 @@ export default function ElectionFeedView({ confirmedRegion, selectedElectionId }
       sampleSize: survey.sample_size,
       marginOfError: survey.margin_of_error,
       publishedAt: `${survey.survey_end_date}T00:00:00Z`,
-      results: survey.snapshot.map((snapshot) => ({
+      results: aggregatePartySnapshots(survey.snapshot).map((snapshot) => ({
         partyName: snapshot.party_name,
         pct: snapshot.percentage,
         delta: 0,
@@ -71,7 +74,7 @@ export default function ElectionFeedView({ confirmedRegion, selectedElectionId }
   const feedItems = [...MOCK_FEED_ITEMS.filter((item) => item.type !== 'poll'), ...realPollItems];
 
   const parties =
-    pollOverviewQuery.data?.data.latest_surveys?.[0]?.snapshot
+    aggregatePartySnapshots(pollOverviewQuery.data?.data.latest_surveys?.[0]?.snapshot ?? [])
       ?.filter((snapshot) => snapshot.party_name !== 'undecided')
       .map((snapshot) => ({ name: snapshot.party_name, color: getPartyColor(snapshot.party_name) })) ?? [];
 
@@ -90,11 +93,15 @@ export default function ElectionFeedView({ confirmedRegion, selectedElectionId }
   function filterItems(): FeedItem[] {
     if (subView === 'party' && selectedParty) {
       return feedItems.filter((item) => {
-        if (item.type === 'sns') return (item as SnsFeedItem).partyName === selectedParty;
-        if (item.type === 'youtube') return (item as YoutubeFeedItem).partyName === selectedParty;
-        if (item.type === 'poll') return (item as PollFeedItem).results.some((r) => r.partyName === selectedParty);
-        if (item.type === 'bill') return (item as BillMiniCardProps).partyName === selectedParty;
-        if (item.type === 'image') return item.partyName === selectedParty;
+        if (item.type === 'sns') return normalizePartyName((item as SnsFeedItem).partyName) === selectedParty;
+        if (item.type === 'youtube') return normalizePartyName((item as YoutubeFeedItem).partyName) === selectedParty;
+        if (item.type === 'poll') {
+          return (item as PollFeedItem).results.some(
+            (result) => normalizePartyName(result.partyName) === selectedParty,
+          );
+        }
+        if (item.type === 'bill') return normalizePartyName((item as BillMiniCardProps).partyName) === selectedParty;
+        if (item.type === 'image') return normalizePartyName(item.partyName) === selectedParty;
         return true;
       });
     }
