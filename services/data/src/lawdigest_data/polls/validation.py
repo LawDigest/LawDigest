@@ -112,7 +112,9 @@ def quality_screen_question_result(r: QuestionResult) -> List[ValidationError]:
     errors: List[ValidationError] = []
 
     title = (r.question_title or "").strip()
-    if _QUESTION_PLACEHOLDER_RE.fullmatch(title):
+    if not title:
+        errors.append(ValidationError("question_title", "질문 제목이 비어있음 (분포표 등 비대상 표 의심)"))
+    elif _QUESTION_PLACEHOLDER_RE.fullmatch(title):
         errors.append(ValidationError("question_title", f"질문 제목 placeholder 감지: {title}"))
     elif _looks_corrupted_text(title):
         errors.append(ValidationError("question_title", f"질문 제목 문자 깨짐 감지: {title}"))

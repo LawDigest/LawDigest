@@ -133,12 +133,15 @@ def _decode_text_with_gid(raw: str, gid_map: Dict[int, int]) -> str:
     """GID→Unicode 매핑을 이용해 잘못 변환된 문자열을 올바른 유니코드로 디코딩한다.
 
     PyMuPDF가 ToUnicode CMap 없이 글리프 인덱스를 그대로 유니코드로 해석한
-    깨진 문자열을 원래 한글로 복원한다. 매핑이 없는 글리프(공백 등)는 공백으로 대체한다.
+    깨진 문자열을 원래 한글로 복원한다.
+
+    GID fallback 문자는 CJK Unified Ideographs(U+4E00-U+9FFF) 범위에 집중된다.
+    이미 올바른 Hangul Syllables(U+AC00-U+D7A3) 등은 건드리지 않는다.
     """
     result = []
     for ch in raw:
         cp = ord(ch)
-        if cp > 127:
+        if 0x4E00 <= cp <= 0x9FFF:  # CJK Unified Ideographs — GID fallback 범위
             real = gid_map.get(cp)
             result.append(chr(real) if real else " ")
         else:
@@ -342,7 +345,7 @@ def _extract_pages_with_gid_decode(
                     for ch in span.get("chars", []):
                         c = ch["c"]
                         cp = ord(c) if len(c) == 1 else None
-                        if cp and cp > 127:
+                        if cp and 0x4E00 <= cp <= 0x9FFF:  # CJK Unified Ideographs — GID fallback
                             real = gid_map.get(cp)
                             line_chars.append(chr(real) if real else " ")
                         else:
@@ -1083,15 +1086,26 @@ class _EmbrainPublicParser(BaseTableParser):
     META_COLS = 4
     TITLE_RE = re.compile(r"\[표(\d+)\]\s+(.+)")
     SUMMARY_PATS = (re.compile(r"【.+】"),)
-    HEADER_ROW_INDEX = 1  # 선택지가 row 1에 있음
+    HEADER_ROW_INDEX = 0  # 선택지가 row 0에 있음 (row1은 '조사/가중값' 서브헤더)
 
     def _extract_sample_counts(self, total_row: List) -> tuple:
-        try:
-            n = int(str(total_row[2] or "").replace(",", ""))
-            nw = int(str(total_row[3] or "").replace(",", ""))
-            return n, nw
-        except (ValueError, IndexError):
-            return None, None
+        n = extract_sample_count(str(total_row[2] or "")) if len(total_row) > 2 else None
+        nw = extract_sample_count(str(total_row[3] or "")) if len(total_row) > 3 else None
+        return n, nw
+
+    def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
+        results = super().parse(pages_data)
+        for r in results:
+            r.response_options = [self._fix_vertical_text(o) for o in r.response_options]
+        return results
+
+    @staticmethod
+    def _fix_vertical_text(opt: str) -> str:
+        """세로 인쇄로 인한 1글자씩 분리된 이름 복원 (예: '정 원 오' → '정원오')."""
+        tokens = opt.split()
+        if len(tokens) >= 2 and all(len(t) == 1 for t in tokens):
+            return "".join(tokens)
+        return opt
 
 
 class _RealMeterParser(BaseTableParser):
@@ -1262,7 +1276,11 @@ class _FlowerResearchParser(BaseTableParser):
                 found = self._find_total_row_fallback(tbl)
             if found is None:
                 continue
-            _, total_row = found
+            total_row_idx, total_row = found
+
+            # 헤더 row0에 "전체"가 포함된 경우(Base=전체), 실제 전체 데이터는 row1
+            if total_row_idx == 0 and len(tbl) > 1:
+                total_row = tbl[1]
 
             # 선택지: 헤더 row col 3 ~ -1
             options = extract_options_from_row(tbl[0], start_col=3, end_col=-1)
@@ -1272,6 +1290,10 @@ class _FlowerResearchParser(BaseTableParser):
             n_completed = extract_sample_count(str(total_row[2] or ""))
             n_weighted = extract_sample_count(str(total_row[-1] or ""))
 
+            # 응답자 분포표 등 실제 조사 결과가 아닌 페이지 스킵 (n_completed 없음)
+            if n_completed is None:
+                continue
+
             # 비율: col3에 뭉침
             percentages = extract_percentages_from_bunched_cell(str(total_row[3] or ""))
             if len(percentages) < 2:
@@ -1280,6 +1302,18 @@ class _FlowerResearchParser(BaseTableParser):
                 )
             if not percentages:
                 continue
+
+            # 이중 헤더 구조(row1에 ⓐ+ⓑ 형태 레이블)에서 요약 컬럼 제거
+            # 예: row1 = [None, None, None, 'ⓐ', 'ⓑ', 'ⓒ', 'ⓓ', 'ⓐ+ⓑ', 'ⓒ+ⓓ', None, None]
+            if len(tbl) > 1:
+                sub_header = tbl[1][self.META_COLS:]
+                keep_indices = [
+                    i for i, lbl in enumerate(sub_header[:len(options)])
+                    if "+" not in str(lbl or "")
+                ]
+                if 0 < len(keep_indices) < len(options):
+                    options = [options[i] for i in keep_indices]
+                    percentages = [percentages[i] for i in keep_indices if i < len(percentages)]
 
             options, percentages = filter_summary_columns(
                 options,
@@ -2157,6 +2191,11 @@ class _KStatResearchParser(BaseTableParser):
 
     PARSER_KEY = "_KStatResearchParser"
 
+    _KNOWN_FULL_PARTIES: frozenset = frozenset({
+        "조국혁신당", "더불어민주당", "국민의힘", "진보당", "개혁신당",
+        "기본소득당", "정의당",
+    })
+
     # KBS: '전 체' 마커 + (N) (N) 숫자들 (줄바꿈 포함)
     _TOTAL_KBS_RE = re.compile(
         r"전\s+체\s+(\(\d[\d,]*\))\s+(\(\d[\d,]*\))\s+((?:[\d]+\s*[\n ]?)+)"
@@ -2167,6 +2206,7 @@ class _KStatResearchParser(BaseTableParser):
     )
     # 12.31 질문 마커: '<표N> 제목'
     _Q12_RE = re.compile(r"<표\s*(\d+)>\s*(.+?)(?:\n|BASE:)")
+    _TOC_TITLE_RE = re.compile(r"표\s*\n(.+?)\n\[\s*(\d+)\s*\]", re.DOTALL)
     # 공백/줄바꿈 구분 숫자 파싱 (미사용, 참조용)
     _NUM_RE = re.compile(r"[\d.]+")
 
@@ -2183,9 +2223,35 @@ class _KStatResearchParser(BaseTableParser):
                 pass
         return result
 
+    @classmethod
+    def _fix_split_party_options(cls, options: List[str]) -> List[str]:
+        """셀 경계 분리로 잘린 정당명 선택지를 복원한다.
+
+        예: ['국민의힘 조', '국혁신당', ...] → ['국민의힘', '조국혁신당', ...]
+        """
+        result: List[str] = []
+        skip_next = False
+        for i, opt in enumerate(options):
+            if skip_next:
+                skip_next = False
+                continue
+            tokens = opt.split()
+            if len(tokens) >= 2 and i + 1 < len(options):
+                suffix = tokens[-1]
+                next_clean = re.sub(r"\s+", "", options[i + 1])
+                candidate = re.sub(r"\s+", "", suffix) + next_clean
+                if candidate in cls._KNOWN_FULL_PARTIES:
+                    result.append(" ".join(tokens[:-1]))
+                    result.append(candidate)
+                    skip_next = True
+                    continue
+            result.append(opt)
+        return result
+
     def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
         seen_pct_sigs: set = set()
+        title_map = self._extract_kbs_title_map(pages_data)
 
         for _outside_text, page_tables, full_text in pages_data:
             # KBS 포맷: '전 체' 마커, 테이블에서 선택지 추출
@@ -2196,6 +2262,7 @@ class _KStatResearchParser(BaseTableParser):
                     len(results) + 1,
                     seen_pct_sigs,
                     results,
+                    title_map,
                 )
                 continue
 
@@ -2214,6 +2281,19 @@ class _KStatResearchParser(BaseTableParser):
 
         return results
 
+    @classmethod
+    def _extract_kbs_title_map(cls, pages_data: List[PageData]) -> Dict[int, str]:
+        title_map: Dict[int, str] = {}
+
+        for _outside_text, _page_tables, full_text in pages_data:
+            for match in cls._TOC_TITLE_RE.finditer(full_text or ""):
+                raw_title = re.sub(r"\s+", " ", match.group(1)).strip(" -,\n")
+                question_number = int(match.group(2))
+                if raw_title:
+                    title_map[question_number] = raw_title
+
+        return title_map
+
     def _parse_kbs_page(
         self,
         page_tables: List,
@@ -2221,6 +2301,7 @@ class _KStatResearchParser(BaseTableParser):
         fallback_q_num: int,
         seen_pct_sigs: set,
         results: List[QuestionResult],
+        title_map: Dict[int, str],
     ) -> None:
         """KBS 포맷: pdfplumber 테이블 헤더에서 선택지, full_text에서 비율 추출."""
         # 선택지: pdfplumber 테이블 헤더(col[4]+)에서 추출
@@ -2233,6 +2314,7 @@ class _KStatResearchParser(BaseTableParser):
                     opt = re.sub(r"\s+", " ", str(cell).strip())
                     if opt:
                         options.append(opt)
+        options = self._fix_split_party_options(options)
 
         # 비율: full_text에서 추출 (pdfplumber 마지막 컬럼 None 문제 우회)
         total_m = self._TOTAL_KBS_RE.search(full_text)
@@ -2287,7 +2369,7 @@ class _KStatResearchParser(BaseTableParser):
                 )
             return  # 병합 성공/실패 관계없이 새 질문으로 추가하지 않음
 
-        q_title = f"Q{fallback_q_num}"
+        q_title = title_map.get(fallback_q_num, f"Q{fallback_q_num}")
         candidate = QuestionResult(
             question_number=fallback_q_num,
             question_title=q_title,
