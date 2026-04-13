@@ -1097,7 +1097,6 @@ class _EmbrainPublicParser(BaseTableParser):
     SUMMARY_PATS = (re.compile(r"【.+】"),)
     HEADER_ROW_INDEX = 0  # 선택지가 row[0]에 있음
     _META_OPT_KEYWORDS = frozenset({"가중값", "사례수"})
-    _META_TITLE_KEYWORDS = frozenset({"응답자 특성", "응답자특성"})
 
     def _extract_sample_counts(self, total_row: List) -> tuple:
         n = (
@@ -1118,14 +1117,6 @@ class _EmbrainPublicParser(BaseTableParser):
         options = super()._extract_options(table, total_idx, pct_count)
         if not options:
             return options
-
-        title_text = ""
-        if table and table[0]:
-            title_text = " ".join(
-                str(cell or "") for cell in table[0][: self.META_COLS]
-            )
-        if any(keyword in title_text for keyword in self._META_TITLE_KEYWORDS):
-            return []
         if any(
             any(keyword in opt for keyword in self._META_OPT_KEYWORDS)
             for opt in options
