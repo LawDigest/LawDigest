@@ -111,3 +111,4 @@ services/web/.vercel/
 services/data/dump
 services/data/tests/polls/fixtures/
 
+.omx/

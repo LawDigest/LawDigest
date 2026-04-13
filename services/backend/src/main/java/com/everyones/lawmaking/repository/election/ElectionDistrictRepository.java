@@ -12,8 +12,9 @@ public interface ElectionDistrictRepository extends JpaRepository<ElectionDistri
     List<ElectionDistrict> findBySgIdAndSgTypecode(String sgId, Integer sgTypecode);
 
     /** 시도 목록 (depth=1) */
-    @Query("SELECT DISTINCT d.sdName FROM ElectionDistrict d " +
-           "WHERE d.sgId = :sgId AND d.sgTypecode = :sgTypecode ORDER BY d.sOrder")
+    @Query("SELECT d.sdName FROM ElectionDistrict d " +
+           "WHERE d.sgId = :sgId AND d.sgTypecode = :sgTypecode " +
+           "GROUP BY d.sdName ORDER BY MIN(d.sOrder)")
     List<String> findDistinctSdNameBySgIdAndSgTypecode(
             @Param("sgId") String sgId, @Param("sgTypecode") Integer sgTypecode);
 

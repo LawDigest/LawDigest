@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const imageHostname = process.env.NEXT_PUBLIC_HOSTNAME;
+const internalApiOrigin = (process.env.INTERNAL_API_ORIGIN || 'https://api.lawdigest.kr').replace(/\/+$/, '');
 
 const nextConfig = {
   reactStrictMode: true,
@@ -30,11 +31,11 @@ const nextConfig = {
     return [
       {
         source: '/v1/:path*',
-        destination: 'https://api.lawdigest.kr/v1/:path*',
+        destination: `${internalApiOrigin}/v1/:path*`,
       },
       {
         source: '/oauth2/:path*',
-        destination: 'https://api.lawdigest.kr/oauth2/:path*',
+        destination: `${internalApiOrigin}/oauth2/:path*`,
       },
     ];
   },

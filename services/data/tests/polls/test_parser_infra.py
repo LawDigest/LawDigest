@@ -21,16 +21,12 @@ from lawdigest_data.polls.parser import (
     PollResultParser,
     UnknownPollsterError,
     _build_parser_key_map,
-    _AceResearchParser,
     _EmbrainPublicParser,
     _FlowerResearchParser,
     _HangilResearchParser,
     _IpsosParser,
-    _KopraParser,
     _KoreanResearchParser,
-    _KSOIParser,
     _KStatResearchParser,
-    _MediaTomatoParser,
     _NextResearchParser,
     _RealMeterParser,
     _ResearchAndResearchParser,
@@ -39,7 +35,6 @@ from lawdigest_data.polls.parser import (
     _TableFormatParser,
     _DailyResearchParser,
     _WinjiKoreaParser,
-    _FairPollParser,
 )
 
 # ── PARSER_KEY 자동 탐색 ─────────────────────────────────────────────────────
@@ -102,9 +97,9 @@ class TestParserKeyAttribute:
         ],
     )
     def test_has_parser_key(self, parser_cls):
-        assert hasattr(
-            parser_cls, "PARSER_KEY"
-        ), f"{parser_cls.__name__}에 PARSER_KEY가 없습니다."
+        assert hasattr(parser_cls, "PARSER_KEY"), (
+            f"{parser_cls.__name__}에 PARSER_KEY가 없습니다."
+        )
         assert isinstance(parser_cls.PARSER_KEY, str)
         assert parser_cls.PARSER_KEY == parser_cls.__name__, (
             f"{parser_cls.__name__}.PARSER_KEY = '{parser_cls.PARSER_KEY}' "
@@ -138,9 +133,9 @@ class TestPollParserProtocol:
     def test_implements_protocol(self, parser_cls):
         """런타임 Protocol 체크 — parse(pages_data) 시그니처 존재 여부."""
         instance = parser_cls()
-        assert isinstance(
-            instance, PollParser
-        ), f"{parser_cls.__name__}이 PollParser Protocol을 구현하지 않습니다."
+        assert isinstance(instance, PollParser), (
+            f"{parser_cls.__name__}이 PollParser Protocol을 구현하지 않습니다."
+        )
 
     @pytest.mark.parametrize(
         "parser_cls",
@@ -503,3 +498,85 @@ class TestResearchAndResearchParserVariants:
             "잘 모르겠다",
         ]
         assert results[0].overall_percentages == [30.7, 27.1, 11.2]
+
+
+class TestEmbrainPublicParserVariants:
+    def test_skips_respondent_characteristic_meta_table(self):
+        parser = _EmbrainPublicParser()
+        pages_data = [
+            (
+                "[표1] 응답자 특성별 가중값 배율\nQ1. 응답자 특성표",
+                [
+                    [
+                        [
+                            "구분",
+                            None,
+                            None,
+                            None,
+                            "사례수(B)",
+                            "%",
+                        ],
+                        [
+                            "■ 전체 ■",
+                            None,
+                            "(2009)",
+                            "(2009)",
+                            "100.0",
+                            "1.0",
+                        ],
+                    ]
+                ],
+                "[표1] 응답자 특성별 가중값 배율",
+            )
+        ]
+
+        results = parser.parse(pages_data)
+
+        assert results == []
+
+
+class TestWinjiKoreaParserRealPdf:
+    def test_parses_250915_pdf(self):
+        parser = PollResultParser()
+        pdf_path = (
+            Path(__file__).resolve().parents[2]
+            / "output"
+            / "pdfs"
+            / "제9회 전국동시지방선거"
+            / "경기도 전체"
+            / "250915_보고서_드림투데이(경기)_v2.pdf"
+        )
+
+        results = parser.parse_pdf(pdf_path, pollster_hint="(주)윈지코리아컨설팅")
+
+        assert len(results) == 7
+        assert results[0].question_number == 1
+        assert results[0].question_title == "이재명 대통령 지지도"
+        assert results[0].overall_n_completed == 1002
+        assert results[0].overall_n_weighted == 1002
+        assert results[0].response_options == [
+            "매우 잘하고 있다",
+            "대체로 잘하는 편이다",
+            "대체로 잘못하는 편이다",
+            "매우 잘못하고 있다",
+            "잘 모르겠다",
+        ]
+
+    def test_parses_260305_pdf(self):
+        parser = PollResultParser()
+        pdf_path = (
+            Path(__file__).resolve().parents[2]
+            / "output"
+            / "pdfs"
+            / "제9회 전국동시지방선거"
+            / "경기도 전체"
+            / "260305_공표용보고서_경기도_정치지형조사_v2.pdf"
+        )
+
+        results = parser.parse_pdf(pdf_path, pollster_hint="(주)윈지코리아컨설팅")
+
+        assert len(results) == 10
+        assert results[0].question_number == 1
+        assert results[0].overall_n_completed == 1007
+        assert results[0].overall_n_weighted is None
+        assert all(result.response_options for result in results)

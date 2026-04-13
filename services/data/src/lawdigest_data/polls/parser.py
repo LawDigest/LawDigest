@@ -67,12 +67,37 @@ def _extract_page_data(
     finder_tables = getattr(finder, "tables", None) if finder is not None else None
 
     t2 = time.monotonic()
-    tables = [_unmerge_table(t, page) for t in finder_tables] if finder_tables else []
-    _logger.debug("unmerge_tables (%d): %.3fs (page %s)", len(tables), time.monotonic() - t2, page_num)
+    if getattr(parser_class, "NEEDS_WORDS", False):
+        words = page.get_text("words")
+        tables = []
+        for t in finder_tables or []:
+            header_bbox = None
+            try:
+                header_bbox = t.rows[0].cells[3] if t.rows and len(t.rows[0].cells) > 3 else None
+            except Exception:
+                header_bbox = None
+            tables.append(
+                {
+                    "__winji_table__": _unmerge_table(t, page),
+                    "__winji_header_bbox__": header_bbox,
+                }
+            )
+        if words:
+            tables.insert(0, {"__winji_words__": words})
+    else:
+        tables = [_unmerge_table(t, page) for t in finder_tables] if finder_tables else []
+    _logger.debug(
+        "unmerge_tables (%d): %.3fs (page %s)",
+        len(tables),
+        time.monotonic() - t2,
+        page_num,
+    )
 
     t3 = time.monotonic()
     outside_text = _extract_text_outside_tables(page, finder) if tables else full_text
-    _logger.debug("extract_outside_text: %.3fs (page %s)", time.monotonic() - t3, page_num)
+    _logger.debug(
+        "extract_outside_text: %.3fs (page %s)", time.monotonic() - t3, page_num
+    )
 
     return outside_text, tables, full_text
 
@@ -487,7 +512,9 @@ class PollResultParser:
             if font_path and Path(font_path).exists():
                 font_path_str = str(font_path)
                 if font_path_str not in self._gid_cache:
-                    self._gid_cache[font_path_str] = _build_gid_to_unicode(Path(font_path))
+                    self._gid_cache[font_path_str] = _build_gid_to_unicode(
+                        Path(font_path)
+                    )
                 gid_map = self._gid_cache[font_path_str]
                 pages_data = _extract_pages_with_gid_decode(pdf_path, gid_map)
                 return parser_class().parse(pages_data)
@@ -609,9 +636,9 @@ class BaseTableParser:
         if not percentages:
             return None
 
-        # 길이 맞춤
-        while len(options) < len(percentages):
-            options.append(f"선택지{len(options) + 1}")
+        # 옵션 수가 비율 수보다 적으면 파싱 실패로 처리
+        if len(options) < len(percentages):
+            return None
         options = options[: len(percentages)]
 
         return QuestionResult(
@@ -652,7 +679,9 @@ class BaseTableParser:
         mode = self.RATIO_MODE
         if mode == "bunched":
             # 비율이 META_COLS 위치 셀 하나에 뭉쳐 있는 경우
-            bunched_cell = str(total_row[self.META_COLS] if len(total_row) > self.META_COLS else "")
+            bunched_cell = str(
+                total_row[self.META_COLS] if len(total_row) > self.META_COLS else ""
+            )
             pcts = extract_percentages_from_bunched_cell(bunched_cell)
             if pcts:
                 return pcts
@@ -671,7 +700,9 @@ class BaseTableParser:
             )
             if len(pcts) > 1:
                 return pcts
-            bunched_cell = str(total_row[self.META_COLS] if len(total_row) > self.META_COLS else "")
+            bunched_cell = str(
+                total_row[self.META_COLS] if len(total_row) > self.META_COLS else ""
+            )
             return extract_percentages_from_bunched_cell(bunched_cell) or pcts
         # 기본값: "cell"
         return extract_percentages_from_cells(
@@ -1068,22 +1099,48 @@ class _SignalPulseParser(BaseTableParser):
 
 
 class _EmbrainPublicParser(BaseTableParser):
-    """엠브레인퍼블릭 크로스탭 파서."""
+    """엠브레인퍼블릭 크로스탭 파서.
+
+    포맷 특성:
+      - 질문 마커: '[표N] 제목' (페이지 텍스트)
+      - 전체 행: '■ 전체 ■' (row[2]), col2/col3에 (N완료)/(N가중)
+      - 선택지: row[0] col4+ (줄바꿈 포함)
+      - 비율: 전체 행 col4+ (정수 개별 셀)
+    """
 
     PARSER_KEY = "_EmbrainPublicParser"
-    TOTAL_MARKERS = ("전체",)  # '■ 전체 ■' → normalize로 매칭
+    TOTAL_MARKERS = ("■ 전체 ■",)
     META_COLS = 4
-    TITLE_RE = re.compile(r"\[표(\d+)\]\s+(.+)")
+    TITLE_RE = re.compile(r"\[표\d+\]\s+(.+)")
     SUMMARY_PATS = (re.compile(r"【.+】"),)
-    HEADER_ROW_INDEX = 1  # 선택지가 row 1에 있음
+    HEADER_ROW_INDEX = 0  # 선택지가 row[0]에 있음
+    _META_OPT_KEYWORDS = frozenset({"가중값", "사례수"})
 
     def _extract_sample_counts(self, total_row: List) -> tuple:
-        try:
-            n = int(str(total_row[2] or "").replace(",", ""))
-            nw = int(str(total_row[3] or "").replace(",", ""))
-            return n, nw
-        except (ValueError, IndexError):
-            return None, None
+        n = (
+            extract_sample_count(str(total_row[2] or ""))
+            if len(total_row) > 2
+            else None
+        )
+        nw = (
+            extract_sample_count(str(total_row[3] or ""))
+            if len(total_row) > 3
+            else None
+        )
+        return n, nw
+
+    def _extract_options(
+        self, table: List[List], total_idx: int, pct_count: int
+    ) -> List[str]:
+        options = super()._extract_options(table, total_idx, pct_count)
+        if not options:
+            return options
+        if any(
+            any(keyword in opt for keyword in self._META_OPT_KEYWORDS)
+            for opt in options
+        ):
+            return []
+        return options
 
 
 class _RealMeterParser(BaseTableParser):
@@ -1323,42 +1380,88 @@ class _FlowerResearchParser(BaseTableParser):
 class _WinjiKoreaParser(BaseTableParser):
     """윈지코리아컨설팅 크로스탭 파서.
 
-    두 가지 포맷 자동 감지:
-      - 포맷 A (개별 셀 비율): col4+에 float, 8+열
-      - 포맷 B (뭉침 비율): col3에 공백 구분 문자열, 5열
+    포맷 특성:
+      - 질문 마커: '표 N 제목' (페이지 텍스트)
+      - 전체 행: row[1], col[1]에 (N완료), col[2]에 비율 뭉침
+      - 선택지: row[0][2] 헤더 셀의 줄바꿈 텍스트에서 추출
+      - 테이블 구조: 3열 (col0=분류, col1=사례수, col2=비율뭉침)
+      - 멀티페이지: 동일 질문이 여러 페이지에 걸쳐 있음
     """
 
     PARSER_KEY = "_WinjiKoreaParser"
+    NEEDS_WORDS = True
 
-    _TABLE_HEADER_RE = re.compile(r"표\s*\d+(?:-\d+)?\s*\n([^\n]+)", re.MULTILINE)
-    QUESTION_PAGE_RE = re.compile(r"표\s*\d+")
+    _TABLE_HEADER_RE = re.compile(
+        r"표\s*(\d+)(?:-\d+)?\s*(?:\n\s*)+([^\n(]+)",
+        re.MULTILINE,
+    )
+    QUESTION_PAGE_RE = re.compile(r"전\s*체|사례수|표\s+\d+")
+    _PAGE_META_RE = re.compile(
+        r"^(?:\(?n=.*\)|조사|완료|사례수|가중값|적용|비율|배율|단위\s*:\s*%|표\s*\d+)$"
+    )
+    _TOTAL_ROW_MARKERS = {"전체", "전체", "[전체]", "[전 체]"}
+    # 헤더 셀에서 선택지로 쓸 수 없는 키워드
+    _HEADER_SKIP = {
+        "조사완료사례수",
+        "사례수",
+        "조사",
+        "완료",
+        "가중값",
+        "가중값적용사례수",
+        "적용",
+        "기준",
+    }
 
     def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
-        q_counter = 0
 
         for _page_text, page_tables, page_full in pages_data:
-            page_title = ""
+            page_words = []
+            if page_tables and isinstance(page_tables[0], dict) and "__winji_words__" in page_tables[0]:
+                page_words = page_tables[0]["__winji_words__"] or []
+                page_tables = page_tables[1:]
+
+            # 페이지에서 질문번호·제목 추출
+            q_title = ""
             for m in self._TABLE_HEADER_RE.finditer(page_full):
-                page_title = re.sub(r"\s+", " ", m.group(1)).strip()
+                try:
+                    q_title = re.sub(r"\s+", " ", m.group(2)).strip()
+                except (ValueError, IndexError):
+                    q_title = ""
+
+            if not q_title:
+                continue
 
             for table in page_tables:
-                result = self._parse_table_dual(table)
+                result = self._parse_table(table, page_full, page_words)
                 if result is None:
                     continue
-                q_counter += 1
-                result.question_number = q_counter
-                result.question_title = page_title
+
+                result.question_number = len(results) + 1
+                result.question_title = q_title
                 results.append(result)
 
         return results
 
-    @staticmethod
-    def _parse_table_dual(table: List[List]) -> Optional[QuestionResult]:
-        if not table or len(table) < 2:
+    def _parse_table(
+        self,
+        table: object,
+        page_full: str,
+        page_words: list | None = None,
+    ) -> Optional[QuestionResult]:
+        if not table:
             return None
 
-        found = find_total_row(table, markers=("전체",))
+        table_data = table
+        header_bbox = None
+        if isinstance(table, dict) and "__winji_table__" in table:
+            table_data = table["__winji_table__"]
+            header_bbox = table.get("__winji_header_bbox__")
+        if not isinstance(table_data, list) or len(table_data) < 2:
+            return None
+
+        # 전체 행 탐색: '전 체' 또는 '전체' (공백 포함)
+        found = self._find_total_row(table_data)
         if found is None:
             return None
         total_row_idx, total_row = found
@@ -1366,74 +1469,194 @@ class _WinjiKoreaParser(BaseTableParser):
         if len(total_row) < 3:
             return None
 
-        # 포맷 A: col4+ 개별 float
-        col2_is_sample = extract_sample_count(str(total_row[2] or "")) is not None
-        if len(total_row) >= 5 and col2_is_sample:
-            pcts_a = extract_percentages_from_cells(total_row, start_col=4)
-            if len(pcts_a) >= 2:
-                n_c = extract_sample_count(str(total_row[2] or ""))
-                n_w = extract_sample_count(str(total_row[3] or ""))
+        # 사례수: col[1]
+        n_completed = extract_sample_count(str(total_row[2] or ""))
+        n_weighted = extract_sample_count(str(total_row[4] or "")) if len(total_row) > 4 else None
 
-                header_row: Optional[List] = None
-                for row in table[:total_row_idx]:
-                    non_empty = [
-                        c
-                        for c in row[4:]
-                        if str(c or "").strip() and str(c or "").lower() != "none"
-                    ]
-                    if len(non_empty) >= len(pcts_a):
-                        header_row = row
-                        break
-                if header_row is None and total_row_idx > 0:
-                    header_row = table[0]
-
-                options: List[str] = []
-                if header_row is not None:
-                    options = extract_options_from_row(header_row, start_col=4)
-                    options = options[: len(pcts_a)]
-                while len(options) < len(pcts_a):
-                    options.append(f"선택지{len(options) + 1}")
-
-                return QuestionResult(
-                    question_number=0,
-                    question_title="",
-                    question_text="",
-                    response_options=options,
-                    overall_n_completed=n_c,
-                    overall_n_weighted=n_w,
-                    overall_percentages=pcts_a,
-                )
-
-        # 포맷 B: col3 뭉침
-        pct_cell = str(total_row[3] if len(total_row) > 3 else "")
-        pcts_b = extract_percentages_from_bunched_cell(pct_cell)
-        if len(pcts_b) < 2:
+        # 비율: bunched cell 또는 개별 셀
+        pct_cell = str(total_row[3] or "")
+        percentages = extract_percentages_from_bunched_cell(pct_cell)
+        if len(percentages) < 2:
+            percentages = extract_percentages_from_cells(total_row, start_col=4)
+        if len(percentages) < 2:
             return None
 
-        n_c_b = extract_sample_count(str(total_row[2] or ""))
-        n_w_b = (
-            extract_sample_count(str(total_row[-1] or ""))
-            if len(total_row) > 4
-            else None
-        )
-
-        options_b: List[str] = []
-        if table[0] and len(table[0]) > 3:
-            raw = re.sub(r"[\n\x00]+", "\n", str(table[0][3] or "")).split("\n")
-            options_b = [o.strip() for o in raw if o.strip() and o.lower() != "none"]
-            options_b = options_b[: len(pcts_b)]
-        while len(options_b) < len(pcts_b):
-            options_b.append(f"선택지{len(options_b) + 1}")
+        # 선택지: 헤더 컬럼 → page words → 헤더 텍스트
+        options = self._extract_options_from_columns(table_data, len(percentages))
+        if not options:
+            options = self._extract_options_from_words(
+                page_words or [],
+                header_bbox,
+                len(percentages),
+            )
+        if not options:
+            options = self._extract_options_from_header(table_data, len(percentages))
+        if len(options) < len(percentages):
+            return None
+        options = options[: len(percentages)]
 
         return QuestionResult(
             question_number=0,
             question_title="",
             question_text="",
-            response_options=options_b,
-            overall_n_completed=n_c_b,
-            overall_n_weighted=n_w_b,
-            overall_percentages=pcts_b,
+            response_options=options,
+            overall_n_completed=n_completed,
+            overall_n_weighted=n_weighted,
+            overall_percentages=percentages,
         )
+
+    @staticmethod
+    def _find_total_row(table: List[List]) -> Optional[tuple[int, List]]:
+        """마커가 없는 경우 row[1]의 사례수 패턴으로 전체 행을 찾는다."""
+        found = find_total_row(table, markers=("전 체", "전체", "[ 전 체 ]"))
+        if found is not None:
+            return found
+
+        for i, row in enumerate(table[1:], start=1):
+            if not row or len(row) < 3:
+                continue
+            if extract_sample_count(str(row[2] or "")) is None:
+                continue
+            if len(extract_percentages_from_bunched_cell(str(row[3] or ""))) < 2:
+                continue
+            return i, row
+        return None
+
+    def _extract_options_from_words(
+        self,
+        words: list,
+        header_bbox: object,
+        n_opts: int,
+    ) -> List[str]:
+        """헤더 셀 좌표 안의 단어들을 x축 군집화해 선택지를 복원한다."""
+        if not words or not header_bbox:
+            return []
+
+        x0, y0, x1, y1 = header_bbox
+        if x1 <= x0 or y1 <= y0:
+            return []
+
+        filtered = []
+        for word in words:
+            wx0, wy0, wx1, wy1, text = word[:5]
+            if wx1 < x0 - 1 or wx0 > x1 + 1 or wy1 < y0 - 1 or wy0 > y1 + 1:
+                continue
+            cleaned = re.sub(r"\s+", "", str(text or ""))
+            if not cleaned or cleaned.isdigit():
+                continue
+            if self._PAGE_META_RE.match(cleaned):
+                continue
+            filtered.append(word)
+
+        if len(filtered) < n_opts:
+            return []
+
+        clusters = self._cluster_words_by_x(filtered, n_opts)
+        if len(clusters) != n_opts:
+            return []
+
+        options: List[str] = []
+        for cluster in clusters:
+            parts = [str(w[4] or "").strip() for w in sorted(cluster, key=lambda w: (w[1], w[0]))]
+            text = re.sub(r"\s+", " ", " ".join(part for part in parts if part)).strip()
+            if text:
+                options.append(text)
+
+        return options if len(options) == n_opts else []
+
+    def _extract_options_from_columns(self, table: List[List], n_opts: int) -> List[str]:
+        """헤더 행의 option 컬럼을 그대로 읽어 선택지를 복원한다."""
+        if not table or len(table[0]) <= 4:
+            return []
+
+        options: List[str] = []
+        for cell in table[0][4:]:
+            text = re.sub(r"\s+", " ", str(cell or "").strip())
+            if not text:
+                continue
+            normalized = re.sub(r"\s+", "", text)
+            if normalized in self._HEADER_SKIP:
+                continue
+            if re.fullmatch(r"[\d.]+", normalized):
+                continue
+            options.append(text)
+        if len(options) >= n_opts:
+            return options[:n_opts]
+        return []
+
+    @staticmethod
+    def _cluster_words_by_x(words: list, n_clusters: int) -> List[list]:
+        if not words:
+            return []
+
+        sorted_words = sorted(words, key=lambda w: ((w[0] + w[2]) / 2.0, w[1], w[0]))
+        if n_clusters <= 1:
+            return [sorted_words]
+        if len(sorted_words) <= n_clusters:
+            return [[w] for w in sorted_words]
+
+        gaps: List[tuple[float, int]] = []
+        for idx in range(len(sorted_words) - 1):
+            left = (sorted_words[idx][0] + sorted_words[idx][2]) / 2.0
+            right = (sorted_words[idx + 1][0] + sorted_words[idx + 1][2]) / 2.0
+            gaps.append((right - left, idx))
+
+        sorted_gap_indices = [idx for gap, idx in sorted(gaps, key=lambda item: item[0], reverse=True) if gap > 10]
+        cut_points = sorted(sorted_gap_indices[: n_clusters - 1])
+        if len(cut_points) < n_clusters - 1:
+            return []
+
+        clusters: List[list] = []
+        start = 0
+        for cut in cut_points:
+            clusters.append(sorted_words[start : cut + 1])
+            start = cut + 1
+        clusters.append(sorted_words[start:])
+        return [cluster for cluster in clusters if cluster]
+
+    def _extract_options_from_header(self, table: List[List], n_opts: int) -> List[str]:
+        """테이블 셀 전체를 훑어 선택지 라벨이 가장 잘 보이는 셀을 찾는다."""
+        if not table:
+            return []
+        best: List[str] = []
+        best_score = -1
+
+        for row in table[:3]:
+            for cell in row:
+                raw = str(cell or "")
+                if not raw.strip():
+                    continue
+                lines = [ln.strip() for ln in re.split(r"[\n\x00]+", raw) if ln.strip()]
+                if not lines:
+                    continue
+
+                opts: List[str] = []
+                numeric_only = True
+                for ln in lines:
+                    normalized = re.sub(r"\s+", "", ln)
+                    if normalized in self._HEADER_SKIP:
+                        continue
+                    if re.fullmatch(r"[\d.]+", normalized):
+                        continue
+                    numeric_only = False
+                    opts.append(ln)
+
+                if numeric_only or not opts:
+                    continue
+
+                score = len(opts)
+                if len(opts) == n_opts:
+                    score += 100
+                score -= abs(len(opts) - n_opts)
+                # 질문 옵션은 보통 숫자 셀보다 텍스트 셀에 더 많이 들어 있다.
+                if len(opts) >= 3:
+                    score += 3
+
+                if score > best_score:
+                    best_score = score
+                    best = opts
+
+        return best
 
 
 class _ResearchAndResearchParser(BaseTableParser):
@@ -2211,9 +2434,9 @@ class _KStatResearchParser(BaseTableParser):
             return
         seen_pct_sigs.add(sig)
 
-        # 선택지가 없으면 fallback (선택지 수 = 비율 수)
+        # 선택지가 없으면 파싱 실패로 처리
         if not options:
-            options = [f"선택지{i+1}" for i in range(len(percentages))]
+            return
 
         min_len = min(len(options), len(percentages))
         if min_len == 0:
@@ -2453,8 +2676,6 @@ class _KStatResearchParser(BaseTableParser):
             if not any(s in merged for s in ("사례수", "가중값", "조사완료")):
                 candidates.append(merged)
         filtered = [c for c in candidates if len(c) < 30 and c]
-        while len(filtered) < count:
-            filtered.append(f"선택지{len(filtered) + 1}")
         return filtered[:count]
 
 
@@ -2474,11 +2695,13 @@ class _AceResearchParser(BaseTableParser):
     META_COLS = 4
     END_COL = None
     SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS + (
-        re.compile(r"긍정층"),   # 국정수행 평가 소계 열
-        re.compile(r"부정층"),   # 국정수행 평가 소계 열
+        re.compile(r"긍정층"),  # 국정수행 평가 소계 열
+        re.compile(r"부정층"),  # 국정수행 평가 소계 열
     )
 
-    _Q_RE = re.compile(r"<표\s*(\d+)(?:-\d+)?>\s*([^\n]+)\nQ\d+\.\s+([^\n]+)", re.MULTILINE)
+    _Q_RE = re.compile(
+        r"<표\s*(\d+)(?:-\d+)?>\s*([^\n]+)\nQ\d+\.\s+([^\n]+)", re.MULTILINE
+    )
     _Q_FALLBACK_RE = re.compile(r"<표\s*(\d+)(?:-\d+)?>\s*([^\n]+)")
 
     def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
@@ -2652,7 +2875,8 @@ class _MediaTomatoParser(BaseTableParser):
 
             def _filter_candidates(raw_lines: List[str]) -> List[str]:
                 return [
-                    ln for ln in raw_lines
+                    ln
+                    for ln in raw_lines
                     if ln not in _skip
                     and "사례수" not in ln
                     and "가중값" not in ln
@@ -2676,9 +2900,9 @@ class _MediaTomatoParser(BaseTableParser):
 
             # 비율 수보다 많으면 마지막 N개 사용 (합계/모름 등 끝 항목 우선)
             options = candidates[-n_opts:] if len(candidates) >= n_opts else candidates
-            # 부족하면 placeholder로 앞을 채움
-            while len(options) < n_opts:
-                options.insert(0, f"선택지{len(options) + 1}")
+            # 선택지 수가 부족하면 파싱 실패로 처리
+            if len(options) < n_opts:
+                continue
             options = options[:n_opts]
 
             results.append(
@@ -2749,8 +2973,12 @@ class _KopraParser(BaseTableParser):
                     continue
 
                 # 사례수: col3, col4
-                n_completed = extract_sample_count(str(total_row[3] if len(total_row) > 3 else ""))
-                n_weighted = extract_sample_count(str(total_row[4] if len(total_row) > 4 else ""))
+                n_completed = extract_sample_count(
+                    str(total_row[3] if len(total_row) > 3 else "")
+                )
+                n_weighted = extract_sample_count(
+                    str(total_row[4] if len(total_row) > 4 else "")
+                )
 
                 # 비율: col5~ (정수형 퍼센트)
                 percentages = extract_percentages_from_cells(
@@ -2764,7 +2992,11 @@ class _KopraParser(BaseTableParser):
                 q_num = int(section_m.group(1)) if section_m else len(results) + 1
                 q_title = section_m.group(2).strip() if section_m else f"Q{q_num}"
                 q_text_m = self._Q_TEXT_RE.search(full_text)
-                q_text = re.sub(r"\s+", " ", q_text_m.group(1)).strip() if q_text_m else q_title
+                q_text = (
+                    re.sub(r"\s+", " ", q_text_m.group(1)).strip()
+                    if q_text_m
+                    else q_title
+                )
 
                 if q_num in seen_q_nums:
                     continue
@@ -2857,7 +3089,7 @@ class _KSOIParser(BaseTableParser):
                 # 선택지: row[0], col4~ (개행 → 공백)
                 options = [
                     re.sub(r"\s+", " ", str(c or "").strip())
-                    for c in table[0][self.META_COLS:]
+                    for c in table[0][self.META_COLS :]
                     if str(c or "").strip()
                 ]
                 if not options:
@@ -2865,8 +3097,7 @@ class _KSOIParser(BaseTableParser):
 
                 # 응답자 특성표 등 메타 테이블 — 스킵
                 if any(
-                    any(kw in opt for kw in self._META_OPT_KEYWORDS)
-                    for opt in options
+                    any(kw in opt for kw in self._META_OPT_KEYWORDS) for opt in options
                 ):
                     continue
 
@@ -2876,7 +3107,9 @@ class _KSOIParser(BaseTableParser):
                 if n_completed is None:
                     continue
 
-                percentages = extract_percentages_from_cells(total_row, start_col=self.META_COLS)
+                percentages = extract_percentages_from_cells(
+                    total_row, start_col=self.META_COLS
+                )
                 if not percentages:
                     continue
 
@@ -2933,8 +3166,10 @@ class _FairPollParser(BaseTableParser):
 
     PARSER_KEY = "_FairPollParser"
     TOTAL_MARKERS = ("전체",)
-    META_COLS = 4          # 데이터 테이블: col0=구분범주, col1=구분값, col2=n완료, col3=n가중
-    HEADER_OPT_COL = 3    # 헤더 테이블: col0=구분, col1=사례수(merged), col2=None, col3~=선택지
+    META_COLS = 4  # 데이터 테이블: col0=구분범주, col1=구분값, col2=n완료, col3=n가중
+    HEADER_OPT_COL = (
+        3  # 헤더 테이블: col0=구분, col1=사례수(merged), col2=None, col3~=선택지
+    )
     SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS + (
         re.compile(r"^계$"),
         re.compile(r"^긍정\s*평가"),
@@ -2984,16 +3219,13 @@ class _FairPollParser(BaseTableParser):
             # 선택지: 헤더 테이블 첫 행의 col3~ (헤더는 col3부터 시작, 개행 → 공백 정규화)
             options = [
                 re.sub(r"\s+", " ", str(c or "").strip())
-                for c in header_table[0][self.HEADER_OPT_COL:]
+                for c in header_table[0][self.HEADER_OPT_COL :]
                 if str(c or "").strip()
             ]
             if not options:
                 continue
 
-            if any(
-                any(kw in opt for kw in self._META_OPT_KEYWORDS)
-                for opt in options
-            ):
+            if any(any(kw in opt for kw in self._META_OPT_KEYWORDS) for opt in options):
                 continue
 
             n_completed = extract_sample_count(str(total_row[2] or ""))
@@ -3001,7 +3233,9 @@ class _FairPollParser(BaseTableParser):
             if n_completed is None:
                 continue
 
-            percentages = extract_percentages_from_cells(total_row, start_col=self.META_COLS)
+            percentages = extract_percentages_from_cells(
+                total_row, start_col=self.META_COLS
+            )
             if not percentages:
                 continue
 
@@ -3057,16 +3291,18 @@ class _KIRParser:
 
     PARSER_KEY = "_KIRParser"
     TOTAL_MARKERS = frozenset({"합계", "전체"})
-    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS + (
-        re.compile(r"^계$"),
+    SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS + (re.compile(r"^계$"),)
+    _META_PAGE_MARKERS = frozenset(
+        {"조사개요", "조사방법", "조사완료 응답자", "표본의 특성"}
     )
-    _META_PAGE_MARKERS = frozenset({"조사개요", "조사방법", "조사완료 응답자", "표본의 특성"})
     _Q_TITLE_RE = re.compile(r"^\d+[.\)]\s*(.+?)(?:\n|$)", re.MULTILINE)
     _WEIGHTED_KW = "가중값"
     _N_KW = "사례수"
 
     @staticmethod
-    def _extract_pct_cells(row: List, start_col: int, end_col: Optional[int] = None) -> List[float]:
+    def _extract_pct_cells(
+        row: List, start_col: int, end_col: Optional[int] = None
+    ) -> List[float]:
         """%를 포함한 셀에서 비율 값을 추출한다 (예: '47.0%' → 47.0)."""
         result: List[float] = []
         for cell in row[start_col:end_col]:
@@ -3107,7 +3343,9 @@ class _KIRParser:
                 _logger.debug("[KIR] p%d SKIP: 메타 페이지", pg)
                 continue
             if len(page_tables) != 1:
-                _logger.debug("[KIR] p%d SKIP: 테이블 수=%d (1개여야 함)", pg, len(page_tables))
+                _logger.debug(
+                    "[KIR] p%d SKIP: 테이블 수=%d (1개여야 함)", pg, len(page_tables)
+                )
                 continue
             table = page_tables[0]
             if len(table) < 2:
@@ -3116,7 +3354,11 @@ class _KIRParser:
 
             title_match = self._Q_TITLE_RE.search(outside_text)
             if title_match is None:
-                _logger.debug("[KIR] p%d SKIP: 질문 제목 미발견 (outside_text=%r)", pg, outside_text[:80])
+                _logger.debug(
+                    "[KIR] p%d SKIP: 질문 제목 미발견 (outside_text=%r)",
+                    pg,
+                    outside_text[:80],
+                )
                 continue
             q_title = re.sub(r"\s+", " ", title_match.group(1)).strip()
             if not q_title:
@@ -3135,7 +3377,10 @@ class _KIRParser:
             if not options:
                 _logger.debug(
                     "[KIR] p%d SKIP: 선택지 없음 (header=%r, opt_start=%d, opt_end=%s)",
-                    pg, header_row, opt_start, opt_end,
+                    pg,
+                    header_row,
+                    opt_start,
+                    opt_end,
                 )
                 continue
 
@@ -3147,7 +3392,8 @@ class _KIRParser:
             if total_row is None:
                 _logger.debug(
                     "[KIR] p%d SKIP: 전체 행 미발견 (row[0]들=%r)",
-                    pg, [str(r[0] or "").strip() for r in table[1:4]],
+                    pg,
+                    [str(r[0] or "").strip() for r in table[1:4]],
                 )
                 continue
 
@@ -3155,7 +3401,9 @@ class _KIRParser:
             if n_completed is None:
                 _logger.debug(
                     "[KIR] p%d SKIP: n_completed 추출 실패 (total_row[%d]=%r)",
-                    pg, n_col, total_row[n_col],
+                    pg,
+                    n_col,
+                    total_row[n_col],
                 )
                 continue
             # 가중값 사례수: 포맷 A는 col3, 포맷 B는 마지막 컬럼
@@ -3165,11 +3413,16 @@ class _KIRParser:
             else:
                 n_weighted = extract_sample_count(str(total_row[n_col + 1] or ""))
 
-            percentages = self._extract_pct_cells(total_row, start_col=opt_start, end_col=opt_end)
+            percentages = self._extract_pct_cells(
+                total_row, start_col=opt_start, end_col=opt_end
+            )
             if not percentages:
                 _logger.debug(
                     "[KIR] p%d SKIP: 비율 추출 실패 (total_row[%d:%s]=%r)",
-                    pg, opt_start, opt_end, total_row[opt_start:opt_end],
+                    pg,
+                    opt_start,
+                    opt_end,
+                    total_row[opt_start:opt_end],
                 )
                 continue
 
@@ -3180,13 +3433,19 @@ class _KIRParser:
             if min_len == 0:
                 _logger.debug(
                     "[KIR] p%d SKIP: filter 후 options/pcts 길이 0 (options=%r, pcts=%r)",
-                    pg, options, percentages,
+                    pg,
+                    options,
+                    percentages,
                 )
                 continue
 
             _logger.debug(
                 "[KIR] p%d OK: q='%s' n=%s opts=%d pcts=%s",
-                pg, q_title, n_completed, len(options), percentages[:3],
+                pg,
+                q_title,
+                n_completed,
+                len(options),
+                percentages[:3],
             )
             results.append(
                 QuestionResult(
@@ -3231,10 +3490,16 @@ class _GallupParser:
     _Q_RE2 = re.compile(r"표\s+(\d+)\.\s+(.+?)(?:\n|$)")
 
     # 메타 페이지 마커 (skip 대상)
-    _META_MARKERS = frozenset({
-        "조사 개요", "조사개요", "응답자 특성표", "조사완료 응답자 특성표",
-        "목   차", "목차",
-    })
+    _META_MARKERS = frozenset(
+        {
+            "조사 개요",
+            "조사개요",
+            "응답자 특성표",
+            "조사완료 응답자 특성표",
+            "목   차",
+            "목차",
+        }
+    )
 
     # 결과분석 포맷 감지 마커 (page_tables에 text_bundled 셀 감지)
     _DAILY_MARKER = re.compile(r"데일리 오피니언|교차집계표")
@@ -3330,7 +3595,11 @@ class _GallupParser:
         # n_completed: col2
         n_completed = extract_sample_count(self._cell(total_row.iloc[2]))
         if n_completed is None:
-            _logger.debug("[Gallup] Q%s SKIP: n_completed 추출 실패 (col2=%r)", q_num_str, total_row.iloc[2])
+            _logger.debug(
+                "[Gallup] Q%s SKIP: n_completed 추출 실패 (col2=%r)",
+                q_num_str,
+                total_row.iloc[2],
+            )
             return None
 
         # n_weighted: col3
@@ -3364,7 +3633,11 @@ class _GallupParser:
 
         _logger.debug(
             "[Gallup] Q%s OK: '%s' n=%d opts=%d pcts=%s",
-            q_num_str, q_title[:30], n_completed, min_len, percentages[:3],
+            q_num_str,
+            q_title[:30],
+            n_completed,
+            min_len,
+            percentages[:3],
         )
 
         return QuestionResult(
@@ -3446,7 +3719,11 @@ class _GallupParser:
 
             # 사례수: col1(조사완료) 또는 col2(가중적용)
             n_completed = extract_sample_count(self._cell(total_row[1]))
-            n_weighted = extract_sample_count(self._cell(total_row[2])) if len(total_row) > 2 else None
+            n_weighted = (
+                extract_sample_count(self._cell(total_row[2]))
+                if len(total_row) > 2
+                else None
+            )
 
             if n_completed is None:
                 _logger.debug("[Gallup-Daily] p%d SKIP: n_completed 없음", pg)
@@ -3469,7 +3746,9 @@ class _GallupParser:
                 pct_text = self._cell(total_row[col_i])
                 if not opt_text:
                     continue
-                pct = self._parse_pct(pct_text.split("\n")[0])  # text_bundled → 첫 값(전체)
+                pct = self._parse_pct(
+                    pct_text.split("\n")[0]
+                )  # text_bundled → 첫 값(전체)
                 if pct is None:
                     continue
                 options.append(opt_text)
@@ -3489,7 +3768,10 @@ class _GallupParser:
             seen_titles.add(q_title_raw)
             _logger.debug(
                 "[Gallup-Daily] p%d OK: '%s' n=%d opts=%d",
-                pg, q_title_raw[:30], n_completed, min_len,
+                pg,
+                q_title_raw[:30],
+                n_completed,
+                min_len,
             )
             results.append(
                 QuestionResult(
@@ -3529,10 +3811,13 @@ class _GallupParser:
             # 테이블을 DataFrame으로 변환
             table = page_tables[0]
             if len(table) < 5:
-                _logger.debug("[Gallup] p%d SKIP: 테이블 행 %d개 (너무 적음)", pg, len(table))
+                _logger.debug(
+                    "[Gallup] p%d SKIP: 테이블 행 %d개 (너무 적음)", pg, len(table)
+                )
                 continue
 
             import pandas as pd
+
             df = pd.DataFrame(table)
 
             result = self._parse_stats_page(ft, df)
@@ -3567,7 +3852,9 @@ class _InnertecParser:
     _CHAP4_RE = re.compile(r"제\s*\d+\s*장[\.\s]*교차분석통계표")
     _Q_TITLE_RE = re.compile(r"^(\d+)\.\s+(.{2,50})$")
     _TOTAL_RE = re.compile(r"^합\s*계$")
-    _META_PAGE_RE = re.compile(r"조사의\s*개요|표본의\s*특성|피조사자\s*접촉현황|설문\s*지|질문지")
+    _META_PAGE_RE = re.compile(
+        r"조사의\s*개요|표본의\s*특성|피조사자\s*접촉현황|설문\s*지|질문지"
+    )
 
     @staticmethod
     def _cell(val: object) -> str:
@@ -3608,7 +3895,7 @@ class _InnertecParser:
             options: 선택지 이름 목록 (col3 ~ data_col_end)
             data_col_end: 마지막 데이터 컬럼 인덱스 (inclusive)
         """
-        header_rows = table[header_start:header_start + 3]
+        header_rows = table[header_start : header_start + 3]
         n_cols = max(len(r) for r in header_rows if r) if header_rows else 0
 
         # 마지막 '사례수' 컬럼(=N_weighted)을 제외하기 위해 우측부터 탐색
@@ -3629,7 +3916,8 @@ class _InnertecParser:
                 val = self._cell(row[col_i])
                 if val and val not in ("%",):
                     parts.append(val)
-            options.append(" ".join(parts) if parts else f"선택지{col_i - META_COLS + 1}")
+            if parts:
+                options.append(" ".join(parts))
 
         return options, data_col_end
 
@@ -3660,7 +3948,11 @@ class _InnertecParser:
             # 교차분석 테이블 찾기
             crosstab = self._find_crosstab_table(page_tables)
             if crosstab is None:
-                _logger.debug("[Innertec] p%d SKIP: 교차분석 테이블 없음 (%d개 테이블)", pg, len(page_tables))
+                _logger.debug(
+                    "[Innertec] p%d SKIP: 교차분석 테이블 없음 (%d개 테이블)",
+                    pg,
+                    len(page_tables),
+                )
                 continue
 
             # 질문 제목 추출 (소형 heading 테이블)
@@ -3684,7 +3976,7 @@ class _InnertecParser:
 
             # '합 계' 데이터 행 탐색
             total_row: Optional[List] = None
-            for row in crosstab[header_idx + 3:]:
+            for row in crosstab[header_idx + 3 :]:
                 if row and self._TOTAL_RE.match(self._cell(row[0])):
                     total_row = row
                     break
@@ -3694,7 +3986,9 @@ class _InnertecParser:
                 continue
 
             # N_completed (col2)
-            n_completed = extract_sample_count(self._cell(total_row[2]) if len(total_row) > 2 else "")
+            n_completed = extract_sample_count(
+                self._cell(total_row[2]) if len(total_row) > 2 else ""
+            )
             if n_completed is None:
                 _logger.debug("[Innertec] p%d SKIP: N_completed 추출 실패", pg)
                 continue
@@ -3731,17 +4025,24 @@ class _InnertecParser:
 
             _logger.debug(
                 "[Innertec] p%d OK: Q%d '%s' n=%d opts=%d pcts=%s",
-                pg, q_num, q_title[:20], n_completed, min_len, percentages[:3],
+                pg,
+                q_num,
+                q_title[:20],
+                n_completed,
+                min_len,
+                percentages[:3],
             )
-            results.append(QuestionResult(
-                question_number=q_num,
-                question_title=q_title,
-                question_text=q_title,
-                response_options=options[:min_len],
-                overall_n_completed=n_completed,
-                overall_n_weighted=n_weighted,
-                overall_percentages=percentages[:min_len],
-            ))
+            results.append(
+                QuestionResult(
+                    question_number=q_num,
+                    question_title=q_title,
+                    question_text=q_title,
+                    response_options=options[:min_len],
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=n_weighted,
+                    overall_percentages=percentages[:min_len],
+                )
+            )
 
         for i, r in enumerate(results):
             r.question_number = i + 1
@@ -3800,7 +4101,8 @@ class _ResearchViewParser:
         for col_i in range(self.META_COLS, len(header)):
             val = self._cell(header[col_i])
             val = val.replace("\n", " ").strip()
-            options.append(val if val else f"선택지{col_i - self.META_COLS + 1}")
+            if val:
+                options.append(val)
         return options
 
     def _find_total_row(self, table: List) -> Optional[List]:
@@ -3814,7 +4116,11 @@ class _ResearchViewParser:
             if row and self._cell(row[0]) == self._TOTAL_MARKER:
                 return row
         # 추이 포맷: row[2][0]가 날짜 패턴인 경우
-        if len(table) > 2 and table[2] and self._DATE_ROW_RE.match(self._cell(table[2][0])):
+        if (
+            len(table) > 2
+            and table[2]
+            and self._DATE_ROW_RE.match(self._cell(table[2][0]))
+        ):
             last_date_row = None
             for row in table[2:]:
                 if not row:
@@ -3822,7 +4128,9 @@ class _ResearchViewParser:
                 v = self._cell(row[0])
                 if self._DATE_ROW_RE.match(v):
                     last_date_row = row
-                elif v in self._DEMO_KEYS or (row[1] and self._cell(row[1]) in self._DEMO_KEYS):
+                elif v in self._DEMO_KEYS or (
+                    row[1] and self._cell(row[1]) in self._DEMO_KEYS
+                ):
                     break
             return last_date_row
         return None
@@ -3877,15 +4185,17 @@ class _ResearchViewParser:
                 if not percentages:
                     continue
 
-                results.append(QuestionResult(
-                    question_number=q_num,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=n_weighted,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_num,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    )
+                )
 
         # 중복 제거: 같은 질문번호가 여러 번 나오면 첫 번째만 유지
         seen: set = set()
@@ -3974,7 +4284,8 @@ class _MonoCommunicationsParser:
                     for c in range(self._META_COLS, n_cols - 1):
                         val = self._cell(row0[c] if c < len(row0) else None)
                         val = val.replace("\n", " ").strip()
-                        options.append(val if val else f"선택지{c - self._META_COLS + 1}")
+                        if val:
+                            options.append(val)
 
                     # 비율: row1[3:-1]
                     percentages: List[float] = []
@@ -3999,15 +4310,17 @@ class _MonoCommunicationsParser:
                     if not percentages:
                         continue
 
-                    results.append(QuestionResult(
-                        question_number=q_num,
-                        question_title=q_title,
-                        question_text=q_title,
-                        response_options=options,
-                        overall_n_completed=n_completed,
-                        overall_n_weighted=n_weighted,
-                        overall_percentages=percentages,
-                    ))
+                    results.append(
+                        QuestionResult(
+                            question_number=q_num,
+                            question_title=q_title,
+                            question_text=q_title,
+                            response_options=options,
+                            overall_n_completed=n_completed,
+                            overall_n_weighted=n_weighted,
+                            overall_percentages=percentages,
+                        )
+                    )
                     seen_q.add(q_num)
                     break  # 이 페이지에서 이 질문 완료
 
@@ -4033,7 +4346,7 @@ class _VisionKoreaParser:
     _CHAPTER3_RE = re.compile(r"제\s*3\s*장|조사결과집계표")
     _TOTAL_MARKER = "■ 전 체 ■"
     _SUMMARY_PATS = DEFAULT_SUMMARY_PATTERNS + (
-        re.compile(r"^★"),           # ★무당층, ★부동층 등
+        re.compile(r"^★"),  # ★무당층, ★부동층 등
         re.compile(r"잘\s*모름"),
         re.compile(r"무응답"),
         re.compile(r"지지\s*정당\s*없음"),
@@ -4124,10 +4437,12 @@ class _VisionKoreaParser:
                     for c in range(4, n_cols):
                         opt_raw = self._cell(row0[c] if c < len(row0) else None)
                         opt = opt_raw.replace("\n", " ").strip()
-                        pct_raw = self._cell(total_row[c] if c < len(total_row) else None)
+                        pct_raw = self._cell(
+                            total_row[c] if c < len(total_row) else None
+                        )
                         pct = self._parse_pct(pct_raw)
-                        if pct is not None:
-                            options.append(opt if opt else f"선택지{c - 3}")
+                        if pct is not None and opt:
+                            options.append(opt)
                             percentages.append(pct)
 
                     if not percentages:
@@ -4139,15 +4454,17 @@ class _VisionKoreaParser:
                     if not percentages:
                         continue
 
-                    results.append(QuestionResult(
-                        question_number=q_num,
-                        question_title=q_title,
-                        question_text=q_title,
-                        response_options=options,
-                        overall_n_completed=n_completed,
-                        overall_n_weighted=n_weighted,
-                        overall_percentages=percentages,
-                    ))
+                    results.append(
+                        QuestionResult(
+                            question_number=q_num,
+                            question_title=q_title,
+                            question_text=q_title,
+                            response_options=options,
+                            overall_n_completed=n_completed,
+                            overall_n_weighted=n_weighted,
+                            overall_percentages=percentages,
+                        )
+                    )
                     seen_q.add(q_num)
                     break
 
@@ -4209,7 +4526,9 @@ class _EveryResearchParser:
             if q_match:
                 q_num = int(q_match.group(1))
                 # Q 마커 앞의 마지막 'N) 제목' 섹션 헤더를 제목으로 사용
-                titles = list(self._SECTION_TITLE_RE.finditer(full_text[:q_match.start()]))
+                titles = list(
+                    self._SECTION_TITLE_RE.finditer(full_text[: q_match.start()])
+                )
                 q_title = titles[-1].group(1).strip() if titles else f"Q{q_num}"
                 if q_num not in seen_q:
                     pending_q = (q_num, q_title)
@@ -4241,10 +4560,14 @@ class _EveryResearchParser:
                     continue
 
                 # N 추출
-                n_completed = extract_sample_count(self._cell(row2[2]) if len(row2) > 2 else "")
+                n_completed = extract_sample_count(
+                    self._cell(row2[2]) if len(row2) > 2 else ""
+                )
                 if n_completed is None:
                     continue
-                n_weighted = extract_sample_count(self._cell(row2[3]) if len(row2) > 3 else "")
+                n_weighted = extract_sample_count(
+                    self._cell(row2[3]) if len(row2) > 3 else ""
+                )
 
                 # 선택지·비율 추출 (col[4:])
                 options: List[str] = []
@@ -4270,15 +4593,17 @@ class _EveryResearchParser:
                 if not percentages:
                     continue
 
-                results.append(QuestionResult(
-                    question_number=q_num,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=n_weighted,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_num,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    )
+                )
                 seen_q.add(q_num)
                 pending_q = None
                 break
@@ -4349,10 +4674,14 @@ class _RNRParser:
                     continue
 
                 # N 추출
-                n_completed = extract_sample_count(self._cell(row2[2]) if len(row2) > 2 else "")
+                n_completed = extract_sample_count(
+                    self._cell(row2[2]) if len(row2) > 2 else ""
+                )
                 if n_completed is None:
                     continue
-                n_weighted = extract_sample_count(self._cell(row2[3]) if len(row2) > 3 else "")
+                n_weighted = extract_sample_count(
+                    self._cell(row2[3]) if len(row2) > 3 else ""
+                )
 
                 # 선택지·비율 추출 (col[4:])
                 options: List[str] = []
@@ -4378,15 +4707,17 @@ class _RNRParser:
                 if not percentages:
                     continue
 
-                results.append(QuestionResult(
-                    question_number=q_num,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=n_weighted,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_num,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    )
+                )
                 seen_q.add(q_num)
                 break
 
@@ -4447,10 +4778,14 @@ class _ResearchwelParser:
                     continue
 
                 # N 추출
-                n_completed = extract_sample_count(self._cell(row1[2]) if len(row1) > 2 else "")
+                n_completed = extract_sample_count(
+                    self._cell(row1[2]) if len(row1) > 2 else ""
+                )
                 if n_completed is None:
                     continue
-                n_weighted = extract_sample_count(self._cell(row1[3]) if len(row1) > 3 else "")
+                n_weighted = extract_sample_count(
+                    self._cell(row1[3]) if len(row1) > 3 else ""
+                )
 
                 # 선택지·비율 추출 (col[4:])
                 options: List[str] = []
@@ -4476,15 +4811,17 @@ class _ResearchwelParser:
                 if not percentages:
                     continue
 
-                results.append(QuestionResult(
-                    question_number=q_num,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=n_weighted,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_num,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    )
+                )
                 seen_q.add(q_num)
                 break
 
@@ -4546,10 +4883,14 @@ class _KPOParser:
                     continue
 
                 # N 추출
-                n_completed = extract_sample_count(self._cell(row2[2]) if len(row2) > 2 else "")
+                n_completed = extract_sample_count(
+                    self._cell(row2[2]) if len(row2) > 2 else ""
+                )
                 if n_completed is None:
                     continue
-                n_weighted = extract_sample_count(self._cell(row2[3]) if len(row2) > 3 else "")
+                n_weighted = extract_sample_count(
+                    self._cell(row2[3]) if len(row2) > 3 else ""
+                )
 
                 # 선택지·비율 추출 (col[4:])
                 options: List[str] = []
@@ -4576,15 +4917,17 @@ class _KPOParser:
                 if not percentages:
                     continue
 
-                results.append(QuestionResult(
-                    question_number=q_num,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=n_weighted,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_num,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    )
+                )
                 seen_q.add(q_num)
                 break
 
@@ -4647,10 +4990,14 @@ class _KPRIParser:
             if len(row0) < 5:
                 continue
 
-            n_completed = extract_sample_count(self._cell(row1[2]) if len(row1) > 2 else "")
+            n_completed = extract_sample_count(
+                self._cell(row1[2]) if len(row1) > 2 else ""
+            )
             if n_completed is None:
                 continue
-            n_weighted = extract_sample_count(self._cell(row1[3]) if len(row1) > 3 else "")
+            n_weighted = extract_sample_count(
+                self._cell(row1[3]) if len(row1) > 3 else ""
+            )
 
             options: List[str] = []
             percentages: List[float] = []
@@ -4793,7 +5140,9 @@ class _UNMParser:
                 n_completed = extract_sample_count(total_cell)
                 if n_completed is None:
                     continue
-                n_weighted = extract_sample_count(self._cell(total_row[1]) if len(total_row) > 1 else "")
+                n_weighted = extract_sample_count(
+                    self._cell(total_row[1]) if len(total_row) > 1 else ""
+                )
 
                 # 선택지·비율 추출 (col[2:])
                 options: List[str] = []
@@ -4820,15 +5169,17 @@ class _UNMParser:
                     continue
 
                 q_counter += 1
-                results.append(QuestionResult(
-                    question_number=q_counter,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=n_weighted,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_counter,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    )
+                )
                 break
 
         return results
@@ -4888,10 +5239,14 @@ class _DiOpinionParser:
                     continue
 
                 # N 추출
-                n_completed = extract_sample_count(self._cell(row1[2]) if len(row1) > 2 else "")
+                n_completed = extract_sample_count(
+                    self._cell(row1[2]) if len(row1) > 2 else ""
+                )
                 if n_completed is None:
                     continue
-                n_weighted = extract_sample_count(self._cell(row1[3]) if len(row1) > 3 else "")
+                n_weighted = extract_sample_count(
+                    self._cell(row1[3]) if len(row1) > 3 else ""
+                )
 
                 # 선택지·비율 추출 (col[4:])
                 options: List[str] = []
@@ -4917,15 +5272,17 @@ class _DiOpinionParser:
                 if not percentages:
                     continue
 
-                results.append(QuestionResult(
-                    question_number=q_num,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=n_weighted,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_num,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    )
+                )
                 seen_q.add(q_num)
                 break
 
@@ -4990,10 +5347,14 @@ class _MediaResearchParser:
                 if not header_row or len(header_row) < 5:
                     continue
 
-                n_completed = extract_sample_count(self._cell(total_row[2]) if len(total_row) > 2 else "")
+                n_completed = extract_sample_count(
+                    self._cell(total_row[2]) if len(total_row) > 2 else ""
+                )
                 if n_completed is None:
                     continue
-                n_weighted = extract_sample_count(self._cell(total_row[3]) if len(total_row) > 3 else "")
+                n_weighted = extract_sample_count(
+                    self._cell(total_row[3]) if len(total_row) > 3 else ""
+                )
 
                 options: List[str] = []
                 percentages: List[float] = []
@@ -5018,15 +5379,17 @@ class _MediaResearchParser:
                 if not percentages:
                     continue
 
-                results.append(QuestionResult(
-                    question_number=q_num,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=n_weighted,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_num,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    )
+                )
                 seen_q.add(q_num)
                 break
 
@@ -5085,10 +5448,14 @@ class _UriResearchParser:
                 if len(row0) < 5:
                     continue
 
-                n_completed = extract_sample_count(self._cell(row1[2]) if len(row1) > 2 else "")
+                n_completed = extract_sample_count(
+                    self._cell(row1[2]) if len(row1) > 2 else ""
+                )
                 if n_completed is None:
                     continue
-                n_weighted = extract_sample_count(self._cell(row1[3]) if len(row1) > 3 else "")
+                n_weighted = extract_sample_count(
+                    self._cell(row1[3]) if len(row1) > 3 else ""
+                )
 
                 options: List[str] = []
                 percentages: List[float] = []
@@ -5113,15 +5480,17 @@ class _UriResearchParser:
                 if not percentages:
                     continue
 
-                results.append(QuestionResult(
-                    question_number=q_num,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=n_weighted,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_num,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    )
+                )
                 seen_q.add(q_num)
                 break
 
@@ -5184,10 +5553,14 @@ class _GyeongnamStatParser:
                 if len(row0) < 5:
                     continue
 
-                n_completed = extract_sample_count(self._cell(row2[2]) if len(row2) > 2 else "")
+                n_completed = extract_sample_count(
+                    self._cell(row2[2]) if len(row2) > 2 else ""
+                )
                 if n_completed is None:
                     continue
-                n_weighted = extract_sample_count(self._cell(row2[3]) if len(row2) > 3 else "")
+                n_weighted = extract_sample_count(
+                    self._cell(row2[3]) if len(row2) > 3 else ""
+                )
 
                 options: List[str] = []
                 percentages: List[float] = []
@@ -5212,15 +5585,17 @@ class _GyeongnamStatParser:
                 if not percentages:
                     continue
 
-                results.append(QuestionResult(
-                    question_number=q_num,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=n_weighted,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_num,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    )
+                )
                 seen_q.add(q_num)
                 break
 
@@ -5279,10 +5654,14 @@ class _ISoftBankParser:
                 if len(table[0]) < 5:
                     continue
 
-                n_completed = extract_sample_count(self._cell(table[1][2]) if len(table[1]) > 2 else "")
+                n_completed = extract_sample_count(
+                    self._cell(table[1][2]) if len(table[1]) > 2 else ""
+                )
                 if n_completed is None:
                     continue
-                n_weighted = extract_sample_count(self._cell(table[1][3]) if len(table[1]) > 3 else "")
+                n_weighted = extract_sample_count(
+                    self._cell(table[1][3]) if len(table[1]) > 3 else ""
+                )
 
                 options: List[str] = []
                 percentages: List[float] = []
@@ -5307,15 +5686,17 @@ class _ISoftBankParser:
                 if not percentages:
                     continue
 
-                results.append(QuestionResult(
-                    question_number=q_num,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=n_weighted,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_num,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=n_weighted,
+                        overall_percentages=percentages,
+                    )
+                )
                 seen_q.add(q_num)
                 pending_q = None
                 break
@@ -5378,7 +5759,9 @@ class _SouthernPostParser:
             if len(header_row) < 5:
                 continue
 
-            n_completed = extract_sample_count(self._cell(total_row[2]) if len(total_row) > 2 else "")
+            n_completed = extract_sample_count(
+                self._cell(total_row[2]) if len(total_row) > 2 else ""
+            )
             if n_completed is None:
                 continue
 
@@ -5412,15 +5795,17 @@ class _SouthernPostParser:
             if not percentages:
                 continue
 
-            results.append(QuestionResult(
-                question_number=q_num,
-                question_title=q_title,
-                question_text=q_title,
-                response_options=options,
-                overall_n_completed=n_completed,
-                overall_n_weighted=None,
-                overall_percentages=percentages,
-            ))
+            results.append(
+                QuestionResult(
+                    question_number=q_num,
+                    question_title=q_title,
+                    question_text=q_title,
+                    response_options=options,
+                    overall_n_completed=n_completed,
+                    overall_n_weighted=None,
+                    overall_percentages=percentages,
+                )
+            )
             seen_q.add(q_num)
 
         return sorted(results, key=lambda r: r.question_number)
@@ -5505,15 +5890,17 @@ class _HanMinParser:
                 if not percentages:
                     break
 
-                results.append(QuestionResult(
-                    question_number=q_counter,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=None,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_counter,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=None,
+                        overall_percentages=percentages,
+                    )
+                )
                 seen_q.add(q_counter)
                 break  # 페이지당 첫 번째 그래프 테이블만 처리
 
@@ -5578,16 +5965,22 @@ class _PMIParser:
                     if len(header_row) < 4:
                         continue
 
-                    n_completed = extract_sample_count(self._cell(total_row[1]) if len(total_row) > 1 else "")
+                    n_completed = extract_sample_count(
+                        self._cell(total_row[1]) if len(total_row) > 1 else ""
+                    )
                     if n_completed is None:
                         continue
 
                     options: List[str] = []
                     percentages: List[float] = []
                     for c in range(2, len(header_row)):
-                        opt_raw = self._cell(header_row[c] if c < len(header_row) else None)
+                        opt_raw = self._cell(
+                            header_row[c] if c < len(header_row) else None
+                        )
                         opt = " ".join(opt_raw.replace("\n", " ").split())
-                        pct_raw = self._cell(total_row[c] if c < len(total_row) else None)
+                        pct_raw = self._cell(
+                            total_row[c] if c < len(total_row) else None
+                        )
                         try:
                             pct = float(pct_raw)
                         except (ValueError, TypeError):
@@ -5603,14 +5996,18 @@ class _PMIParser:
                     if not data_row:
                         continue
 
-                    n_completed = extract_sample_count(self._cell(data_row[0]) if data_row else "")
+                    n_completed = extract_sample_count(
+                        self._cell(data_row[0]) if data_row else ""
+                    )
                     if n_completed is None:
                         continue
 
                     options = []
                     percentages = []
                     for c in range(1, len(header_row)):
-                        opt_raw = self._cell(header_row[c] if c < len(header_row) else None)
+                        opt_raw = self._cell(
+                            header_row[c] if c < len(header_row) else None
+                        )
                         opt = " ".join(opt_raw.replace("\n", " ").split())
                         pct_raw = self._cell(data_row[c] if c < len(data_row) else None)
                         try:
@@ -5633,15 +6030,17 @@ class _PMIParser:
                     continue
 
                 q_counter += 1
-                results.append(QuestionResult(
-                    question_number=q_counter,
-                    question_title=q_title,
-                    question_text=q_title,
-                    response_options=options,
-                    overall_n_completed=n_completed,
-                    overall_n_weighted=None,
-                    overall_percentages=percentages,
-                ))
+                results.append(
+                    QuestionResult(
+                        question_number=q_counter,
+                        question_title=q_title,
+                        question_text=q_title,
+                        response_options=options,
+                        overall_n_completed=n_completed,
+                        overall_n_weighted=None,
+                        overall_percentages=percentages,
+                    )
+                )
                 break  # 페이지당 첫 번째 유효 테이블만
 
         return sorted(results, key=lambda r: r.question_number)
@@ -5722,7 +6121,9 @@ class _ResearchJParser:
 
             # 선택지 이름 추출
             options = self._extract_options(rows, pct_cols)
-            options, pcts = filter_summary_columns(options, pcts, summary_patterns=self.SUMMARY_PATS)
+            options, pcts = filter_summary_columns(
+                options, pcts, summary_patterns=self.SUMMARY_PATS
+            )
 
             if not pcts:
                 continue
@@ -5763,7 +6164,7 @@ class _ResearchJParser:
                         break
 
             if best is None:
-                options.append(f"선택지{len(options) + 1}")
+                continue
             else:
                 used.add(best)
                 parts: list = []

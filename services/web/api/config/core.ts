@@ -12,8 +12,11 @@ import { BaseResponse } from '@/types';
 import qs from 'qs';
 import { handleSuccessReissueToken, handleFailReissueToken } from '../auth';
 
+const serverApiOrigin = (process.env.INTERNAL_API_ORIGIN ?? process.env.NEXT_PUBLIC_URL ?? 'https://api.lawdigest.kr/')
+  .replace(/\/+$/, '');
+
 const axiosInstance: AxiosInstance = axios.create({
-  baseURL: typeof window === 'undefined' ? `${process.env.NEXT_PUBLIC_URL}v1` : '/v1',
+  baseURL: typeof window === 'undefined' ? `${serverApiOrigin}/v1` : '/v1',
   headers: {
     'Content-Type': 'application/json',
   },

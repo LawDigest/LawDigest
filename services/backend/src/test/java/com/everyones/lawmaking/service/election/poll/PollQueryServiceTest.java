@@ -256,6 +256,61 @@ class PollQueryServiceTest {
     }
 
     @Test
+    void mergesPartyNameVariantsWithSpacesInOverviewAndPartyResponse() {
+        persistSurvey("서울-601", "제9회 전국동시지방선거", "서울특별시 전체", "한국갤럽", LocalDate.of(2026, 4, 2));
+
+        Long partyQuestion = persistQuestion("서울-601", 1, "정당지지도");
+
+        persistOption(partyQuestion, "조국혁신당", "4.10");
+        persistOption(partyQuestion, "조국 혁신당", "2.20");
+        persistOption(partyQuestion, "조국혁 신당", "1.30");
+        persistOption(partyQuestion, "국민의힘", "21.80");
+        persistOption(partyQuestion, "국민의 힘", "3.20");
+
+        entityManager.flush();
+
+        PollQueryService pollQueryService = new PollQueryService(
+                pollSurveyRepository,
+                pollQuestionRepository,
+                pollOptionRepository,
+                classifier,
+                normalizationService
+        );
+
+        ElectionPollOverviewResponse overviewResponse = pollQueryService.getOverview("local-2026", "11");
+        ElectionPollPartyResponse partyResponse = pollQueryService.getParty("local-2026", "조국 혁신당");
+        ElectionPollRegionResponse regionResponse = pollQueryService.getRegion("local-2026", "11");
+
+        assertThat(overviewResponse.getLatestSurveys().get(0).getSnapshot())
+                .extracting(ElectionPollOverviewResponse.PartySnapshot::getPartyName)
+                .contains("조국혁신당", "국민의힘");
+        assertThat(overviewResponse.getLatestSurveys().get(0).getSnapshot())
+                .extracting(ElectionPollOverviewResponse.PartySnapshot::getPartyName)
+                .doesNotContain("조국 혁신당", "조국혁 신당", "국민의 힘");
+        assertThat(overviewResponse.getLatestSurveys().get(0).getSnapshot().stream()
+                .filter(snapshot -> snapshot.getPartyName().equals("조국혁신당"))
+                .findFirst()
+                .orElseThrow()
+                .getPercentage()).isEqualByComparingTo("7.60");
+        assertThat(overviewResponse.getLatestSurveys().get(0).getSnapshot().stream()
+                .filter(snapshot -> snapshot.getPartyName().equals("국민의힘"))
+                .findFirst()
+                .orElseThrow()
+                .getPercentage()).isEqualByComparingTo("25.00");
+
+        assertThat(partyResponse.getSelectedParty()).isEqualTo("조국혁신당");
+        assertThat(partyResponse.getTrendSeries()).hasSize(1);
+        assertThat(partyResponse.getTrendSeries().get(0).getPercentage()).isEqualByComparingTo("7.60");
+
+        assertThat(regionResponse.getPartySnapshot())
+                .extracting(ElectionPollRegionResponse.PartySnapshot::getPartyName)
+                .contains("조국혁신당", "국민의힘");
+        assertThat(regionResponse.getPartySnapshot())
+                .extracting(ElectionPollRegionResponse.PartySnapshot::getPartyName)
+                .doesNotContain("조국 혁신당", "조국혁 신당", "국민의 힘");
+    }
+
+    @Test
     void buildsRegionResponseWithPartySnapshotCandidateSnapshotAndLatestSurveys() {
         persistSurvey("서울-301", "제9회 전국동시지방선거", "서울특별시 전체", "한국갤럽", LocalDate.of(2026, 4, 1));
         persistSurvey("서울-302", "제9회 전국동시지방선거", "서울특별시 전체", "한국리서치", LocalDate.of(2026, 4, 2));
