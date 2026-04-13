@@ -21,16 +21,12 @@ from lawdigest_data.polls.parser import (
     PollResultParser,
     UnknownPollsterError,
     _build_parser_key_map,
-    _AceResearchParser,
     _EmbrainPublicParser,
     _FlowerResearchParser,
     _HangilResearchParser,
     _IpsosParser,
-    _KopraParser,
     _KoreanResearchParser,
-    _KSOIParser,
     _KStatResearchParser,
-    _MediaTomatoParser,
     _NextResearchParser,
     _RealMeterParser,
     _ResearchAndResearchParser,
@@ -39,7 +35,6 @@ from lawdigest_data.polls.parser import (
     _TableFormatParser,
     _DailyResearchParser,
     _WinjiKoreaParser,
-    _FairPollParser,
 )
 
 # ── PARSER_KEY 자동 탐색 ─────────────────────────────────────────────────────
@@ -102,9 +97,9 @@ class TestParserKeyAttribute:
         ],
     )
     def test_has_parser_key(self, parser_cls):
-        assert hasattr(
-            parser_cls, "PARSER_KEY"
-        ), f"{parser_cls.__name__}에 PARSER_KEY가 없습니다."
+        assert hasattr(parser_cls, "PARSER_KEY"), (
+            f"{parser_cls.__name__}에 PARSER_KEY가 없습니다."
+        )
         assert isinstance(parser_cls.PARSER_KEY, str)
         assert parser_cls.PARSER_KEY == parser_cls.__name__, (
             f"{parser_cls.__name__}.PARSER_KEY = '{parser_cls.PARSER_KEY}' "
@@ -138,9 +133,9 @@ class TestPollParserProtocol:
     def test_implements_protocol(self, parser_cls):
         """런타임 Protocol 체크 — parse(pages_data) 시그니처 존재 여부."""
         instance = parser_cls()
-        assert isinstance(
-            instance, PollParser
-        ), f"{parser_cls.__name__}이 PollParser Protocol을 구현하지 않습니다."
+        assert isinstance(instance, PollParser), (
+            f"{parser_cls.__name__}이 PollParser Protocol을 구현하지 않습니다."
+        )
 
     @pytest.mark.parametrize(
         "parser_cls",
@@ -503,3 +498,78 @@ class TestResearchAndResearchParserVariants:
             "잘 모르겠다",
         ]
         assert results[0].overall_percentages == [30.7, 27.1, 11.2]
+
+
+class TestEmbrainPublicParserVariants:
+    def test_skips_respondent_characteristic_meta_table(self):
+        parser = _EmbrainPublicParser()
+        pages_data = [
+            (
+                "[표1] 응답자 특성별 가중값 배율\nQ1. 응답자 특성표",
+                [
+                    [
+                        [
+                            "구분",
+                            None,
+                            None,
+                            None,
+                            "사례수(B)",
+                            "%",
+                        ],
+                        [
+                            "■ 전체 ■",
+                            None,
+                            "(2009)",
+                            "(2009)",
+                            "100.0",
+                            "1.0",
+                        ],
+                    ]
+                ],
+                "[표1] 응답자 특성별 가중값 배율",
+            )
+        ]
+
+        results = parser.parse(pages_data)
+
+        assert results == []
+
+
+class TestWinjiKoreaParserVariants:
+    def test_parses_total_row_without_explicit_marker(self):
+        parser = _WinjiKoreaParser()
+        pages_data = [
+            (
+                "표 1 정당지지도",
+                [
+                    [
+                        [
+                            None,
+                            None,
+                            "더불어민주당\n국민의힘\n조국혁신당\n진보당",
+                        ],
+                        [
+                            None,
+                            "(807)",
+                            "65.7 23.4 7.1 3.8",
+                        ],
+                    ]
+                ],
+                "표 1 정당지지도",
+            )
+        ]
+
+        results = parser.parse(pages_data)
+
+        assert len(results) == 1
+        assert results[0].question_number == 1
+        assert results[0].question_title == "정당지지도"
+        assert results[0].overall_n_completed == 807
+        assert results[0].overall_n_weighted is None
+        assert results[0].response_options == [
+            "더불어민주당",
+            "국민의힘",
+            "조국혁신당",
+            "진보당",
+        ]
+        assert results[0].overall_percentages == [65.7, 23.4, 7.1, 3.8]
