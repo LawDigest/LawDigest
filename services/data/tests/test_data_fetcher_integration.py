@@ -6,9 +6,10 @@ from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from datetime import datetime, timedelta
 from lawdigest_data.bills.DataFetcher import DataFetcher
 from test_utils import find_valid_date_and_data, save_test_result
+
+pytestmark = pytest.mark.integration
 
 @pytest.fixture
 def fetcher():

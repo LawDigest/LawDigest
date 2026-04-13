@@ -30,11 +30,9 @@ from urllib3.util.retry import Retry
 _BASE = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_BASE / "src"))
 
-import re as _re
-
 from lawdigest_data.polls.targets import is_ignored_analysis_filename, load_targets  # noqa: E402
 
-_UNSAFE = _re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_UNSAFE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
 
 def _safe_dirname(name: str) -> str:

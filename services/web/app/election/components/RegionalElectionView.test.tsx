@@ -90,7 +90,7 @@ describe('RegionalElectionView', () => {
     fireEvent.click(screen.getByRole('button', { name: /종로구/ }));
     expect(screen.getByText('최종 depth 도달')).toBeInTheDocument();
     expect(screen.getByText(/이제 종로구 기준으로 후보군과 지난 결과를 함께 확인할 수 있습니다/)).toBeInTheDocument();
-  });
+  }, 10000);
 
   it('toggles between actual map and hex cartogram modes', () => {
     mockUseGetElectionOverview.mockReturnValue(

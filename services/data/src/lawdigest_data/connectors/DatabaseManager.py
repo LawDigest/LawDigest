@@ -713,10 +713,6 @@ class DatabaseManager:
                 # 복합 유니크 키가 없는 경우 중복 방지를 위해 삭제 후 삽입하는 것이 안전함.
                 # 단, VoteParty ID가 바뀌는 단점 존재.
                 
-                # 삭제 대상 법안 ID 수집 (관련된 모든 정당 투표 정보를 업데이트한다고 가정)
-                target_bills = {p['bill_id'] for p in upsert_params}
-                format_strings = ','.join(['%s'] * len(target_bills))
-                
                 # 특정 법안에 대한 특정 정당의 투표만 업데이트하는 경우, 전체 삭제는 위험함.
                 # 따라서 (bill_id, party_id) 조합으로 기존 데이터 확인 후 Update/Insert 필요 (Batch 처리가 까다로움).
                 # 하지만 여기서는 "Batch Delete & Insert"가 대량 처리에 효율적.

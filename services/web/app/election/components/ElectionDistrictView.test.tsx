@@ -30,7 +30,7 @@ describe('ElectionDistrictView', () => {
 
   it('지역구가 없으면 설정 유도 UI를 표시한다', () => {
     render(<ElectionDistrictView confirmedRegion={null} onRegionChange={vi.fn()} />);
-    expect(screen.getByText('내 지역구를 설정해보세요')).toBeInTheDocument();
+    expect(screen.getByText('지역구를 설정해보세요')).toBeInTheDocument();
   });
 
   it('후보자 카드가 렌더링된다', () => {

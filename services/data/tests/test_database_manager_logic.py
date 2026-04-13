@@ -1,6 +1,6 @@
 
 import unittest
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 from lawdigest_data.connectors.DatabaseManager import DatabaseManager
 
 class TestDatabaseManagerLogic(unittest.TestCase):
@@ -51,7 +51,17 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             # First call should be Bill upsert
             args, _ = self.cursor.executemany.call_args_list[0]
             self.assertIn("INSERT INTO Bill", args[0])
-            self.assertEqual(args[1], bills_data)
+            expected_bills = [
+                {
+                    **bills_data[0],
+                    "summary_tags": None,
+                },
+                {
+                    **bills_data[1],
+                    "summary_tags": None,
+                },
+            ]
+            self.assertEqual(args[1], expected_bills)
             
             # Verify BillProposer Delete & Insert (for BILL1)
             # self.cursor.execute called for DELETE

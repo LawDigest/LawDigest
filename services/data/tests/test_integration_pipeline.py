@@ -3,11 +3,14 @@ import unittest
 import os
 from dotenv import load_dotenv
 import sys
+import pytest
 
 # Add src to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 from lawdigest_data.connectors.DatabaseManager import DatabaseManager
+
+pytestmark = pytest.mark.integration
 
 class TestIntegrationPipeline(unittest.TestCase):
     @classmethod

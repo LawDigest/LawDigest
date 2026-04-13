@@ -6,7 +6,10 @@ import os
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from lawdigest_data.connectors.DatabaseManager import DatabaseManager
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
 DATA_SRC = PROJECT_ROOT / "services" / "data" / "src"
@@ -16,13 +19,9 @@ for path in (str(DATA_SRC), str(AI_SRC)):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from lawdigest_data.core.WorkFlowManager import WorkFlowManager
-from lawdigest_data.connectors.DatabaseManager import DatabaseManager
-from lawdigest_data.polls.normalization import normalize_party_name
-from lawdigest_ai.db import get_prod_db_config, get_test_db_config
-
-
 def build_backfill_updates(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    from lawdigest_data.polls.normalization import normalize_party_name
+
     return [
         {
             "option_id": row["option_id"],
@@ -43,6 +42,8 @@ def summarize_updates(updates: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _resolve_db_config(mode: str) -> dict[str, Any]:
+    from lawdigest_ai.db import get_prod_db_config, get_test_db_config
+
     if mode == "prod":
         return get_prod_db_config()
 
@@ -59,6 +60,8 @@ def _resolve_db_config(mode: str) -> dict[str, Any]:
 
 
 def _build_db_manager(mode: str) -> DatabaseManager:
+    from lawdigest_data.connectors.DatabaseManager import DatabaseManager
+
     db_config = _resolve_db_config(mode)
     return DatabaseManager(
         host=db_config["host"],
@@ -96,6 +99,8 @@ def _apply_updates(db_manager, updates: list[dict[str, Any]]) -> int:
 
 
 def run_backfill(mode: str, apply: bool, limit: int | None = None) -> dict[str, Any]:
+    from lawdigest_data.core.WorkFlowManager import WorkFlowManager
+
     normalized_mode = WorkFlowManager.normalize_execution_mode(mode)
     db_manager = _build_db_manager(normalized_mode)
 
