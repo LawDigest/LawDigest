@@ -479,18 +479,12 @@ def _load_polls_ingest_dag_module():
 
 def test_summarize_run_returns_aggregate_metrics(monkeypatch):
     module = _load_polls_ingest_dag_module()
-
-    fake_workflow_module = types.ModuleType("workflow")
-    fake_workflow_module._write_artifact = (
-        lambda prefix, payload: "/tmp/polls_summary.json"
+    workflow_module = _load_workflow_module()
+    monkeypatch.setattr(
+        workflow_module,
+        "_write_artifact",
+        lambda prefix, payload: "/tmp/polls_summary.json",
     )
-
-    sys.modules["src"] = types.ModuleType("src")
-    sys.modules["src.lawdigest_data_pipeline"] = types.ModuleType(
-        "lawdigest_data_pipeline"
-    )
-    sys.modules["src.lawdigest_data_pipeline.polls"] = types.ModuleType("polls")
-    sys.modules["src.lawdigest_data_pipeline.polls.workflow"] = fake_workflow_module
 
     class _FakeTI:
         def xcom_pull(self, task_ids: str):
@@ -542,4 +536,4 @@ def test_summarize_run_returns_aggregate_metrics(monkeypatch):
     assert summary["upserted_surveys"] == 8
     assert summary["upserted_questions"] == 42
     assert summary["total_elapsed_seconds"] == 12.345
-    assert summary["artifact_path"].endswith(".json")
+    assert summary["artifact_path"] == "/tmp/polls_summary.json"

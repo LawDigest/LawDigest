@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import uuid
 from dataclasses import asdict
@@ -18,11 +19,18 @@ from .targets import PollTarget, load_targets, parse_title_region
 
 logger = logging.getLogger(__name__)
 
+_REPO_ROOT = Path(__file__).resolve().parents[5]
+_DATA_ROOT = Path(__file__).resolve().parents[3]
+
 # artifact 저장 디렉터리 (WorkFlowManager와 동일한 위치)
-_ARTIFACT_DIR = Path(__file__).resolve().parents[6] / ".airflow_artifacts"
+_ARTIFACT_DIR = Path(
+    os.environ.get("POLLS_ARTIFACT_DIR", str(_REPO_ROOT / ".airflow_artifacts"))
+)
 
 # 파싱 결과 저장 루트 디렉터리
-_PARSED_DIR = Path(__file__).resolve().parents[6] / "services" / "data" / "output" / "parsed"
+_PARSED_DIR = Path(
+    os.environ.get("POLLS_PARSED_DIR", str(_DATA_ROOT / "output" / "parsed"))
+)
 
 _UNSAFE_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 

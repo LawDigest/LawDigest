@@ -11,7 +11,6 @@ sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
 
 from lawdigest_data.bills.DataFetcher import DataFetcher
 from lawdigest_data.bills.DataProcessor import DataProcessor
-from lawdigest_ai.processor.summarizer import AISummarizer
 from lawdigest_data.connectors.APISender import APISender
 from lawdigest_data.connectors.DatabaseManager import DatabaseManager
 
@@ -19,7 +18,7 @@ def run_upload_job(target_db='test', dry_run=True, start_date=None, end_date=Non
     """
     위원장안 및 정부법안을 수집, 처리하여 선택된 DB로 업로드하거나 테스트(Dry-run)합니다.
     """
-    print(f"🚀 [Job Start] 위원장안/정부법안 업로드 작업 시작")
+    print("🚀 [Job Start] 위원장안/정부법안 업로드 작업 시작")
     print(f"   - Target DB: {target_db}")
     print(f"   - Dry Run: {dry_run}")
     print(f"   - 기간: {start_date} ~ {end_date}")
@@ -44,7 +43,6 @@ def run_upload_job(target_db='test', dry_run=True, start_date=None, end_date=Non
         db_manager = DatabaseManager() # 기본값 (remote)
 
     # AI 요약 및 전송 객체
-    summarizer = AISummarizer()
     sender = APISender()
 
     # 날짜 기본값 설정

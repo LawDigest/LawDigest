@@ -19,7 +19,6 @@ import re
 import sys
 import time
 from pathlib import Path
-from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -101,7 +100,6 @@ def _extract_pdf_url(soup: BeautifulSoup) -> tuple[str, str]:
 
     analysis_filename = ""
     analysis_url = ""
-    questionnaire_filename = ""
     questionnaire_url = ""
 
     for text, onclick in file_anchors:
@@ -109,7 +107,7 @@ def _extract_pdf_url(soup: BeautifulSoup) -> tuple[str, str]:
         if any(k in text for k in ("결과표", "결과분석", "분석")) and not analysis_url:
             analysis_filename, analysis_url = text, url
         elif any(k in text for k in ("설문지", "질문지")) and not questionnaire_url:
-            questionnaire_filename, questionnaire_url = text, url
+            questionnaire_url = url
 
     # 분석 파일이 없으면 두 번째 파일
     if not analysis_url and len(file_anchors) >= 2:

@@ -17,17 +17,17 @@ from pathlib import Path
 _project_root = Path(__file__).resolve().parent.parent.parent / "src"
 sys.path.insert(0, str(_project_root))
 
-from lawdigest_data.elections.api_client import NecApiClient
-from lawdigest_data.elections.collectors.pledge_collector import (
-    PartyPolicyCollector,
-    PledgeCollector,
-)
-from lawdigest_data.elections.database import get_session, init_db
-
 DEFAULT_SG_ID = "20220601"
 
 
 def main() -> None:
+    from lawdigest_data.elections.api_client import NecApiClient
+    from lawdigest_data.elections.collectors.pledge_collector import (
+        PartyPolicyCollector,
+        PledgeCollector,
+    )
+    from lawdigest_data.elections.database import get_session, init_db
+
     parser = argparse.ArgumentParser(description="선거공약/정당정책 수집")
     parser.add_argument("--sg-id", default=DEFAULT_SG_ID, help="대상 선거 ID")
     parser.add_argument(

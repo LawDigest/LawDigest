@@ -20,9 +20,9 @@ from pathlib import Path
 _project_root = Path(__file__).resolve().parent.parent.parent / "src"
 sys.path.insert(0, str(_project_root))
 
-from lawdigest_data.elections.api_client import NecApiClient
-from lawdigest_data.elections.collectors.code_collector import CodeCollector
-from lawdigest_data.elections.database import get_session, init_db
+from lawdigest_data.elections.api_client import NecApiClient  # noqa: E402
+from lawdigest_data.elections.collectors.code_collector import CodeCollector  # noqa: E402
+from lawdigest_data.elections.database import get_session, init_db  # noqa: E402
 
 # 제9회 전국동시지방선거 sgId (추정값 — 실행 시 실제 확인)
 DEFAULT_SG_ID = "20220601"

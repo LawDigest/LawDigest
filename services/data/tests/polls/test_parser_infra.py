@@ -37,33 +37,20 @@ from lawdigest_data.polls.parser import (
     _WinjiKoreaParser,
 )
 
+
+def _load_registry_config() -> dict:
+    registry_path = Path(__file__).resolve().parents[2] / "config" / "parser_registry.json"
+    return json.loads(registry_path.read_text(encoding="utf-8"))
+
+
 # ── PARSER_KEY 자동 탐색 ─────────────────────────────────────────────────────
 
 
 class TestBuildParserKeyMap:
     def test_all_parsers_discovered(self):
         key_map = _build_parser_key_map()
-        expected_keys = {
-            "_TableFormatParser",
-            "_DailyResearchParser",
-            "_RealMeterParser",
-            "_KoreanResearchParser",
-            "_SignalPulseParser",
-            "_EmbrainPublicParser",
-            "_FlowerResearchParser",
-            "_WinjiKoreaParser",
-            "_ResearchAndResearchParser",
-            "_HangilResearchParser",
-            "_NextResearchParser",
-            "_STIParser",
-            "_IpsosParser",
-            "_KStatResearchParser",
-            "_AceResearchParser",
-            "_KopraParser",
-            "_MediaTomatoParser",
-            "_KSOIParser",
-            "_FairPollParser",
-        }
+        registry = _load_registry_config()
+        expected_keys = {entry["class"] for entry in registry["parsers"].values()}
         assert expected_keys == set(key_map.keys())
 
     def test_key_maps_to_correct_class(self):
@@ -170,50 +157,17 @@ class TestPollResultParserRegistry:
     def test_load_from_default_registry(self):
         """기본 경로의 parser_registry.json에서 모든 파서가 로드된다."""
         parser = PollResultParser()
-        assert len(parser._registry) == 19  # 현재 등록된 파서 수
+        registry = _load_registry_config()
+        assert len(parser._registry) == len(registry["parsers"])
 
     def test_all_pollsters_registered(self):
         parser = PollResultParser()
         all_keywords = {kw for e in parser._registry for kw in e.pollster_keywords}
+        registry = _load_registry_config()
         expected = {
-            "조원씨앤아이",
-            "메타서치",
-            "데일리리서치",
-            "리얼미터",
-            "한국리서치",
-            "시그널앤펄스",
-            "엠브레인퍼블릭",
-            "여론조사꽃",
-            "윈지코리아",
-            "(주)한길리서치",
-            "한길리서치",
-            "리서치앤리서치",
-            "㈜리서치앤리서치",
-            "(주)리서치앤리서치",
-            "넥스트리서치",
-            "에스티아이",
-            "㈜에스티아이",
-            "(주)에스티아이",
-            "입소스",
-            "Ipsos",
-            "케이스탯리서치",
-            "㈜케이스탯리서치",
-            "(주)케이스탯리서치",
-            "케이스탯",
-            "메타보이스",
-            "메타보이스(주)",
-            # 신규 추가 파서
-            "(주)에이스리서치",
-            "에이스리서치",
-            "KOPRA",
-            "한국여론평판연구소",
-            "미디어토마토",
-            "케이에스오아이 주식회사(한국사회여론연구소)",
-            "KSOI",
-            "한국사회여론연구소",
-            # 여론조사공정
-            "여론조사공정(주)",
-            "여론조사공정",
+            pollster
+            for entry in registry["parsers"].values()
+            for pollster in entry["pollster_names"]
         }
         assert expected == all_keywords
 
