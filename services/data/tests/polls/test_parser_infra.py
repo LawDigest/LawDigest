@@ -535,41 +535,48 @@ class TestEmbrainPublicParserVariants:
         assert results == []
 
 
-class TestWinjiKoreaParserVariants:
-    def test_parses_total_row_without_explicit_marker(self):
-        parser = _WinjiKoreaParser()
-        pages_data = [
-            (
-                "표 1 정당지지도",
-                [
-                    [
-                        [
-                            None,
-                            None,
-                            "더불어민주당\n국민의힘\n조국혁신당\n진보당",
-                        ],
-                        [
-                            None,
-                            "(807)",
-                            "65.7 23.4 7.1 3.8",
-                        ],
-                    ]
-                ],
-                "표 1 정당지지도",
-            )
-        ]
+class TestWinjiKoreaParserRealPdf:
+    def test_parses_250915_pdf(self):
+        parser = PollResultParser()
+        pdf_path = (
+            Path(__file__).resolve().parents[2]
+            / "output"
+            / "pdfs"
+            / "제9회 전국동시지방선거"
+            / "경기도 전체"
+            / "250915_보고서_드림투데이(경기)_v2.pdf"
+        )
 
-        results = parser.parse(pages_data)
+        results = parser.parse_pdf(pdf_path, pollster_hint="(주)윈지코리아컨설팅")
 
-        assert len(results) == 1
+        assert len(results) == 7
         assert results[0].question_number == 1
-        assert results[0].question_title == "정당지지도"
-        assert results[0].overall_n_completed == 807
-        assert results[0].overall_n_weighted is None
+        assert results[0].question_title == "이재명 대통령 지지도"
+        assert results[0].overall_n_completed == 1002
+        assert results[0].overall_n_weighted == 1002
         assert results[0].response_options == [
-            "더불어민주당",
-            "국민의힘",
-            "조국혁신당",
-            "진보당",
+            "매우 잘하고 있다",
+            "대체로 잘하는 편이다",
+            "대체로 잘못하는 편이다",
+            "매우 잘못하고 있다",
+            "잘 모르겠다",
         ]
-        assert results[0].overall_percentages == [65.7, 23.4, 7.1, 3.8]
+
+    def test_parses_260305_pdf(self):
+        parser = PollResultParser()
+        pdf_path = (
+            Path(__file__).resolve().parents[2]
+            / "output"
+            / "pdfs"
+            / "제9회 전국동시지방선거"
+            / "경기도 전체"
+            / "260305_공표용보고서_경기도_정치지형조사_v2.pdf"
+        )
+
+        results = parser.parse_pdf(pdf_path, pollster_hint="(주)윈지코리아컨설팅")
+
+        assert len(results) == 10
+        assert results[0].question_number == 1
+        assert results[0].overall_n_completed == 1007
+        assert results[0].overall_n_weighted is None
+        assert all(result.response_options for result in results)

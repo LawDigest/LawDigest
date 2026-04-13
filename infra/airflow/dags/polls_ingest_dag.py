@@ -16,16 +16,20 @@ from airflow.models.param import Param
 from airflow.operators.python import PythonOperator
 
 _PROJECT_ROOT = "/opt/airflow/project"
+_DATA_PROJECT_ROOT = f"{_PROJECT_ROOT}/services/data"
 _RUN_STARTED_AT: float | None = None
 
 
 def fetch_polls(**context):
     global _RUN_STARTED_AT
     _RUN_STARTED_AT = monotonic()
-    if _PROJECT_ROOT not in sys.path:
-        sys.path.append(_PROJECT_ROOT)
+    if _DATA_PROJECT_ROOT not in sys.path:
+        sys.path.append(_DATA_PROJECT_ROOT)
+    data_src = f"{_DATA_PROJECT_ROOT}/src"
+    if data_src not in sys.path:
+        sys.path.append(data_src)
 
-    from src.lawdigest_data_pipeline.polls.workflow import PollsWorkflowManager
+    from lawdigest_data.polls.workflow import PollsWorkflowManager
 
     params = context.get("params", {})
     manager = PollsWorkflowManager(params.get("execution_mode") or "dry_run")
@@ -36,10 +40,13 @@ def fetch_polls(**context):
 
 
 def crawl_details(**context):
-    if _PROJECT_ROOT not in sys.path:
-        sys.path.append(_PROJECT_ROOT)
+    if _DATA_PROJECT_ROOT not in sys.path:
+        sys.path.append(_DATA_PROJECT_ROOT)
+    data_src = f"{_DATA_PROJECT_ROOT}/src"
+    if data_src not in sys.path:
+        sys.path.append(data_src)
 
-    from src.lawdigest_data_pipeline.polls.workflow import PollsWorkflowManager
+    from lawdigest_data.polls.workflow import PollsWorkflowManager
 
     params = context.get("params", {})
     task_instance = context["ti"]
@@ -56,10 +63,13 @@ def crawl_details(**context):
 
 
 def parse_results(**context):
-    if _PROJECT_ROOT not in sys.path:
-        sys.path.append(_PROJECT_ROOT)
+    if _DATA_PROJECT_ROOT not in sys.path:
+        sys.path.append(_DATA_PROJECT_ROOT)
+    data_src = f"{_DATA_PROJECT_ROOT}/src"
+    if data_src not in sys.path:
+        sys.path.append(data_src)
 
-    from src.lawdigest_data_pipeline.polls.workflow import PollsWorkflowManager
+    from lawdigest_data.polls.workflow import PollsWorkflowManager
 
     params = context.get("params", {})
     task_instance = context["ti"]
@@ -82,10 +92,13 @@ def parse_results(**context):
 
 
 def upsert_polls(**context):
-    if _PROJECT_ROOT not in sys.path:
-        sys.path.append(_PROJECT_ROOT)
+    if _DATA_PROJECT_ROOT not in sys.path:
+        sys.path.append(_DATA_PROJECT_ROOT)
+    data_src = f"{_DATA_PROJECT_ROOT}/src"
+    if data_src not in sys.path:
+        sys.path.append(data_src)
 
-    from src.lawdigest_data_pipeline.polls.workflow import PollsWorkflowManager
+    from lawdigest_data.polls.workflow import PollsWorkflowManager
 
     params = context.get("params", {})
     task_instance = context["ti"]
@@ -99,10 +112,13 @@ def upsert_polls(**context):
 
 
 def summarize_run(**context):
-    if _PROJECT_ROOT not in sys.path:
-        sys.path.append(_PROJECT_ROOT)
+    if _DATA_PROJECT_ROOT not in sys.path:
+        sys.path.append(_DATA_PROJECT_ROOT)
+    data_src = f"{_DATA_PROJECT_ROOT}/src"
+    if data_src not in sys.path:
+        sys.path.append(data_src)
 
-    from src.lawdigest_data_pipeline.polls.workflow import _write_artifact
+    from lawdigest_data.polls.workflow import _write_artifact
 
     params = context.get("params", {})
     ti = context["ti"]

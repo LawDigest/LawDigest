@@ -67,7 +67,25 @@ def _extract_page_data(
     finder_tables = getattr(finder, "tables", None) if finder is not None else None
 
     t2 = time.monotonic()
-    tables = [_unmerge_table(t, page) for t in finder_tables] if finder_tables else []
+    if getattr(parser_class, "NEEDS_WORDS", False):
+        words = page.get_text("words")
+        tables = []
+        for t in finder_tables or []:
+            header_bbox = None
+            try:
+                header_bbox = t.rows[0].cells[3] if t.rows and len(t.rows[0].cells) > 3 else None
+            except Exception:
+                header_bbox = None
+            tables.append(
+                {
+                    "__winji_table__": _unmerge_table(t, page),
+                    "__winji_header_bbox__": header_bbox,
+                }
+            )
+        if words:
+            tables.insert(0, {"__winji_words__": words})
+    else:
+        tables = [_unmerge_table(t, page) for t in finder_tables] if finder_tables else []
     _logger.debug(
         "unmerge_tables (%d): %.3fs (page %s)",
         len(tables),
@@ -1371,10 +1389,17 @@ class _WinjiKoreaParser(BaseTableParser):
     """
 
     PARSER_KEY = "_WinjiKoreaParser"
+    NEEDS_WORDS = True
 
-    _TABLE_HEADER_RE = re.compile(r"표\s+(\d+)\s+([^\n(]+)", re.MULTILINE)
-    QUESTION_PAGE_RE = re.compile(r"표\s+\d+")
-
+    _TABLE_HEADER_RE = re.compile(
+        r"표\s*(\d+)(?:-\d+)?\s*(?:\n\s*)+([^\n(]+)",
+        re.MULTILINE,
+    )
+    QUESTION_PAGE_RE = re.compile(r"전\s*체|사례수|표\s+\d+")
+    _PAGE_META_RE = re.compile(
+        r"^(?:\(?n=.*\)|조사|완료|사례수|가중값|적용|비율|배율|단위\s*:\s*%|표\s*\d+)$"
+    )
+    _TOTAL_ROW_MARKERS = {"전체", "전체", "[전체]", "[전 체]"}
     # 헤더 셀에서 선택지로 쓸 수 없는 키워드
     _HEADER_SKIP = {
         "조사완료사례수",
@@ -1389,48 +1414,54 @@ class _WinjiKoreaParser(BaseTableParser):
 
     def parse(self, pages_data: List[PageData]) -> List[QuestionResult]:
         results: List[QuestionResult] = []
-        # q_num → QuestionResult (멀티페이지 merge 지원)
-        seen: dict = {}
-        q_order: List[int] = []
 
         for _page_text, page_tables, page_full in pages_data:
+            page_words = []
+            if page_tables and isinstance(page_tables[0], dict) and "__winji_words__" in page_tables[0]:
+                page_words = page_tables[0]["__winji_words__"] or []
+                page_tables = page_tables[1:]
+
             # 페이지에서 질문번호·제목 추출
-            q_num = None
             q_title = ""
             for m in self._TABLE_HEADER_RE.finditer(page_full):
                 try:
-                    q_num = int(m.group(1))
                     q_title = re.sub(r"\s+", " ", m.group(2)).strip()
                 except (ValueError, IndexError):
-                    pass
+                    q_title = ""
+
+            if not q_title:
+                continue
 
             for table in page_tables:
-                result = self._parse_table(table)
+                result = self._parse_table(table, page_full, page_words)
                 if result is None:
                     continue
 
-                if q_num is not None:
-                    result.question_number = q_num
-                    result.question_title = q_title
-                    if q_num not in seen:
-                        seen[q_num] = result
-                        q_order.append(q_num)
-                    # 멀티페이지: 이미 있으면 스킵 (첫 페이지 결과 유지)
-                else:
-                    result.question_number = len(results) + 1
-                    results.append(result)
-
-        for q in q_order:
-            results.append(seen[q])
+                result.question_number = len(results) + 1
+                result.question_title = q_title
+                results.append(result)
 
         return results
 
-    def _parse_table(self, table: List[List]) -> Optional[QuestionResult]:
-        if not table or len(table) < 2:
+    def _parse_table(
+        self,
+        table: object,
+        page_full: str,
+        page_words: list | None = None,
+    ) -> Optional[QuestionResult]:
+        if not table:
+            return None
+
+        table_data = table
+        header_bbox = None
+        if isinstance(table, dict) and "__winji_table__" in table:
+            table_data = table["__winji_table__"]
+            header_bbox = table.get("__winji_header_bbox__")
+        if not isinstance(table_data, list) or len(table_data) < 2:
             return None
 
         # 전체 행 탐색: '전 체' 또는 '전체' (공백 포함)
-        found = self._find_total_row(table)
+        found = self._find_total_row(table_data)
         if found is None:
             return None
         total_row_idx, total_row = found
@@ -1439,16 +1470,27 @@ class _WinjiKoreaParser(BaseTableParser):
             return None
 
         # 사례수: col[1]
-        n_completed = extract_sample_count(str(total_row[1] or ""))
+        n_completed = extract_sample_count(str(total_row[2] or ""))
+        n_weighted = extract_sample_count(str(total_row[4] or "")) if len(total_row) > 4 else None
 
-        # 비율: col[2] 뭉침 셀
-        pct_cell = str(total_row[2] or "")
+        # 비율: bunched cell 또는 개별 셀
+        pct_cell = str(total_row[3] or "")
         percentages = extract_percentages_from_bunched_cell(pct_cell)
+        if len(percentages) < 2:
+            percentages = extract_percentages_from_cells(total_row, start_col=4)
         if len(percentages) < 2:
             return None
 
-        # 선택지: row[0][2] 헤더 셀의 줄바꿈 텍스트
-        options = self._extract_options_from_header(table, len(percentages))
+        # 선택지: 헤더 컬럼 → page words → 헤더 텍스트
+        options = self._extract_options_from_columns(table_data, len(percentages))
+        if not options:
+            options = self._extract_options_from_words(
+                page_words or [],
+                header_bbox,
+                len(percentages),
+            )
+        if not options:
+            options = self._extract_options_from_header(table_data, len(percentages))
         if len(options) < len(percentages):
             return None
         options = options[: len(percentages)]
@@ -1459,7 +1501,7 @@ class _WinjiKoreaParser(BaseTableParser):
             question_text="",
             response_options=options,
             overall_n_completed=n_completed,
-            overall_n_weighted=None,
+            overall_n_weighted=n_weighted,
             overall_percentages=percentages,
         )
 
@@ -1473,29 +1515,148 @@ class _WinjiKoreaParser(BaseTableParser):
         for i, row in enumerate(table[1:], start=1):
             if not row or len(row) < 3:
                 continue
-            if extract_sample_count(str(row[1] or "")) is None:
+            if extract_sample_count(str(row[2] or "")) is None:
                 continue
-            if len(extract_percentages_from_bunched_cell(str(row[2] or ""))) < 2:
+            if len(extract_percentages_from_bunched_cell(str(row[3] or ""))) < 2:
                 continue
             return i, row
         return None
 
-    def _extract_options_from_header(self, table: List[List], n_opts: int) -> List[str]:
-        """row[0][2] 헤더 셀의 줄바꿈 텍스트에서 선택지 추출."""
-        if not table or len(table[0]) < 3:
+    def _extract_options_from_words(
+        self,
+        words: list,
+        header_bbox: object,
+        n_opts: int,
+    ) -> List[str]:
+        """헤더 셀 좌표 안의 단어들을 x축 군집화해 선택지를 복원한다."""
+        if not words or not header_bbox:
             return []
-        raw = str(table[0][2] or "")
-        # 줄바꿈으로 분리 후 skip 키워드 제거
-        lines = [ln.strip() for ln in re.split(r"[\n\x00]+", raw) if ln.strip()]
-        opts = []
-        for ln in lines:
-            normalized = re.sub(r"\s+", "", ln)
+
+        x0, y0, x1, y1 = header_bbox
+        if x1 <= x0 or y1 <= y0:
+            return []
+
+        filtered = []
+        for word in words:
+            wx0, wy0, wx1, wy1, text = word[:5]
+            if wx1 < x0 - 1 or wx0 > x1 + 1 or wy1 < y0 - 1 or wy0 > y1 + 1:
+                continue
+            cleaned = re.sub(r"\s+", "", str(text or ""))
+            if not cleaned or cleaned.isdigit():
+                continue
+            if self._PAGE_META_RE.match(cleaned):
+                continue
+            filtered.append(word)
+
+        if len(filtered) < n_opts:
+            return []
+
+        clusters = self._cluster_words_by_x(filtered, n_opts)
+        if len(clusters) != n_opts:
+            return []
+
+        options: List[str] = []
+        for cluster in clusters:
+            parts = [str(w[4] or "").strip() for w in sorted(cluster, key=lambda w: (w[1], w[0]))]
+            text = re.sub(r"\s+", " ", " ".join(part for part in parts if part)).strip()
+            if text:
+                options.append(text)
+
+        return options if len(options) == n_opts else []
+
+    def _extract_options_from_columns(self, table: List[List], n_opts: int) -> List[str]:
+        """헤더 행의 option 컬럼을 그대로 읽어 선택지를 복원한다."""
+        if not table or len(table[0]) <= 4:
+            return []
+
+        options: List[str] = []
+        for cell in table[0][4:]:
+            text = re.sub(r"\s+", " ", str(cell or "").strip())
+            if not text:
+                continue
+            normalized = re.sub(r"\s+", "", text)
             if normalized in self._HEADER_SKIP:
                 continue
-            if re.match(r"^[\d.]+$", ln):
+            if re.fullmatch(r"[\d.]+", normalized):
                 continue
-            opts.append(ln)
-        return opts
+            options.append(text)
+        if len(options) >= n_opts:
+            return options[:n_opts]
+        return []
+
+    @staticmethod
+    def _cluster_words_by_x(words: list, n_clusters: int) -> List[list]:
+        if not words:
+            return []
+
+        sorted_words = sorted(words, key=lambda w: ((w[0] + w[2]) / 2.0, w[1], w[0]))
+        if n_clusters <= 1:
+            return [sorted_words]
+        if len(sorted_words) <= n_clusters:
+            return [[w] for w in sorted_words]
+
+        gaps: List[tuple[float, int]] = []
+        for idx in range(len(sorted_words) - 1):
+            left = (sorted_words[idx][0] + sorted_words[idx][2]) / 2.0
+            right = (sorted_words[idx + 1][0] + sorted_words[idx + 1][2]) / 2.0
+            gaps.append((right - left, idx))
+
+        sorted_gap_indices = [idx for gap, idx in sorted(gaps, key=lambda item: item[0], reverse=True) if gap > 10]
+        cut_points = sorted(sorted_gap_indices[: n_clusters - 1])
+        if len(cut_points) < n_clusters - 1:
+            return []
+
+        clusters: List[list] = []
+        start = 0
+        for cut in cut_points:
+            clusters.append(sorted_words[start : cut + 1])
+            start = cut + 1
+        clusters.append(sorted_words[start:])
+        return [cluster for cluster in clusters if cluster]
+
+    def _extract_options_from_header(self, table: List[List], n_opts: int) -> List[str]:
+        """테이블 셀 전체를 훑어 선택지 라벨이 가장 잘 보이는 셀을 찾는다."""
+        if not table:
+            return []
+        best: List[str] = []
+        best_score = -1
+
+        for row in table[:3]:
+            for cell in row:
+                raw = str(cell or "")
+                if not raw.strip():
+                    continue
+                lines = [ln.strip() for ln in re.split(r"[\n\x00]+", raw) if ln.strip()]
+                if not lines:
+                    continue
+
+                opts: List[str] = []
+                numeric_only = True
+                for ln in lines:
+                    normalized = re.sub(r"\s+", "", ln)
+                    if normalized in self._HEADER_SKIP:
+                        continue
+                    if re.fullmatch(r"[\d.]+", normalized):
+                        continue
+                    numeric_only = False
+                    opts.append(ln)
+
+                if numeric_only or not opts:
+                    continue
+
+                score = len(opts)
+                if len(opts) == n_opts:
+                    score += 100
+                score -= abs(len(opts) - n_opts)
+                # 질문 옵션은 보통 숫자 셀보다 텍스트 셀에 더 많이 들어 있다.
+                if len(opts) >= 3:
+                    score += 3
+
+                if score > best_score:
+                    best_score = score
+                    best = opts
+
+        return best
 
 
 class _ResearchAndResearchParser(BaseTableParser):
