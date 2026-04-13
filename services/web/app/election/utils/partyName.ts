@@ -14,15 +14,26 @@ const CANONICAL_PARTY_NAMES = [
   '무소속',
 ] as const;
 
+const UNDECIDED_PARTY_NAMES = ['undecided', '잘모르겠다', '그외정당', '그외다른정당'] as const;
+
 function buildPartyKey(value: string) {
   return value.trim().replace(/\s+/g, '');
+}
+
+export function isUndecidedLikePartyName(name: string | null | undefined) {
+  const normalizedKey = buildPartyKey(name ?? '');
+  return UNDECIDED_PARTY_NAMES.includes(normalizedKey as (typeof UNDECIDED_PARTY_NAMES)[number]);
 }
 
 export function normalizePartyName(name: string | null | undefined) {
   const trimmed = name?.trim() ?? '';
 
-  if (!trimmed || trimmed === 'undecided') {
+  if (!trimmed) {
     return trimmed;
+  }
+
+  if (isUndecidedLikePartyName(trimmed)) {
+    return 'undecided';
   }
 
   const normalizedKey = buildPartyKey(trimmed);

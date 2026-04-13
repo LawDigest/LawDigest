@@ -256,6 +256,42 @@ class PollQueryServiceTest {
     }
 
     @Test
+    void treatsOtherPartyAndUnknownVariantsAsUndecidedInOverview() {
+        persistSurvey("서울-301", "제9회 전국동시지방선거", "서울특별시 전체", "테스트리서치", LocalDate.of(2026, 4, 3));
+        Long questionId = persistQuestion("서울-301", 1, "정당지지도");
+
+        persistOption(questionId, "더불어민주당", "41.20");
+        persistOption(questionId, "국민의힘", "33.80");
+        persistOption(questionId, "그 외 다른 정당", "4.10");
+        persistOption(questionId, "그 외 정당", "2.20");
+        persistOption(questionId, "잘 모르겠다", "3.00");
+        persistOption(questionId, "잘 모르겠 다", "1.40");
+        persistOption(questionId, "잘 모르 겠다", "1.30");
+
+        entityManager.flush();
+
+        PollQueryService pollQueryService = new PollQueryService(
+                pollSurveyRepository,
+                pollQuestionRepository,
+                pollOptionRepository,
+                classifier,
+                normalizationService
+        );
+
+        ElectionPollOverviewResponse response = pollQueryService.getOverview("local-2026", "11");
+
+        assertThat(response.getLatestSurveys()).hasSize(1);
+        assertThat(response.getLatestSurveys().get(0).getSnapshot())
+                .extracting(ElectionPollOverviewResponse.PartySnapshot::getPartyName)
+                .containsExactly("더불어민주당", "국민의힘", "undecided");
+        assertThat(response.getLatestSurveys().get(0).getSnapshot().stream()
+                .filter(snapshot -> snapshot.getPartyName().equals("undecided"))
+                .findFirst()
+                .orElseThrow()
+                .getPercentage()).isEqualByComparingTo("12.00");
+    }
+
+    @Test
     void mergesPartyNameVariantsWithSpacesInOverviewAndPartyResponse() {
         persistSurvey("서울-601", "제9회 전국동시지방선거", "서울특별시 전체", "한국갤럽", LocalDate.of(2026, 4, 2));
 
