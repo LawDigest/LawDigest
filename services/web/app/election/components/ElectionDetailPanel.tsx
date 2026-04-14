@@ -32,7 +32,10 @@ function ElectionDetailPanelContent({
 }: ElectionDetailPanelContentProps) {
   const candidateDetailQuery = useGetElectionCandidateDetail(electionId, candidateId);
   const detail = candidateDetailQuery.data?.data;
-  const manifestoItems = detail?.manifesto_items ?? fallbackManifestoItems ?? [];
+  const manifestoItems =
+    detail?.manifesto_items.map((item) => item.title ?? item.content ?? '').filter(Boolean) ??
+    fallbackManifestoItems ??
+    [];
 
   if (candidateDetailQuery.isLoading) {
     return (
