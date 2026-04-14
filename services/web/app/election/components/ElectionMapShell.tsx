@@ -99,7 +99,11 @@ export default function ElectionMapShell() {
           <ElectionPollView confirmedRegion={confirmedRegion} selectedElectionId={selectedElectionId} />
         )}
         {activeTab === 'district' && (
-          <ElectionDistrictView confirmedRegion={confirmedRegion} onRegionChange={setConfirmedRegion} />
+          <ElectionDistrictView
+            confirmedRegion={confirmedRegion}
+            selectedElectionId={selectedElectionId}
+            onRegionChange={setConfirmedRegion}
+          />
         )}
       </div>
     </Layout>

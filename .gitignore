@@ -16,6 +16,9 @@ Thumbs.db
 .codex
 .gemini
 harness
+.codesight/
+.omc/
+services/data/.omc/
 
 # 워크트리
 .worktrees

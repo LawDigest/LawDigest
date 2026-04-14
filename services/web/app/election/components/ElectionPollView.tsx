@@ -15,7 +15,7 @@ import {
   useGetElectionPollParty,
   useGetElectionPollRegion,
 } from '../apis/queries';
-import { aggregatePartySnapshots, normalizePartyName } from '../utils/partyName';
+import { aggregatePartySnapshots, isUndecidedLikePartyName, normalizePartyName } from '../utils/partyName';
 import { ConfirmedRegion } from './ElectionMapShell';
 import PartyRingSelector from './shared/PartyRingSelector';
 import DistrictMapPicker, { SelectedRegion } from './shared/DistrictMapPicker';
@@ -56,13 +56,7 @@ function formatCompactDate(dateText: string) {
 }
 
 function filterOutUndecided<T extends { label: string }>(items: T[]) {
-  return items.filter(
-    (item) =>
-      !item.label.includes('없음') &&
-      !item.label.includes('모름') &&
-      !item.label.includes('기타') &&
-      item.label !== 'undecided',
-  );
+  return items.filter((item) => !isUndecidedLikePartyName(item.label));
 }
 
 function mapSurveySnapshot(snapshot: ElectionPollSnapshotItem[]) {

@@ -1,15 +1,59 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { ElectionPollRegionResponse, ElectionRegionCode } from '@/types';
+import { useGetElectionCandidateDetails, useGetElectionCandidates, useGetElectionPollRegion } from '../apis/queries';
 import { ConfirmedRegion } from './ElectionMapShell';
-import { MOCK_DISTRICT, MockCandidate, MockAiIssue, IMPORTANCE_LABEL } from '../data/mockDistrictData';
+import { MOCK_DISTRICT, MockAiIssue, IMPORTANCE_LABEL } from '../data/mockDistrictData';
 import DistrictMapPicker from './shared/DistrictMapPicker';
 import PollRegionPanel from './PollRegionPanel';
 import FeedRegionPanel from './FeedRegionPanel';
 
 interface ElectionDistrictViewProps {
   confirmedRegion: ConfirmedRegion | null;
+  selectedElectionId: string;
   onRegionChange: (region: ConfirmedRegion) => void;
+}
+
+interface DistrictCandidateViewModel {
+  id: string;
+  name: string;
+  partyName: string;
+  partyColor: string;
+  supportPct: number | null;
+  career: string[];
+  pledges: string[];
+}
+
+function getPartyColor(name: string) {
+  if (name.includes('더불어민주')) return '#152484';
+  if (name.includes('국민의힘')) return '#C9151E';
+  if (name.includes('개혁신당')) return '#FF7210';
+  if (name.includes('조국')) return '#6A3FA0';
+  return '#5b6475';
+}
+
+function formatPercentage(value: number | null) {
+  return value === null ? '집계중' : `${value}%`;
+}
+
+function getCandidateSupportMap(response?: ElectionPollRegionResponse | null) {
+  return new Map((response?.candidate_snapshot ?? []).map((item) => [item.candidate_name, item.percentage]));
+}
+
+function getDistrictPollSummary(response?: ElectionPollRegionResponse | null) {
+  const partySnapshot = [...(response?.party_snapshot ?? [])].sort((left, right) => right.percentage - left.percentage);
+  const lead = partySnapshot[0] ?? null;
+  const second = partySnapshot[1] ?? null;
+  const otherPct = Math.max(0, 100 - (lead?.percentage ?? 0) - (second?.percentage ?? 0));
+
+  return {
+    lead,
+    second,
+    otherPct,
+    latestSampleSize: response?.latest_surveys[0]?.sample_size ?? null,
+    surveyCount: response?.latest_surveys.length ?? 0,
+  };
 }
 
 // ─── 후보자 캐러셀 카드 ───────────────────────────────────────────────────────
@@ -19,7 +63,7 @@ function CandidateCard({
   isSelected,
   onSelect,
 }: {
-  candidate: MockCandidate;
+  candidate: DistrictCandidateViewModel;
   isSelected: boolean;
   onSelect: () => void;
 }) {
@@ -34,7 +78,6 @@ function CandidateCard({
         border: isSelected ? `2px solid ${candidate.partyColor}` : '1.5px solid #dbe4e7',
         outline: 'none',
       }}>
-      {/* 헤더: 아바타 + 이름/정당 */}
       <div className="flex items-center gap-4">
         <div
           className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-xl shrink-0"
@@ -47,15 +90,13 @@ function CandidateCard({
           </p>
           <h4 className="font-bold text-base text-gray-4 dark:text-white mt-0.5">{candidate.name}</h4>
         </div>
-        {/* 지지율 뱃지 */}
         <span
           className="ml-auto text-xs font-extrabold px-2.5 py-1 rounded-full text-white shrink-0"
           style={{ backgroundColor: candidate.partyColor }}>
-          {candidate.supportPct}%
+          {formatPercentage(candidate.supportPct)}
         </span>
       </div>
 
-      {/* 주요 공약 목록 */}
       <div className="space-y-2">
         {candidate.pledges.slice(0, 2).map((pledge) => (
           <div key={pledge} className="flex items-start gap-2">
@@ -95,50 +136,66 @@ function AiIssueItem({ issue }: { issue: MockAiIssue }) {
 
 // ─── 지역구 여론 섹션 ─────────────────────────────────────────────────────────
 
-function DistrictPollCard() {
-  const { poll } = MOCK_DISTRICT;
-  const otherPct = Math.max(0, 100 - poll.leadPct - poll.secondPct);
+function DistrictPollCard({ response }: { response?: ElectionPollRegionResponse | null }) {
+  const summary = getDistrictPollSummary(response);
+
+  if (!summary.lead) {
+    return (
+      <div className="bg-white dark:bg-dark-pb rounded-3xl p-6 border border-gray-1 dark:border-dark-l">
+        <p className="text-sm text-gray-2">해당 지역의 핵심 여론 스냅샷이 아직 없습니다.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white dark:bg-dark-pb rounded-3xl p-6 border border-gray-1 dark:border-dark-l">
-      {/* 상단: 1위/2위 수치 */}
       <div className="flex justify-between items-end mb-6">
         <div>
-          <p className="text-2xl font-extrabold text-gray-4 dark:text-white">{poll.leadPct}%</p>
-          <p className="text-xs font-bold uppercase tracking-wider mt-0.5" style={{ color: poll.leadPartyColor }}>
-            {poll.leadParty}
+          <p className="text-2xl font-extrabold text-gray-4 dark:text-white">{summary.lead.percentage}%</p>
+          <p
+            className="text-xs font-bold uppercase tracking-wider mt-0.5"
+            style={{ color: getPartyColor(summary.lead.party_name) }}>
+            {summary.lead.party_name}
           </p>
         </div>
-        <div className="text-right">
-          <p className="text-base font-bold" style={{ color: poll.secondPartyColor }}>
-            {poll.secondPct}%
-          </p>
-          <p className="text-[10px] text-gray-2">{poll.secondParty}</p>
-        </div>
+        {summary.second ? (
+          <div className="text-right">
+            <p className="text-base font-bold" style={{ color: getPartyColor(summary.second.party_name) }}>
+              {summary.second.percentage}%
+            </p>
+            <p className="text-[10px] text-gray-2">{summary.second.party_name}</p>
+          </div>
+        ) : null}
       </div>
 
-      {/* 바 차트 */}
       <div className="h-3 w-full flex rounded-full overflow-hidden mb-6">
         <div
           className="h-full transition-all"
-          style={{ width: `${poll.leadPct}%`, backgroundColor: poll.leadPartyColor }}
+          style={{ width: `${summary.lead.percentage}%`, backgroundColor: getPartyColor(summary.lead.party_name) }}
         />
-        <div
-          className="h-full transition-all"
-          style={{ width: `${poll.secondPct}%`, backgroundColor: poll.secondPartyColor }}
-        />
-        {otherPct > 0 && <div className="h-full flex-1 bg-gray-1 dark:bg-dark-l" />}
+        {summary.second ? (
+          <div
+            className="h-full transition-all"
+            style={{
+              width: `${summary.second.percentage}%`,
+              backgroundColor: getPartyColor(summary.second.party_name),
+            }}
+          />
+        ) : null}
+        {summary.otherPct > 0 ? <div className="h-full flex-1 bg-gray-1 dark:bg-dark-l" /> : null}
       </div>
 
-      {/* 하단: 미결정/신뢰도 */}
       <div className="flex gap-3">
         <div className="flex-1 bg-gray-0.5/50 dark:bg-dark-b rounded-xl p-3">
-          <p className="text-[10px] font-bold text-gray-2 uppercase tracking-wide mb-1">미결정</p>
-          <p className="text-lg font-extrabold text-gray-4 dark:text-white">{poll.undecidedPct}%</p>
+          <p className="text-[10px] font-bold text-gray-2 uppercase tracking-wide mb-1">기타</p>
+          <p className="text-lg font-extrabold text-gray-4 dark:text-white">{summary.otherPct.toFixed(1)}%</p>
         </div>
         <div className="flex-1 bg-gray-0.5/50 dark:bg-dark-b rounded-xl p-3">
-          <p className="text-[10px] font-bold text-gray-2 uppercase tracking-wide mb-1">신뢰도</p>
-          <p className="text-lg font-extrabold text-gray-4 dark:text-white">{poll.reliability}%</p>
+          <p className="text-[10px] font-bold text-gray-2 uppercase tracking-wide mb-1">최신 표본</p>
+          <p className="text-lg font-extrabold text-gray-4 dark:text-white">
+            {summary.latestSampleSize ? summary.latestSampleSize.toLocaleString() : '-'}
+          </p>
+          <p className="mt-1 text-[10px] text-gray-2">최근 조사 {summary.surveyCount}건</p>
         </div>
       </div>
     </div>
@@ -194,15 +251,74 @@ function EmptyDistrictState({ onSelect }: { onSelect: (region: ConfirmedRegion) 
   );
 }
 
+function buildDistrictCandidates(
+  regionCode: ElectionRegionCode,
+  candidatesResponse: ReturnType<typeof useGetElectionCandidates>['data'],
+  candidateDetails: ReturnType<typeof useGetElectionCandidateDetails>['data'],
+  pollResponse?: ElectionPollRegionResponse | null,
+) {
+  const supportMap = getCandidateSupportMap(pollResponse);
+  const detailById = new Map(candidateDetails.map((detail) => [String(detail.candidate_id), detail]));
+
+  return (candidatesResponse?.data.candidates ?? []).map((candidate) => {
+    const detail = detailById.get(String(candidate.candidate_id));
+    const pledges =
+      detail?.manifesto_items
+        .map((item) => item.title ?? item.content ?? '')
+        .filter(Boolean)
+        .slice(0, 2) ?? [];
+    const career = [detail?.career1, detail?.career2].filter((value): value is string => Boolean(value));
+
+    return {
+      id: String(candidate.candidate_id),
+      name: detail?.candidate_name ?? candidate.candidate_name,
+      partyName: detail?.party_name ?? candidate.party_name,
+      partyColor: getPartyColor(detail?.party_name ?? candidate.party_name),
+      supportPct: supportMap.get(detail?.candidate_name ?? candidate.candidate_name) ?? null,
+      career: career.length > 0 ? career : [`${regionCode} 경력 정보 준비 중`],
+      pledges: pledges.length > 0 ? pledges : ['공개된 공약 정보가 아직 없습니다.'],
+    };
+  });
+}
+
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 
-export default function ElectionDistrictView({ confirmedRegion, onRegionChange }: ElectionDistrictViewProps) {
+export default function ElectionDistrictView({
+  confirmedRegion,
+  selectedElectionId,
+  onRegionChange,
+}: ElectionDistrictViewProps) {
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [showPicker, setShowPicker] = useState(false);
 
+  const regionCode = confirmedRegion?.regionCode ?? '';
+  const candidatesQuery = useGetElectionCandidates(selectedElectionId, regionCode, undefined);
+  const candidateIds = useMemo(
+    () => candidatesQuery.data?.data.candidates.map((candidate) => String(candidate.candidate_id)) ?? [],
+    [candidatesQuery.data?.data.candidates],
+  );
+  const candidateDetailsQuery = useGetElectionCandidateDetails(
+    selectedElectionId,
+    candidateIds,
+    candidateIds.length > 0,
+  );
+  const pollRegionQuery = useGetElectionPollRegion(selectedElectionId, regionCode, !!regionCode);
+
+  const districtCandidates = useMemo(
+    () =>
+      buildDistrictCandidates(regionCode, candidatesQuery.data, candidateDetailsQuery.data, pollRegionQuery.data?.data),
+    [candidateDetailsQuery.data, candidatesQuery.data, pollRegionQuery.data?.data, regionCode],
+  );
+
+  useEffect(() => {
+    setSelectedCandidates((prev) =>
+      prev.filter((candidateId) => districtCandidates.some((candidate) => candidate.id === candidateId)),
+    );
+  }, [districtCandidates]);
+
   function toggleCandidate(id: string) {
     setSelectedCandidates((prev) => {
-      if (prev.includes(id)) return prev.filter((c) => c !== id);
+      if (prev.includes(id)) return prev.filter((candidateId) => candidateId !== id);
       if (prev.length < 2) return [...prev, id];
       return [prev[1], id];
     });
@@ -219,12 +335,11 @@ export default function ElectionDistrictView({ confirmedRegion, onRegionChange }
     );
   }
 
-  const compareA = MOCK_DISTRICT.candidates.find((c) => c.id === selectedCandidates[0]);
-  const compareB = MOCK_DISTRICT.candidates.find((c) => c.id === selectedCandidates[1]);
+  const compareA = districtCandidates.find((candidate) => candidate.id === selectedCandidates[0]);
+  const compareB = districtCandidates.find((candidate) => candidate.id === selectedCandidates[1]);
 
   return (
     <div className="flex flex-col pb-10">
-      {/* ── 지역구 헤더 ── */}
       <section className="px-4 py-6 pb-4">
         <div className="flex items-end justify-between mb-2">
           <div>
@@ -241,14 +356,13 @@ export default function ElectionDistrictView({ confirmedRegion, onRegionChange }
         <div className="h-1 w-10 bg-primary-2 rounded-full" />
       </section>
 
-      {/* ── 지역구 후보자 캐러셀 ── */}
       <section className="mb-8">
         <div className="flex items-center justify-between px-4 mb-3">
           <h3 className="font-bold text-base text-gray-4 dark:text-white">지역구 후보자</h3>
-          <span className="text-xs text-gray-2">{MOCK_DISTRICT.candidates.length}명 출마</span>
+          <span className="text-xs text-gray-2">{districtCandidates.length}명 출마</span>
         </div>
         <div className="flex gap-3 overflow-x-auto px-4 pb-3 scrollbar-hide">
-          {MOCK_DISTRICT.candidates.map((candidate) => (
+          {districtCandidates.map((candidate) => (
             <CandidateCard
               key={candidate.id}
               candidate={candidate}
@@ -258,7 +372,6 @@ export default function ElectionDistrictView({ confirmedRegion, onRegionChange }
           ))}
         </div>
 
-        {/* 2명 선택 시 비교표 */}
         {compareA && compareB ? (
           <div className="mx-4 mt-3 rounded-2xl border border-gray-1 dark:border-dark-l overflow-hidden">
             <div className="grid grid-cols-3 bg-gray-0.5/50 dark:bg-dark-b text-[11px] font-semibold text-gray-3 dark:text-gray-1">
@@ -268,7 +381,11 @@ export default function ElectionDistrictView({ confirmedRegion, onRegionChange }
             </div>
             {[
               { label: '정당', aVal: compareA.partyName, bVal: compareB.partyName },
-              { label: '지지율', aVal: `${compareA.supportPct}%`, bVal: `${compareB.supportPct}%` },
+              {
+                label: '지지율',
+                aVal: formatPercentage(compareA.supportPct),
+                bVal: formatPercentage(compareB.supportPct),
+              },
               { label: '주요 공약', aVal: compareA.pledges[0], bVal: compareB.pledges[0] },
               { label: '경력', aVal: compareA.career[0], bVal: compareB.career[0] },
             ].map((row) => (
@@ -288,10 +405,8 @@ export default function ElectionDistrictView({ confirmedRegion, onRegionChange }
         )}
       </section>
 
-      {/* ── AI 주요 이슈 ── */}
       <section className="px-4 mb-8">
         <div className="bg-gray-0.5/50 dark:bg-dark-b rounded-3xl p-5 relative overflow-hidden">
-          {/* 배경 장식 아이콘 */}
           <span
             className="material-symbols-outlined absolute top-3 right-4 text-5xl text-gray-2 opacity-10 select-none"
             aria-hidden>
@@ -313,18 +428,15 @@ export default function ElectionDistrictView({ confirmedRegion, onRegionChange }
         </div>
       </section>
 
-      {/* ── 지역구 여론 ── */}
       <section className="px-4 mb-8">
         <h3 className="font-bold text-base text-gray-4 dark:text-white mb-3">지역구 여론</h3>
-        <DistrictPollCard />
+        <DistrictPollCard response={pollRegionQuery.data?.data} />
       </section>
 
-      {/* ── 내 지역구 여론조사 (기존 패널) ── */}
       <section className="border-t border-gray-1 dark:border-dark-l pt-4">
-        <PollRegionPanel region={confirmedRegion.regionName} />
+        <PollRegionPanel region={confirmedRegion.regionName} response={pollRegionQuery.data?.data} />
       </section>
 
-      {/* ── 내 지역구 피드 ── */}
       <section className="border-t border-gray-1 dark:border-dark-l pt-4 mt-4">
         <FeedRegionPanel region={confirmedRegion.regionName} />
       </section>

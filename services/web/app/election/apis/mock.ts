@@ -227,8 +227,14 @@ export const getMockElectionCandidateDetail = (
     candidate_name: candidate.candidate_name,
     party_name: candidate.party_name,
     candidate_image_url: candidate.candidate_image_url,
+    career1: '전 광역의회 의원',
+    career2: '전 시민단체 대표',
     manifesto_summary: '교통, 주거, 교육 개혁을 중심으로 한 공개 공약입니다.',
-    manifesto_items: ['GTX 노선 확대', '청년 주거 지원', '지역 교육 인프라 강화'],
+    manifesto_items: [
+      { order: 1, title: 'GTX 노선 확대', content: '광역 이동 시간을 단축합니다.' },
+      { order: 2, title: '청년 주거 지원', content: '청년 대상 공공주택과 임대 지원을 확대합니다.' },
+      { order: 3, title: '지역 교육 인프라 강화', content: '교육 시설과 돌봄 인프라를 확충합니다.' },
+    ],
   });
 };
 

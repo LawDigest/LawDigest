@@ -1,7 +1,8 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  ElectionCandidateDetailResponse,
   ElectionId,
   ElectionCandidateId,
   ElectionRegionCode,
@@ -156,6 +157,30 @@ export const useGetElectionCandidateDetail = (electionId: ElectionId, candidateI
     queryKey: ELECTION_QUERY_KEYS.candidateDetail({ electionId, candidateId }),
     queryFn: () => getElectionCandidateDetail(electionId, candidateId),
   });
+
+export const useGetElectionCandidateDetails = (
+  electionId: ElectionId,
+  candidateIds: ElectionCandidateId[],
+  enabled = true,
+) => {
+  const uniqueCandidateIds = [...new Set(candidateIds.filter(Boolean))];
+
+  const results = useQueries({
+    queries: uniqueCandidateIds.map((candidateId) => ({
+      queryKey: ELECTION_QUERY_KEYS.candidateDetail({ electionId, candidateId }),
+      queryFn: () => getElectionCandidateDetail(electionId, candidateId),
+      enabled: enabled && !!electionId && !!candidateId,
+    })),
+  });
+
+  return {
+    data: results
+      .map((result) => result.data?.data)
+      .filter((detail): detail is ElectionCandidateDetailResponse => Boolean(detail)),
+    isLoading: results.some((result) => result.isLoading),
+    isError: results.some((result) => result.isError),
+  };
+};
 
 export const useGetElectionPollOverview = (electionId: ElectionId, regionCode: ElectionRegionCode, enabled = true) =>
   useQuery({

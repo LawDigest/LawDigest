@@ -76,6 +76,9 @@ export interface ElectionCandidateSummary {
   candidate_name: string;
   party_name: string;
   candidate_image_url: string;
+  giho?: string | null;
+  status?: string | null;
+  candidate_type?: string | null;
 }
 
 export interface ElectionCandidateDetailResponse {
@@ -84,8 +87,25 @@ export interface ElectionCandidateDetailResponse {
   candidate_name: string;
   party_name: string;
   candidate_image_url: string;
-  manifesto_summary: string;
-  manifesto_items: string[];
+  gender?: string | null;
+  age?: number | null;
+  edu?: string | null;
+  job?: string | null;
+  career1?: string | null;
+  career2?: string | null;
+  sgg_name?: string | null;
+  sd_name?: string | null;
+  giho?: string | null;
+  status?: string | null;
+  candidate_type?: string | null;
+  manifesto_summary: string | null;
+  manifesto_items: ElectionCandidateManifestoItem[];
+}
+
+export interface ElectionCandidateManifestoItem {
+  order?: number | null;
+  title?: string | null;
+  content?: string | null;
 }
 
 export interface ElectionPollOverviewResponse {
