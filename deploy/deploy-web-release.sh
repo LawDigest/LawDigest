@@ -59,7 +59,7 @@ load_env_file() {
   done < "$env_file"
 }
 
-PORT="${PORT:-3010}"
+PORT="${WEB_PORT:-3010}"
 APP_HOST="${APP_HOST:-0.0.0.0}"
 PM2_NAME="${PM2_NAME:-lawdigest-web}"
 RUNTIME_ROOT="${RUNTIME_ROOT:-$SHARED_REPO_ROOT/.runtime/web}"

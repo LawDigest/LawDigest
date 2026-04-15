@@ -34,7 +34,7 @@ jobs:
             REPO_ROOT=/home/ubuntu/project/Lawdigest
 
             cd "$REPO_ROOT"
-            PORT=3021 \
+            WEB_PORT=3021 \
             PM2_NAME=lawdigest-web-dev \
             NEXT_PUBLIC_DOMAIN=https://dev.lawdigest.kr \
             ./deploy/deploy-dev-web.sh "$GIT_REF"
