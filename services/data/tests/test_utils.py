@@ -2,8 +2,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 import os
 import io
-import json
-from typing import Callable, Optional, Tuple, Any
+from typing import Callable, Optional, Tuple
 
 def save_test_result(test_name: str, df: pd.DataFrame):
     """
@@ -90,7 +89,7 @@ def find_valid_date_and_data(
                 print(f"✅ [TEST UTILS] 데이터 발견! 날짜: {target_date_str}, 건수: {len(df)}")
                 return target_date_str, df
                 
-        except Exception as e:
+        except Exception:
             pass
         
         # 하루 전으로 이동

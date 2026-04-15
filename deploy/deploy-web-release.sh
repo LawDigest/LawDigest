@@ -71,13 +71,19 @@ NEXT_PUBLIC_IMAGE_URL="${NEXT_PUBLIC_IMAGE_URL:-https://api.lawdigest.kr}"
 NEXT_PUBLIC_HOSTNAME="${NEXT_PUBLIC_HOSTNAME:-api.lawdigest.kr}"
 INTERNAL_API_ORIGIN="${INTERNAL_API_ORIGIN:-http://127.0.0.1:808}"
 NEXT_PUBLIC_DOMAIN="${NEXT_PUBLIC_DOMAIN:-https://lawdigest.kr}"
+FORCED_NEXT_PUBLIC_DOMAIN="$NEXT_PUBLIC_DOMAIN"
 DEPLOY_LABEL="${DEPLOY_LABEL:-release}"
+DEV_RUNTIME_ROOT="$SHARED_REPO_ROOT/.runtime/dev-web"
 
 load_env_file "$SOURCE_ENV_FILE"
 
 if [ -f "$TARGET_ROOT/.env.preview" ]; then
   # shellcheck disable=SC1090
   . "$TARGET_ROOT/.env.preview"
+fi
+
+if [ -n "$FORCED_NEXT_PUBLIC_DOMAIN" ]; then
+  NEXT_PUBLIC_DOMAIN="$FORCED_NEXT_PUBLIC_DOMAIN"
 fi
 
 load_env_file "$TARGET_WEB_DIR/.env.preview"
@@ -116,6 +122,10 @@ mkdir -p "$RELEASE_DIR/services"
 
 echo "▶ 산출물 복사"
 cp -a "$TARGET_WEB_DIR" "$RELEASE_DIR/services/"
+if [ -d "$TARGET_WEB_DIR/.next" ]; then
+  rm -rf "$RELEASE_DIR/services/web/.next"
+  cp -a "$TARGET_WEB_DIR/.next" "$RELEASE_DIR/services/web/.next"
+fi
 
 echo "▶ current 심링크 전환"
 ln -sfn "$RELEASE_DIR" "$TMP_LINK"
@@ -141,6 +151,7 @@ if [ -x "$SCRIPT_DIR/ensure-dev-web-pm2.sh" ] && [ "$PM2_NAME" != "lawdigest-web
   echo "▶ dev 웹 PM2 누락 여부 점검"
   WEB_PORT=3021 \
   APP_HOST=0.0.0.0 \
+  RUNTIME_ROOT="$DEV_RUNTIME_ROOT" \
   PM2_NAME=lawdigest-web-dev \
   NEXT_PUBLIC_DOMAIN=https://dev.lawdigest.kr \
   "$SCRIPT_DIR/ensure-dev-web-pm2.sh" --quiet

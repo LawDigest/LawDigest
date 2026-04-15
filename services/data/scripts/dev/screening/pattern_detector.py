@@ -425,7 +425,6 @@ class PatternDetector:
                             cell_ratios.append(cell_str)
 
             # 테이블 외부 텍스트에서 비율 탐지
-            outside = analyzed.pages_data[0][0] if analyzed.pages_data else ""
             if _BUNDLED_RATIO_RE.search(full_text):
                 text_ratios.append("bundled")
 

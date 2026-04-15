@@ -1,0 +1,197 @@
+{
+  "version": "2.0",
+  "description": "제9회 전국동시지방선거 전체 지역 타깃 파일 (Airflow 일회성 적재용)",
+  "regions": {
+    "region_01": {
+      "search_cnd": "4",
+      "search_wrd": "강원특별자치도",
+      "region": "강원특별자치도 전체"
+    },
+    "region_02": {
+      "search_cnd": "4",
+      "search_wrd": "경기도",
+      "region": "경기도 전체"
+    },
+    "region_03": {
+      "search_cnd": "4",
+      "search_wrd": "경상남도",
+      "region": "경상남도 전체"
+    },
+    "region_04": {
+      "search_cnd": "4",
+      "search_wrd": "경상북도",
+      "region": "경상북도 전체"
+    },
+    "region_05": {
+      "search_cnd": "4",
+      "search_wrd": "광주광역시",
+      "region": "광주광역시 전체"
+    },
+    "region_06": {
+      "search_cnd": "4",
+      "search_wrd": "대구광역시",
+      "region": "대구광역시 전체"
+    },
+    "region_07": {
+      "search_cnd": "4",
+      "search_wrd": "대전광역시",
+      "region": "대전광역시 전체"
+    },
+    "region_08": {
+      "search_cnd": "4",
+      "search_wrd": "부산광역시",
+      "region": "부산광역시 전체"
+    },
+    "region_09": {
+      "search_cnd": "4",
+      "search_wrd": "서울특별시",
+      "region": "서울특별시 전체"
+    },
+    "region_10": {
+      "search_cnd": "4",
+      "search_wrd": "세종특별자치시",
+      "region": "세종특별자치시 전체"
+    },
+    "region_11": {
+      "search_cnd": "4",
+      "search_wrd": "울산광역시",
+      "region": "울산광역시 전체"
+    },
+    "region_12": {
+      "search_cnd": "4",
+      "search_wrd": "인천광역시",
+      "region": "인천광역시 전체"
+    },
+    "region_13": {
+      "search_cnd": "4",
+      "search_wrd": "전라남도",
+      "region": "전라남도 전체"
+    },
+    "region_14": {
+      "search_cnd": "4",
+      "search_wrd": "전라북도",
+      "region": "전라북도 전체"
+    },
+    "region_15": {
+      "search_cnd": "4",
+      "search_wrd": "전북특별자치도",
+      "region": "전북특별자치도 전체"
+    },
+    "region_16": {
+      "search_cnd": "4",
+      "search_wrd": "제주특별자치도",
+      "region": "제주특별자치도 전체"
+    },
+    "region_17": {
+      "search_cnd": "4",
+      "search_wrd": "충청남도",
+      "region": "충청남도 전체"
+    },
+    "region_18": {
+      "search_cnd": "4",
+      "search_wrd": "충청북도",
+      "region": "충청북도 전체"
+    }
+  },
+  "elections": {
+    "local_9th_governor": {
+      "poll_gubuncd": "VT026",
+      "election_type": "제9회 전국동시지방선거",
+      "election_names": [
+        "광역단체장선거"
+      ]
+    }
+  },
+  "targets": [
+    {
+      "slug": "all_regions_9th_01",
+      "region_key": "region_01",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_02",
+      "region_key": "region_02",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_03",
+      "region_key": "region_03",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_04",
+      "region_key": "region_04",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_05",
+      "region_key": "region_05",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_06",
+      "region_key": "region_06",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_07",
+      "region_key": "region_07",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_08",
+      "region_key": "region_08",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_09",
+      "region_key": "region_09",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_10",
+      "region_key": "region_10",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_11",
+      "region_key": "region_11",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_12",
+      "region_key": "region_12",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_13",
+      "region_key": "region_13",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_14",
+      "region_key": "region_14",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_15",
+      "region_key": "region_15",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_16",
+      "region_key": "region_16",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_17",
+      "region_key": "region_17",
+      "election_key": "local_9th_governor"
+    },
+    {
+      "slug": "all_regions_9th_18",
+      "region_key": "region_18",
+      "election_key": "local_9th_governor"
+    }
+  ]
+}
