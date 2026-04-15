@@ -73,21 +73,15 @@ ln -sfn "$DEV_WORKTREE_PATH" "$TMP_LINK"
 mv -Tf "$TMP_LINK" "$CURRENT_LINK"
 
 echo "▶ PM2 개발 서버 재기동"
-if pm2 describe "$PM2_NAME" > /dev/null 2>&1; then
-  pm2 delete "$PM2_NAME"
-fi
-
-cd "$CURRENT_LINK/services/web"
-NODE_ENV=development \
-PORT="$PORT" \
-HOSTNAME="$APP_HOST" \
+WEB_PORT="$PORT" \
+APP_HOST="$APP_HOST" \
+PM2_NAME="$PM2_NAME" \
 NEXT_PUBLIC_URL="$NEXT_PUBLIC_URL" \
 NEXT_PUBLIC_IMAGE_URL="$NEXT_PUBLIC_IMAGE_URL" \
 NEXT_PUBLIC_HOSTNAME="$NEXT_PUBLIC_HOSTNAME" \
 INTERNAL_API_ORIGIN="$INTERNAL_API_ORIGIN" \
 NEXT_PUBLIC_DOMAIN="$NEXT_PUBLIC_DOMAIN" \
-pm2 start npm --name "$PM2_NAME" -- run dev -- --hostname "$APP_HOST" --port "$PORT"
-pm2 save
+"$SCRIPT_DIR/ensure-dev-web-pm2.sh"
 
 echo "✓ 개발모드 배포 완료"
 echo "  ref: $RESOLVED_REF"

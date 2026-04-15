@@ -136,6 +136,16 @@ NEXT_PUBLIC_HOSTNAME="$NEXT_PUBLIC_HOSTNAME" \
 INTERNAL_API_ORIGIN="$INTERNAL_API_ORIGIN" \
 NEXT_PUBLIC_DOMAIN="$NEXT_PUBLIC_DOMAIN" \
 pm2 start npm --name "$PM2_NAME" -- run start
+
+if [ -x "$SCRIPT_DIR/ensure-dev-web-pm2.sh" ] && [ "$PM2_NAME" != "lawdigest-web-dev" ]; then
+  echo "▶ dev 웹 PM2 누락 여부 점검"
+  WEB_PORT=3021 \
+  APP_HOST=0.0.0.0 \
+  PM2_NAME=lawdigest-web-dev \
+  NEXT_PUBLIC_DOMAIN=https://dev.lawdigest.kr \
+  "$SCRIPT_DIR/ensure-dev-web-pm2.sh" --quiet
+fi
+
 pm2 save
 
 echo "✓ 배포 완료"
