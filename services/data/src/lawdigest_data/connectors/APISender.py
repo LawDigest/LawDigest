@@ -8,7 +8,7 @@ class APISender:
 
     def request_post(self, url=None):
 
-        if url == None:
+        if url is None:
             print("URL을 입력해주세요.")
             return None
         

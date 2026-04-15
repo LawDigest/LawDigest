@@ -1,6 +1,4 @@
 import pytest
-import sys
-import os
 from lawdigest_data.connectors.DatabaseManager import DatabaseManager
 
 @pytest.fixture(scope="module")

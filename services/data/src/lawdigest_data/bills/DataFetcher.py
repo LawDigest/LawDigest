@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 import json
-import re # fetch_bills_info (주석 해제 시) 대비
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -1089,7 +1088,7 @@ class DataFetcher:
             print("🚨 [WARNING] 투표 결과(df_vote) 데이터가 없어 정당별 투표를 수집할 수 없습니다.")
             return None
 
-        print(f"\n📌 [INFO] 법안별 정당별 투표 결과 데이터 수집 시작...")
+        print("\n📌 [INFO] 법안별 정당별 투표 결과 데이터 수집 시작...")
         
         # 'PROC_RESULT_CD'가 '철회'가 아닌 'BILL_ID' 목록 추출
         bill_ids_to_fetch = []

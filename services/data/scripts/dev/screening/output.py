@@ -4,9 +4,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import re
-import sys
 from pathlib import Path
-from typing import List, Optional
 
 from .models import PollsterProfile, ScreeningResult
 
@@ -58,7 +56,9 @@ class ScreeningOutput:
 
     def print_human(self, result: ScreeningResult, dump_text: bool = False) -> None:
         """터미널 친화적 형식으로 스크리닝 결과를 출력한다."""
-        _hr = lambda c="─", w=70: c * w
+        def _hr(c: str = "─", w: int = 70) -> str:
+            return c * w
+
         bi = result.basic_info
         qp = result.question_block_patterns
         tm = result.total_row_markers
@@ -75,7 +75,7 @@ class ScreeningOutput:
         print(_hr())
 
         # [1] 기본 정보
-        print(f"\n[1] 기본 정보")
+        print("\n[1] 기본 정보")
         print(f"  페이지: {bi.page_count}  |  텍스트 추출: {'✅' if bi.text_extractable else '❌'}  |  파일: {bi.file_size_bytes // 1024}KB")
         if bi.cid_encoded:
             print("  ⚠️  cid: 인코딩 감지 (GID 디코딩 필요)")
@@ -97,7 +97,7 @@ class ScreeningOutput:
             print("  탐지된 마커 없음")
 
         # [4] 테이블 구조
-        print(f"\n[4] 테이블 구조")
+        print("\n[4] 테이블 구조")
         print(f"  테이블 있는 페이지: {ts.pages_with_tables}  |  없는 페이지: {ts.pages_without_tables}")
         print(f"  전형적 크기: {ts.typical_shape.get('rows', 0)}행×{ts.typical_shape.get('cols', 0)}열")
         ha = ts.header_row_analysis
@@ -112,10 +112,10 @@ class ScreeningOutput:
         if pc.multi_page_questions_detected:
             print(f"\n[5] 페이지 연속성: ⚠️ 감지됨 ({', '.join(pc.continuity_signals)})")
         else:
-            print(f"\n[5] 페이지 연속성: 없음")
+            print("\n[5] 페이지 연속성: 없음")
 
         # [6] 파서 시도 결과
-        print(f"\n[6] 기존 파서 시도")
+        print("\n[6] 기존 파서 시도")
         for r in result.parser_test_results:
             if r.exception:
                 print(f"  {r.class_name:30s} → 예외: {r.exception[:60]}")
@@ -126,7 +126,7 @@ class ScreeningOutput:
                 print(f"  {r.class_name:30s} → {status} {r.count}건 (유효:{r.valid_count}, 오류:{r.error_count})")
 
         # [7] 포맷 프로파일 (파서 개발 가이드)
-        print(f"\n[7] 포맷 프로파일 — 신규 파서 개발 가이드")
+        print("\n[7] 포맷 프로파일 — 신규 파서 개발 가이드")
         print(f"  질문 마커:      {fp.question_marker}")
         print(f"  전체 행 마커:   {fp.total_row_marker}")
         print(f"  meta 컬럼:     {fp.meta_cols}개")
@@ -135,24 +135,24 @@ class ScreeningOutput:
         print(f"  페이지 연속성:  {'있음' if fp.page_continuity else '없음'}")
         print(f"  코드 구조 참고: {fp.suggested_base_class}  (재사용 아님, 구조만 참고)")
         if fp.key_challenges:
-            print(f"  주요 도전 과제:")
+            print("  주요 도전 과제:")
             for ch in fp.key_challenges:
                 print(f"   • {ch}")
 
         # [8] 텍스트 샘플
         if dump_text and result.text_samples.first_pages_text:
-            print(f"\n[8] 텍스트 샘플 (첫 페이지)")
+            print("\n[8] 텍스트 샘플 (첫 페이지)")
             for line in result.text_samples.first_pages_text[0].splitlines()[:30]:
                 print(f"  {line}")
             if result.text_samples.table_previews:
-                print(f"\n  --- 테이블 샘플 (첫 테이블 첫 5행) ---")
+                print("\n  --- 테이블 샘플 (첫 테이블 첫 5행) ---")
                 for row in result.text_samples.table_previews[0].get("rows", [])[:5]:
                     cells = [str(c or "").strip()[:18] for c in row]
                     print(f"    {' | '.join(cells)}")
         elif not dump_text and result.text_samples.first_pages_text:
             first_text = result.text_samples.first_pages_text[0]
             lines = first_text.splitlines()[:20]
-            print(f"\n[8] 텍스트 샘플 (첫 20줄)")
+            print("\n[8] 텍스트 샘플 (첫 20줄)")
             for line in lines:
                 print(f"  {line}")
 
@@ -160,7 +160,9 @@ class ScreeningOutput:
 
     def print_profile_human(self, profile: PollsterProfile) -> None:
         """기관 프로파일을 human-readable 형식으로 출력한다."""
-        _hr = lambda c="─", w=70: c * w
+        def _hr(c: str = "─", w: int = 70) -> str:
+            return c * w
+
         print(_hr("═"))
         print(f"📊 기관 프로파일: {profile.pollster}  ({profile.pdf_count}건)")
         print(_hr())
@@ -176,7 +178,7 @@ class ScreeningOutput:
 
         print(f"\n  코드 구조 참고 클래스: {profile.suggested_base_class or '미정'}  (재사용 아님)")
         if profile.key_challenges:
-            print(f"  공통 도전 과제:")
+            print("  공통 도전 과제:")
             for ch in profile.key_challenges:
                 print(f"    • {ch}")
         print()

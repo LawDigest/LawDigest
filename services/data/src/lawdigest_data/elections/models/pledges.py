@@ -10,7 +10,6 @@ from sqlalchemy import (
     BigInteger,
     DateTime,
     ForeignKey,
-    Integer,
     SmallInteger,
     String,
     Text,
