@@ -40,4 +40,5 @@
 
 ### 배포 지침
 - `test.lawdigest.kr` 테스트 웹 배포는 직접 `pm2` 또는 `nginx` 설정을 임의 변경하지 말고, 반드시 `deploy/deploy-test-web.sh <target-worktree>`를 통해 수행한다.
-- 테스트 웹 배포는 `release/symlink` 구조를 사용하며, 상세 절차는 [deploy/TEST_WEB_DEPLOY.md](/home/ubuntu/project/Lawdigest/.worktrees/test-release-deploy/deploy/TEST_WEB_DEPLOY.md)를 따른다.
+- 웹 배포 기준은 반드시 [deploy/WEB_DEPLOY_ENVIRONMENTS.md](/home/ubuntu/project/Lawdigest/deploy/WEB_DEPLOY_ENVIRONMENTS.md)를 먼저 확인한다.
+- 운영 웹 상세 절차는 [deploy/PROD_WEB_DEPLOY.md](/home/ubuntu/project/Lawdigest/deploy/PROD_WEB_DEPLOY.md), 테스트 웹 상세 절차는 [deploy/TEST_WEB_DEPLOY.md](/home/ubuntu/project/Lawdigest/deploy/TEST_WEB_DEPLOY.md), 개발 웹 상세 절차는 [deploy/DEV_WEB_DEPLOY.md](/home/ubuntu/project/Lawdigest/deploy/DEV_WEB_DEPLOY.md)를 따른다.

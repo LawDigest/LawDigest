@@ -1,11 +1,11 @@
-name: Deploy Web (test)
+name: Deploy Web (prod)
 
 on:
   push:
-    branches: [dev]
+    branches: [main]
     paths:
       - 'services/web/**'
-      - 'deploy/deploy-test-web.sh'
+      - 'deploy/deploy-prod-web.sh'
       - 'deploy/deploy-web-release.sh'
   workflow_dispatch:
 
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-web-test-${{ github.ref }}
+  group: deploy-web-prod-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -42,7 +42,7 @@ jobs:
             base="$(git rev-list --max-parents=0 "$head" | tail -n 1)"
           fi
 
-          if git diff --name-only "$base" "$head" -- services/web deploy/deploy-test-web.sh deploy/deploy-web-release.sh | grep -q .; then
+          if git diff --name-only "$base" "$head" -- services/web deploy/deploy-prod-web.sh deploy/deploy-web-release.sh | grep -q .; then
             echo "web_changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "web_changed=false" >> "$GITHUB_OUTPUT"
@@ -63,18 +63,18 @@ jobs:
           script: |
             set -euo pipefail
             REPO_ROOT=/home/ubuntu/project/Lawdigest
-            DEPLOY_ROOT="$REPO_ROOT/.worktrees/test-web-release"
+            DEPLOY_ROOT="$REPO_ROOT/.worktrees/prod-web-release"
 
             if [ ! -d "$DEPLOY_ROOT/.git" ] && [ ! -f "$DEPLOY_ROOT/.git" ]; then
-              git -C "$REPO_ROOT" fetch origin dev
-              git -C "$REPO_ROOT" worktree add --detach "$DEPLOY_ROOT" origin/dev
+              git -C "$REPO_ROOT" fetch origin main
+              git -C "$REPO_ROOT" worktree add --detach "$DEPLOY_ROOT" origin/main
             fi
 
-            git -C "$DEPLOY_ROOT" fetch origin dev
-            git -C "$DEPLOY_ROOT" reset --hard origin/dev
+            git -C "$DEPLOY_ROOT" fetch origin main
+            git -C "$DEPLOY_ROOT" reset --hard origin/main
 
             cd "$REPO_ROOT"
-            PORT=3020 \
-            PM2_NAME=lawdigest-web-test \
-            NEXT_PUBLIC_DOMAIN=https://test.lawdigest.kr \
-            ./deploy/deploy-test-web.sh "$DEPLOY_ROOT"
+            PORT=3010 \
+            PM2_NAME=lawdigest-web-prod \
+            NEXT_PUBLIC_DOMAIN=https://lawdigest.kr \
+            ./deploy/deploy-prod-web.sh "$DEPLOY_ROOT"

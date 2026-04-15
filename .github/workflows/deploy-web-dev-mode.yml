@@ -1,0 +1,40 @@
+name: Deploy Web (dev mode)
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: '배포할 git ref 또는 브랜치명'
+        required: true
+        default: 'main'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-web-dev-mode
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy selected ref to dev.lawdigest.kr
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GIT_REF: ${{ inputs.git_ref }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_KEY }}
+          envs: GIT_REF
+          script: |
+            set -euo pipefail
+            REPO_ROOT=/home/ubuntu/project/Lawdigest
+
+            cd "$REPO_ROOT"
+            PORT=3021 \
+            PM2_NAME=lawdigest-web-dev \
+            NEXT_PUBLIC_DOMAIN=https://dev.lawdigest.kr \
+            ./deploy/deploy-dev-web.sh "$GIT_REF"
