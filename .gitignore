@@ -98,6 +98,7 @@ logs/
 .airflow_vendor/
 temp.html
 pencil-new.pen
+.tmp/
 =4.60.0
 
 # =====================
