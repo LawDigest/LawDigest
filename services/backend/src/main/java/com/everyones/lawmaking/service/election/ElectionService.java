@@ -119,6 +119,8 @@ public class ElectionService {
             candidates = candidateRepository.findBySgIdAndSgTypecode(electionId, sgTypecode);
         }
 
+        candidates = selectCandidatesForExposure(candidates);
+
         var items = candidates.stream()
                 .map(c -> ElectionCandidateListResponse.CandidateItem.builder()
                         .candidateId(c.getId())
@@ -137,6 +139,18 @@ public class ElectionService {
                 .officeType(officeType)
                 .candidates(items)
                 .build();
+    }
+
+    private List<ElectionCandidate> selectCandidatesForExposure(List<ElectionCandidate> candidates) {
+        if (candidates == null || candidates.isEmpty()) {
+            return List.of();
+        }
+
+        List<ElectionCandidate> confirmedCandidates = candidates.stream()
+                .filter(candidate -> "CONFIRMED".equalsIgnoreCase(candidate.getCandidateType()))
+                .toList();
+
+        return confirmedCandidates.isEmpty() ? candidates : confirmedCandidates;
     }
 
     // ──────────────────────────────────────────
