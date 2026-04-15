@@ -21,7 +21,7 @@
 ### 프론트엔드
 
 - 운영 자동 배포: [`.github/workflows/deploy-web-prod.yml`](../.github/workflows/deploy-web-prod.yml)
-- 테스트 자동 배포: [`.github/workflows/deploy-web-dev.yml`](../.github/workflows/deploy-web-dev.yml)
+- 테스트 자동 배포: [`.github/workflows/deploy-web-test.yml`](../.github/workflows/deploy-web-test.yml)
 - 개발 수동 배포: [`.github/workflows/deploy-web-dev-mode.yml`](../.github/workflows/deploy-web-dev-mode.yml)
 - 운영 배포 스크립트: [`deploy/deploy-prod-web.sh`](./deploy-prod-web.sh)
 - 테스트 배포 스크립트: [`deploy/deploy-test-web.sh`](./deploy-test-web.sh)
@@ -29,7 +29,7 @@
 
 ### 백엔드
 
-- 자동 배포 워크플로우: [`.github/workflows/deploy-web-dev.yml`](../.github/workflows/deploy-web-dev.yml)
+- 자동 배포 워크플로우: [`.github/workflows/deploy-backend-dev.yml`](../.github/workflows/deploy-backend-dev.yml)
 - 배포 스크립트: [`deploy/deploy-test-backend.sh`](./deploy-test-backend.sh)
 - 테스트 API 진입점: `https://test.api.lawdigest.kr`
 - 런타임 구조: Docker 컨테이너 재기동
