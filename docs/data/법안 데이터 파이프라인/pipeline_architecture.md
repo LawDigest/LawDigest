@@ -93,7 +93,7 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 | DAG ID | 스케줄 | 용도 |
 |--------|--------|------|
 | `bill_ingest_dag` | `0 * * * *` (매 정시) | 국회 API → DB 수집 |
-| `bill_status_sync_dag` | `0 * * * *` (매 정시) | 법안 의원/타임라인/결과/표결 동기화 |
+| `bill_status_sync_dag` | `0 * * * *` (매 정시) | 법안 lifecycle/vote 상태 동기화 |
 | `manual_bill_collect_dag` | 수동 | 기간 지정 법안 수집 |
 | `ai_batch_submit_dag` | `10 * * * *` (매 정시 10분) | 미요약 법안 → OpenAI Batch 제출 |
 | `ai_batch_ingest_dag` | `*/10 * * * *` (10분마다) | OpenAI 배치 결과 수신 → DB |
@@ -136,12 +136,24 @@ upsert_bills
 ```
 update_lawmakers
     ↓
-update_timeline ─┐
-update_results  ─┤ 동시 실행
-update_votes    ─┘
+fetch_lifecycle
+    ↓
+upsert_lifecycle
+
+update_lawmakers
+    ↓
+fetch_vote
+    ↓
+upsert_vote
 ```
 
-**태스크 함수**: `WorkFlowManager.update_lawmakers_data()`, `update_bills_timeline()`, `update_bills_result()`, `update_bills_vote()`
+**태스크 함수**: `WorkFlowManager.update_lawmakers_data()`, `fetch_lifecycle_step()`, `upsert_lifecycle_step()`, `fetch_vote_step()`, `upsert_vote_step()`
+
+**설계 원칙**:
+- 상태 동기화는 `timeline / result / vote` 테이블 기준이 아니라 `lifecycle + vote` capability 기준으로 운영
+- `lifecycle`은 `ALLBILL` snapshot 기반으로 `BillTimeline`과 `Bill` 최신 상태 projection을 함께 갱신
+- `vote`는 `VoteRecord`, `VoteParty`를 함께 반영
+- 각 capability는 artifact와 source별 checkpoint를 별도로 가짐
 
 ---
 
@@ -173,12 +185,13 @@ update_votes    ─┘
 
 ### 7.1 DataFetcher
 
-**경로**: `services/data/src/lawdigest_data_pipeline/DataFetcher.py` (1,345줄)
+**경로**: `services/data/src/lawdigest_data/bills/DataFetcher.py`
 
 - 국회 Open API 및 공공데이터포털 연동
 - HTTPAdapter + Retry 전략 (최대 3회, 0.5/1/2초 백오프)
 - JSON/XML 파싱 → pandas DataFrame
-- 28개 fetch 메서드 (법안, 의원, 표결, 타임라인 등)
+- 법안 본체 적재, 의원, 표결 등 기존 수집 경로 제공
+- 상태 동기화는 직접 `DataFetcher` 메서드를 호출하기보다 capability fetcher (`status/lifecycle_fetcher.py`, `status/vote_fetcher.py`)를 통해 사용
 
 **API 키 환경변수**:
 - `APIKEY_billsContent`, `APIKEY_billsInfo`, `APIKEY_status`
@@ -209,12 +222,23 @@ update_votes    ─┘
 
 ### 7.4 WorkFlowManager
 
-**경로**: `services/data/src/lawdigest_data_pipeline/WorkFlowManager.py`
+**경로**: `services/data/src/lawdigest_data/core/WorkFlowManager.py`
 
 **책임**:
 - Airflow DAG가 호출하는 법안 파이프라인 오케스트레이션 담당
 - `DataFetcher` / `DataProcessor` / `DatabaseManager`를 조합해 수집, 가공, 저장 흐름을 실행
+- 본체 적재는 `fetch_bills_data_step -> process_bills_data_step -> upsert_bills_data_step` 구조를 사용
+- 상태 동기화는 `BillStatusSyncService`를 통해 `lifecycle + vote` capability 기준으로 실행
 - 실행 모드: `dry_run`, `test_db`/`test`, `prod`
+
+### 7.5 BillStatusSyncService
+
+**경로**: `services/data/src/lawdigest_data/core/bill_status_sync.py`
+
+**책임**:
+- `fetch_lifecycle_step`, `upsert_lifecycle_step`, `fetch_vote_step`, `upsert_vote_step` 제공
+- artifact 저장과 checkpoint 갱신 규칙 관리
+- `status/lifecycle_fetcher.py`, `status/vote_fetcher.py`, `status/projectors.py`를 조합해 상태 동기화 capability를 실행
 
 ---
 

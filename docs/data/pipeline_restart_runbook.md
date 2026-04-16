@@ -72,7 +72,7 @@ docker exec airflow-postgres-1 psql -U airflow -d airflow -c \
 # 1-1. 법안 수집 DAG 활성화
 docker exec airflow-airflow-webserver-1 airflow dags unpause bill_ingest_dag
 
-# 1-2. 법안 상태 동기화 DAG 활성화 (의원/타임라인/결과/표결)
+# 1-2. 법안 상태 동기화 DAG 활성화 (의원 + lifecycle/vote capability)
 docker exec airflow-airflow-webserver-1 airflow dags unpause bill_status_sync_dag
 
 # 1-3. 수동 수집 DAG는 필요할 때만 UI에서 트리거
@@ -130,7 +130,7 @@ docker exec airflow-postgres-1 psql -U airflow -d airflow -c \
 ### 4.1 update_bills 태스크 반복 실패 (2025-12-21~22)
 
 **증상**: 구형 시간별 동기화 DAG의 법안 수집 단계가 약 50초 후 실패
-**후속 태스크**: 타임라인/결과/표결 단계가 연쇄적으로 `upstream_failed`
+**후속 태스크**: 현재 구조에서는 `lifecycle` 또는 `vote` capability 파이프라인이 각각 독립적으로 실패할 수 있음
 
 **확인 방법**:
 
