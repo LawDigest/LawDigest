@@ -15,7 +15,7 @@ def run_status_step(method_name, **context):
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+    from lawdigest_data.core.WorkFlowManager import WorkFlowManager
 
     params = context.get("params", {})
     start_date = params.get("start_date")

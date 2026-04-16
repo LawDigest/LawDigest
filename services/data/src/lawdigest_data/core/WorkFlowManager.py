@@ -75,6 +75,35 @@ class WorkFlowManager:
         return [text] if text else []
 
     @staticmethod
+    def _shorten_text(value: str, max_length: int = 120) -> str:
+        compact = " ".join(value.split())
+        if len(compact) <= max_length:
+            return compact
+        return compact[: max_length - 3].rstrip() + "..."
+
+    @classmethod
+    def _derive_brief_summary(
+        cls,
+        summary: Optional[str],
+        bill_name: Optional[str],
+        existing_brief_summary: Optional[str],
+    ) -> Optional[str]:
+        if existing_brief_summary:
+            return existing_brief_summary
+
+        ignored_lines = {"제안이유", "주요내용", "제안이유 및 주요내용"}
+        if summary:
+            for raw_line in summary.splitlines():
+                line = " ".join(str(raw_line).split())
+                if not line or line in ignored_lines:
+                    continue
+                return cls._shorten_text(line)
+
+        if bill_name:
+            return cls._shorten_text(bill_name)
+        return None
+
+    @staticmethod
     def _normalize_bill_proposer_kind(proposer_kind: object) -> str:
         normalized = str(proposer_kind or "").strip()
         if not normalized:
@@ -138,19 +167,36 @@ class WorkFlowManager:
             if not bill_id:
                 continue
 
+            bill_name = self._coerce_optional_text(row.get("bill_name"))
+            propose_date = self._coerce_optional_text(row.get("proposeDate"))
+            summary = self._coerce_optional_text(row.get("summary"))
+            stage = self._coerce_optional_text(row.get("stage"))
+            assembly_number = self._safe_to_int(row.get("assemblyNumber"), default=22)
+            explicit_bill_pdf_url = (
+                self._coerce_optional_text(row.get("billPdfUrl"))
+                or self._coerce_optional_text(row.get("bill_pdf_url"))
+                or self._coerce_optional_text(row.get("pdfLinkUrl"))
+                or self._coerce_optional_text(row.get("PDF_LINK_URL"))
+            )
+            brief_summary = self._derive_brief_summary(
+                summary=summary,
+                bill_name=bill_name,
+                existing_brief_summary=self._coerce_optional_text(row.get("brief_summary")),
+            )
+
             rows.append(
                 {
                     "bill_id": bill_id,
-                    "bill_name": self._coerce_optional_text(row.get("bill_name")),
+                    "bill_name": bill_name,
+                    "assembly_number": assembly_number,
                     "committee": self._coerce_optional_text(row.get("committee")),
                     "gpt_summary": self._coerce_optional_text(row.get("gpt_summary")),
-                    "propose_date": self._coerce_optional_text(row.get("proposeDate")),
-                    "summary": self._coerce_optional_text(row.get("summary")),
-                    "stage": self._coerce_optional_text(row.get("stage")),
+                    "propose_date": propose_date,
+                    "summary": summary,
+                    "stage": stage,
                     "proposers": self._coerce_optional_text(row.get("proposers")),
-                    "bill_pdf_url": self._coerce_optional_text(row.get("billPdfUrl"))
-                    or self._coerce_optional_text(row.get("bill_link")),
-                    "brief_summary": self._coerce_optional_text(row.get("brief_summary")),
+                    "bill_pdf_url": explicit_bill_pdf_url,
+                    "brief_summary": brief_summary,
                     "summary_tags": row.get("summary_tags"),
                     "bill_number": self._safe_to_int(row.get("billNumber")),
                     "bill_link": self._coerce_optional_text(row.get("bill_link")),
@@ -158,11 +204,30 @@ class WorkFlowManager:
                     "proposer_kind": self._normalize_bill_proposer_kind(
                         row.get("proposer_kind") or row.get("proposerKind")
                     ),
+                    "ingest_status": self._determine_bill_ingest_status(
+                        bill_name=bill_name,
+                        propose_date=propose_date,
+                        stage=stage,
+                        summary=summary,
+                    ),
                     "public_proposer_ids": self._coerce_string_list(row.get("publicProposerIdList")),
                     "rst_proposer_ids": self._coerce_string_list(row.get("rstProposerIdList")),
                 }
             )
         return rows
+
+    @staticmethod
+    def _determine_bill_ingest_status(
+        bill_name: Optional[str],
+        propose_date: Optional[str],
+        stage: Optional[str],
+        summary: Optional[str],
+    ) -> str:
+        if bill_name and propose_date and stage and summary:
+            return "READY"
+        if bill_name or propose_date or stage or summary:
+            return "PARTIAL"
+        return "PENDING"
 
     def _build_lawmaker_rows(self, df_lawmakers: pd.DataFrame) -> List[Dict[str, Any]]:
         rows: List[Dict[str, Any]] = []
@@ -296,29 +361,71 @@ class WorkFlowManager:
             "upserted": result["upserted"],
         }
 
+    def _persist_bill_rows(
+        self,
+        rows: List[Dict[str, Any]],
+        *,
+        source_name: str,
+        metadata: Dict[str, Any],
+    ) -> int:
+        if not rows or self.mode == "dry_run":
+            return 0
+
+        db = self._build_db_manager(self.mode)
+        db.insert_bill_info(rows)
+        max_propose_date = max((row.get("propose_date") for row in rows if row.get("propose_date")), default=None)
+        db.upsert_ingest_checkpoint(
+            source_name=source_name,
+            assembly_number=self._safe_to_int(rows[0].get("assembly_number"), default=22),
+            last_reference_date=max_propose_date,
+            metadata=metadata,
+        )
+        return len(rows)
+
     def fetch_bills_data_step(
         self,
         start_date: str | None = None,
         end_date: str | None = None,
         age: str | None = None,
     ) -> Dict[str, Any]:
-        start_date = start_date or self._default_bill_start_date()
         end_date = end_date or self._default_end_date()
         age = str(age or "22")
+
+        if start_date is None and self.mode != "dry_run":
+            db = self._build_db_manager(self.mode)
+            checkpoint = db.get_ingest_checkpoint("bill_ingest", int(age))
+            if checkpoint and checkpoint.get("last_reference_date"):
+                start_date = checkpoint["last_reference_date"].strftime("%Y-%m-%d")
+            else:
+                start_date = self._default_bill_start_date()
+        else:
+            start_date = start_date or self._default_bill_start_date()
 
         print(f"[bill_ingest.fetch] mode={self.mode} start={start_date} end={end_date} age={age}")
 
         fetcher = DataFetcher()
-        df_bills = fetcher.fetch_bills_data(start_date=start_date, end_date=end_date, age=age)
-        if df_bills is None or df_bills.empty:
-            print("[bill_ingest.fetch] 수집된 법안이 없습니다.")
+        df_candidates = fetcher.discover_bill_candidates(start_date=start_date, end_date=end_date, age=age)
+        if df_candidates is None or df_candidates.empty:
+            print("[bill_ingest.fetch] 수집된 법안 후보가 없습니다.")
             return {"mode": self.mode, "fetched": 0, "artifact_path": None}
 
-        if "bill_id" in df_bills.columns:
-            df_bills = df_bills.drop_duplicates(subset=["bill_id"], keep="last")
+        if "bill_id" in df_candidates.columns:
+            df_candidates = df_candidates.drop_duplicates(subset=["bill_id"], keep="last")
 
-        artifact_path = self._write_artifact("bill_ingest_fetch", df_bills.to_dict(orient="records"))
-        return {"mode": self.mode, "fetched": len(df_bills), "artifact_path": artifact_path}
+        candidate_rows = self._build_bill_rows(df_candidates)
+        discovered = self._persist_bill_rows(
+            candidate_rows,
+            source_name="bill_discovery",
+            metadata={"discovered": len(candidate_rows)},
+        )
+
+        artifact_path = self._write_artifact("bill_ingest_fetch", df_candidates.to_dict(orient="records"))
+        return {
+            "mode": self.mode,
+            "fetched": len(df_candidates),
+            "discovered": discovered,
+            "artifact_path": artifact_path,
+        }
 
     def process_bills_data_step(self, artifact_path: str) -> Dict[str, Any]:
         print(f"[bill_ingest.process] mode={self.mode} artifact={artifact_path}")
@@ -328,8 +435,17 @@ class WorkFlowManager:
             print("[bill_ingest.process] 처리할 법안이 없습니다.")
             return {"mode": self.mode, "processed": 0, "artifact_path": None}
 
-        df_bills = pd.DataFrame(records)
+        df_candidates = pd.DataFrame(records)
         fetcher = DataFetcher()
+        hydrate_age = None
+        if not df_candidates.empty and "assemblyNumber" in df_candidates.columns:
+            hydrate_age = self._coerce_optional_text(df_candidates.iloc[0].get("assemblyNumber"))
+
+        df_bills = fetcher.hydrate_bill_candidates(df_candidates, age=hydrate_age)
+        if df_bills is None or df_bills.empty:
+            print("[bill_ingest.process] hydrate 결과가 없습니다.")
+            return {"mode": self.mode, "processed": 0, "artifact_path": None}
+
         processor = DataProcessor(fetcher)
         df_congressman_bills = processor.process_congressman_bills(df_bills.copy())
 
@@ -380,10 +496,13 @@ class WorkFlowManager:
             print(f"[bill_ingest.upsert] [DRY_RUN] {len(rows)}개의 법안을 수집했으나 DB에 반영하지 않습니다.")
             return {"mode": self.mode, "upserted": 0}
 
-        db = self._build_db_manager(self.mode)
-        db.insert_bill_info(rows)
-        print(f"[bill_ingest.upsert] [{self.mode}] upserted={len(rows)}")
-        return {"mode": self.mode, "upserted": len(rows)}
+        upserted = self._persist_bill_rows(
+            rows,
+            source_name="bill_ingest",
+            metadata={"upserted": len(rows)},
+        )
+        print(f"[bill_ingest.upsert] [{self.mode}] upserted={upserted}")
+        return {"mode": self.mode, "upserted": upserted}
 
     def update_lawmakers_data(self) -> Dict[str, Any]:
         print(f"[bill_status_sync] step=update_lawmakers_data mode={self.mode}")

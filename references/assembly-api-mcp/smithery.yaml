@@ -1,0 +1,19 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      ASSEMBLY_API_KEY:
+        type: string
+        description: "API key from Korea National Assembly Open Data portal (https://open.assembly.go.kr)"
+      MCP_PROFILE:
+        type: string
+        enum:
+          - lite
+          - full
+        default: lite
+        description: "Tool profile: 'lite' exposes 7 tools, 'full' exposes all 23 tools"
+    required:
+      - ASSEMBLY_API_KEY
+  commandFunction: |
+    (config) => ({ command: "node", args: ["{path}/dist/index.js"], env: { ASSEMBLY_API_KEY: config.ASSEMBLY_API_KEY, MCP_PROFILE: config.MCP_PROFILE || "lite", MCP_TRANSPORT: "stdio" } })

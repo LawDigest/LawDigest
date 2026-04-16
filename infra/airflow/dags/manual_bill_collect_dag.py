@@ -15,7 +15,7 @@ def fetch_manual_bills(**context):
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+    from lawdigest_data.core.WorkFlowManager import WorkFlowManager
 
     params = context.get("params", {})
     start_date = params.get("start_date")
@@ -40,7 +40,7 @@ def process_manual_bills(**context):
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+    from lawdigest_data.core.WorkFlowManager import WorkFlowManager
 
     params = context.get("params", {})
     task_instance = context["ti"]
@@ -58,7 +58,7 @@ def upsert_manual_bills(**context):
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+    from lawdigest_data.core.WorkFlowManager import WorkFlowManager
 
     params = context.get("params", {})
     task_instance = context["ti"]

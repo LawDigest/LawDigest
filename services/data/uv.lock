@@ -2239,6 +2239,7 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "qdrant-client" },
     { name = "requests" },
+    { name = "sqlalchemy" },
     { name = "tiktoken" },
     { name = "tqdm" },
 ]
@@ -2268,6 +2269,7 @@ requires-dist = [
     { name = "python-dotenv" },
     { name = "qdrant-client", specifier = ">=1.17.0" },
     { name = "requests" },
+    { name = "sqlalchemy", specifier = ">=2.0" },
     { name = "tiktoken", specifier = ">=0.12.0" },
     { name = "tqdm" },
 ]

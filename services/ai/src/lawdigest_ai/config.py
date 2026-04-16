@@ -9,6 +9,12 @@ EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 QDRANT_HOST = os.getenv("QDRANT_HOST")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 QDRANT_USE_HTTPS = os.getenv("QDRANT_USE_HTTPS", "false").lower() in ("true", "1", "yes")
+GEMINI_CLI_BIN = os.getenv("GEMINI_CLI_BIN", "gemini")
+GEMINI_CLI_MODEL = os.getenv("GEMINI_CLI_MODEL", os.getenv("GEMINI_MODEL", "auto-gemini-3"))
+GEMINI_CLI_TIMEOUT_SECONDS = int(os.getenv("GEMINI_CLI_TIMEOUT_SECONDS", "120"))
+GEMINI_CLI_APPROVAL_MODE = os.getenv("GEMINI_CLI_APPROVAL_MODE", "yolo")
+GEMINI_CLI_HOME = os.getenv("GEMINI_CLI_HOME")
+GEMINI_CLI_WORKDIR = os.getenv("GEMINI_CLI_WORKDIR", "/tmp")
 
 
 def get_openai_api_key() -> str:

@@ -1,4 +1,4 @@
-from enum import Enum, auto
+from enum import Enum
 from typing import Optional, Any
 
 class ProposerKindType(Enum):
@@ -8,6 +8,7 @@ class ProposerKindType(Enum):
     """
     CONGRESSMAN = "의원"
     CHAIRMAN = "위원장"
+    GOVERNMENT = "정부"
 
     @classmethod
     def from_string(cls, value: Optional[str]) -> "ProposerKindType":

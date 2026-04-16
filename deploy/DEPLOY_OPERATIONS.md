@@ -21,15 +21,17 @@
 ### 프론트엔드
 
 - 운영 자동 배포: [`.github/workflows/deploy-web-prod.yml`](../.github/workflows/deploy-web-prod.yml)
-- 테스트 자동 배포: [`.github/workflows/deploy-web-dev.yml`](../.github/workflows/deploy-web-dev.yml)
+- 테스트 자동 배포: [`.github/workflows/deploy-web-test.yml`](../.github/workflows/deploy-web-test.yml)
 - 개발 수동 배포: [`.github/workflows/deploy-web-dev-mode.yml`](../.github/workflows/deploy-web-dev-mode.yml)
 - 운영 배포 스크립트: [`deploy/deploy-prod-web.sh`](./deploy-prod-web.sh)
 - 테스트 배포 스크립트: [`deploy/deploy-test-web.sh`](./deploy-test-web.sh)
 - 개발 배포 스크립트: [`deploy/deploy-dev-web.sh`](./deploy-dev-web.sh)
+- 개발 PM2 복구 스크립트: [`deploy/ensure-dev-web-pm2.sh`](./ensure-dev-web-pm2.sh)
+- 개발 PM2 watchdog 설치 스크립트: [`deploy/install-dev-web-watchdog.sh`](./install-dev-web-watchdog.sh)
 
 ### 백엔드
 
-- 자동 배포 워크플로우: [`.github/workflows/deploy-web-dev.yml`](../.github/workflows/deploy-web-dev.yml)
+- 자동 배포 워크플로우: [`.github/workflows/deploy-backend-dev.yml`](../.github/workflows/deploy-backend-dev.yml)
 - 배포 스크립트: [`deploy/deploy-test-backend.sh`](./deploy-test-backend.sh)
 - 테스트 API 진입점: `https://test.api.lawdigest.kr`
 - 런타임 구조: Docker 컨테이너 재기동
@@ -54,6 +56,7 @@
 - 개발 웹
   - 수동 dispatch 시 원하는 `git_ref`를 지정
   - `deploy-dev-web.sh`로 `next dev` 배포
+  - PM2 데몬 재시작 후 누락될 수 있으므로 `install-dev-web-watchdog.sh`로 watchdog cron을 유지
 
 ### 백엔드 배포
 
@@ -72,6 +75,7 @@
 ./deploy/deploy-prod-web.sh /path/to/target-worktree
 ./deploy/deploy-test-web.sh /path/to/target-worktree
 ./deploy/deploy-dev-web.sh <git-ref>
+./deploy/install-dev-web-watchdog.sh
 ./deploy/deploy-test-backend.sh /path/to/target-worktree
 ```
 
@@ -97,4 +101,5 @@ curl -sSI http://127.0.0.1:808/ | sed -n '1,20p'
 
 - 테스트 웹은 `.runtime/test-web/current`가 기준이다.
 - 개발 웹은 `.runtime/dev-web/current` 심링크가 가리키는 source worktree가 기준이다.
+- 개발 웹은 PM2 dump만 단독으로 신뢰하지 않고 watchdog cron으로 재복구한다.
 - 백엔드는 live 컨테이너가 기준이다.
