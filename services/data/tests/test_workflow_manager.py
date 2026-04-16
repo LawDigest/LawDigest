@@ -1,7 +1,7 @@
 import json
 import os
 import sys
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pandas as pd
 
@@ -12,17 +12,24 @@ from lawdigest_data.bills.DataProcessor import DataProcessor  # noqa: E402
 from lawdigest_data.core.WorkFlowManager import WorkFlowManager  # noqa: E402
 
 
-def test_normalize_execution_mode_aliases():
-    assert WorkFlowManager.normalize_execution_mode("dry_run") == "dry_run"
-    assert WorkFlowManager.normalize_execution_mode("dry-run") == "dry_run"
-    assert WorkFlowManager.normalize_execution_mode("test_db") == "test_db"
-    assert WorkFlowManager.normalize_execution_mode("test") == "test_db"
-    assert WorkFlowManager.normalize_execution_mode("prod") == "prod"
-    assert WorkFlowManager.normalize_execution_mode("remote") == "prod"
+def _build_candidate_df():
+    return pd.DataFrame(
+        {
+            "bill_id": ["BILL-1"],
+            "bill_name": ["테스트 법안"],
+            "proposeDate": ["2026-01-01"],
+            "summary": [None],
+            "stage": ["접수"],
+            "proposer_kind": ["의원"],
+            "billNumber": [1],
+            "bill_link": ["https://example.com/bill"],
+            "assemblyNumber": ["22"],
+        }
+    )
 
 
-def test_update_bills_data_dry_run_does_not_build_db():
-    df_bills = pd.DataFrame(
+def _build_hydrated_df():
+    return pd.DataFrame(
         {
             "bill_id": ["BILL-1"],
             "bill_name": ["테스트 법안"],
@@ -39,11 +46,26 @@ def test_update_bills_data_dry_run_does_not_build_db():
         }
     )
 
+
+def test_normalize_execution_mode_aliases():
+    assert WorkFlowManager.normalize_execution_mode("dry_run") == "dry_run"
+    assert WorkFlowManager.normalize_execution_mode("dry-run") == "dry_run"
+    assert WorkFlowManager.normalize_execution_mode("test_db") == "test_db"
+    assert WorkFlowManager.normalize_execution_mode("test") == "test_db"
+    assert WorkFlowManager.normalize_execution_mode("prod") == "prod"
+    assert WorkFlowManager.normalize_execution_mode("remote") == "prod"
+
+
+def test_update_bills_data_dry_run_does_not_build_db():
+    df_candidates = _build_candidate_df()
+    df_bills = _build_hydrated_df()
     manager = WorkFlowManager("dry_run")
 
-    with patch.object(DataFetcher, "fetch_bills_data", return_value=df_bills), patch.object(
-        DataProcessor, "process_congressman_bills", return_value=df_bills.copy()
-    ), patch.object(WorkFlowManager, "_build_db_manager") as mock_db_builder:
+    with patch.object(DataFetcher, "discover_bill_candidates", return_value=df_candidates), patch.object(
+        DataFetcher, "hydrate_bill_candidates", return_value=df_bills
+    ), patch.object(DataProcessor, "process_congressman_bills", return_value=df_bills.copy()), patch.object(
+        WorkFlowManager, "_build_db_manager"
+    ) as mock_db_builder:
         result = manager.update_bills_data(
             start_date="2026-01-01",
             end_date="2026-01-01",
@@ -98,27 +120,15 @@ def test_update_lawmakers_data_dry_run():
 
 
 def test_fetch_process_upsert_bills_flow_uses_artifacts(tmp_path):
-    df_bills = pd.DataFrame(
-        {
-            "bill_id": ["BILL-1"],
-            "bill_name": ["테스트 법안"],
-            "proposeDate": ["2026-01-01"],
-            "summary": ["요약"],
-            "stage": ["접수"],
-            "proposer_kind": ["의원"],
-            "billNumber": [1],
-            "billPdfUrl": ["https://example.com/bill.pdf"],
-            "billResult": [None],
-            "bill_link": ["https://example.com/bill"],
-            "publicProposerIdList": [["P1"]],
-            "rstProposerIdList": [["R1"]],
-        }
-    )
+    df_candidates = _build_candidate_df()
+    df_bills = _build_hydrated_df()
     manager = WorkFlowManager("dry_run")
 
     with patch.object(WorkFlowManager, "_artifact_dir", return_value=tmp_path), patch.object(
-        DataFetcher, "fetch_bills_data", return_value=df_bills
-    ), patch.object(DataProcessor, "process_congressman_bills", return_value=df_bills.copy()):
+        DataFetcher, "discover_bill_candidates", return_value=df_candidates
+    ), patch.object(DataFetcher, "hydrate_bill_candidates", return_value=df_bills), patch.object(
+        DataProcessor, "process_congressman_bills", return_value=df_bills.copy()
+    ):
         fetched = manager.fetch_bills_data_step(start_date="2026-01-01", end_date="2026-01-01", age="22")
         processed = manager.process_bills_data_step(fetched["artifact_path"])
         result = manager.upsert_bills_data_step(processed["artifact_path"])
@@ -132,6 +142,26 @@ def test_fetch_process_upsert_bills_flow_uses_artifacts(tmp_path):
     with open(processed["artifact_path"], "r", encoding="utf-8") as fp:
         rows = json.load(fp)
     assert rows[0]["bill_id"] == "BILL-1"
+    assert rows[0]["ingest_status"] == "READY"
+
+
+def test_fetch_bills_data_step_persists_discovered_candidates_in_test_mode(tmp_path):
+    df_candidates = _build_candidate_df()
+    db = Mock()
+    manager = WorkFlowManager("test")
+
+    with patch.object(WorkFlowManager, "_artifact_dir", return_value=tmp_path), patch.object(
+        DataFetcher, "discover_bill_candidates", return_value=df_candidates
+    ), patch.object(WorkFlowManager, "_build_db_manager", return_value=db):
+        fetched = manager.fetch_bills_data_step(start_date="2026-01-01", end_date="2026-01-01", age="22")
+
+    assert fetched["fetched"] == 1
+    assert fetched["discovered"] == 1
+    db.insert_bill_info.assert_called_once()
+    inserted_rows = db.insert_bill_info.call_args.args[0]
+    assert inserted_rows[0]["bill_id"] == "BILL-1"
+    assert inserted_rows[0]["ingest_status"] == "PARTIAL"
+    db.upsert_ingest_checkpoint.assert_called_once()
 
 
 def test_build_bill_rows_sets_ready_status_for_public_bill():

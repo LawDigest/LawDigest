@@ -322,29 +322,71 @@ class WorkFlowManager:
             "upserted": result["upserted"],
         }
 
+    def _persist_bill_rows(
+        self,
+        rows: List[Dict[str, Any]],
+        *,
+        source_name: str,
+        metadata: Dict[str, Any],
+    ) -> int:
+        if not rows or self.mode == "dry_run":
+            return 0
+
+        db = self._build_db_manager(self.mode)
+        db.insert_bill_info(rows)
+        max_propose_date = max((row.get("propose_date") for row in rows if row.get("propose_date")), default=None)
+        db.upsert_ingest_checkpoint(
+            source_name=source_name,
+            assembly_number=self._safe_to_int(rows[0].get("assembly_number"), default=22),
+            last_reference_date=max_propose_date,
+            metadata=metadata,
+        )
+        return len(rows)
+
     def fetch_bills_data_step(
         self,
         start_date: str | None = None,
         end_date: str | None = None,
         age: str | None = None,
     ) -> Dict[str, Any]:
-        start_date = start_date or self._default_bill_start_date()
         end_date = end_date or self._default_end_date()
         age = str(age or "22")
+
+        if start_date is None and self.mode != "dry_run":
+            db = self._build_db_manager(self.mode)
+            checkpoint = db.get_ingest_checkpoint("bill_ingest", int(age))
+            if checkpoint and checkpoint.get("last_reference_date"):
+                start_date = checkpoint["last_reference_date"].strftime("%Y-%m-%d")
+            else:
+                start_date = self._default_bill_start_date()
+        else:
+            start_date = start_date or self._default_bill_start_date()
 
         print(f"[bill_ingest.fetch] mode={self.mode} start={start_date} end={end_date} age={age}")
 
         fetcher = DataFetcher()
-        df_bills = fetcher.fetch_bills_data(start_date=start_date, end_date=end_date, age=age)
-        if df_bills is None or df_bills.empty:
-            print("[bill_ingest.fetch] 수집된 법안이 없습니다.")
+        df_candidates = fetcher.discover_bill_candidates(start_date=start_date, end_date=end_date, age=age)
+        if df_candidates is None or df_candidates.empty:
+            print("[bill_ingest.fetch] 수집된 법안 후보가 없습니다.")
             return {"mode": self.mode, "fetched": 0, "artifact_path": None}
 
-        if "bill_id" in df_bills.columns:
-            df_bills = df_bills.drop_duplicates(subset=["bill_id"], keep="last")
+        if "bill_id" in df_candidates.columns:
+            df_candidates = df_candidates.drop_duplicates(subset=["bill_id"], keep="last")
 
-        artifact_path = self._write_artifact("bill_ingest_fetch", df_bills.to_dict(orient="records"))
-        return {"mode": self.mode, "fetched": len(df_bills), "artifact_path": artifact_path}
+        candidate_rows = self._build_bill_rows(df_candidates)
+        discovered = self._persist_bill_rows(
+            candidate_rows,
+            source_name="bill_discovery",
+            metadata={"discovered": len(candidate_rows)},
+        )
+
+        artifact_path = self._write_artifact("bill_ingest_fetch", df_candidates.to_dict(orient="records"))
+        return {
+            "mode": self.mode,
+            "fetched": len(df_candidates),
+            "discovered": discovered,
+            "artifact_path": artifact_path,
+        }
 
     def process_bills_data_step(self, artifact_path: str) -> Dict[str, Any]:
         print(f"[bill_ingest.process] mode={self.mode} artifact={artifact_path}")
@@ -354,8 +396,17 @@ class WorkFlowManager:
             print("[bill_ingest.process] 처리할 법안이 없습니다.")
             return {"mode": self.mode, "processed": 0, "artifact_path": None}
 
-        df_bills = pd.DataFrame(records)
+        df_candidates = pd.DataFrame(records)
         fetcher = DataFetcher()
+        hydrate_age = None
+        if not df_candidates.empty and "assemblyNumber" in df_candidates.columns:
+            hydrate_age = self._coerce_optional_text(df_candidates.iloc[0].get("assemblyNumber"))
+
+        df_bills = fetcher.hydrate_bill_candidates(df_candidates, age=hydrate_age)
+        if df_bills is None or df_bills.empty:
+            print("[bill_ingest.process] hydrate 결과가 없습니다.")
+            return {"mode": self.mode, "processed": 0, "artifact_path": None}
+
         processor = DataProcessor(fetcher)
         df_congressman_bills = processor.process_congressman_bills(df_bills.copy())
 
@@ -406,10 +457,13 @@ class WorkFlowManager:
             print(f"[bill_ingest.upsert] [DRY_RUN] {len(rows)}개의 법안을 수집했으나 DB에 반영하지 않습니다.")
             return {"mode": self.mode, "upserted": 0}
 
-        db = self._build_db_manager(self.mode)
-        db.insert_bill_info(rows)
-        print(f"[bill_ingest.upsert] [{self.mode}] upserted={len(rows)}")
-        return {"mode": self.mode, "upserted": len(rows)}
+        upserted = self._persist_bill_rows(
+            rows,
+            source_name="bill_ingest",
+            metadata={"upserted": len(rows)},
+        )
+        print(f"[bill_ingest.upsert] [{self.mode}] upserted={upserted}")
+        return {"mode": self.mode, "upserted": upserted}
 
     def update_lawmakers_data(self) -> Dict[str, Any]:
         print(f"[bill_status_sync] step=update_lawmakers_data mode={self.mode}")

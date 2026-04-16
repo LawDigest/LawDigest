@@ -46,10 +46,18 @@ class DataProcessor:
         # bill_name 컬럼 값에서 정규표현식을 사용하여 괄호 안의 발의자 정보를 추출합니다.
         # 예: '조세특례제한법 일부개정법률안(김형동의원 등 11인)' -> '김형동의원 등 11인'
         print("\n[bill_name에서 발의자 정보 추출 중...]")
-        df_bills_congressman["proposers"] = (
+        extracted_proposers = (
             df_bills_congressman["bill_name"]
             .str.extract(self.BILL_NAME_PROPOSER_PATTERN, expand=False)
             .fillna("")
+        )
+        existing_proposers = (
+            df_bills_congressman["proposers"]
+            if "proposers" in df_bills_congressman.columns
+            else pd.Series([""] * len(df_bills_congressman), index=df_bills_congressman.index)
+        )
+        df_bills_congressman["proposers"] = extracted_proposers.where(
+            extracted_proposers != "", existing_proposers.fillna("")
         )
         print("[발의자 정보 추출 완료]")
 

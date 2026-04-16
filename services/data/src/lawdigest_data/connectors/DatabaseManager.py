@@ -157,6 +157,39 @@ class DatabaseManager:
             print("❌ [ERROR] Failed to fetch the latest status_update_date")
             print(e)
             return None
+
+    def get_ingest_checkpoint(self, source_name: str, assembly_number: int) -> Optional[Dict[str, Any]]:
+        try:
+            query = """
+                SELECT source_name, assembly_number, last_reference_date, metadata_json
+                FROM IngestCheckpoint
+                WHERE source_name = %s AND assembly_number = %s
+            """
+            return self.execute_query(query, (source_name, assembly_number), fetch_one=True)
+        except Exception as e:
+            print("❌ [ERROR] Failed to fetch ingest checkpoint")
+            print(e)
+            return None
+
+    def upsert_ingest_checkpoint(
+        self,
+        source_name: str,
+        assembly_number: int,
+        last_reference_date: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        payload = None if metadata is None else json.dumps(metadata, ensure_ascii=False)
+        query = """
+            INSERT INTO IngestCheckpoint (
+                source_name, assembly_number, last_reference_date, metadata_json, created_date, modified_date
+            ) VALUES (%s, %s, %s, %s, NOW(), NOW()) AS new
+            ON DUPLICATE KEY UPDATE
+                last_reference_date = new.last_reference_date,
+                metadata_json = new.metadata_json,
+                modified_date = NOW()
+        """
+        with self.transaction() as cursor:
+            cursor.execute(query, (source_name, assembly_number, last_reference_date, payload))
     
     def insert_bill_info(self, bills_data: List[Dict]) -> None:
         """

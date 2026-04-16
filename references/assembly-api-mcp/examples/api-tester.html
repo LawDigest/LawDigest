@@ -1,0 +1,1412 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>국회 API 테스터 — assembly-api-mcp</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22253a;
+      --border: #2a2d3a;
+      --text: #e4e4e7;
+      --muted: #71717a;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --success: #22c55e;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --info: #38bdf8;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    header h1 { font-size: 1.25rem; font-weight: 600; }
+
+    header .badge {
+      font-size: 0.7rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 9999px;
+      background: var(--accent);
+      color: white;
+    }
+
+    header .tab-bar {
+      margin-left: auto;
+      display: flex;
+      gap: 0.25rem;
+      background: var(--surface);
+      border-radius: 8px;
+      padding: 0.2rem;
+    }
+
+    header .tab-bar button {
+      padding: 0.4rem 1rem;
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    header .tab-bar button.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      height: calc(100vh - 57px);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 1rem;
+    }
+
+    .sidebar h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .config-section { margin-bottom: 1.5rem; }
+
+    .config-section label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .config-section input, .sidebar-search {
+      width: 100%;
+      padding: 0.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.85rem;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+    }
+
+    .config-section input:focus, .sidebar-search:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .sidebar-search {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      margin-bottom: 0.75rem;
+    }
+
+    .api-list { list-style: none; }
+
+    .api-list li {
+      padding: 0.6rem 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .api-list li:hover { background: var(--surface); }
+    .api-list li.active { background: var(--accent); color: white; }
+
+    .api-list li .icon { font-size: 1rem; width: 1.5rem; text-align: center; }
+
+    .category-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 0.75rem 0.75rem 0.25rem;
+      letter-spacing: 0.05em;
+    }
+
+    /* Main content */
+    .main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .toolbar {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .toolbar h3 { font-size: 1rem; flex: 1; }
+
+    .btn {
+      padding: 0.5rem 1.25rem;
+      border-radius: 6px;
+      border: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover { border-color: var(--muted); }
+
+    .params-panel {
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+
+    .param-field label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .param-field label .required { color: var(--error); }
+
+    .param-field input,
+    .param-field select {
+      width: 100%;
+      padding: 0.4rem 0.6rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.85rem;
+    }
+
+    .param-field input:focus,
+    .param-field select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    /* Results */
+    .results {
+      flex: 1;
+      overflow: auto;
+      padding: 1.5rem;
+    }
+
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      font-size: 0.8rem;
+    }
+
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-dot.success { background: var(--success); }
+    .status-dot.error { background: var(--error); }
+    .status-dot.loading { background: var(--warning); animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .result-meta {
+      color: var(--muted);
+      font-size: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .result-meta span { margin-right: 1.5rem; }
+
+    pre.result-json {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow: auto;
+      font-size: 0.8rem;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Table view */
+    .result-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .result-table th {
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      background: var(--surface);
+      border-bottom: 2px solid var(--border);
+      font-weight: 600;
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+    }
+
+    .result-table td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .result-table tr:hover td { background: var(--surface); }
+
+    .result-table td a {
+      color: var(--info);
+      text-decoration: none;
+    }
+
+    .result-table td a:hover { text-decoration: underline; }
+
+    .clickable-row { cursor: pointer; }
+    .clickable-row:hover td { background: var(--surface2) !important; }
+
+    .view-toggle {
+      display: flex;
+      gap: 0.25rem;
+      background: var(--surface);
+      border-radius: 6px;
+      padding: 0.2rem;
+    }
+
+    .view-toggle button {
+      padding: 0.3rem 0.75rem;
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .view-toggle button.active { background: var(--accent); color: white; }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--muted);
+    }
+
+    .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+    .empty-state h3 { font-size: 1.1rem; color: var(--text); margin-bottom: 0.5rem; }
+
+    .url-preview {
+      font-size: 0.75rem;
+      color: var(--muted);
+      background: var(--bg);
+      padding: 0.5rem 0.75rem;
+      border-radius: 4px;
+      margin-top: 0.5rem;
+      word-break: break-all;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      border: 1px solid var(--border);
+    }
+
+    /* Meeting detail modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 900px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .modal-header h3 { flex: 1; font-size: 1rem; }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .modal-close:hover { background: var(--bg); color: var(--text); }
+
+    .modal-body {
+      padding: 1.5rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .meeting-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .meeting-info .field {
+      padding: 0.75rem;
+      background: var(--bg);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .meeting-info .field-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 0.25rem;
+    }
+
+    .meeting-info .field-value {
+      font-size: 0.9rem;
+    }
+
+    .meeting-links {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+
+    .meeting-links a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1rem;
+      background: var(--accent);
+      color: white;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .meeting-links a:hover { background: var(--accent-hover); }
+
+    .meeting-links a.secondary {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .meeting-links a.secondary:hover { border-color: var(--muted); }
+
+    /* API search results in discover tab */
+    .api-card {
+      padding: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 0.75rem;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .api-card:hover { border-color: var(--accent); }
+
+    .api-card .api-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .api-card .api-meta {
+      font-size: 0.75rem;
+      color: var(--muted);
+      display: flex;
+      gap: 1rem;
+    }
+
+    .api-card .api-desc {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+      line-height: 1.4;
+    }
+
+    .api-card .api-code {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.75rem;
+      color: var(--info);
+      background: var(--bg);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>국회 API 테스터</h1>
+    <span class="badge">assembly-api-mcp v0.2.0</span>
+    <div class="tab-bar">
+      <button class="active" data-tab="tools">도구 테스트</button>
+      <button data-tab="discover">전체 API 검색</button>
+      <button data-tab="meetings">회의록</button>
+    </div>
+  </header>
+
+  <!-- ============================================================ -->
+  <!-- TAB 1: 도구 테스트 (기존) -->
+  <!-- ============================================================ -->
+  <div id="tab-tools" class="layout">
+    <div class="sidebar">
+      <div class="config-section">
+        <h2>API 인증키</h2>
+        <label>열린국회정보 KEY</label>
+        <input type="text" id="apiKey" value="sample" placeholder="인증키 입력 (기본: sample)">
+        <div style="margin-top:0.5rem; font-size:0.7rem; color:var(--muted)">
+          sample = 테스트 키 (최대 10건)
+        </div>
+      </div>
+
+      <div class="category-label">Lite 프로필 (7개 도구)</div>
+      <ul class="api-list" id="apiList">
+        <li data-tool="search_members" class="active">
+          <span class="icon">👤</span> 의원 검색+상세
+        </li>
+        <li data-tool="search_bills">
+          <span class="icon">📜</span> 의안 검색+상세
+        </li>
+        <li data-tool="search_records_schedule">
+          <span class="icon">📅</span> 일정 조회
+        </li>
+        <li data-tool="search_records_votes">
+          <span class="icon">🗳️</span> 표결 조회
+        </li>
+      </ul>
+
+      <div class="category-label">체인 도구</div>
+      <ul class="api-list">
+        <li data-tool="analyze_legislator"><span class="icon">📊</span> 의원 종합분석</li>
+        <li data-tool="track_legislation"><span class="icon">🔎</span> 법안 추적</li>
+      </ul>
+
+      <div class="category-label">범용</div>
+      <ul class="api-list">
+        <li data-tool="query_assembly"><span class="icon">⚡</span> API 직접 호출</li>
+      </ul>
+    </div>
+
+    <div class="main">
+      <div class="toolbar">
+        <h3 id="toolTitle">의원 검색</h3>
+        <div class="view-toggle">
+          <button class="active" data-view="table">테이블</button>
+          <button data-view="json">JSON</button>
+        </div>
+        <button class="btn btn-primary" id="runBtn" onclick="executeQuery()">실행</button>
+      </div>
+      <div class="params-panel" id="paramsPanel"></div>
+      <div class="results" id="results">
+        <div class="empty-state">
+          <div class="icon">🏛️</div>
+          <h3>국회 API 테스터</h3>
+          <p>왼쪽에서 API를 선택하고 [실행]을 클릭하세요. <kbd>Ctrl+Enter</kbd></p>
+          <p style="margin-top:0.5rem; font-size:0.8rem">sample 키로 최대 10건까지 조회할 수 있습니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB 2: 전체 API 검색 -->
+  <!-- ============================================================ -->
+  <div id="tab-discover" class="layout hidden">
+    <div class="sidebar">
+      <div class="config-section">
+        <h2>API 검색</h2>
+        <label>키워드</label>
+        <input type="text" id="discoverKeyword" placeholder="예: 예산, 회의록, 의원">
+        <div style="margin-top:0.5rem">
+          <label>카테고리</label>
+          <select id="discoverCategory" style="width:100%; padding:0.4rem; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:0.85rem">
+            <option value="">전체</option>
+            <option value="국회의원">국회의원</option>
+            <option value="의정활동별 공개">의정활동별 공개</option>
+            <option value="보고서">보고서</option>
+            <option value="통계">통계</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%; margin-top:0.75rem" onclick="discoverApis()">검색</button>
+      </div>
+
+      <div id="discoverStats" style="font-size:0.75rem; color:var(--muted); padding:0 0.75rem">
+        276개 API 중에서 키워드로 검색할 수 있습니다.
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="toolbar">
+        <h3 id="discoverTitle">전체 API 검색 (276개)</h3>
+      </div>
+      <div class="results" id="discoverResults">
+        <div class="empty-state">
+          <div class="icon">🔍</div>
+          <h3>276개 국회 API 검색</h3>
+          <p>키워드를 입력하면 관련 API를 찾아줍니다.</p>
+          <p style="margin-top:0.5rem; font-size:0.8rem">API를 클릭하면 바로 호출할 수 있습니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB 3: 회의록 검색/보기 -->
+  <!-- ============================================================ -->
+  <div id="tab-meetings" class="layout hidden">
+    <div class="sidebar">
+      <div class="config-section">
+        <h2>회의록 검색</h2>
+        <label>회의 종류</label>
+        <select id="meetingType" style="width:100%; padding:0.4rem; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:0.85rem">
+          <option value="committee">위원회</option>
+          <option value="plenary">본회의</option>
+          <option value="audit">국정감사</option>
+          <option value="confirmation">인사청문회</option>
+          <option value="public_hearing">공청회</option>
+        </select>
+      </div>
+
+      <div class="config-section">
+        <label>위원회/키워드</label>
+        <input type="text" id="meetingCommittee" placeholder="예: 기획재정위원회">
+      </div>
+
+      <div class="config-section">
+        <label>연도 (YYYY)</label>
+        <input type="text" id="meetingYear" placeholder="2026" value="2026">
+      </div>
+
+      <div class="config-section">
+        <label>대수</label>
+        <input type="number" id="meetingAge" placeholder="22" value="22">
+      </div>
+
+      <button class="btn btn-primary" style="width:calc(100% - 2rem); margin:0 1rem" onclick="searchMeetings()">
+        회의록 검색
+      </button>
+    </div>
+
+    <div class="main">
+      <div class="toolbar">
+        <h3 id="meetingTitle">회의록 검색</h3>
+        <div class="view-toggle">
+          <button class="active" data-view="mtable">테이블</button>
+          <button data-view="mjson">JSON</button>
+        </div>
+      </div>
+      <div class="results" id="meetingResults">
+        <div class="empty-state">
+          <div class="icon">📝</div>
+          <h3>국회 회의록</h3>
+          <p>회의 종류와 조건을 선택하고 검색하세요.</p>
+          <p style="margin-top:0.5rem; font-size:0.8rem">회의록 행을 클릭하면 상세 정보와 원문 링크를 확인할 수 있습니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meeting detail modal -->
+  <div id="meetingModal" class="modal-overlay hidden" onclick="if(event.target===this)closeMeetingModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">회의록 상세</h3>
+        <button class="modal-close" onclick="closeMeetingModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    // =====================================================================
+    // Tool definitions
+    // =====================================================================
+    const TOOLS = {
+      // ── Lite 핵심 도구 ──────────────────────────────────
+      search_members: {
+        title: "의원 검색+상세",
+        description: "이름/정당/선거구로 검색. 1건이면 상세 자동 반환",
+        apiCode: "nwvrqwxyaytdsfvhu",
+        params: [
+          { key: "HG_NM", label: "의원 이름", type: "text", placeholder: "예: 고민정" },
+          { key: "POLY_NM", label: "정당", type: "text", placeholder: "예: 더불어민주당" },
+          { key: "ORIG_NM", label: "선거구", type: "text", placeholder: "예: 서울 광진구갑" },
+        ],
+        columns: ["HG_NM", "POLY_NM", "ORIG_NM", "REELE_GBN_NM", "ELECT_GBN_NM", "CMITS", "TEL_NO", "E_MAIL"],
+        columnLabels: { HG_NM: "이름", POLY_NM: "정당", ORIG_NM: "선거구", REELE_GBN_NM: "당선횟수", ELECT_GBN_NM: "당선방법", CMITS: "소속위원회", TEL_NO: "연락처", E_MAIL: "이메일" },
+      },
+      search_bills: {
+        title: "의안 검색+상세",
+        description: "의안명/제안자/상태(계류/처리/최근)로 검색, bill_id로 상세 조회",
+        apiCode: "nzmimeepazxkubdpn",
+        multiApi: {
+          all: "nzmimeepazxkubdpn",
+          pending: "nwbqublzajtcqpdae",
+          processed: "nzpltgfqabtcpsmai",
+          recent: "nxjuyqnxadtotdrbw",
+          detail: "BILLINFODETAIL",
+        },
+        params: [
+          { key: "BILL_NAME", label: "의안명", type: "text", placeholder: "예: 교육" },
+          { key: "AGE", label: "대수", type: "number", placeholder: "22" },
+          { key: "PROPOSER", label: "제안자", type: "text", placeholder: "의원 이름" },
+          { key: "STATUS", label: "상태", type: "select", placeholder: "", options: [
+            { value: "", label: "전체 (기본)" },
+            { value: "pending", label: "계류" },
+            { value: "processed", label: "처리완료" },
+            { value: "recent", label: "최근 본회의" },
+          ]},
+          { key: "BILL_ID", label: "의안 ID (상세)", type: "text", placeholder: "PRC_... (입력시 상세 조회)" },
+        ],
+        columns: ["BILL_NO", "BILL_NAME", "PROPOSER", "PROPOSER_KIND", "COMMITTEE", "PROPOSE_DT", "PROC_RESULT"],
+        columnLabels: { BILL_NO: "의안번호", BILL_NAME: "의안명", PROPOSER: "제안자", PROPOSER_KIND: "구분", COMMITTEE: "소관위원회", PROPOSE_DT: "제안일", PROC_RESULT: "처리상태" },
+      },
+      search_records_schedule: {
+        title: "일정 조회",
+        description: "search_records(type=schedule) — 국회 일정 통합 조회",
+        apiCode: "ALLSCHEDULE",
+        params: [
+          { key: "SCH_DT", label: "일자 (YYYYMMDD)", type: "text", placeholder: "20260404" },
+          { key: "CMIT_NM", label: "위원회명", type: "text", placeholder: "예: 법제사법위원회" },
+        ],
+        columns: ["SCH_KIND", "SCH_DT", "SCH_TM", "CMIT_NM", "SCH_CN", "EV_PLC"],
+        columnLabels: { SCH_KIND: "종류", SCH_DT: "일자", SCH_TM: "시간", CMIT_NM: "위원회", SCH_CN: "내용", EV_PLC: "장소" },
+      },
+      search_records_votes: {
+        title: "표결 조회",
+        description: "search_records(type=votes) — 의안별 의원 표결 내역",
+        apiCode: "ncocpgfiaoituanbr",
+        params: [
+          { key: "BILL_ID", label: "의안 ID", type: "text", required: true, placeholder: "PRC_..." },
+          { key: "AGE", label: "대수", type: "number", placeholder: "22" },
+        ],
+        columns: ["BILL_NAME", "HG_NM", "POLY_NM", "VOTE_RESULT"],
+        columnLabels: { BILL_NAME: "의안명", HG_NM: "의원명", POLY_NM: "정당", VOTE_RESULT: "투표결과" },
+      },
+
+      // ── Lite 체인 도구 ──────────────────────────────────
+      analyze_legislator: {
+        title: "의원 종합분석",
+        description: "analyze_legislator — 인적사항+발의법안+표결을 한 번에",
+        isChain: true,
+        chainApis: ["nwvrqwxyaytdsfvhu", "nzmimeepazxkubdpn", "nwbpacrgavhjryiph"],
+        params: [
+          { key: "HG_NM", label: "의원 이름", type: "text", required: true, placeholder: "예: 고민정" },
+          { key: "AGE", label: "대수", type: "number", placeholder: "22" },
+        ],
+        columns: [],
+        columnLabels: {},
+      },
+      track_legislation: {
+        title: "법안 추적",
+        description: "track_legislation — 키워드별 법안 검색 + 심사이력",
+        isChain: true,
+        chainApis: ["nzmimeepazxkubdpn"],
+        params: [
+          { key: "KEYWORDS", label: "키워드 (쉼표 구분)", type: "text", required: true, placeholder: "예: AI,인공지능" },
+          { key: "AGE", label: "대수", type: "number", placeholder: "22" },
+        ],
+        columns: [],
+        columnLabels: {},
+      },
+
+      // ── 범용 ────────────────────────────────────────────
+      query_assembly: {
+        title: "API 직접 호출",
+        description: "query_assembly — API 코드로 직접 호출 (위원회/청원/입법예고 등)",
+        apiCode: "",
+        params: [
+          { key: "API_CODE", label: "API 코드", type: "text", required: true, placeholder: "예: nxrvzonlafugpqjuh" },
+          { key: "PARAM1_KEY", label: "파라미터1 키", type: "text", placeholder: "예: AGE" },
+          { key: "PARAM1_VAL", label: "파라미터1 값", type: "text", placeholder: "예: 22" },
+          { key: "PARAM2_KEY", label: "파라미터2 키", type: "text", placeholder: "" },
+          { key: "PARAM2_VAL", label: "파라미터2 값", type: "text", placeholder: "" },
+        ],
+        columns: [],
+        columnLabels: {},
+      },
+    };
+
+    // Meeting API codes
+    const MEETING_APIS = {
+      committee: { code: "ncwgseseafwbuheph", label: "위원회 회의록", needsDaeNum: true },
+      plenary: { code: "nzbyfwhwaoanttzje", label: "본회의 회의록", needsDaeNum: true },
+      audit: { code: "VCONFAPIGCONFLIST", label: "국정감사 회의록", needsEraco: true },
+      confirmation: { code: "VCONFCFRMCONFLIST", label: "인사청문회 회의록", needsEraco: true },
+      public_hearing: { code: "VCONFPHCONFLIST", label: "공청회 회의록", needsEraco: true },
+    };
+
+    // =====================================================================
+    // State
+    // =====================================================================
+    let currentTool = "get_members";
+    let currentView = "table";
+    let meetingView = "mtable";
+    let lastResult = null;
+    let lastMeetingResult = null;
+    let lastElapsed = 0;
+    let currentTab = "tools";
+
+    // =====================================================================
+    // Tab switching
+    // =====================================================================
+    document.querySelectorAll(".tab-bar button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".tab-bar button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentTab = btn.dataset.tab;
+        document.getElementById("tab-tools").classList.toggle("hidden", currentTab !== "tools");
+        document.getElementById("tab-discover").classList.toggle("hidden", currentTab !== "discover");
+        document.getElementById("tab-meetings").classList.toggle("hidden", currentTab !== "meetings");
+      });
+    });
+
+    // =====================================================================
+    // TAB 1: Tool Test (existing logic)
+    // =====================================================================
+    document.querySelectorAll("#tab-tools .api-list li[data-tool]").forEach(li => {
+      li.addEventListener("click", () => {
+        document.querySelectorAll("#tab-tools .api-list li").forEach(el => el.classList.remove("active"));
+        li.classList.add("active");
+        currentTool = li.dataset.tool;
+        renderParams();
+      });
+    });
+
+    document.querySelectorAll("#tab-tools .view-toggle button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#tab-tools .view-toggle button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        currentView = btn.dataset.view;
+        if (lastResult) renderResults(lastResult);
+      });
+    });
+
+    document.querySelectorAll("#tab-meetings .view-toggle button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#tab-meetings .view-toggle button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        meetingView = btn.dataset.view;
+        if (lastMeetingResult) renderMeetingResults(lastMeetingResult);
+      });
+    });
+
+    function renderParams() {
+      const tool = TOOLS[currentTool];
+      document.getElementById("toolTitle").textContent = tool.title;
+      if (tool.description) {
+        document.getElementById("toolTitle").innerHTML = `${tool.title} <span style="font-size:0.75rem;color:var(--muted);font-weight:400;margin-left:0.5rem">${tool.description}</span>`;
+      }
+      const panel = document.getElementById("paramsPanel");
+      const commonParams = tool.isChain || currentTool === "query_assembly" ? [] : [
+        { key: "pIndex", label: "페이지", type: "number", placeholder: "1" },
+        { key: "pSize", label: "건수", type: "number", placeholder: "10" },
+      ];
+      const allParams = [...tool.params, ...commonParams];
+      panel.innerHTML = allParams.map(p => {
+        if (p.type === "select") {
+          return `<div class="param-field">
+            <label>${p.label}</label>
+            <select id="param_${p.key}">
+              ${p.options.map(o => `<option value="${o.value}">${o.label}</option>`).join("")}
+            </select>
+          </div>`;
+        }
+        return `<div class="param-field">
+          <label>${p.label}${p.required ? ' <span class="required">*</span>' : ""}</label>
+          <input type="${p.type}" id="param_${p.key}" placeholder="${p.placeholder || ""}">
+        </div>`;
+      }).join("");
+    }
+
+    function getApiKey() {
+      return document.getElementById("apiKey").value || "sample";
+    }
+
+    async function callApi(apiCode, params) {
+      const apiKey = getApiKey();
+      const allParams = { Type: "json", ...params };
+      const queryEntries = Object.entries(allParams)
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+        .join("&");
+      const url = `https://open.assembly.go.kr/portal/openapi/${apiCode}?${queryEntries}&KEY=${apiKey}`;
+
+      const response = await fetch(url);
+      const text = await response.text();
+      let data;
+      try { data = JSON.parse(text); } catch { throw new Error(`JSON 파싱 실패:\n${text.slice(0, 500)}`); }
+
+      const firstKey = Object.keys(data)[0];
+      const apiData = data[apiCode] || (firstKey ? data[firstKey] : null);
+      if (!apiData || !Array.isArray(apiData)) return { totalCount: 0, rows: [], resultCode: "DATA-000", resultMessage: "데이터 없음", raw: data };
+
+      return parseApiArray(apiData, url, apiKey);
+    }
+
+    function parseApiArray(arr, url, apiKey) {
+      const headPart = arr[0]?.head;
+      const rows = arr[1]?.row || [];
+      let totalCount = rows.length;
+      let resultCode = "INFO-000";
+      let resultMessage = "";
+      if (headPart && headPart.length >= 2) {
+        totalCount = headPart[0]?.list_total_count ?? rows.length;
+        const result = headPart[1]?.RESULT;
+        if (result) { resultCode = result.CODE; resultMessage = result.MESSAGE; }
+      }
+      return { totalCount, rows, resultCode, resultMessage, url: url ? url.replace(apiKey || "", "***") : "" };
+    }
+
+    async function executeQuery() {
+      const tool = TOOLS[currentTool];
+      const btn = document.getElementById("runBtn");
+      btn.disabled = true; btn.textContent = "조회 중...";
+      document.getElementById("results").innerHTML = `<div class="status-bar"><span class="status-dot loading"></span><span>API 호출 중...</span></div>`;
+
+      const start = performance.now();
+      try {
+        if (tool.isChain) {
+          lastResult = await executeChainTool(tool);
+        } else if (currentTool === "query_assembly") {
+          lastResult = await executeRawQuery();
+        } else {
+          lastResult = await executeStandardTool(tool);
+        }
+        lastElapsed = Math.round(performance.now() - start);
+        renderResults(lastResult);
+      } catch (err) {
+        lastElapsed = Math.round(performance.now() - start);
+        document.getElementById("results").innerHTML = `
+          <div class="status-bar"><span class="status-dot error"></span><span>오류 (${lastElapsed}ms)</span></div>
+          <pre class="result-json" style="color:var(--error)">${escapeHtml(err.message)}</pre>`;
+      } finally {
+        btn.disabled = false; btn.textContent = "실행";
+      }
+    }
+
+    async function executeStandardTool(tool) {
+      const params = {};
+      const allParamKeys = [...tool.params.map(p => p.key), "pIndex", "pSize"];
+      for (const key of allParamKeys) {
+        const el = document.getElementById(`param_${key}`);
+        if (el && el.value.trim() && key !== "STATUS" && key !== "BILL_ID") params[key] = el.value.trim();
+      }
+
+      // search_bills — 상태 라우팅 + bill_id 상세
+      let apiCode = tool.apiCode;
+      if (currentTool === "search_bills") {
+        const billIdEl = document.getElementById("param_BILL_ID");
+        const statusEl = document.getElementById("param_STATUS");
+        if (billIdEl && billIdEl.value.trim()) {
+          apiCode = tool.multiApi.detail;
+          params.BILL_ID = billIdEl.value.trim();
+        } else if (statusEl && statusEl.value) {
+          apiCode = tool.multiApi[statusEl.value] || tool.multiApi.all;
+          if (statusEl.value === "pending") delete params.AGE;  // pending은 AGE 불필요
+        }
+      }
+
+      return await callApi(apiCode, params);
+    }
+
+    async function executeChainTool(tool) {
+      if (currentTool === "analyze_legislator") {
+        return await executeAnalyzeLegislator();
+      }
+      if (currentTool === "track_legislation") {
+        return await executeTrackLegislation();
+      }
+    }
+
+    async function executeAnalyzeLegislator() {
+      const name = document.getElementById("param_HG_NM")?.value.trim();
+      const age = document.getElementById("param_AGE")?.value.trim() || "22";
+      if (!name) throw new Error("의원 이름을 입력해 주세요.");
+
+      // 1. 의원 정보
+      const memberResult = await callApi("nwvrqwxyaytdsfvhu", { HG_NM: name, pSize: 1 });
+      if (memberResult.rows.length === 0) throw new Error(`"${name}" 의원을 찾을 수 없습니다.`);
+
+      // 2. 발의법안 + 표결 병렬 조회
+      const [billsResult, votesResult] = await Promise.all([
+        callApi("nzmimeepazxkubdpn", { AGE: age, PROPOSER: name, pSize: 10 }),
+        callApi("nwbpacrgavhjryiph", { AGE: age, pSize: 10 }),
+      ]);
+
+      const m = memberResult.rows[0];
+      const sections = [
+        `■ 의원 기본정보`,
+        `  이름: ${m.HG_NM} | 정당: ${m.POLY_NM} | 선거구: ${m.ORIG_NM}`,
+        `  당선: ${m.REELE_GBN_NM} | 소속위원회: ${m.CMITS}`,
+        ``,
+        `■ 발의 법안 (총 ${billsResult.totalCount}건, 최근 ${billsResult.rows.length}건)`,
+        ...(billsResult.rows.length > 0
+          ? billsResult.rows.map(r => `  - [${r.BILL_NO}] ${r.BILL_NAME} (${r.PROC_RESULT || "계류"})`)
+          : ["  (발의 법안 없음)"]),
+        ``,
+        `■ 본회의 표결 현황 (제${age}대, 총 ${votesResult.totalCount}건)`,
+        ...(votesResult.rows.length > 0
+          ? votesResult.rows.map(r => `  - [${r.BILL_NO}] ${r.BILL_NM || r.BILL_NAME} (${r.RESULT || r.PROC_RESULT || ""})`)
+          : ["  (표결 정보 없음)"]),
+      ];
+
+      return {
+        totalCount: 1,
+        rows: [{ report: sections.join("\n") }],
+        resultCode: "INFO-000",
+        resultMessage: "체인 도구 결과",
+        isChainResult: true,
+        chainText: sections.join("\n"),
+      };
+    }
+
+    async function executeTrackLegislation() {
+      const keywords = document.getElementById("param_KEYWORDS")?.value.trim();
+      const age = document.getElementById("param_AGE")?.value.trim() || "22";
+      if (!keywords) throw new Error("키워드를 입력해 주세요.");
+
+      const keywordList = keywords.split(",").map(k => k.trim()).filter(k => k);
+
+      // 키워드별 병렬 검색
+      const results = await Promise.all(
+        keywordList.map(kw => callApi("nzmimeepazxkubdpn", { AGE: age, BILL_NAME: kw, pSize: 10 }))
+      );
+
+      // 중복 제거
+      const seen = new Set();
+      const allBills = [];
+      for (const r of results) {
+        for (const row of r.rows) {
+          const billNo = row.BILL_NO || row.BILL_ID || "";
+          if (billNo && !seen.has(billNo)) {
+            seen.add(billNo);
+            allBills.push(row);
+          }
+        }
+      }
+
+      const sections = [
+        `■ 법안 추적: "${keywordList.join(", ")}" (제${age}대)`,
+        `  검색 결과: 총 ${allBills.length}건 (중복 제거)`,
+        ``,
+        `■ 관련 법안 목록`,
+        ...(allBills.length > 0
+          ? allBills.map((b, i) => `  ${i+1}. [${b.BILL_NO}] ${b.BILL_NAME}\n     제안자: ${b.PROPOSER || "미상"} | 상태: ${b.PROC_RESULT || "계류"}`)
+          : ["  검색 결과가 없습니다."]),
+      ];
+
+      return {
+        totalCount: allBills.length,
+        rows: allBills,
+        resultCode: "INFO-000",
+        resultMessage: "법안 추적 결과",
+        isChainResult: true,
+        chainText: sections.join("\n"),
+      };
+    }
+
+    async function executeRawQuery() {
+      const apiCode = document.getElementById("param_API_CODE")?.value.trim();
+      if (!apiCode) throw new Error("API 코드를 입력해 주세요. discover_apis(전체 API 검색 탭)에서 코드를 찾을 수 있습니다.");
+
+      const params = {};
+      const key1 = document.getElementById("param_PARAM1_KEY")?.value.trim();
+      const val1 = document.getElementById("param_PARAM1_VAL")?.value.trim();
+      const key2 = document.getElementById("param_PARAM2_KEY")?.value.trim();
+      const val2 = document.getElementById("param_PARAM2_VAL")?.value.trim();
+      if (key1 && val1) params[key1] = val1;
+      if (key2 && val2) params[key2] = val2;
+
+      return await callApi(apiCode, params);
+    }
+
+    function renderResults(result) {
+      const tool = TOOLS[currentTool];
+      const isSuccess = result.resultCode === "INFO-000";
+      let html = `
+        <div class="status-bar"><span class="status-dot ${isSuccess ? "success" : "error"}"></span><span>${isSuccess ? "성공" : `오류: ${result.resultCode}`}</span></div>
+        <div class="result-meta"><span>총 ${result.totalCount.toLocaleString()}건</span><span>현재 ${result.rows.length}건</span><span>${lastElapsed}ms</span></div>`;
+
+      if (!isSuccess || result.rows.length === 0) {
+        html += `<pre class="result-json">${escapeHtml(JSON.stringify(result.raw || result, null, 2))}</pre>`;
+        document.getElementById("results").innerHTML = html;
+        return;
+      }
+
+      // 체인 도구 결과 → 보고서 형태
+      if (result.isChainResult && result.chainText) {
+        html += `<pre class="result-json" style="white-space:pre-wrap; font-size:0.9rem; line-height:1.8">${escapeHtml(result.chainText)}</pre>`;
+        if (currentView === "json" && result.rows.length > 0 && !result.rows[0]?.report) {
+          html += `<details style="margin-top:1rem"><summary style="cursor:pointer;color:var(--muted);font-size:0.8rem">원본 JSON 데이터</summary>`;
+          html += `<pre class="result-json" style="margin-top:0.5rem">${escapeHtml(JSON.stringify(result.rows, null, 2))}</pre></details>`;
+        }
+        document.getElementById("results").innerHTML = html;
+        return;
+      }
+
+      if (currentView === "table") {
+        // 테이블 컬럼: 정의된 것 사용, 없으면 자동 감지
+        const cols = (tool.columns && tool.columns.length > 0)
+          ? tool.columns.filter(c => result.rows[0]?.[c] !== undefined)
+          : [];
+        if (cols.length === 0) cols.push(...Object.keys(result.rows[0] || {}).slice(0, 8));
+        html += renderTable(result.rows, cols, tool.columnLabels || {});
+      } else {
+        html += `<pre class="result-json">${escapeHtml(JSON.stringify(result.rows, null, 2))}</pre>`;
+      }
+      document.getElementById("results").innerHTML = html;
+    }
+
+    function renderTable(rows, columns, labels) {
+      const cols = columns.filter(c => rows[0]?.[c] !== undefined);
+      if (cols.length === 0) cols.push(...Object.keys(rows[0] || {}).slice(0, 8));
+
+      let html = `<table class="result-table"><thead><tr>`;
+      html += cols.map(c => `<th>${labels[c] || c}</th>`).join("");
+      html += `</tr></thead><tbody>`;
+      for (const row of rows) {
+        html += `<tr>`;
+        for (const col of cols) {
+          const val = row[col] ?? "";
+          const s = String(val);
+          const display = s.length > 60 ? s.slice(0, 60) + "..." : s;
+          if (s.startsWith("http")) {
+            html += `<td><a href="${escapeHtml(s)}" target="_blank">링크</a></td>`;
+          } else {
+            html += `<td title="${escapeHtml(s)}">${escapeHtml(display)}</td>`;
+          }
+        }
+        html += `</tr>`;
+      }
+      html += `</tbody></table>`;
+      return html;
+    }
+
+    // =====================================================================
+    // TAB 2: Discover APIs
+    // =====================================================================
+    async function discoverApis() {
+      const keyword = document.getElementById("discoverKeyword").value.trim();
+      const category = document.getElementById("discoverCategory").value;
+      const resultsEl = document.getElementById("discoverResults");
+      const titleEl = document.getElementById("discoverTitle");
+
+      resultsEl.innerHTML = `<div class="status-bar"><span class="status-dot loading"></span><span>276개 API 검색 중...</span></div>`;
+
+      try {
+        const result = await callApi("OPENSRVAPI", { pSize: 300 });
+        let apis = result.rows;
+
+        if (keyword) {
+          const lower = keyword.toLowerCase();
+          apis = apis.filter(r => {
+            const name = String(r.INF_NM || "").toLowerCase();
+            const desc = String(r.INF_EXP || "").toLowerCase();
+            return name.includes(lower) || desc.includes(lower);
+          });
+        }
+
+        if (category) {
+          const lower = category.toLowerCase();
+          apis = apis.filter(r => String(r.CATE_NM || "").toLowerCase().includes(lower));
+        }
+
+        titleEl.textContent = `API 검색 결과 (${apis.length}건 / 전체 ${result.totalCount}건)`;
+
+        if (apis.length === 0) {
+          resultsEl.innerHTML = `<div class="empty-state"><div class="icon">🔍</div><h3>검색 결과가 없습니다</h3><p>다른 키워드로 시도해 보세요.</p></div>`;
+          return;
+        }
+
+        resultsEl.innerHTML = apis.map(api => `
+          <div class="api-card" onclick="tryApiCode('${escapeHtml(String(api.INF_ID || ""))}', '${escapeHtml(String(api.INF_NM || ""))}')">
+            <div class="api-name">${escapeHtml(String(api.INF_NM || ""))}</div>
+            <div class="api-meta">
+              <span>카테고리: ${escapeHtml(String(api.CATE_NM || ""))}</span>
+              <span>기관: ${escapeHtml(String(api.ORG_NM || ""))}</span>
+              <span class="api-code">ID: ${escapeHtml(String(api.INF_ID || ""))}</span>
+            </div>
+            <div class="api-desc">${escapeHtml(String(api.INF_EXP || "").slice(0, 200))}</div>
+          </div>
+        `).join("");
+
+      } catch (err) {
+        resultsEl.innerHTML = `
+          <div class="status-bar"><span class="status-dot error"></span><span>오류</span></div>
+          <pre class="result-json" style="color:var(--error)">${escapeHtml(err.message)}</pre>`;
+      }
+    }
+
+    async function tryApiCode(infId, infName) {
+      const resultsEl = document.getElementById("discoverResults");
+      resultsEl.innerHTML = `<div class="status-bar"><span class="status-dot loading"></span><span>"${escapeHtml(infName)}" API 호출 중...</span></div>`;
+
+      try {
+        const result = await callApi(infId, { pSize: 5 });
+        let html = `
+          <div class="status-bar"><span class="status-dot ${result.resultCode === "INFO-000" ? "success" : "error"}"></span>
+          <span>${infName} (${infId})</span></div>
+          <div class="result-meta"><span>총 ${result.totalCount.toLocaleString()}건</span><span>샘플 ${result.rows.length}건</span></div>
+          <p style="margin-bottom:1rem; font-size:0.8rem; color:var(--muted)">
+            이 API 코드를 MCP의 <code>query_assembly</code> 도구에서 사용할 수 있습니다:
+            <code style="color:var(--info)">query_assembly({ api_code: "${infId}" })</code>
+          </p>`;
+
+        if (result.rows.length > 0) {
+          const allCols = Object.keys(result.rows[0]);
+          const labels = {};
+          allCols.forEach(c => labels[c] = c);
+          html += renderTable(result.rows, allCols.slice(0, 8), labels);
+        } else {
+          html += `<pre class="result-json">${escapeHtml(JSON.stringify(result.raw || result, null, 2))}</pre>`;
+        }
+
+        html += `<button class="btn btn-secondary" style="margin-top:1rem" onclick="discoverApis()">← 검색 목록으로</button>`;
+        resultsEl.innerHTML = html;
+
+      } catch (err) {
+        resultsEl.innerHTML = `
+          <div class="status-bar"><span class="status-dot error"></span><span>${infName} — 호출 실패</span></div>
+          <pre class="result-json" style="color:var(--error)">${escapeHtml(err.message)}</pre>
+          <p style="margin-top:1rem; font-size:0.8rem; color:var(--muted)">INF_ID가 실제 API 코드와 다를 수 있습니다. 열린국회정보 포털에서 실제 코드를 확인하세요.</p>
+          <button class="btn btn-secondary" style="margin-top:0.5rem" onclick="discoverApis()">← 검색 목록으로</button>`;
+      }
+    }
+
+    // =====================================================================
+    // TAB 3: Meeting Records
+    // =====================================================================
+    async function searchMeetings() {
+      const type = document.getElementById("meetingType").value;
+      const committee = document.getElementById("meetingCommittee").value.trim();
+      const year = document.getElementById("meetingYear").value.trim() || String(new Date().getFullYear());
+      const age = document.getElementById("meetingAge").value.trim() || "22";
+      const api = MEETING_APIS[type];
+      const resultsEl = document.getElementById("meetingResults");
+      const titleEl = document.getElementById("meetingTitle");
+
+      titleEl.textContent = `${api.label} 검색 중...`;
+      resultsEl.innerHTML = `<div class="status-bar"><span class="status-dot loading"></span><span>${api.label} 조회 중...</span></div>`;
+
+      const params = {};
+      if (api.needsDaeNum) {
+        params.DAE_NUM = age;
+        params.CONF_DATE = year;
+      }
+      if (api.needsEraco) {
+        params.ERACO = `제${age}대`;
+      }
+      if (committee) {
+        if (type === "committee") params.COMM_NAME = committee;
+        else params.SUB_NAME = committee;
+      }
+
+      const start = performance.now();
+      try {
+        lastMeetingResult = await callApi(api.code, params);
+        lastElapsed = Math.round(performance.now() - start);
+        titleEl.textContent = `${api.label} (${lastMeetingResult.totalCount}건)`;
+        renderMeetingResults(lastMeetingResult);
+      } catch (err) {
+        lastElapsed = Math.round(performance.now() - start);
+        resultsEl.innerHTML = `
+          <div class="status-bar"><span class="status-dot error"></span><span>오류 (${lastElapsed}ms)</span></div>
+          <pre class="result-json" style="color:var(--error)">${escapeHtml(err.message)}</pre>`;
+        titleEl.textContent = `${api.label} — 오류`;
+      }
+    }
+
+    function renderMeetingResults(result) {
+      const isSuccess = result.resultCode === "INFO-000";
+      let html = `
+        <div class="status-bar"><span class="status-dot ${isSuccess ? "success" : "error"}"></span><span>${isSuccess ? "성공" : `오류: ${result.resultCode}`}</span></div>
+        <div class="result-meta"><span>총 ${result.totalCount.toLocaleString()}건</span><span>현재 ${result.rows.length}건</span><span>${lastElapsed}ms</span></div>`;
+
+      if (!isSuccess || result.rows.length === 0) {
+        html += `<pre class="result-json">${escapeHtml(JSON.stringify(result.raw || result, null, 2))}</pre>`;
+        document.getElementById("meetingResults").innerHTML = html;
+        return;
+      }
+
+      if (meetingView === "mjson") {
+        html += `<pre class="result-json">${escapeHtml(JSON.stringify(result.rows, null, 2))}</pre>`;
+        document.getElementById("meetingResults").innerHTML = html;
+        return;
+      }
+
+      // Table with clickable rows
+      const cols = ["TITLE", "COMM_NAME", "CLASS_NAME", "CONF_DATE", "CHA", "DAE_NUM", "ERACO"].filter(c => result.rows[0]?.[c] !== undefined);
+      if (cols.length === 0) cols.push(...Object.keys(result.rows[0] || {}).slice(0, 6));
+
+      const labels = { TITLE: "회의명", COMM_NAME: "위원회", CLASS_NAME: "구분", CONF_DATE: "회의일", CHA: "회차", DAE_NUM: "대수", ERACO: "대수", SUB_NAME: "안건" };
+
+      html += `<table class="result-table"><thead><tr>`;
+      html += cols.map(c => `<th>${labels[c] || c}</th>`).join("");
+      html += `<th>회의록</th></tr></thead><tbody>`;
+
+      result.rows.forEach((row, idx) => {
+        html += `<tr class="clickable-row" onclick="showMeetingDetail(${idx})">`;
+        for (const col of cols) {
+          const val = row[col] ?? "";
+          const s = String(val);
+          const display = s.length > 50 ? s.slice(0, 50) + "..." : s;
+          html += `<td title="${escapeHtml(s)}">${escapeHtml(display)}</td>`;
+        }
+        // Links column
+        const pdfLink = row.PDF_LINK_URL || row.CONF_LINK_URL || row.LINK_URL || "";
+        const vodLink = row.VOD_LINK_URL || "";
+        let linkHtml = "";
+        if (pdfLink) linkHtml += `<a href="${escapeHtml(String(pdfLink))}" target="_blank" onclick="event.stopPropagation()">📄</a> `;
+        if (vodLink) linkHtml += `<a href="${escapeHtml(String(vodLink))}" target="_blank" onclick="event.stopPropagation()">🎥</a>`;
+        if (!linkHtml) linkHtml = "-";
+        html += `<td>${linkHtml}</td>`;
+        html += `</tr>`;
+      });
+
+      html += `</tbody></table>`;
+      document.getElementById("meetingResults").innerHTML = html;
+    }
+
+    function showMeetingDetail(idx) {
+      if (!lastMeetingResult || !lastMeetingResult.rows[idx]) return;
+      const row = lastMeetingResult.rows[idx];
+
+      document.getElementById("modalTitle").textContent = String(row.TITLE || row.COMM_NAME || row.CLASS_NAME || "회의록 상세");
+
+      const fields = [
+        ["회의명", row.TITLE || row.COMM_NAME || row.CLASS_NAME],
+        ["회의일", row.CONF_DATE],
+        ["대수", row.DAE_NUM || row.ERACO],
+        ["회차", row.CHA],
+        ["위원회", row.COMM_NAME || row.CMIT_NM],
+        ["구분", row.CLASS_NAME || row.SCH_KIND],
+        ["안건", row.SUB_NAME],
+        ["회기", row.SESS || row.CONF_SESS],
+      ].filter(([, v]) => v !== undefined && v !== null && v !== "");
+
+      let html = `<div class="meeting-info">`;
+      for (const [label, value] of fields) {
+        html += `<div class="field"><div class="field-label">${label}</div><div class="field-value">${escapeHtml(String(value))}</div></div>`;
+      }
+      html += `</div>`;
+
+      // All raw fields
+      const extraFields = Object.entries(row).filter(([k]) =>
+        !["TITLE", "COMM_NAME", "CLASS_NAME", "CONF_DATE", "CHA", "DAE_NUM", "ERACO", "SUB_NAME", "SESS", "CONF_SESS", "CMIT_NM", "SCH_KIND",
+          "PDF_LINK_URL", "CONF_LINK_URL", "LINK_URL", "VOD_LINK_URL"].includes(k)
+      ).filter(([, v]) => v !== undefined && v !== null && v !== "");
+
+      if (extraFields.length > 0) {
+        html += `<h4 style="margin:1rem 0 0.5rem; font-size:0.85rem; color:var(--muted)">추가 정보</h4>`;
+        html += `<div class="meeting-info">`;
+        for (const [k, v] of extraFields) {
+          html += `<div class="field"><div class="field-label">${k}</div><div class="field-value">${escapeHtml(String(v).slice(0, 200))}</div></div>`;
+        }
+        html += `</div>`;
+      }
+
+      // Links
+      const pdfLink = row.PDF_LINK_URL || row.CONF_LINK_URL || row.LINK_URL;
+      const vodLink = row.VOD_LINK_URL;
+
+      if (pdfLink || vodLink) {
+        html += `<div class="meeting-links">`;
+        if (pdfLink) html += `<a href="${escapeHtml(String(pdfLink))}" target="_blank">📄 회의록 원문 보기</a>`;
+        if (vodLink) html += `<a href="${escapeHtml(String(vodLink))}" target="_blank" class="secondary">🎥 영상 보기</a>`;
+        html += `</div>`;
+      }
+
+      document.getElementById("modalBody").innerHTML = html;
+      document.getElementById("meetingModal").classList.remove("hidden");
+    }
+
+    function closeMeetingModal() {
+      document.getElementById("meetingModal").classList.add("hidden");
+    }
+
+    // =====================================================================
+    // Utilities
+    // =====================================================================
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener("keydown", e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (currentTab === "tools") executeQuery();
+        else if (currentTab === "discover") discoverApis();
+        else if (currentTab === "meetings") searchMeetings();
+      }
+      if (e.key === "Escape") closeMeetingModal();
+    });
+
+    // Init
+    renderParams();
+  </script>
+</body>
+</html>

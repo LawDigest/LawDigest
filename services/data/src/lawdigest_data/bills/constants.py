@@ -8,6 +8,7 @@ class ProposerKindType(Enum):
     """
     CONGRESSMAN = "의원"
     CHAIRMAN = "위원장"
+    GOVERNMENT = "정부"
 
     @classmethod
     def from_string(cls, value: Optional[str]) -> "ProposerKindType":
