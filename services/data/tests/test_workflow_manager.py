@@ -132,3 +132,41 @@ def test_fetch_process_upsert_bills_flow_uses_artifacts(tmp_path):
     with open(processed["artifact_path"], "r", encoding="utf-8") as fp:
         rows = json.load(fp)
     assert rows[0]["bill_id"] == "BILL-1"
+
+
+def test_build_bill_rows_sets_ready_status_for_public_bill():
+    manager = WorkFlowManager("dry_run")
+    df_bills = pd.DataFrame(
+        {
+            "bill_id": ["BILL-1"],
+            "bill_name": ["테스트 법안"],
+            "proposeDate": ["2026-01-01"],
+            "summary": ["요약"],
+            "stage": ["접수"],
+            "proposer_kind": ["의원"],
+            "assemblyNumber": ["22"],
+        }
+    )
+
+    rows = manager._build_bill_rows(df_bills)
+
+    assert rows[0]["ingest_status"] == "READY"
+
+
+def test_build_bill_rows_sets_partial_status_when_summary_is_missing():
+    manager = WorkFlowManager("dry_run")
+    df_bills = pd.DataFrame(
+        {
+            "bill_id": ["BILL-1"],
+            "bill_name": ["테스트 법안"],
+            "proposeDate": ["2026-01-01"],
+            "summary": [None],
+            "stage": ["접수"],
+            "proposer_kind": ["의원"],
+            "assemblyNumber": ["22"],
+        }
+    )
+
+    rows = manager._build_bill_rows(df_bills)
+
+    assert rows[0]["ingest_status"] == "PARTIAL"

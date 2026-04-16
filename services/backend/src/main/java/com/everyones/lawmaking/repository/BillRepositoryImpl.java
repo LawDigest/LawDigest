@@ -16,6 +16,7 @@ import com.everyones.lawmaking.common.dto.proposer.QRepresentativeProposerDto;
 import com.everyones.lawmaking.common.dto.proposer.RepresentativeProposerDto;
 import com.everyones.lawmaking.common.dto.response.BillListResponse;
 import com.everyones.lawmaking.common.dto.response.PaginationResponse;
+import com.everyones.lawmaking.domain.entity.IngestStatusType;
 import com.everyones.lawmaking.global.util.PaginationUtil;
 import com.querydsl.core.group.GroupBy;
 import com.querydsl.core.types.dsl.BooleanExpression;
@@ -53,11 +54,14 @@ public class BillRepositoryImpl implements BillRepositoryCustom {
     private List<BillInfoDto> findPagedBills(Pageable pageable, String stage) {
         return queryFactory.select(new QBillInfoDto(bill))
                 .from(bill)
-                .where(eqStage(stage))
+                .where(eqReady(), eqStage(stage))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize() + 1)
                 .orderBy(bill.proposeDate.desc(), bill.id.desc())
                 .fetch();
+    }
+    private BooleanExpression eqReady() {
+        return bill.ingestStatus.eq(IngestStatusType.READY);
     }
     private BooleanExpression eqStage(String stage) {
         if(StringUtils.hasText(stage)) {

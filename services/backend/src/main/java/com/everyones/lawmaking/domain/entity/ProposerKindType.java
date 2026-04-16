@@ -8,7 +8,8 @@ import lombok.RequiredArgsConstructor;
 public enum ProposerKindType {
 
     CONGRESSMAN("의원"),
-    CHAIRMAN("위원장");
+    CHAIRMAN("위원장"),
+    GOVERNMENT("정부");
 
     private final String proposerKind;
 

@@ -190,23 +190,31 @@ class DatabaseManager:
             # 1. Bill 테이블 Upsert
             bill_query = """
                 INSERT INTO Bill (
-                    bill_id, bill_name, committee, gpt_summary, propose_date, 
+                    bill_id, assembly_number, bill_name, committee, gpt_summary, propose_date, 
                     summary, stage, proposers, bill_pdf_url, viewCount, 
                     brief_summary, summary_tags, bill_number, bill_link, bill_result, 
-                    proposer_kind, created_date, modified_date
+                    proposer_kind, ingest_status, created_date, modified_date
                 ) VALUES (
-                    %(bill_id)s, %(bill_name)s, %(committee)s, %(gpt_summary)s, %(propose_date)s,
+                    %(bill_id)s, %(assembly_number)s, %(bill_name)s, %(committee)s, %(gpt_summary)s, %(propose_date)s,
                     %(summary)s, %(stage)s, %(proposers)s, %(bill_pdf_url)s, 0,
                     %(brief_summary)s, %(summary_tags)s, %(bill_number)s, %(bill_link)s, %(bill_result)s,
-                    %(proposer_kind)s, NOW(), NOW()
+                    %(proposer_kind)s, %(ingest_status)s, NOW(), NOW()
                 ) AS new
                 ON DUPLICATE KEY UPDATE
+                    assembly_number = new.assembly_number,
+                    bill_name = new.bill_name,
+                    committee = new.committee,
+                    propose_date = new.propose_date,
                     summary = new.summary,
+                    stage = new.stage,
                     gpt_summary = new.gpt_summary,
                     bill_pdf_url = new.bill_pdf_url,
                     brief_summary = new.brief_summary,
                     summary_tags = new.summary_tags,
                     bill_link = new.bill_link,
+                    bill_result = new.bill_result,
+                    proposer_kind = new.proposer_kind,
+                    ingest_status = new.ingest_status,
                     modified_date = NOW()
             """
             
