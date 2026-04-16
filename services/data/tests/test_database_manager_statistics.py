@@ -1,7 +1,7 @@
 import sys
 import os
 import unittest
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 import pymysql
 
 # Add project root to sys.path

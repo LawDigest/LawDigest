@@ -20,7 +20,7 @@
 예시:
 
 ```bash
-PORT=3010 PM2_NAME=lawdigest-web-prod ./deploy/deploy-prod-web.sh /home/ubuntu/project/Lawdigest/.worktrees/prod-web-release
+WEB_PORT=3010 PM2_NAME=lawdigest-web-prod ./deploy/deploy-prod-web.sh /home/ubuntu/project/Lawdigest/.worktrees/prod-web-release
 ```
 
 ## 메모

@@ -82,7 +82,7 @@ def reproduce_issue():
     
     alternatives_df = fetcher.fetch_bills_alternatives(df_bills=found_bills, max_retry=0)
     
-    print(f"\n📊 3. 결과 분석")
+    print("\n📊 3. 결과 분석")
     print(f"   - 입력 법안 수: {len(found_bills)}")
     print(f"   - 결과(alternatives) 관계 수: {len(alternatives_df)}")
     

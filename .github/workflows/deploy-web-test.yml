@@ -74,7 +74,7 @@ jobs:
             git -C "$DEPLOY_ROOT" reset --hard origin/dev
 
             cd "$REPO_ROOT"
-            PORT=3020 \
+            WEB_PORT=3020 \
             PM2_NAME=lawdigest-web-test \
             NEXT_PUBLIC_DOMAIN=https://test.lawdigest.kr \
             ./deploy/deploy-test-web.sh "$DEPLOY_ROOT"

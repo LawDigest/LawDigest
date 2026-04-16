@@ -42,14 +42,14 @@
 루트 저장소 또는 아무 위치에서 아래처럼 실행한다.
 
 ```bash
-PORT=3020 PM2_NAME=lawdigest-web-test ./deploy/deploy-test-web.sh /path/to/target-worktree
+WEB_PORT=3020 PM2_NAME=lawdigest-web-test ./deploy/deploy-test-web.sh /path/to/target-worktree
 ```
 
 예시:
 
 ```bash
 cd /home/ubuntu/project/Lawdigest
-PORT=3020 PM2_NAME=lawdigest-web-test ./deploy/deploy-test-web.sh /home/ubuntu/project/Lawdigest/.worktrees/dev-web-release
+WEB_PORT=3020 PM2_NAME=lawdigest-web-test ./deploy/deploy-test-web.sh /home/ubuntu/project/Lawdigest/.worktrees/dev-web-release
 ```
 
 위 명령을 실행하면:
@@ -67,7 +67,7 @@ PORT=3020 PM2_NAME=lawdigest-web-test ./deploy/deploy-test-web.sh /home/ubuntu/p
 
 지정 가능한 주요 환경변수:
 
-- `PORT`
+- `WEB_PORT`
   - 기본값: `3020`
 - `APP_HOST`
   - 기본값: `0.0.0.0`

@@ -4,7 +4,8 @@
         install-web install-data \
         lint-web lint-data \
         test-backend test-data \
-        deploy-prod-web deploy-test-web deploy-dev-web deploy-test-backend
+        deploy-prod-web deploy-test-web deploy-dev-web deploy-test-backend \
+        ensure-dev-web install-dev-web-watchdog
 
 help:
 	@echo "LawDigest 모노레포 명령어"
@@ -33,6 +34,8 @@ help:
 	@echo "    make deploy-prod-web  운영 환경 프론트 배포 (production build, lawdigest.kr)"
 	@echo "    make deploy-test-web  테스트 환경 프론트 배포 (production build, test.lawdigest.kr)"
 	@echo "    make deploy-dev-web   개발 환경 프론트 배포 (next dev, dev.lawdigest.kr)"
+	@echo "    make ensure-dev-web   개발 웹 PM2 프로세스 복구/보정"
+	@echo "    make install-dev-web-watchdog 개발 웹 PM2 watchdog cron 설치"
 	@echo "    make deploy-test-backend 테스트 환경 백엔드 배포 (Docker, test.api.lawdigest.kr)"
 
 # ── Web (Next.js) ──────────────────────────────────────────
@@ -77,6 +80,12 @@ deploy-test-web:
 
 deploy-dev-web:
 	bash deploy/deploy-dev-web.sh
+
+ensure-dev-web:
+	bash deploy/ensure-dev-web-pm2.sh
+
+install-dev-web-watchdog:
+	bash deploy/install-dev-web-watchdog.sh
 
 deploy-test-backend:
 	bash deploy/deploy-test-backend.sh

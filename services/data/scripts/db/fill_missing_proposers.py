@@ -1,7 +1,5 @@
 import sys
 import os
-import argparse
-from datetime import datetime
 
 # src 모듈 임포트를 위한 경로 설정
 sys.path.append(os.path.join(os.path.dirname(__file__), '../src'))
@@ -206,7 +204,7 @@ def update_database(db_manager, df_data, congressman_party_map, db_update=False)
         total_inserted_public += bill_pub_count
         print(f"   - [{bill_id}] 업데이트: 대표 {bill_rep_count}명, 공동 {bill_pub_count}명 추가됨")
 
-    print(f"\n✅ 업데이트 완료.")
+    print("\n✅ 업데이트 완료.")
     print(f"   - RepresentativeProposer 총 추가: {total_inserted_rep}건")
     print(f"   - BillProposer 총 추가: {total_inserted_public}건")
 

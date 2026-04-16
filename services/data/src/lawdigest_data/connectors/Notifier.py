@@ -1,8 +1,5 @@
 import os
-import smtplib
-import io
-from email.message import EmailMessage
-from typing import Optional, Dict, Any
+from typing import Optional
 from datetime import datetime, timezone, timedelta
 
 import pandas as pd
@@ -98,8 +95,6 @@ class Notifier:
             final_message += f"\n\n**[추가 메시지]**\n{custom_message}"
 
         # 이메일 제목 설정
-        email_subject = f"[{subject.upper()}] 데이터 수집 결과 알림"
-
         # 3. 각 채널로 알림 전송
         self.send_discord_message(final_message)
         # self.send_email(subject=email_subject, body=final_message)

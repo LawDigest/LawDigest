@@ -87,8 +87,6 @@ x-airflow-common:
     PYTHONPATH: /opt/airflow/project:/opt/airflow/project/services/data:/opt/airflow/project/services/data/src:/opt/airflow/project/services/ai/src
     AIRFLOW_DOTENV_PATH: /opt/airflow/project/services/data/.env
     GEMINI_CLI_BIN: /opt/airflow/project/services/ai/scripts/gemini_host_wrapper.sh
-    GEMINI_CLI_DEBUG_LOG_PATH: /tmp/gemini_cli_debug.log
-    GEMINI_CLI_TIMEOUT_SECONDS: '45'
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs

@@ -34,17 +34,20 @@ JSON으로 구조화하여 저장한다.
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 _BASE = Path(__file__).resolve().parents[2]
 _SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_BASE / "src"))
 sys.path.insert(0, str(_SCRIPT_DIR))
+
+if TYPE_CHECKING:
+    from screening.format_profiler import FormatProfile
+    from screening.models import ScreeningResult
 
 _MAIN_DATA = Path("/home/ubuntu/project/Lawdigest/services/data")
 _PDF_DIR = (
@@ -403,7 +406,6 @@ def main() -> None:
 
         pollster_results[pollster].append(result)
         if not args.stdout:
-            slug = out._safe_slug(pollster) if hasattr(out, '_safe_slug') else pollster
             from screening.output import _safe_slug
             pollster_files[pollster].append(
                 str(Path(args.output_dir) / _safe_slug(pollster) / f"{_safe_slug(Path(filename).stem)}.json")
@@ -411,7 +413,7 @@ def main() -> None:
 
     # 기관별 프로파일 생성
     if args.profile and not args.stdout:
-        print(f"\n프로파일 생성 중...", file=sys.stderr)
+        print("\n프로파일 생성 중...", file=sys.stderr)
         profiler = Profiler()
         for pollster, results in pollster_results.items():
             profile = profiler.build_profile(
@@ -425,7 +427,7 @@ def main() -> None:
                 profile_path = out.save_profile(profile)
                 print(f"  프로파일 저장: {profile_path}", file=sys.stderr)
 
-    print(f"\n완료", file=sys.stderr)
+    print("\n완료", file=sys.stderr)
 
 
 if __name__ == "__main__":
