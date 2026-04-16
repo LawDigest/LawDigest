@@ -703,3 +703,80 @@ class WorkFlowManager:
             "vote_count": len(vote_rows),
             "party_count": len(party_rows),
         }
+
+def _wfm_build_status_sync_service(self):
+    from .bill_status_sync import BillStatusSyncService
+
+    return BillStatusSyncService(
+        mode=self.mode,
+        build_db_manager=self._build_db_manager,
+        artifact_dir=self._artifact_dir(),
+    )
+
+
+def _wfm_fetch_lifecycle_step(self, start_date=None, end_date=None, age=None):
+    service = self._build_status_sync_service()
+    return service.fetch_lifecycle_step(start_date=start_date, end_date=end_date, age=age)
+
+
+def _wfm_upsert_lifecycle_step(self, artifact_path):
+    service = self._build_status_sync_service()
+    return service.upsert_lifecycle_step(artifact_path)
+
+
+def _wfm_fetch_vote_step(self, start_date=None, end_date=None, age=None):
+    service = self._build_status_sync_service()
+    return service.fetch_vote_step(start_date=start_date, end_date=end_date, age=age)
+
+
+def _wfm_upsert_vote_step(self, artifact_path):
+    service = self._build_status_sync_service()
+    return service.upsert_vote_step(artifact_path)
+
+
+def _wfm_update_bills_timeline(self, start_date=None, end_date=None, age=None):
+    fetched = self.fetch_lifecycle_step(start_date=start_date, end_date=end_date, age=age)
+    artifact_path = fetched.get("artifact_path")
+    if not artifact_path:
+        return {"step": "update_bills_timeline", "mode": self.mode, "count": 0, "duplicate": 0, "not_found": 0}
+    result = self.upsert_lifecycle_step(artifact_path)
+    return {
+        "step": "update_bills_timeline",
+        "mode": self.mode,
+        "count": result.get("upserted", 0),
+        "duplicate": result.get("duplicate", 0),
+        "not_found": result.get("not_found", 0),
+    }
+
+
+def _wfm_update_bills_result(self, start_date=None, end_date=None, age=None):
+    fetched = self.fetch_lifecycle_step(start_date=start_date, end_date=end_date, age=age)
+    artifact_path = fetched.get("artifact_path")
+    if not artifact_path:
+        return {"step": "update_bills_result", "mode": self.mode, "count": 0}
+    result = self.upsert_lifecycle_step(artifact_path)
+    return {"step": "update_bills_result", "mode": self.mode, "count": result.get("updated", 0)}
+
+
+def _wfm_update_bills_vote(self, start_date=None, end_date=None, age=None):
+    fetched = self.fetch_vote_step(start_date=start_date, end_date=end_date, age=age)
+    artifact_path = fetched.get("artifact_path")
+    if not artifact_path:
+        return {"step": "update_bills_vote", "mode": self.mode, "vote_count": 0, "party_count": 0}
+    result = self.upsert_vote_step(artifact_path)
+    return {
+        "step": "update_bills_vote",
+        "mode": self.mode,
+        "vote_count": result.get("vote_count", 0),
+        "party_count": result.get("party_count", 0),
+    }
+
+
+WorkFlowManager._build_status_sync_service = _wfm_build_status_sync_service
+WorkFlowManager.fetch_lifecycle_step = _wfm_fetch_lifecycle_step
+WorkFlowManager.upsert_lifecycle_step = _wfm_upsert_lifecycle_step
+WorkFlowManager.fetch_vote_step = _wfm_fetch_vote_step
+WorkFlowManager.upsert_vote_step = _wfm_upsert_vote_step
+WorkFlowManager.update_bills_timeline = _wfm_update_bills_timeline
+WorkFlowManager.update_bills_result = _wfm_update_bills_result
+WorkFlowManager.update_bills_vote = _wfm_update_bills_vote
