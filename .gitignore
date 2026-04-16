@@ -33,6 +33,7 @@ services/data/.omc/
 services/data/output
 services/data/.lawdigestenv
 services/data/.agent
+references
 
 # =====================
 # Java / Spring Boot (services/backend)
@@ -115,3 +116,4 @@ services/data/dump
 services/data/tests/polls/fixtures/
 
 .omx/
+services/ai/output/gemini/
