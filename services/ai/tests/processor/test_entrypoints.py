@@ -16,6 +16,19 @@ def test_instant_summarize_returns_summary():
     assert result["brief_summary"] == "요약"
 
 
+def test_gemini_cli_instant_summarize_returns_summary():
+    from lawdigest_ai.processor.instant_summarizer import summarize_single_bill_with_gemini_cli
+    mock_df = pd.DataFrame([{
+        "bill_id": "B001", "brief_summary": "CLI 요약", "gpt_summary": "CLI 상세",
+        "summary_tags": '["a","b","c","d","e"]'
+    }])
+    with patch("lawdigest_ai.processor.instant_summarizer.GeminiCliSummarizer") as MockSummarizer:
+        instance = MockSummarizer.return_value
+        instance.AI_structured_summarize.return_value = mock_df
+        result = summarize_single_bill_with_gemini_cli({"bill_id": "B001", "summary": "원문 내용"})
+    assert result["brief_summary"] == "CLI 요약"
+
+
 def test_batch_submit_dry_run():
     from lawdigest_ai.processor.batch_submit import submit_batch
     mock_conn = MagicMock()
