@@ -12,18 +12,29 @@ class _FakeClient:
         self.session = session
         self.api_key = api_key
 
+    def fetch_rows(self, endpoint, params=None, all_pages=True, page_size=100):
+        if endpoint == "nwbqublzajtcqpdae":
+            return self.fetch_pending_bills()
+        if endpoint == "nzpltgfqabtcpsmai":
+            return self.fetch_processed_bills(str((params or {}).get("AGE", "22")))
+        if endpoint == "nxjuyqnxadtotdrbw":
+            return self.fetch_recent_plenary_bills(str((params or {}).get("AGE", "22")))
+        if endpoint == "BILLRCP":
+            return self.fetch_bill_receipts(str((params or {}).get("ERACO", "22")))
+        return []
+
     def fetch_bill_receipts(self, age):
+        return []
+
+    def fetch_pending_bills(self):
         return [
             {
                 "BILL_ID": "BILL-1",
                 "BILL_NO": "2200001",
-                "PPSL_DT": "2026-04-15",
+                "PROPOSE_DT": "2026-04-15",
                 "BILL_NM": "테스트 법안",
             }
         ]
-
-    def fetch_pending_bills(self):
-        return []
 
     def fetch_processed_bills(self, age):
         return []

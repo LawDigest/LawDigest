@@ -247,6 +247,48 @@ class DataFetcher:
             return start_date <= parsed <= end_date
         return False
 
+    def _first_available_date(self, row, keys):
+        for key in keys:
+            parsed = self._parse_api_date(row.get(key))
+            if parsed is not None:
+                return parsed
+        return None
+
+    def _collect_incremental_rows(self, client, endpoint, params, date_keys, start_date, end_date, page_size=100):
+        collected = []
+        page = 1
+
+        while True:
+            page_rows = client.fetch_rows(
+                endpoint,
+                {**params, 'pIndex': page, 'pSize': page_size},
+                all_pages=False,
+                page_size=page_size,
+            )
+            if not page_rows:
+                break
+
+            collected.extend(
+                row for row in page_rows
+                if self._row_matches_date_range(row, date_keys, start_date, end_date)
+            )
+
+            oldest_row_date = None
+            for row in reversed(page_rows):
+                oldest_row_date = self._first_available_date(row, date_keys)
+                if oldest_row_date is not None:
+                    break
+
+            if oldest_row_date is not None and oldest_row_date < start_date:
+                break
+
+            if len(page_rows) < page_size:
+                break
+
+            page += 1
+
+        return collected
+
     @staticmethod
     def _safe_bill_number(value):
         if value is None:
@@ -296,7 +338,7 @@ class DataFetcher:
             return '위원회 심사'
         return '접수'
 
-    def discover_bill_candidates(self, start_date=None, end_date=None, age=None, api_key=None):
+    def discover_bill_candidates(self, start_date=None, end_date=None, age=None, api_key=None, include_receipts=False):
         _start_date = start_date or (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
         _end_date = end_date or datetime.now().strftime('%Y-%m-%d')
         _age = str(age or os.environ.get('AGE') or '22')
@@ -312,16 +354,16 @@ class DataFetcher:
 
         candidate_map = {}
         discovery_sources = [
-            ('BILLRCP', client.fetch_bill_receipts(_age), ('PPSL_DT',)),
-            ('BILL_PENDING', client.fetch_pending_bills(), ('PROPOSE_DT',)),
-            ('BILL_PROCESSED', client.fetch_processed_bills(_age), ('PROPOSE_DT', 'PROC_DT')),
-            ('RECENT_PLENARY', client.fetch_recent_plenary_bills(_age), ('PROPOSE_DT', 'PROC_DT')),
+            ('BILL_PENDING', 'nwbqublzajtcqpdae', {}, ('PROPOSE_DT',)),
+            ('BILL_PROCESSED', 'nzpltgfqabtcpsmai', {'AGE': _age}, ('PROC_DT',)),
+            ('RECENT_PLENARY', 'nxjuyqnxadtotdrbw', {'AGE': _age}, ('PROC_DT',)),
         ]
+        if include_receipts:
+            discovery_sources.insert(0, ('BILLRCP', 'BILLRCP', {'ERACO': f'제{_age}대'}, ('PPSL_DT',)))
 
-        for source_name, rows, date_keys in discovery_sources:
+        for source_name, endpoint, params, date_keys in discovery_sources:
+            rows = self._collect_incremental_rows(client, endpoint, params, date_keys, start_bound, end_bound)
             for row in rows:
-                if not self._row_matches_date_range(row, date_keys, start_bound, end_bound):
-                    continue
                 bill_id = str(row.get('BILL_ID') or '').strip()
                 if not bill_id:
                     continue
@@ -422,6 +464,7 @@ class DataFetcher:
             end_date=_end_date,
             age=_age,
             api_key=kwargs.get('api_key'),
+            include_receipts=kwargs.get('include_receipts', False),
         )
         if df_candidates.empty:
             print('[open_assembly] 날짜 범위에 해당하는 법안 후보가 없습니다.')
