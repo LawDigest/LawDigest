@@ -46,10 +46,18 @@ class DataProcessor:
         # bill_name 컬럼 값에서 정규표현식을 사용하여 괄호 안의 발의자 정보를 추출합니다.
         # 예: '조세특례제한법 일부개정법률안(김형동의원 등 11인)' -> '김형동의원 등 11인'
         print("\n[bill_name에서 발의자 정보 추출 중...]")
-        df_bills_congressman["proposers"] = (
+        extracted_proposers = (
             df_bills_congressman["bill_name"]
             .str.extract(self.BILL_NAME_PROPOSER_PATTERN, expand=False)
             .fillna("")
+        )
+        existing_proposers = (
+            df_bills_congressman["proposers"]
+            if "proposers" in df_bills_congressman.columns
+            else pd.Series([""] * len(df_bills_congressman), index=df_bills_congressman.index)
+        )
+        df_bills_congressman["proposers"] = extracted_proposers.where(
+            extracted_proposers != "", existing_proposers.fillna("")
         )
         print("[발의자 정보 추출 완료]")
 
@@ -64,9 +72,17 @@ class DataProcessor:
 
         # df_bills_congressman에 발의자 정보 컬럼 머지
         print("\n[의원 발의자 데이터 병합 중...]")
-        df_coactors = self.fetcher.fetch_bills_coactors()
-        df_bills_congressman = pd.merge(df_bills_congressman, df_coactors, on='bill_id', how='inner')
+        df_coactors = self.fetcher.fetch_bills_coactors(df_bills=df_bills_congressman.copy())
+        df_bills_congressman = pd.merge(df_bills_congressman, df_coactors, on='bill_id', how='left')
         print("[의원 발의자 데이터 병합 완료]")
+
+        for column in ["representativeProposerIdList", "publicProposerIdList", "ProposerName"]:
+            if column not in df_bills_congressman.columns:
+                df_bills_congressman[column] = [[] for _ in range(len(df_bills_congressman))]
+            else:
+                df_bills_congressman[column] = df_bills_congressman[column].apply(
+                    lambda value: value if isinstance(value, list) else []
+                )
 
         # 아래 로직은 'proposers' 컬럼이 생성된 후에 실행됩니다.
         # '의원'이라는 단어 앞에 있는 한글 이름을 모두 찾습니다.

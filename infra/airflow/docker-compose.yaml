@@ -84,7 +84,7 @@ x-airflow-common:
     AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: 'airflow:ADMIN'
     AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: '/opt/airflow/config/simple_auth_manager_passwords.json'
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
-    PYTHONPATH: /opt/airflow/project:/opt/airflow/project/services/data:/opt/airflow/project/services/ai/src
+    PYTHONPATH: /opt/airflow/project:/opt/airflow/project/services/data:/opt/airflow/project/services/data/src:/opt/airflow/project/services/ai/src
     AIRFLOW_DOTENV_PATH: /opt/airflow/project/services/data/.env
     GEMINI_CLI_BIN: /opt/airflow/project/services/ai/scripts/gemini_host_wrapper.sh
   volumes:
