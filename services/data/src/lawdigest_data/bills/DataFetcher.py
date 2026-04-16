@@ -312,6 +312,16 @@ class DataFetcher:
             text = text[:-2]
         return text
 
+    @staticmethod
+    def _first_non_empty_value(*values):
+        for value in values:
+            if value is None:
+                continue
+            text = str(value).strip()
+            if text:
+                return text
+        return None
+
     def _build_open_assembly_client(self, api_key=None):
         resolved_api_key = api_key or os.environ.get('APIKEY_billsInfo') or os.environ.get('APIKEY_status')
         if not resolved_api_key:
@@ -439,6 +449,14 @@ class DataFetcher:
                     'proposers': detail_row.get('PPSR') or lifecycle_row.get('PPSR_NM') or candidate_row.get('proposers') or member_row.get('PROPOSER'),
                     'committee': lifecycle_row.get('JRCMIT_NM') or candidate_row.get('committee') or detail_row.get('JRCMIT_NM') or member_row.get('COMMITTEE'),
                     'bill_link': lifecycle_row.get('LINK_URL') or candidate_row.get('bill_link') or member_row.get('DETAIL_LINK'),
+                    'billPdfUrl': self._first_non_empty_value(
+                        lifecycle_row.get('PDF_LINK_URL'),
+                        detail_row.get('PDF_LINK_URL'),
+                        member_row.get('PDF_LINK_URL'),
+                        lifecycle_row.get('BILL_PDF_URL'),
+                        detail_row.get('BILL_PDF_URL'),
+                        member_row.get('BILL_PDF_URL'),
+                    ),
                     'billResult': lifecycle_row.get('RGS_CONF_RSLT') or candidate_row.get('billResult') or member_row.get('PROC_RESULT'),
                     'assemblyNumber': candidate_row.get('assemblyNumber') or _age,
                     'source_name': candidate_row.get('source_name'),

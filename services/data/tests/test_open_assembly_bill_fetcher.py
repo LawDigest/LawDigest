@@ -66,6 +66,7 @@ class _FakeClient:
             "BILL_NO": bill_no,
             "JRCMIT_NM": "정무위원회",
             "LINK_URL": "https://example.com/bill/2200001",
+            "PDF_LINK_URL": "https://example.com/bill/2200001.pdf",
         }
 
 
@@ -105,6 +106,7 @@ def test_fetch_bills_data_uses_open_assembly_hydration(monkeypatch):
     assert row["stage"] == "위원회 심사"
     assert row["committee"] == "정무위원회"
     assert row["bill_link"] == "https://example.com/bill/2200001"
+    assert row["billPdfUrl"] == "https://example.com/bill/2200001.pdf"
     assert row["proposer_kind"] == "의원"
     assert row["assemblyNumber"] == "22"
 

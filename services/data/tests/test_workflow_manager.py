@@ -200,3 +200,23 @@ def test_build_bill_rows_sets_partial_status_when_summary_is_missing():
     rows = manager._build_bill_rows(df_bills)
 
     assert rows[0]["ingest_status"] == "PARTIAL"
+
+def test_build_bill_rows_generates_brief_summary_and_does_not_reuse_bill_link_as_pdf_url():
+    manager = WorkFlowManager("dry_run")
+    df_bills = pd.DataFrame(
+        {
+            "bill_id": ["BILL-1"],
+            "bill_name": ["테스트 법안"],
+            "proposeDate": ["2026-01-01"],
+            "summary": ["제안이유 및 주요내용\n\n첫 번째 핵심 문장입니다.\n\n상세 설명입니다."],
+            "stage": ["접수"],
+            "proposer_kind": ["의원"],
+            "bill_link": ["https://example.com/bill"],
+            "assemblyNumber": ["22"],
+        }
+    )
+
+    rows = manager._build_bill_rows(df_bills)
+
+    assert rows[0]["brief_summary"] == "첫 번째 핵심 문장입니다."
+    assert rows[0]["bill_pdf_url"] is None
