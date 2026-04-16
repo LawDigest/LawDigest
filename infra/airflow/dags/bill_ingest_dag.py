@@ -15,7 +15,7 @@ def fetch_bills_from_api(**context):
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+    from lawdigest_data.core.WorkFlowManager import WorkFlowManager
 
     params = context.get("params", {})
     manager = WorkFlowManager(params.get("execution_mode") or "dry_run")
@@ -31,7 +31,7 @@ def process_fetched_bills(**context):
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+    from lawdigest_data.core.WorkFlowManager import WorkFlowManager
 
     params = context.get("params", {})
     task_instance = context["ti"]
@@ -49,7 +49,7 @@ def upsert_processed_bills(**context):
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    from src.lawdigest_data_pipeline.WorkFlowManager import WorkFlowManager
+    from lawdigest_data.core.WorkFlowManager import WorkFlowManager
 
     params = context.get("params", {})
     task_instance = context["ti"]

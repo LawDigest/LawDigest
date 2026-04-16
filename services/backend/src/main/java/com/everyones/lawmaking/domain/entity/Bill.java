@@ -23,7 +23,8 @@ import java.util.List;
 @JsonNaming(value = PropertyNamingStrategies.SnakeCaseStrategy.class)
 @Table(name = "Bill", indexes = {
         @Index(name = "idx_bill_id_propose_date", columnList = "propose_date DESC"),
-        @Index(name = "idx_propose_date_id", columnList = "propose_date, bill_id")
+        @Index(name = "idx_propose_date_id", columnList = "propose_date, bill_id"),
+        @Index(name = "idx_bill_ingest_status_propose_date_id", columnList = "ingest_status, propose_date, bill_id")
 })public class Bill extends BaseEntity{
     @Id
     @Column(name = "bill_id")
@@ -76,6 +77,11 @@ import java.util.List;
     @Enumerated(EnumType.STRING)
     private ProposerKindType proposerKind;
 
+    @Column(name = "ingest_status")
+    @ColumnDefault("'PENDING'")
+    @Enumerated(EnumType.STRING)
+    private IngestStatusType ingestStatus;
+
     @Column(columnDefinition = "TEXT")
     private String summary;
 
@@ -113,6 +119,12 @@ import java.util.List;
                 .summary(billDfRequest.getSummary())
                 .briefSummary(billDfRequest.getBriefSummary())
                 .proposerKind(ProposerKindType.from(billDfRequest.getProposerKind()))
+                .ingestStatus(resolveIngestStatus(
+                        billDfRequest.getBillName(),
+                        billDfRequest.getProposeDate(),
+                        billDfRequest.getStage(),
+                        billDfRequest.getSummary()
+                ))
                 .build();
     }
 
@@ -128,6 +140,12 @@ import java.util.List;
         this.setSummary(billDfRequest.getSummary());
         this.setBriefSummary(billDfRequest.getBriefSummary());
         this.setProposerKind(ProposerKindType.from(billDfRequest.getProposerKind()));
+        this.setIngestStatus(resolveIngestStatus(
+                billDfRequest.getBillName(),
+                billDfRequest.getProposeDate(),
+                billDfRequest.getStage(),
+                billDfRequest.getSummary()
+        ));
 
     }
 
@@ -140,6 +158,27 @@ import java.util.List;
             this.setStage(billStageDfRequest.getStage());
             this.setCommittee(billStageDfRequest.getCommittee());
         }
+    }
+
+    private static IngestStatusType resolveIngestStatus(
+            String billName,
+            LocalDate proposeDate,
+            String stage,
+            String summary
+    ) {
+        if (hasText(billName) && proposeDate != null && hasText(stage) && hasText(summary)) {
+            return IngestStatusType.READY;
+        }
+
+        if (hasText(billName) || proposeDate != null || hasText(stage) || hasText(summary)) {
+            return IngestStatusType.PARTIAL;
+        }
+
+        return IngestStatusType.PENDING;
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
 }

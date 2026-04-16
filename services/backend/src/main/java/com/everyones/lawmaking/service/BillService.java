@@ -5,6 +5,7 @@ import com.everyones.lawmaking.common.dto.bill.BillDto;
 import com.everyones.lawmaking.common.dto.proposer.RepresentativeProposerDto;
 import com.everyones.lawmaking.common.dto.response.*;
 import com.everyones.lawmaking.domain.entity.Bill;
+import com.everyones.lawmaking.domain.entity.IngestStatusType;
 import com.everyones.lawmaking.global.constant.BillInfoConstant;
 import com.everyones.lawmaking.global.constant.BillOrderType;
 import com.everyones.lawmaking.global.error.BillException;
@@ -42,6 +43,9 @@ public class BillService {
     public BillDetailResponse getBillWithDetail(String billId) {
         var bill = billRepository.findBillById(billId)
                 .orElseThrow(() -> new BillException.BillNotFound(Map.of(BILL_ID_KEY_STRING, billId)));
+        if (bill.getIngestStatus() != IngestStatusType.READY) {
+            throw new BillException.BillNotFound(Map.of(BILL_ID_KEY_STRING, billId));
+        }
 
         var billDetailResponse = getBillDetailInfoFrom(bill);
         var similarBills = billRepository.findSimilarBills(bill.getBillName(), bill.getId())
@@ -228,4 +232,3 @@ public class BillService {
 
 
 }
-

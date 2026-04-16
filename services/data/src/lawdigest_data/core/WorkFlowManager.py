@@ -138,15 +138,22 @@ class WorkFlowManager:
             if not bill_id:
                 continue
 
+            bill_name = self._coerce_optional_text(row.get("bill_name"))
+            propose_date = self._coerce_optional_text(row.get("proposeDate"))
+            summary = self._coerce_optional_text(row.get("summary"))
+            stage = self._coerce_optional_text(row.get("stage"))
+            assembly_number = self._safe_to_int(row.get("assemblyNumber"), default=22)
+
             rows.append(
                 {
                     "bill_id": bill_id,
-                    "bill_name": self._coerce_optional_text(row.get("bill_name")),
+                    "bill_name": bill_name,
+                    "assembly_number": assembly_number,
                     "committee": self._coerce_optional_text(row.get("committee")),
                     "gpt_summary": self._coerce_optional_text(row.get("gpt_summary")),
-                    "propose_date": self._coerce_optional_text(row.get("proposeDate")),
-                    "summary": self._coerce_optional_text(row.get("summary")),
-                    "stage": self._coerce_optional_text(row.get("stage")),
+                    "propose_date": propose_date,
+                    "summary": summary,
+                    "stage": stage,
                     "proposers": self._coerce_optional_text(row.get("proposers")),
                     "bill_pdf_url": self._coerce_optional_text(row.get("billPdfUrl"))
                     or self._coerce_optional_text(row.get("bill_link")),
@@ -158,11 +165,30 @@ class WorkFlowManager:
                     "proposer_kind": self._normalize_bill_proposer_kind(
                         row.get("proposer_kind") or row.get("proposerKind")
                     ),
+                    "ingest_status": self._determine_bill_ingest_status(
+                        bill_name=bill_name,
+                        propose_date=propose_date,
+                        stage=stage,
+                        summary=summary,
+                    ),
                     "public_proposer_ids": self._coerce_string_list(row.get("publicProposerIdList")),
                     "rst_proposer_ids": self._coerce_string_list(row.get("rstProposerIdList")),
                 }
             )
         return rows
+
+    @staticmethod
+    def _determine_bill_ingest_status(
+        bill_name: Optional[str],
+        propose_date: Optional[str],
+        stage: Optional[str],
+        summary: Optional[str],
+    ) -> str:
+        if bill_name and propose_date and stage and summary:
+            return "READY"
+        if bill_name or propose_date or stage or summary:
+            return "PARTIAL"
+        return "PENDING"
 
     def _build_lawmaker_rows(self, df_lawmakers: pd.DataFrame) -> List[Dict[str, Any]]:
         rows: List[Dict[str, Any]] = []
