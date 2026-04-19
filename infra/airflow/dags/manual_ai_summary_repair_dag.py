@@ -25,32 +25,23 @@ def run_batch_ai_summary(**context):
     output_path = params.get("output_path") or "/tmp/lawdigest_missing_summaries.json"
     batch_size = int(params.get("batch_size") or 10)
     mode = params.get("execution_mode") or "dry_run"
-    dry_run = (mode == "dry_run")
+    provider = params.get("provider") or "openai"
+    model = params.get("model") or None
 
-    print(f"[ai-summary-batch] Current Mode: {mode}")
+    print(f"[ai-summary-batch] Current Mode: {mode}, Provider: {provider}")
 
     project_root = "/opt/airflow/project"
     if project_root not in sys.path:
         sys.path.append(project_root)
 
-    # 파서 단계 import 실패를 피하기 위해 실행 시점에 import
-    from scripts.find_missing_summaries import find_missing_summaries
-    from scripts.repair_missing_summaries import repair_missing_summaries
-    from lawdigest_ai.db import get_prod_db_config, get_test_db_config
+    from lawdigest_ai.processor.manual_summary_repair_service import run_manual_summary_repair
 
-    if mode == "prod":
-        db_cfg = get_prod_db_config()
-        print("[ai-summary-batch] Using PRODUCTION database")
-    else:
-        db_cfg = get_test_db_config()
-        print("[ai-summary-batch] Using TEST database")
-
-    find_missing_summaries(output_path=output_path, db_config=db_cfg)
-    repair_missing_summaries(
-        input_path=output_path,
-        dry_run=dry_run,
+    return run_manual_summary_repair(
+        mode=mode,
+        output_path=output_path,
         batch_size=batch_size,
-        db_config=db_cfg,
+        provider=provider,
+        model=model,
     )
 
 
@@ -80,15 +71,28 @@ with DAG(
             title="배치 크기",
             description="한 번에 처리할 법안 수",
         ),
+        "provider": Param(
+            "openai",
+            type="string",
+            enum=["openai", "gemini"],
+            title="요약 제공자",
+            description="결측치 복구에 사용할 provider를 선택합니다.",
+        ),
+        "model": Param(
+            "",
+            type="string",
+            title="모델명",
+            description="비워두면 provider 기본 모델을 사용합니다. openai=SUMMARY_STRUCTURED_MODEL, gemini=GEMINI_INSTANT_MODEL",
+        ),
     },
     doc_md="""
     ## 🛠️ Lawdigest AI Summary 배치 복구 (Fallback)
 
-    이미 DB에 수집되어 있으나 AI 요약 데이터가 누락된 법안들을 찾아내어 일괄적으로 요약을 생성하고 채워넣는 DAG입니다.
+    이미 DB에 수집되어 있으나 AI 요약 데이터가 누락된 법안들을 찾아내어 선택한 provider로 일괄 복구하는 DAG입니다.
 
     ### 🚀 주요 기능
     1. **누락 대상 추출**: `Bill` 테이블에서 `brief_summary` 또는 `gpt_summary`가 `NULL`이거나 비어 있는 법안들을 모두 추출합니다.
-    2. **요약 생성**: 누락된 법안들에 대해 OpenAI API를 호출하여 요약 내용을 새롭게 생성합니다.
+    2. **요약 생성**: 누락된 법안들에 대해 선택한 provider를 호출하여 요약 내용을 새롭게 생성합니다.
     3. **DB 업데이트**: 생성된 요약 정보를 `Bill` 테이블에 다시 저장합니다.
 
     ### ⚙️ 실행 모드 (Execution Mode)
@@ -100,6 +104,8 @@ with DAG(
     - `execution_mode`: 실행 환경 및 실제 DB 반영 여부 선택
     - `output_path`: 작업 중 생성되는 임시 JSON 파일 저장 경로 (기본값: /tmp/lawdigest_missing_summaries.json)
     - `batch_size`: 한 번에 처리할 법안 개수 (기본값: 10)
+    - `provider`: 결측치 복구에 사용할 provider (기본값: openai)
+    - `model`: 사용할 모델명. 비워두면 provider 기본 모델 사용
 
     ---
     *참고: 이 DAG는 실시간 연동보다 과거에 누적된 결측치를 일괄 복구할 때 주로 사용됩니다.*
@@ -109,4 +115,3 @@ with DAG(
         task_id="batch_ai_summary_repair",
         python_callable=run_batch_ai_summary,
     )
-

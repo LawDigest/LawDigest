@@ -24,6 +24,8 @@ fonttools>=4.60.0
 
 # AI & Vector DB
 openai>=1.50.0
+pydantic-ai-slim[openai]>=0.7.0
+google-genai>=1.56.0
 langchain>=0.3.0
 qdrant-client>=1.12.0
 

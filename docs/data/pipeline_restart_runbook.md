@@ -52,6 +52,16 @@ conn.close()
 "
 ```
 
+### 1.3.1 provider-aware AI 배포 전 migration 확인
+
+provider-aware AI 배치/즉시 요약 경로를 배포하기 전에는 아래 migration이 테스트 DB와 운영 DB에 먼저 반영되어 있어야 합니다.
+
+```bash
+infra/db/migrations/20260419_add_provider_to_ai_batch_jobs.sql
+```
+
+이 migration은 `ai_batch_jobs.provider` 컬럼과 `(provider, batch_id)` 복합 유니크 키를 추가합니다. 반영되지 않으면 `ai_batch_submit_dag`, `ai_batch_ingest_dag`가 런타임에서 실패할 수 있습니다.
+
 ### 1.4 큐잉된 DAG 정리 (필요 시)
 
 재가동 전 이전 queued 상태로 남아있는 실행을 정리합니다.
@@ -85,7 +95,7 @@ docker exec airflow-airflow-webserver-1 airflow dags unpause bill_status_sync_da
 # 2-1. AI 배치 제출 DAG
 docker exec airflow-airflow-webserver-1 airflow dags unpause ai_batch_submit_dag
 
-# 2-2. AI 배치 결과 수신 DAG
+# 2-2. AI 배치 결과 수신 DAG (provider=all 기본)
 docker exec airflow-airflow-webserver-1 airflow dags unpause ai_batch_ingest_dag
 ```
 
@@ -95,7 +105,7 @@ docker exec airflow-airflow-webserver-1 airflow dags unpause ai_batch_ingest_dag
 docker exec airflow-airflow-webserver-1 airflow dags unpause db_backup_dag
 ```
 
-> **수동 실행 DAG** (`manual_bill_collect_dag`, `manual_ai_summary_repair_dag`, `manual_ai_summary_instant_dag`)은 스케줄 없이 필요 시 수동 트리거하므로 별도 활성화 불필요.
+> **수동 실행 DAG** (`manual_bill_collect_dag`, `manual_ai_summary_repair_dag`, `manual_ai_summary_instant_dag`, `gemini_ai_summary_repair_dag`)은 스케줄 없이 필요 시 수동 트리거하므로 별도 활성화 불필요.
 
 ---
 
@@ -122,6 +132,43 @@ docker exec airflow-postgres-1 psql -U airflow -d airflow -c \
 ```
 
 > 코드 반영이 필요하면 먼저 [Airflow 배포 문서](../../deploy/AIRFLOW_DEPLOY.md) 절차로 `git pull`과 컨테이너 재기동을 수행한 뒤 여기 절차를 진행하세요.
+
+### 3.1 AI DAG 파라미터 운영 기준
+
+- `ai_batch_submit_dag`
+  - 기본값: `provider=openai`
+  - 필요 시 UI에서 `provider=gemini`와 `model=<custom>` 지정 가능
+- `ai_batch_ingest_dag`
+  - 기본값: `provider=all`
+  - 특정 provider만 회수하고 싶을 때만 `openai` 또는 `gemini` 사용
+- `manual_ai_summary_instant_dag`
+  - `provider=openai|gemini`
+  - `model`을 비우면 provider 기본 모델 사용
+- `manual_ai_summary_repair_dag`
+  - `provider=openai|gemini`
+  - `model`을 비우면 provider 기본 모델 사용
+- `gemini_ai_summary_repair_dag`
+  - Gemini CLI fallback 경로
+  - native API provider 선택 경로와 별도 용도
+
+### 3.2 수동 smoke 예시
+
+```bash
+# Gemini Batch 제출 dry-run
+docker exec airflow-airflow-webserver-1 airflow dags trigger \
+  ai_batch_submit_dag \
+  --conf '{"execution_mode": "dry_run", "provider": "gemini", "limit": 5}'
+
+# provider=all ingest dry-run
+docker exec airflow-airflow-webserver-1 airflow dags trigger \
+  ai_batch_ingest_dag \
+  --conf '{"execution_mode": "dry_run", "provider": "all", "max_jobs": 5}'
+
+# Gemini 즉시 요약 dry-run
+docker exec airflow-airflow-webserver-1 airflow dags trigger \
+  manual_ai_summary_instant_dag \
+  --conf '{"execution_mode": "dry_run", "provider": "gemini", "bill_json": "{\"bill_id\":\"TEST-1\",\"summary\":\"테스트 요약 원문\"}"}'
+```
 
 ---
 

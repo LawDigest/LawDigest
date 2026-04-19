@@ -1,72 +1,20 @@
 from __future__ import annotations
 
 import json
-import os
 import tempfile
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import pymysql
-import requests
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from lawdigest_ai.config import get_openai_api_key, OPENAI_BASE_URL
+from lawdigest_ai.processor.providers.openai_batch import OpenAIBatchProvider
+from lawdigest_ai.processor.providers.types import BatchProviderJobState
 
-ACTIVE_BATCH_STATES = ("VALIDATING", "IN_PROGRESS", "FINALIZING", "SUBMITTED")
-
-
-class BatchStructuredSummary(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
-    brief_summary: str = Field(alias="briefSummary")
-    gpt_summary: str = Field(alias="gptSummary")
-    tags: List[str] = Field(alias="tags", min_length=5, max_length=5)
-
-
-def _headers() -> Dict[str, str]:
-    return {"Authorization": f"Bearer {get_openai_api_key()}"}
-
-
-def _build_prompt_for_bill(row: Dict[str, Any]) -> str:
-    payload = {
-        "bill_id": row.get("bill_id"),
-        "bill_name": row.get("bill_name"),
-        "proposers": row.get("proposers"),
-        "proposer_kind": row.get("proposer_kind"),
-        "propose_date": str(row.get("propose_date") or ""),
-        "stage": row.get("stage"),
-        "summary": row.get("summary"),
-    }
-    return (
-        "다음 법안 정보를 보고 JSON으로만 응답하세요.\n"
-        "키는 briefSummary, gptSummary, tags 세 개만 포함해야 합니다.\n"
-        "briefSummary는 1문장 요약, gptSummary는 3~7개 핵심 항목 중심 상세 요약입니다.\n"
-        "tags는 중복 없는 한국어 태그 정확히 5개입니다.\n\n"
-        f"{json.dumps(payload, ensure_ascii=False)}"
-    )
+ACTIVE_BATCH_STATES = ("VALIDATING", "IN_PROGRESS", "FINALIZING", "SUBMITTED", "CANCELLING")
 
 
 def build_batch_request_rows(bills: List[Dict[str, Any]], model: str) -> List[Dict[str, Any]]:
-    summary_schema = BatchStructuredSummary.model_json_schema(by_alias=True)
-    return [
-        {
-            "custom_id": bill["bill_id"],
-            "method": "POST",
-            "url": "/v1/chat/completions",
-            "body": {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": "당신은 한국 법안 요약 전문가입니다. 반드시 JSON 객체로만 응답하세요."},
-                    {"role": "user", "content": _build_prompt_for_bill(bill)},
-                ],
-                "temperature": 0.2,
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": {"name": "bill_summary", "strict": True, "schema": summary_schema},
-                },
-            },
-        }
-        for bill in bills
-    ]
+    return OpenAIBatchProvider().build_request_rows(bills, model)
 
 
 def write_jsonl_tempfile(rows: List[Dict[str, Any]]) -> str:
@@ -77,85 +25,46 @@ def write_jsonl_tempfile(rows: List[Dict[str, Any]]) -> str:
 
 
 def openai_upload_batch_file(jsonl_path: str) -> str:
-    with open(jsonl_path, "rb") as f:
-        resp = requests.post(
-            f"{OPENAI_BASE_URL}/files", headers=_headers(),
-            data={"purpose": "batch"},
-            files={"file": (os.path.basename(jsonl_path), f, "application/jsonl")},
-            timeout=60,
-        )
-    resp.raise_for_status()
-    return resp.json()["id"]
+    return OpenAIBatchProvider().upload_batch_file(jsonl_path)
 
 
 def openai_create_batch(input_file_id: str, model: str) -> Dict[str, Any]:
-    payload = {
-        "input_file_id": input_file_id,
-        "endpoint": "/v1/chat/completions",
-        "completion_window": "24h",
-        "metadata": {"model": model, "pipeline": "lawdigest_ai_batch"},
-    }
-    resp = requests.post(
-        f"{OPENAI_BASE_URL}/batches",
-        headers={**_headers(), "Content-Type": "application/json"},
-        data=json.dumps(payload),
-        timeout=60,
-    )
-    resp.raise_for_status()
-    return resp.json()
+    state = OpenAIBatchProvider().create_batch_job(model=model, source_file_name=input_file_id)
+    return _job_state_to_legacy_dict(state)
 
 
 def openai_get_batch(batch_id: str) -> Dict[str, Any]:
-    resp = requests.get(f"{OPENAI_BASE_URL}/batches/{batch_id}", headers=_headers(), timeout=60)
-    resp.raise_for_status()
-    return resp.json()
+    state = OpenAIBatchProvider().get_batch_job(batch_id)
+    return _job_state_to_legacy_dict(state)
 
 
 def openai_download_file_content(file_id: str) -> str:
-    resp = requests.get(
-        f"{OPENAI_BASE_URL}/files/{file_id}/content", headers=_headers(), timeout=120
-    )
-    resp.raise_for_status()
-    return resp.text
-
-
-def _extract_message_content(choice_message: Any) -> str:
-    if isinstance(choice_message, str):
-        return choice_message
-    if isinstance(choice_message, list):
-        return "".join(item.get("text", "") for item in choice_message if isinstance(item, dict))
-    if isinstance(choice_message, dict):
-        content = choice_message.get("content")
-        return _extract_message_content(content) if content else ""
-    return ""
+    return OpenAIBatchProvider().download_output_file(file_id)
 
 
 def parse_output_jsonl_line(
     line: str,
 ) -> Tuple[str, Optional[str], Optional[str], Optional[List[str]], Optional[str]]:
-    row = json.loads(line)
-    bill_id = row.get("custom_id")
-    response = row.get("response") or {}
-    if response.get("status_code") != 200:
-        return bill_id, None, None, None, f"status_code={response.get('status_code')}"
-    choices = (response.get("body") or {}).get("choices") or []
-    if not choices:
-        return bill_id, None, None, None, "choices가 비어있습니다."
-    content = _extract_message_content(choices[0].get("message", {}).get("content", ""))
-    if not content:
-        return bill_id, None, None, None, "message content가 비어있습니다."
-    try:
-        parsed = BatchStructuredSummary.model_validate_json(content)
-    except ValidationError as exc:
-        return bill_id, None, None, None, f"Structured Output 검증 실패: {exc}"
-    return bill_id, parsed.brief_summary, parsed.gpt_summary, parsed.tags, None
+    result = OpenAIBatchProvider().parse_output_line(line)
+    return result.bill_id, result.brief_summary, result.gpt_summary, result.tags, result.error
+
+
+def _job_state_to_legacy_dict(state: BatchProviderJobState) -> Dict[str, Any]:
+    return {
+        "id": state.batch_id,
+        "status": state.status.lower(),
+        "output_file_id": state.output_file_id,
+        "error_file_id": state.error_file_id,
+        "error_message": state.error_message,
+    }
 
 
 def ensure_status_tables(conn: pymysql.connections.Connection) -> None:
     ddl = [
         """CREATE TABLE IF NOT EXISTS ai_batch_jobs (
           id BIGINT AUTO_INCREMENT PRIMARY KEY,
-          batch_id VARCHAR(128) NOT NULL UNIQUE,
+          provider VARCHAR(32) NOT NULL DEFAULT 'openai',
+          batch_id VARCHAR(128) NOT NULL,
           status VARCHAR(32) NOT NULL,
           input_file_id VARCHAR(128) NULL,
           output_file_id VARCHAR(128) NULL,
@@ -170,8 +79,10 @@ def ensure_status_tables(conn: pymysql.connections.Connection) -> None:
           error_message TEXT NULL,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY uq_ai_batch_jobs_provider_batch_id (provider, batch_id),
           INDEX idx_ai_batch_jobs_status (status),
-          INDEX idx_ai_batch_jobs_created_at (created_at)
+          INDEX idx_ai_batch_jobs_created_at (created_at),
+          INDEX idx_ai_batch_jobs_provider_status_created_at (provider, status, created_at)
         )""",
         """CREATE TABLE IF NOT EXISTS ai_batch_items (
           id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -220,13 +131,15 @@ def create_batch_job_with_items(
     model: str,
     bill_ids: List[str],
     status: str = "SUBMITTED",
+    provider: str = "openai",
+    endpoint: str = "/v1/chat/completions",
 ) -> int:
     with conn.cursor() as cursor:
         cursor.execute(
-            """INSERT INTO ai_batch_jobs (batch_id, status, input_file_id, endpoint, model_name, total_count, submitted_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            """INSERT INTO ai_batch_jobs (provider, batch_id, status, input_file_id, endpoint, model_name, total_count, submitted_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
             (
-                batch_id, status, input_file_id, "/v1/chat/completions", model,
+                provider, batch_id, status, input_file_id, endpoint, model,
                 len(bill_ids), datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             ),
         )
@@ -239,13 +152,23 @@ def create_batch_job_with_items(
     return int(job_id)
 
 
-def fetch_jobs_for_polling(conn: pymysql.connections.Connection, max_jobs: int) -> List[Dict[str, Any]]:
+def fetch_jobs_for_polling(
+    conn: pymysql.connections.Connection,
+    max_jobs: int,
+    provider: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     with conn.cursor() as cursor:
-        cursor.execute(
-            "SELECT * FROM ai_batch_jobs WHERE status IN ('SUBMITTED','VALIDATING','IN_PROGRESS','FINALIZING') "
-            "ORDER BY created_at ASC LIMIT %s",
-            (max_jobs,),
+        sql = (
+            "SELECT * FROM ai_batch_jobs WHERE status IN "
+            "('SUBMITTED','VALIDATING','IN_PROGRESS','FINALIZING','CANCELLING')"
         )
+        params: List[Any] = []
+        if provider:
+            sql += " AND provider = %s"
+            params.append(provider)
+        sql += " ORDER BY created_at ASC LIMIT %s"
+        params.append(max_jobs)
+        cursor.execute(sql, tuple(params))
         return cursor.fetchall()
 
 
@@ -274,7 +197,7 @@ def apply_batch_results(
 ) -> Tuple[int, int]:
     success = failed = 0
     with conn.cursor() as cursor:
-        for line in [l for l in output_jsonl.splitlines() if l.strip()]:
+        for line in [l for l in output_jsonl.splitlines() if l.strip()]:  # noqa: E741
             bill_id, brief, gpt, tags, err = parse_output_jsonl_line(line)
             if not bill_id:
                 failed += 1

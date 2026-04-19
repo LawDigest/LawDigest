@@ -138,7 +138,7 @@ graph LR
 
 ### `services/ai` — AI 서비스
 두 가지 책임을 가집니다.
-- **`processor/`**: DB에 적재된 법안을 GPT로 요약 (즉시 요약 / OpenAI Batch API)
+- **`processor/`**: DB에 적재된 법안을 provider-aware 요약 파이프라인으로 처리 (즉시 요약 / OpenAI·Gemini Batch API)
 - **`rag/`**: Qdrant 벡터 DB와 LLM을 결합한 법안 RAG 챗봇
 
 <br>
@@ -150,9 +150,13 @@ graph LR
 | `bill_ingest_dag` | 매시간 | 국회 API → DB 법안 수집 |
 | `bill_status_sync_dag` | 매시간 | 의원·타임라인·결과·표결 동기화 |
 | `manual_bill_collect_dag` | 수동 | 기간 지정 법안 수집 |
-| `ai_batch_submit_dag` | 매시간 10분 | OpenAI Batch 요약 제출 |
-| `ai_batch_ingest_dag` | 10분마다 | 배치 요약 결과 반영 |
+| `ai_batch_submit_dag` | 매시간 10분 | `provider=openai|gemini` 선택형 Batch 요약 제출 |
+| `ai_batch_ingest_dag` | 10분마다 | `provider=all|openai|gemini` 기준 배치 결과 반영 |
+| `manual_ai_summary_instant_dag` | 수동 | 단일 법안 즉시 요약 (`provider=openai|gemini`) |
+| `manual_ai_summary_repair_dag` | 수동 | 누락 요약 일괄 복구 (`provider=openai|gemini`) |
 | `db_backup_dag` | 매일 | DB 백업 |
+
+> `gemini_ai_summary_repair_dag`는 Gemini CLI fallback 경로로 남아 있고, 기본 수동 복구 경로는 `manual_ai_summary_repair_dag`입니다.
 
 <br>
 
