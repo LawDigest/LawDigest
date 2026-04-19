@@ -1,5 +1,4 @@
 import json
-import pytest
 from unittest.mock import MagicMock
 from lawdigest_ai.processor.batch_utils import (
     build_batch_request_rows,

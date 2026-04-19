@@ -1,7 +1,12 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from lawdigest_ai.processor.batch_utils import create_batch_job_with_items, ensure_status_tables
+from lawdigest_ai.processor.batch_utils import (
+    build_batch_request_rows,
+    create_batch_job_with_items,
+    ensure_status_tables,
+)
+from lawdigest_ai.processor.providers.openai_batch import OpenAIBatchProvider
 
 
 def test_ensure_status_tables_includes_provider_scoped_job_keys():
@@ -87,6 +92,27 @@ def test_create_batch_job_with_items_accepts_custom_endpoint():
     _, insert_params = cursor.execute.call_args_list[0].args
     assert insert_params[0] == "gemini"
     assert insert_params[4] == "/v1/alt-endpoint"
+
+
+def test_openai_batch_provider_build_request_rows_matches_current_openai_shape():
+    provider = OpenAIBatchProvider()
+    bills = [
+        {
+            "bill_id": "B001",
+            "bill_name": "테스트법",
+            "summary": "내용",
+            "proposers": "홍길동",
+            "proposer_kind": "의원",
+            "propose_date": "2024-01-01",
+            "stage": "위원회",
+        }
+    ]
+
+    rows = provider.build_request_rows(bills, model="gpt-4o-mini")
+    expected_rows = build_batch_request_rows(bills, model="gpt-4o-mini")
+
+    assert provider.provider_name.value == "openai"
+    assert rows == expected_rows
 
 
 def test_20260419_migration_handles_legacy_index_name_drift():
