@@ -117,6 +117,30 @@ INTERNAL_API_ORIGIN="$INTERNAL_API_ORIGIN" \
 NEXT_PUBLIC_DOMAIN="$NEXT_PUBLIC_DOMAIN" \
 npm run build
 
+echo "▶ 빌드 산출물 검증"
+if [ ! -d "$TARGET_WEB_DIR/.next" ]; then
+  echo "✗ .next 디렉터리가 생성되지 않았습니다: $TARGET_WEB_DIR/.next"
+  exit 1
+fi
+
+REQUIRED_NEXT_FILES=(
+  "$TARGET_WEB_DIR/.next/build-manifest.json"
+  "$TARGET_WEB_DIR/.next/prerender-manifest.json"
+  "$TARGET_WEB_DIR/.next/react-loadable-manifest.json"
+  "$TARGET_WEB_DIR/.next/routes-manifest.json"
+)
+for required_file in "${REQUIRED_NEXT_FILES[@]}"; do
+  if [ ! -f "$required_file" ]; then
+    echo "✗ 누락된 Next.js 산출물입니다: $required_file"
+    exit 1
+  fi
+done
+
+if [ ! -d "$TARGET_WEB_DIR/.next/server/app" ] && [ ! -d "$TARGET_WEB_DIR/.next/server/pages" ]; then
+  echo "✗ .next/server/app 또는 .next/server/pages가 모두 없습니다: $TARGET_WEB_DIR/.next/server"
+  exit 1
+fi
+
 echo "▶ release 디렉터리 생성"
 mkdir -p "$RELEASE_DIR/services"
 
