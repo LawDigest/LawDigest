@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Literal
 
+from lawdigest_ai.processor.providers.gemini_batch import GeminiBatchProvider
 from lawdigest_ai.processor.providers.types import (
     BatchProviderBase,
-    GeminiBatchProvider,
     GeminiInstantProvider,
     InstantProviderBase,
     OpenAIInstantProvider,

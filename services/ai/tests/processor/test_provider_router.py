@@ -16,7 +16,8 @@ def test_get_batch_provider_returns_openai_batch_stub():
 
 def test_get_batch_provider_accepts_enum_input():
     from lawdigest_ai.processor.providers.router import get_batch_provider
-    from lawdigest_ai.processor.providers.types import BatchProviderBase, GeminiBatchProvider, ProviderName
+    from lawdigest_ai.processor.providers.gemini_batch import GeminiBatchProvider
+    from lawdigest_ai.processor.providers.types import BatchProviderBase, ProviderName
 
     provider = get_batch_provider(ProviderName.GEMINI)
 
