@@ -8,8 +8,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import pymysql
 
 from lawdigest_ai.processor.providers.openai_batch import OpenAIBatchProvider
+from lawdigest_ai.processor.providers.types import BatchProviderJobState
 
-ACTIVE_BATCH_STATES = ("VALIDATING", "IN_PROGRESS", "FINALIZING", "SUBMITTED")
+ACTIVE_BATCH_STATES = ("VALIDATING", "IN_PROGRESS", "FINALIZING", "SUBMITTED", "CANCELLING")
 
 
 def build_batch_request_rows(bills: List[Dict[str, Any]], model: str) -> List[Dict[str, Any]]:
@@ -28,11 +29,13 @@ def openai_upload_batch_file(jsonl_path: str) -> str:
 
 
 def openai_create_batch(input_file_id: str, model: str) -> Dict[str, Any]:
-    return OpenAIBatchProvider().create_batch_job(model=model, source_file_name=input_file_id)
+    state = OpenAIBatchProvider().create_batch_job(model=model, source_file_name=input_file_id)
+    return _job_state_to_legacy_dict(state)
 
 
 def openai_get_batch(batch_id: str) -> Dict[str, Any]:
-    return OpenAIBatchProvider().get_batch_job(batch_id)
+    state = OpenAIBatchProvider().get_batch_job(batch_id)
+    return _job_state_to_legacy_dict(state)
 
 
 def openai_download_file_content(file_id: str) -> str:
@@ -44,6 +47,16 @@ def parse_output_jsonl_line(
 ) -> Tuple[str, Optional[str], Optional[str], Optional[List[str]], Optional[str]]:
     result = OpenAIBatchProvider().parse_output_line(line)
     return result.bill_id, result.brief_summary, result.gpt_summary, result.tags, result.error
+
+
+def _job_state_to_legacy_dict(state: BatchProviderJobState) -> Dict[str, Any]:
+    return {
+        "id": state.batch_id,
+        "status": state.status.lower(),
+        "output_file_id": state.output_file_id,
+        "error_file_id": state.error_file_id,
+        "error_message": state.error_message,
+    }
 
 
 def ensure_status_tables(conn: pymysql.connections.Connection) -> None:
@@ -142,7 +155,7 @@ def create_batch_job_with_items(
 def fetch_jobs_for_polling(conn: pymysql.connections.Connection, max_jobs: int) -> List[Dict[str, Any]]:
     with conn.cursor() as cursor:
         cursor.execute(
-            "SELECT * FROM ai_batch_jobs WHERE status IN ('SUBMITTED','VALIDATING','IN_PROGRESS','FINALIZING') "
+            "SELECT * FROM ai_batch_jobs WHERE status IN ('SUBMITTED','VALIDATING','IN_PROGRESS','FINALIZING','CANCELLING') "
             "ORDER BY created_at ASC LIMIT %s",
             (max_jobs,),
         )

@@ -13,6 +13,7 @@ from lawdigest_ai.processor.providers.openai_batch import (
 )
 from lawdigest_ai.processor.providers.types import (
     BatchProviderBase,
+    BatchProviderJobState,
     BatchProviderParseResult,
     ProviderName,
 )
@@ -75,6 +76,53 @@ def _format_error(error: Any) -> str:
     return str(error)
 
 
+def _get_field(value: Any, *names: str) -> Any:
+    for name in names:
+        if isinstance(value, dict) and name in value:
+            return value[name]
+        if hasattr(value, name):
+            return getattr(value, name)
+    return None
+
+
+def _normalize_gemini_status(state: Any) -> str:
+    state_name = _get_field(state, "name")
+    if state_name is None and isinstance(state, str):
+        state_name = state
+
+    normalized = str(state_name or "UNKNOWN").upper()
+    if normalized.startswith("JOB_STATE_"):
+        normalized = normalized.removeprefix("JOB_STATE_")
+
+    return {
+        "PENDING": "SUBMITTED",
+        "QUEUED": "SUBMITTED",
+        "RUNNING": "IN_PROGRESS",
+        "UPDATING": "IN_PROGRESS",
+        "PAUSED": "IN_PROGRESS",
+        "CANCELLING": "CANCELLING",
+        "SUCCEEDED": "COMPLETED",
+        "PARTIALLY_SUCCEEDED": "COMPLETED",
+        "FAILED": "FAILED",
+        "CANCELLED": "CANCELED",
+        "EXPIRED": "EXPIRED",
+        "UNSPECIFIED": "UNKNOWN",
+    }.get(normalized, normalized)
+
+
+def _to_batch_job_state(batch_job: Any) -> BatchProviderJobState:
+    destination = _get_field(batch_job, "dest")
+    error = _get_field(batch_job, "error")
+
+    return BatchProviderJobState(
+        batch_id=str(_get_field(batch_job, "name") or ""),
+        status=_normalize_gemini_status(_get_field(batch_job, "state")),
+        output_file_id=_get_field(destination, "file_name", "fileName"),
+        error_file_id=None,
+        error_message=_format_error(error) if error is not None else None,
+    )
+
+
 class GeminiBatchProvider(BatchProviderBase):
     def __init__(
         self,
@@ -125,12 +173,14 @@ class GeminiBatchProvider(BatchProviderBase):
         model: str,
         source_file_name: str,
         display_name: str | None = None,
-    ) -> Any:
+    ) -> BatchProviderJobState:
         config = {"display_name": display_name or _default_display_name(source_file_name)}
-        return self._get_client().batches.create(model=model, src=source_file_name, config=config)
+        batch_job = self._get_client().batches.create(model=model, src=source_file_name, config=config)
+        return _to_batch_job_state(batch_job)
 
-    def get_batch_job(self, name: str) -> Any:
-        return self._get_client().batches.get(name=name)
+    def get_batch_job(self, name: str) -> BatchProviderJobState:
+        batch_job = self._get_client().batches.get(name=name)
+        return _to_batch_job_state(batch_job)
 
     def download_output_file(self, file_name: str) -> str:
         content = self._get_client().files.download(file=file_name)

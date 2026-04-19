@@ -3,6 +3,8 @@ from lawdigest_ai.processor.providers.gemini_batch import GeminiBatchProvider, G
 from lawdigest_ai.processor.providers.openai_batch import BatchStructuredSummary, OpenAIBatchProvider
 from lawdigest_ai.processor.providers.types import (
     BatchProviderBase,
+    BatchProviderJobState,
+    BatchProviderParseResult,
     GeminiInstantProvider,
     InstantProviderBase,
     OpenAIInstantProvider,
@@ -12,6 +14,8 @@ from lawdigest_ai.processor.providers.types import (
 
 __all__ = [
     "BatchProviderBase",
+    "BatchProviderJobState",
+    "BatchProviderParseResult",
     "GeminiBatchProvider",
     "GeminiBatchResult",
     "GeminiInstantProvider",

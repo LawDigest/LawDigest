@@ -55,8 +55,14 @@ def test_upload_batch_file_uses_jsonl_mime_type_and_returns_file_name(tmp_path):
 
 def test_create_batch_job_uses_uploaded_file_name_as_src():
     from lawdigest_ai.processor.providers.gemini_batch import GeminiBatchProvider
+    from lawdigest_ai.processor.providers.types import BatchProviderJobState
 
-    batch_job = SimpleNamespace(name="batches/job-123")
+    batch_job = SimpleNamespace(
+        name="batches/job-123",
+        state=SimpleNamespace(name="JOB_STATE_RUNNING"),
+        dest=SimpleNamespace(file_name="files/output-123"),
+        error=None,
+    )
     client = SimpleNamespace(
         files=SimpleNamespace(),
         batches=SimpleNamespace(create=MagicMock(return_value=batch_job)),
@@ -69,7 +75,13 @@ def test_create_batch_job_uses_uploaded_file_name_as_src():
         display_name="lawdigest-batch",
     )
 
-    assert created_job is batch_job
+    assert created_job == BatchProviderJobState(
+        batch_id="batches/job-123",
+        status="IN_PROGRESS",
+        output_file_id="files/output-123",
+        error_file_id=None,
+        error_message=None,
+    )
     client.batches.create.assert_called_once_with(
         model="models/gemini-2.5-flash",
         src="files/input-123",
@@ -80,7 +92,12 @@ def test_create_batch_job_uses_uploaded_file_name_as_src():
 def test_create_batch_job_uses_deterministic_default_display_name():
     from lawdigest_ai.processor.providers.gemini_batch import GeminiBatchProvider
 
-    batch_job = SimpleNamespace(name="batches/job-123")
+    batch_job = SimpleNamespace(
+        name="batches/job-123",
+        state=SimpleNamespace(name="JOB_STATE_PENDING"),
+        dest=None,
+        error=None,
+    )
     client = SimpleNamespace(
         files=SimpleNamespace(),
         batches=SimpleNamespace(create=MagicMock(return_value=batch_job)),
@@ -101,8 +118,14 @@ def test_create_batch_job_uses_deterministic_default_display_name():
 
 def test_get_batch_job_delegates_to_sdk_client():
     from lawdigest_ai.processor.providers.gemini_batch import GeminiBatchProvider
+    from lawdigest_ai.processor.providers.types import BatchProviderJobState
 
-    batch_job = SimpleNamespace(name="batches/job-123")
+    batch_job = SimpleNamespace(
+        name="batches/job-123",
+        state=SimpleNamespace(name="JOB_STATE_SUCCEEDED"),
+        dest=SimpleNamespace(file_name="files/output-123"),
+        error=None,
+    )
     client = SimpleNamespace(
         files=SimpleNamespace(),
         batches=SimpleNamespace(get=MagicMock(return_value=batch_job)),
@@ -111,7 +134,13 @@ def test_get_batch_job_delegates_to_sdk_client():
 
     fetched_job = provider.get_batch_job("batches/job-123")
 
-    assert fetched_job is batch_job
+    assert fetched_job == BatchProviderJobState(
+        batch_id="batches/job-123",
+        status="COMPLETED",
+        output_file_id="files/output-123",
+        error_file_id=None,
+        error_message=None,
+    )
     client.batches.get.assert_called_once_with(name="batches/job-123")
 
 
@@ -201,6 +230,41 @@ def test_parse_output_line_supports_raw_success_shape_without_key():
     assert result.gpt_summary == "원시 상세"
     assert result.tags == ["원시1", "원시2", "원시3", "원시4", "원시5"]
     assert result.error is None
+
+
+def test_parse_output_lines_maps_raw_success_rows_to_expected_bill_ids():
+    from lawdigest_ai.processor.providers.gemini_batch import GeminiBatchProvider
+    from lawdigest_ai.processor.providers.openai_batch import BatchStructuredSummary
+
+    provider = GeminiBatchProvider(client=MagicMock())
+    summary_one = BatchStructuredSummary(
+        brief_summary="첫 번째 요약",
+        gpt_summary="첫 번째 상세",
+        tags=["태그1", "태그2", "태그3", "태그4", "태그5"],
+    ).model_dump_json(by_alias=True)
+    summary_two = BatchStructuredSummary(
+        brief_summary="두 번째 요약",
+        gpt_summary="두 번째 상세",
+        tags=["태그6", "태그7", "태그8", "태그9", "태그10"],
+    ).model_dump_json(by_alias=True)
+    output_jsonl = "\n".join(
+        [
+            json.dumps(
+                {"candidates": [{"content": {"parts": [{"text": summary_one}]}}]},
+                ensure_ascii=False,
+            ),
+            json.dumps(
+                {"candidates": [{"content": {"parts": [{"text": summary_two}]}}]},
+                ensure_ascii=False,
+            ),
+        ]
+    )
+
+    results = provider.parse_output_lines(output_jsonl, expected_bill_ids=["B101", "B102"])
+
+    assert [result.bill_id for result in results] == ["B101", "B102"]
+    assert [result.brief_summary for result in results] == ["첫 번째 요약", "두 번째 요약"]
+    assert all(result.error is None for result in results)
 
 
 def test_parse_output_line_surfaces_row_error():

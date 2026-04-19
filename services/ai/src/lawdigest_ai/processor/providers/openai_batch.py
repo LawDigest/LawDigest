@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from lawdigest_ai.config import OPENAI_BASE_URL, get_openai_api_key
 from lawdigest_ai.processor.providers.types import (
     BatchProviderBase,
+    BatchProviderJobState,
     BatchProviderParseResult,
     ProviderName,
 )
@@ -51,6 +52,67 @@ def _extract_message_content(choice_message: Any) -> str:
         content = choice_message.get("content")
         return _extract_message_content(content) if content else ""
     return ""
+
+
+def _normalize_openai_status(status: str | None) -> str:
+    normalized = (status or "UNKNOWN").upper()
+    return {
+        "VALIDATING": "VALIDATING",
+        "IN_PROGRESS": "IN_PROGRESS",
+        "FINALIZING": "FINALIZING",
+        "COMPLETED": "COMPLETED",
+        "FAILED": "FAILED",
+        "EXPIRED": "EXPIRED",
+        "CANCELLING": "CANCELLING",
+        "CANCELLED": "CANCELED",
+        "CANCELED": "CANCELED",
+    }.get(normalized, normalized)
+
+
+def _extract_openai_error_message(payload: dict[str, Any]) -> str | None:
+    error_message = payload.get("error_message")
+    if isinstance(error_message, str) and error_message:
+        return error_message
+
+    errors = payload.get("errors")
+    if isinstance(errors, dict):
+        message = errors.get("message")
+        if isinstance(message, str) and message:
+            return message
+
+        data = errors.get("data")
+        if isinstance(data, list):
+            for item in data:
+                if isinstance(item, dict):
+                    item_message = item.get("message")
+                    if isinstance(item_message, str) and item_message:
+                        return item_message
+
+        return json.dumps(errors, ensure_ascii=False)
+
+    return None
+
+
+def _extract_openai_row_error(row: dict[str, Any]) -> str | None:
+    error = row.get("error")
+    if isinstance(error, str) and error:
+        return error
+    if isinstance(error, dict):
+        message = error.get("message")
+        if isinstance(message, str) and message:
+            return message
+        return json.dumps(error, ensure_ascii=False)
+    return None
+
+
+def _to_batch_job_state(payload: dict[str, Any]) -> BatchProviderJobState:
+    return BatchProviderJobState(
+        batch_id=str(payload.get("id") or ""),
+        status=_normalize_openai_status(payload.get("status")),
+        output_file_id=payload.get("output_file_id"),
+        error_file_id=payload.get("error_file_id"),
+        error_message=_extract_openai_error_message(payload),
+    )
 
 
 class OpenAIBatchProvider(BatchProviderBase):
@@ -105,7 +167,7 @@ class OpenAIBatchProvider(BatchProviderBase):
         model: str,
         source_file_name: str,
         display_name: str | None = None,
-    ) -> Dict[str, Any]:
+    ) -> BatchProviderJobState:
         metadata = {"model": model, "pipeline": "lawdigest_ai_batch"}
         if display_name:
             metadata["display_name"] = display_name
@@ -122,12 +184,12 @@ class OpenAIBatchProvider(BatchProviderBase):
             timeout=60,
         )
         response.raise_for_status()
-        return response.json()
+        return _to_batch_job_state(response.json())
 
-    def get_batch_job(self, name: str) -> Dict[str, Any]:
+    def get_batch_job(self, name: str) -> BatchProviderJobState:
         response = requests.get(f"{OPENAI_BASE_URL}/batches/{name}", headers=self._headers(), timeout=60)
         response.raise_for_status()
-        return response.json()
+        return _to_batch_job_state(response.json())
 
     def download_output_file(self, file_name: str) -> str:
         response = requests.get(
@@ -141,6 +203,15 @@ class OpenAIBatchProvider(BatchProviderBase):
     def parse_output_line(self, line: str) -> BatchProviderParseResult:
         row = json.loads(line)
         bill_id = row.get("custom_id")
+        row_error = _extract_openai_row_error(row)
+        if row_error is not None:
+            return BatchProviderParseResult(
+                bill_id=bill_id,
+                brief_summary=None,
+                gpt_summary=None,
+                tags=None,
+                error=row_error,
+            )
         response = row.get("response") or {}
         if response.get("status_code") != 200:
             return BatchProviderParseResult(

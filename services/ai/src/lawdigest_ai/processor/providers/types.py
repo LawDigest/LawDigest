@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any
 
@@ -25,6 +25,15 @@ class BatchProviderParseResult:
     error: str | None
 
 
+@dataclass(frozen=True, slots=True)
+class BatchProviderJobState:
+    batch_id: str
+    status: str
+    output_file_id: str | None
+    error_file_id: str | None
+    error_message: str | None
+
+
 class BatchProviderBase(ProviderBase, ABC):
     @abstractmethod
     def build_request_rows(self, bills: list[dict[str, Any]], model: str) -> list[dict[str, Any]]:
@@ -41,11 +50,11 @@ class BatchProviderBase(ProviderBase, ABC):
         model: str,
         source_file_name: str,
         display_name: str | None = None,
-    ) -> Any:
+    ) -> BatchProviderJobState:
         raise NotImplementedError
 
     @abstractmethod
-    def get_batch_job(self, name: str) -> Any:
+    def get_batch_job(self, name: str) -> BatchProviderJobState:
         raise NotImplementedError
 
     @abstractmethod
@@ -55,6 +64,22 @@ class BatchProviderBase(ProviderBase, ABC):
     @abstractmethod
     def parse_output_line(self, line: str) -> BatchProviderParseResult:
         raise NotImplementedError
+
+    def parse_output_lines(
+        self,
+        output_jsonl: str,
+        expected_bill_ids: list[str] | None = None,
+    ) -> list[BatchProviderParseResult]:
+        results: list[BatchProviderParseResult] = []
+        normalized_lines = [line for line in output_jsonl.splitlines() if line.strip()]
+
+        for index, line in enumerate(normalized_lines):
+            result = self.parse_output_line(line)
+            if result.bill_id is None and expected_bill_ids is not None and index < len(expected_bill_ids):
+                result = replace(result, bill_id=expected_bill_ids[index])
+            results.append(result)
+
+        return results
 
 
 class InstantProviderBase(ProviderBase):
