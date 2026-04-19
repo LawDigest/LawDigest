@@ -10,25 +10,33 @@ class ProviderName(str, Enum):
 
 
 @dataclass(frozen=True, slots=True)
-class ProviderStub:
+class ProviderBase:
     provider_name: ProviderName
 
 
-class OpenAIBatchProvider(ProviderStub):
+class BatchProviderBase(ProviderBase):
+    pass
+
+
+class InstantProviderBase(ProviderBase):
+    pass
+
+
+class OpenAIBatchProvider(BatchProviderBase):
     def __init__(self) -> None:
         super().__init__(ProviderName.OPENAI)
 
 
-class GeminiBatchProvider(ProviderStub):
+class GeminiBatchProvider(BatchProviderBase):
     def __init__(self) -> None:
         super().__init__(ProviderName.GEMINI)
 
 
-class OpenAIInstantProvider(ProviderStub):
+class OpenAIInstantProvider(InstantProviderBase):
     def __init__(self) -> None:
         super().__init__(ProviderName.OPENAI)
 
 
-class GeminiInstantProvider(ProviderStub):
+class GeminiInstantProvider(InstantProviderBase):
     def __init__(self) -> None:
         super().__init__(ProviderName.GEMINI)
