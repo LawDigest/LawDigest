@@ -7,7 +7,7 @@
 
 ## 1. 개요
 
-Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를 수집하고, AI 요약을 생성하여 MySQL RDS에 저장하는 자동화 시스템입니다. Apache Airflow 3.1 (CeleryExecutor)을 오케스트레이터로 사용하며, 수집→정제→저장→AI요약의 4단계로 구성됩니다.
+Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를 수집하고, AI 요약을 생성하여 MySQL RDS에 저장하는 자동화 시스템입니다. Apache Airflow 3.1 (CeleryExecutor)을 오케스트레이터로 사용하며, 수집→정제→저장→AI요약의 4단계로 구성됩니다. AI 요약 경로는 현재 OpenAI와 Gemini를 provider-aware 구조로 함께 운영합니다.
 
 ---
 
@@ -32,9 +32,10 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
         │
         ▼
   AI Processor
-        ├── Batch Submit (OpenAI Batch API)
-        ├── Batch Ingest (결과 수신)
-        └── Instant Summarizer (즉시 요약)
+        ├── Batch Submit (OpenAI / Gemini)
+        ├── Batch Ingest (provider-aware 결과 수신)
+        ├── Instant Summarizer (provider-aware 즉시 요약)
+        └── Manual Repair (provider-aware 결측 복구)
                 │
                 ▼
           Qdrant (Vector DB / RAG)
@@ -51,8 +52,8 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 | Airflow 메타DB | PostgreSQL | 13 |
 | 프로덕션 DB | MySQL | 8.0.35 |
 | 데이터 처리 | Python + pandas | - |
-| AI 요약 (Primary) | OpenAI GPT-5 / gpt-4o-mini | - |
-| AI 요약 (Fallback) | Google Gemini 3-Flash | - |
+| AI 요약 (Batch / Instant) | OpenAI + Gemini | - |
+| Gemini CLI Fallback | Google Gemini CLI | - |
 | 구조화 AI | PydanticAI | - |
 | 벡터 DB | Qdrant | - |
 | 모니터링 | Prometheus + Grafana | - |
@@ -81,7 +82,7 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 | `bill_timeline` | 법안 처리 타임라인 |
 | `bill_result` | 법안 처리 결과 |
 | `bill_vote` | 의원별 표결 정보 |
-| `ai_batch_jobs` | OpenAI 배치 작업 메타데이터 |
+| `ai_batch_jobs` | provider별 배치 작업 메타데이터 |
 | `ai_batch_items` | 배치 항목별 AI 결과 |
 
 ---
@@ -95,8 +96,8 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 | `bill_ingest_dag` | `0 * * * *` (매 정시) | 국회 API → DB 수집 |
 | `bill_status_sync_dag` | `0 * * * *` (매 정시) | 법안 lifecycle/vote 상태 동기화 |
 | `manual_bill_collect_dag` | 수동 | 기간 지정 법안 수집 |
-| `ai_batch_submit_dag` | `10 * * * *` (매 정시 10분) | 미요약 법안 → OpenAI Batch 제출 |
-| `ai_batch_ingest_dag` | `*/10 * * * *` (10분마다) | OpenAI 배치 결과 수신 → DB |
+| `ai_batch_submit_dag` | `10 * * * *` (매 정시 10분) | 미요약 법안 → 선택한 provider의 Batch 제출 |
+| `ai_batch_ingest_dag` | `*/10 * * * *` (10분마다) | provider별 배치 결과 수신 → DB |
 | `db_backup_dag` | `0 0 * * *` (매일 자정) | 전체 DB 백업 |
 
 ### 5.2 수동 실행 DAG
@@ -106,6 +107,8 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 | `manual_ai_summary_repair_dag` | 결측된 AI 요약 일괄 복구 |
 | `manual_ai_summary_instant_dag` | 단일 법안 즉시 요약 |
 | `manual_bill_collect_dag` | 특정 기간 법안 수동 수집 |
+
+> `gemini_ai_summary_repair_dag`는 CLI fallback용 수동 DAG로 유지됩니다.
 
 ---
 
@@ -163,21 +166,51 @@ upsert_vote
 [정시 10분] ai_batch_submit_dag
   DB에서 brief_summary/gpt_summary IS NULL 조회 (최대 200개)
       ↓
-  JSONL 파일 생성 (gpt-4o-mini 요청 형식)
+  provider별 요청 파일 생성 (OpenAI JSONL / Gemini Batch File API)
       ↓
-  OpenAI API: 파일 업로드 → 배치 작업 생성
+  선택한 provider API: 파일 업로드 → 배치 작업 생성
       ↓
   DB: ai_batch_jobs, ai_batch_items에 상태 저장
 
 [10분마다] ai_batch_ingest_dag
-  진행 중인 배치 상태 폴링
+  provider=all 기준 진행 중 배치 상태 폴링
       ↓ (COMPLETED 시)
   결과 파일 다운로드 → JSONL 파싱
       ↓
   Bill 테이블: brief_summary, gpt_summary, summary_tags 업데이트
 ```
 
-**비용**: Batch API는 일반 API 대비 50% 저렴 (결과: 최대 24시간 소요)
+**운영 포인트**:
+- `ai_batch_submit_dag` 기본 provider는 `openai`
+- `ai_batch_ingest_dag` 기본 provider는 `all`
+- `ai_batch_jobs`는 `(provider, batch_id)` 복합 유니크 기준으로 관리
+
+### 6.4 수동 AI 요약 경로
+
+```
+manual_ai_summary_instant_dag
+  bill_json 또는 개별 bill 필드 입력
+      ↓
+  provider=openai|gemini 선택
+      ↓
+  즉시 structured summary 생성
+      ↓
+  선택적으로 Bill 테이블 즉시 반영
+
+manual_ai_summary_repair_dag
+  DB에서 summary는 있으나 AI 요약이 없는 법안 조회
+      ↓
+  provider=openai|gemini 선택
+      ↓
+  배치 단위로 요약 생성
+      ↓
+  dry_run 또는 test/prod DB 반영 + JSON 리포트 저장
+```
+
+**운영 포인트**:
+- `manual_ai_summary_instant_dag`와 `manual_ai_summary_repair_dag`는 모두 `provider`, `model` 파라미터를 지원
+- Gemini instant/repair는 CLI가 아니라 native API 경로를 사용
+- `gemini_ai_summary_repair_dag`는 별도 fallback 수단으로 유지
 
 ---
 
