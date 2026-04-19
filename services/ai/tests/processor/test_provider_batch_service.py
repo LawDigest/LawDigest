@@ -719,5 +719,8 @@ def test_20260419_migration_covers_provider_upgrade_path():
     migration_sql = migration_path.read_text()
 
     assert "INFORMATION_SCHEMA.STATISTICS" in migration_sql
+    assert "INFORMATION_SCHEMA.COLUMNS" in migration_sql
     assert "provider VARCHAR(32)" in migration_sql
     assert "uq_ai_batch_jobs_provider_batch_id" in migration_sql
+    assert "idx_ai_batch_jobs_provider_status_created_at" in migration_sql
+    assert "ADD COLUMN IF NOT EXISTS" not in migration_sql

@@ -52,6 +52,16 @@ conn.close()
 "
 ```
 
+### 1.3.1 provider-aware AI 배포 전 migration 확인
+
+provider-aware AI 배치/즉시 요약 경로를 배포하기 전에는 아래 migration이 테스트 DB와 운영 DB에 먼저 반영되어 있어야 합니다.
+
+```bash
+infra/db/migrations/20260419_add_provider_to_ai_batch_jobs.sql
+```
+
+이 migration은 `ai_batch_jobs.provider` 컬럼과 `(provider, batch_id)` 복합 유니크 키를 추가합니다. 반영되지 않으면 `ai_batch_submit_dag`, `ai_batch_ingest_dag`가 런타임에서 실패할 수 있습니다.
+
 ### 1.4 큐잉된 DAG 정리 (필요 시)
 
 재가동 전 이전 queued 상태로 남아있는 실행을 정리합니다.
