@@ -224,13 +224,14 @@ def create_batch_job_with_items(
     bill_ids: List[str],
     status: str = "SUBMITTED",
     provider: str = "openai",
+    endpoint: str = "/v1/chat/completions",
 ) -> int:
     with conn.cursor() as cursor:
         cursor.execute(
             """INSERT INTO ai_batch_jobs (provider, batch_id, status, input_file_id, endpoint, model_name, total_count, submitted_at)
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
             (
-                provider, batch_id, status, input_file_id, "/v1/chat/completions", model,
+                provider, batch_id, status, input_file_id, endpoint, model,
                 len(bill_ids), datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             ),
         )
