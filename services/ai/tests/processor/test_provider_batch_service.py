@@ -2,11 +2,11 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from lawdigest_ai.processor.batch_utils import (
-    build_batch_request_rows,
     create_batch_job_with_items,
     ensure_status_tables,
 )
 from lawdigest_ai.processor.providers.openai_batch import OpenAIBatchProvider
+from lawdigest_ai.processor.providers.types import ProviderName
 
 
 def test_ensure_status_tables_includes_provider_scoped_job_keys():
@@ -109,10 +109,42 @@ def test_openai_batch_provider_build_request_rows_matches_current_openai_shape()
     ]
 
     rows = provider.build_request_rows(bills, model="gpt-4o-mini")
-    expected_rows = build_batch_request_rows(bills, model="gpt-4o-mini")
 
-    assert provider.provider_name.value == "openai"
-    assert rows == expected_rows
+    assert provider.provider_name == ProviderName.OPENAI
+    assert len(rows) == 1
+
+    row = rows[0]
+    assert row["custom_id"] == "B001"
+    assert row["method"] == "POST"
+    assert row["url"] == "/v1/chat/completions"
+
+    body = row["body"]
+    assert body["model"] == "gpt-4o-mini"
+    assert body["temperature"] == 0.2
+
+    messages = body["messages"]
+    assert len(messages) == 2
+    assert messages[0]["role"] == "system"
+    assert "한국 법안 요약 전문가" in messages[0]["content"]
+    assert messages[1]["role"] == "user"
+    assert "B001" in messages[1]["content"]
+    assert "테스트법" in messages[1]["content"]
+    assert "홍길동" in messages[1]["content"]
+    assert "의원" in messages[1]["content"]
+    assert "2024-01-01" in messages[1]["content"]
+    assert "위원회" in messages[1]["content"]
+    assert "내용" in messages[1]["content"]
+
+    response_format = body["response_format"]
+    assert response_format["type"] == "json_schema"
+    json_schema = response_format["json_schema"]
+    assert json_schema["name"] == "bill_summary"
+    assert json_schema["strict"] is True
+    schema = json_schema["schema"]
+    assert schema["type"] == "object"
+    assert schema["additionalProperties"] is False
+    assert set(schema["required"]) == {"briefSummary", "gptSummary", "tags"}
+    assert set(schema["properties"]) == {"briefSummary", "gptSummary", "tags"}
 
 
 def test_20260419_migration_handles_legacy_index_name_drift():

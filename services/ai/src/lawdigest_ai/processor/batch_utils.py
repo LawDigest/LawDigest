@@ -241,7 +241,7 @@ def apply_batch_results(
 ) -> Tuple[int, int]:
     success = failed = 0
     with conn.cursor() as cursor:
-        for line in [line_text for line_text in output_jsonl.splitlines() if line_text.strip()]:
+        for line in [l for l in output_jsonl.splitlines() if l.strip()]:  # noqa: E741
             bill_id, brief, gpt, tags, err = parse_output_jsonl_line(line)
             if not bill_id:
                 failed += 1
