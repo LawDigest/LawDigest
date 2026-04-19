@@ -4,8 +4,8 @@ from lawdigest_ai.processor.batch_utils import (
     build_batch_request_rows,
     parse_output_jsonl_line,
     apply_batch_results,
-    BatchStructuredSummary,
 )
+from lawdigest_ai.processor.providers.openai_batch import BatchStructuredSummary
 
 
 def test_build_batch_request_rows_structure():

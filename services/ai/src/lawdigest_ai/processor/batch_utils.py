@@ -8,19 +8,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pymysql
 import requests
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import ValidationError
 
 from lawdigest_ai.config import get_openai_api_key, OPENAI_BASE_URL
 from lawdigest_ai.processor.providers.openai_batch import OpenAIBatchProvider
+from lawdigest_ai.processor.providers.openai_batch import BatchStructuredSummary
 
 ACTIVE_BATCH_STATES = ("VALIDATING", "IN_PROGRESS", "FINALIZING", "SUBMITTED")
-
-
-class BatchStructuredSummary(BaseModel):
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
-    brief_summary: str = Field(alias="briefSummary")
-    gpt_summary: str = Field(alias="gptSummary")
-    tags: List[str] = Field(alias="tags", min_length=5, max_length=5)
 
 
 def _headers() -> Dict[str, str]:

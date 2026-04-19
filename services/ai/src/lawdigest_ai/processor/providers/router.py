@@ -7,10 +7,10 @@ from lawdigest_ai.processor.providers.types import (
     GeminiBatchProvider,
     GeminiInstantProvider,
     InstantProviderBase,
-    OpenAIBatchProvider,
     OpenAIInstantProvider,
     ProviderName,
 )
+from lawdigest_ai.processor.providers.openai_batch import OpenAIBatchProvider
 
 ProviderKey = Literal["openai", "gemini"]
 

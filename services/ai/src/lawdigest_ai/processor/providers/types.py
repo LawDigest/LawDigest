@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 
 class ProviderName(str, Enum):
@@ -15,16 +16,12 @@ class ProviderBase:
 
 
 class BatchProviderBase(ProviderBase):
-    pass
+    def build_request_rows(self, bills: list[dict[str, Any]], model: str) -> list[dict[str, Any]]:
+        raise NotImplementedError
 
 
 class InstantProviderBase(ProviderBase):
     pass
-
-
-class OpenAIBatchProvider(BatchProviderBase):
-    def __init__(self) -> None:
-        super().__init__(ProviderName.OPENAI)
 
 
 class GeminiBatchProvider(BatchProviderBase):

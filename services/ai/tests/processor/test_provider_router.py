@@ -4,12 +4,14 @@ from typing import get_type_hints
 
 def test_get_batch_provider_returns_openai_batch_stub():
     from lawdigest_ai.processor.providers.router import get_batch_provider
-    from lawdigest_ai.processor.providers.types import BatchProviderBase, OpenAIBatchProvider
+    from lawdigest_ai.processor.providers.openai_batch import OpenAIBatchProvider
+    from lawdigest_ai.processor.providers.types import BatchProviderBase
 
     provider = get_batch_provider("openai")
 
     assert isinstance(provider, OpenAIBatchProvider)
     assert isinstance(provider, BatchProviderBase)
+    assert provider.build_request_rows([], model="gpt-4o-mini") == []
 
 
 def test_get_batch_provider_accepts_enum_input():

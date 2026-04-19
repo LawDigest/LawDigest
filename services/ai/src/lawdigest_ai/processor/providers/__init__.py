@@ -1,10 +1,10 @@
 from lawdigest_ai.processor.providers.router import get_batch_provider, get_instant_provider
+from lawdigest_ai.processor.providers.openai_batch import BatchStructuredSummary, OpenAIBatchProvider
 from lawdigest_ai.processor.providers.types import (
     BatchProviderBase,
     GeminiBatchProvider,
     GeminiInstantProvider,
     InstantProviderBase,
-    OpenAIBatchProvider,
     OpenAIInstantProvider,
     ProviderBase,
     ProviderName,
@@ -15,6 +15,7 @@ __all__ = [
     "GeminiBatchProvider",
     "GeminiInstantProvider",
     "InstantProviderBase",
+    "BatchStructuredSummary",
     "OpenAIBatchProvider",
     "OpenAIInstantProvider",
     "ProviderBase",
