@@ -19,6 +19,26 @@ def test_config_raises_without_openai_key(monkeypatch):
         config.get_openai_api_key()
 
 
+def test_config_loads_gemini_key(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "gemini-key")
+    import importlib
+    import lawdigest_ai.config as config
+    importlib.reload(config)
+    assert config.get_gemini_api_key() == "gemini-key"
+
+
+def test_config_exposes_gemini_models(monkeypatch):
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-model")
+    monkeypatch.setenv("GEMINI_BATCH_MODEL", "gemini-batch-model")
+    monkeypatch.setenv("GEMINI_INSTANT_MODEL", "gemini-instant-model")
+    import importlib
+    import lawdigest_ai.config as config
+    importlib.reload(config)
+    assert config.GEMINI_MODEL == "gemini-model"
+    assert config.GEMINI_BATCH_MODEL == "gemini-batch-model"
+    assert config.GEMINI_INSTANT_MODEL == "gemini-instant-model"
+
+
 def test_db_config_prod(monkeypatch):
     monkeypatch.setenv("DB_HOST", "prod-host")
     monkeypatch.setenv("DB_PORT", "3306")
