@@ -25,7 +25,7 @@ def submit_ai_batch(**context):
 
     return submit_batch(
         limit=int(params.get("limit") or 200),
-        model=params.get("model") or "gpt-4o-mini",
+        model=params.get("model") or None,
         mode=mode,
         provider=provider,
     )
@@ -46,7 +46,12 @@ with DAG(
             description="dry_run: 제출 없이 대상만 확인, test: 테스트 DB 사용, prod: 운영 DB 사용",
         ),
         "limit": Param(200, type="integer", title="배치 최대 건수"),
-        "model": Param("gpt-4o-mini", type="string", title="모델명"),
+        "model": Param(
+            "",
+            type="string",
+            title="모델명",
+            description="비워두면 provider 기본 모델을 사용합니다. openai=gpt-4o-mini, gemini=GEMINI_BATCH_MODEL",
+        ),
         "provider": Param(
             "openai",
             type="string",
@@ -74,7 +79,7 @@ with DAG(
     ### 📅 파라미터 가이드
     - `execution_mode`: 실행 환경 및 실제 API 호출 여부 선택
     - `limit`: 한 번에 보낼 최대 법안 수 (기본값: 200)
-    - `model`: 사용할 모델명 (기본값: gpt-4o-mini)
+    - `model`: 사용할 모델명. 비워두면 provider 기본 모델 사용
     - `provider`: 제출에 사용할 batch provider (기본값: openai)
 
     ---

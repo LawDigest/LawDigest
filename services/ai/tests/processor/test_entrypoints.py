@@ -77,6 +77,31 @@ def test_batch_submit_accepts_provider_param():
     mock_conn.close.assert_called_once()
 
 
+def test_batch_submit_allows_provider_default_model_resolution():
+    from lawdigest_ai.processor.batch_submit import submit_batch
+
+    mock_conn = MagicMock()
+
+    with (
+        patch("lawdigest_ai.processor.batch_submit.get_db_connection", return_value=mock_conn),
+        patch(
+            "lawdigest_ai.processor.batch_submit.submit_batches",
+            return_value={"submitted": 1, "mode": "test", "provider": "gemini"},
+        ) as submit_batches,
+    ):
+        result = submit_batch(limit=5, model=None, mode="test", provider="gemini")
+
+    assert result["provider"] == "gemini"
+    submit_batches.assert_called_once_with(
+        conn=mock_conn,
+        limit=5,
+        model=None,
+        mode="test",
+        provider="gemini",
+    )
+    mock_conn.close.assert_called_once()
+
+
 def test_batch_ingest_dry_run():
     from lawdigest_ai.processor.batch_ingest import ingest_batch_results
     mock_conn = MagicMock()

@@ -11,7 +11,7 @@ from lawdigest_ai.processor.provider_batch_service import (
 
 def submit_batch(
     limit: int = 200,
-    model: str = "gpt-4o-mini",
+    model: str | None = None,
     mode: str = "dry_run",
     provider: SubmitProvider = "openai",
 ) -> Dict[str, Any]:
@@ -19,7 +19,7 @@ def submit_batch(
 
     Args:
         limit: 한 번에 처리할 최대 법안 수
-        model: 사용할 배치 모델명
+        model: 사용할 배치 모델명. 비워두면 provider 기본 모델 사용
         mode: 'dry_run' | 'test' | 'prod'
         provider: 'openai' | 'gemini'
     """
