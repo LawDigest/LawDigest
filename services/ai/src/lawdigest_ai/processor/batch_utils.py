@@ -152,13 +152,23 @@ def create_batch_job_with_items(
     return int(job_id)
 
 
-def fetch_jobs_for_polling(conn: pymysql.connections.Connection, max_jobs: int) -> List[Dict[str, Any]]:
+def fetch_jobs_for_polling(
+    conn: pymysql.connections.Connection,
+    max_jobs: int,
+    provider: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     with conn.cursor() as cursor:
-        cursor.execute(
-            "SELECT * FROM ai_batch_jobs WHERE status IN ('SUBMITTED','VALIDATING','IN_PROGRESS','FINALIZING','CANCELLING') "
-            "ORDER BY created_at ASC LIMIT %s",
-            (max_jobs,),
+        sql = (
+            "SELECT * FROM ai_batch_jobs WHERE status IN "
+            "('SUBMITTED','VALIDATING','IN_PROGRESS','FINALIZING','CANCELLING')"
         )
+        params: List[Any] = []
+        if provider:
+            sql += " AND provider = %s"
+            params.append(provider)
+        sql += " ORDER BY created_at ASC LIMIT %s"
+        params.append(max_jobs)
+        cursor.execute(sql, tuple(params))
         return cursor.fetchall()
 
 

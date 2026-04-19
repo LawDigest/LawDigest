@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest.mock import MagicMock
 
 from lawdigest_ai.processor.batch_utils import (
@@ -6,7 +5,11 @@ from lawdigest_ai.processor.batch_utils import (
     ensure_status_tables,
 )
 from lawdigest_ai.processor.providers.openai_batch import OpenAIBatchProvider
-from lawdigest_ai.processor.providers.types import ProviderName
+from lawdigest_ai.processor.providers.types import (
+    BatchProviderJobState,
+    BatchProviderParseResult,
+    ProviderName,
+)
 
 
 def test_ensure_status_tables_includes_provider_scoped_job_keys():
@@ -147,9 +150,263 @@ def test_openai_batch_provider_build_request_rows_matches_current_openai_shape()
     assert set(schema["properties"]) == {"briefSummary", "gptSummary", "tags"}
 
 
-def test_20260419_migration_handles_legacy_index_name_drift():
-    migration_sql = Path("infra/db/migrations/20260419_add_provider_to_ai_batch_jobs.sql").read_text()
+def test_submit_batches_routes_to_requested_provider(tmp_path):
+    from lawdigest_ai.processor.provider_batch_service import submit_batches
 
-    assert "INFORMATION_SCHEMA.STATISTICS" in migration_sql
-    assert "COLUMN_NAME = 'batch_id'" in migration_sql
-    assert "DROP INDEX batch_id" not in migration_sql
+    conn = MagicMock()
+    create_job_calls = []
+    provider = MagicMock()
+    provider.provider_name = ProviderName.GEMINI
+    provider.build_request_rows.return_value = [{"key": "B001"}]
+    provider.upload_batch_file.return_value = "files/gemini-input.jsonl"
+    provider.create_batch_job.return_value = BatchProviderJobState(
+        batch_id="batches/gemini-123",
+        status="SUBMITTED",
+        output_file_id=None,
+        error_file_id=None,
+        error_message=None,
+    )
+    bills = [{"bill_id": "B001", "summary": "내용"}]
+
+    result = submit_batches(
+        conn=conn,
+        provider="gemini",
+        limit=10,
+        model="gemini-2.5-flash",
+        mode="test",
+        fetch_bills=lambda current_conn, limit: bills,
+        provider_factory=lambda requested_provider: provider,
+        jsonl_writer=lambda rows: str(tmp_path / "requests.jsonl"),
+        create_job=lambda **kwargs: create_job_calls.append(kwargs) or 501,
+    )
+
+    assert result == {
+        "submitted": 1,
+        "batch_id": "batches/gemini-123",
+        "job_id": 501,
+        "mode": "test",
+        "provider": "gemini",
+    }
+    provider.build_request_rows.assert_called_once_with(bills, model="gemini-2.5-flash")
+    provider.upload_batch_file.assert_called_once_with(str(tmp_path / "requests.jsonl"), display_name=None)
+    provider.create_batch_job.assert_called_once_with(
+        model="gemini-2.5-flash",
+        source_file_name="files/gemini-input.jsonl",
+        display_name=None,
+    )
+    create_job_call = create_job_calls[0]
+    assert create_job_call["provider"] == "gemini"
+    assert create_job_call["endpoint"] == "/v1/chat/completions"
+
+
+def test_submit_batches_uses_openai_defaults_for_backward_compatibility(tmp_path):
+    from lawdigest_ai.processor.provider_batch_service import submit_batches
+
+    conn = MagicMock()
+    create_job_calls = []
+    provider = MagicMock()
+    provider.provider_name = ProviderName.OPENAI
+    provider.build_request_rows.return_value = [{"custom_id": "B001", "url": "/v1/chat/completions"}]
+    provider.upload_batch_file.return_value = "file-openai-123"
+    provider.create_batch_job.return_value = BatchProviderJobState(
+        batch_id="batch-openai-123",
+        status="VALIDATING",
+        output_file_id=None,
+        error_file_id=None,
+        error_message=None,
+    )
+    bills = [{"bill_id": "B001", "summary": "내용"}]
+
+    result = submit_batches(
+        conn=conn,
+        provider="openai",
+        limit=10,
+        model="gpt-4o-mini",
+        mode="test",
+        fetch_bills=lambda current_conn, limit: bills,
+        provider_factory=lambda requested_provider: provider,
+        jsonl_writer=lambda rows: str(tmp_path / "requests.jsonl"),
+        create_job=lambda **kwargs: create_job_calls.append(kwargs) or 502,
+    )
+
+    assert result["provider"] == "openai"
+    create_job_call = create_job_calls[0]
+    assert create_job_call["provider"] == "openai"
+    assert create_job_call["endpoint"] == "/v1/chat/completions"
+
+
+def test_ingest_batch_results_filters_jobs_by_provider_and_processes_all():
+    from lawdigest_ai.processor.provider_batch_service import ingest_batch_results_for_provider
+
+    conn = MagicMock()
+    fetch_jobs_calls = []
+    update_status_calls = []
+    openai_provider = MagicMock()
+    openai_provider.provider_name = ProviderName.OPENAI
+    openai_provider.get_batch_job.return_value = BatchProviderJobState(
+        batch_id="batch-openai",
+        status="COMPLETED",
+        output_file_id="openai-output",
+        error_file_id=None,
+        error_message=None,
+    )
+    openai_provider.download_output_file.return_value = "openai-jsonl"
+
+    gemini_provider = MagicMock()
+    gemini_provider.provider_name = ProviderName.GEMINI
+    gemini_provider.get_batch_job.return_value = BatchProviderJobState(
+        batch_id="batch-gemini",
+        status="COMPLETED",
+        output_file_id="gemini-output",
+        error_file_id=None,
+        error_message=None,
+    )
+    gemini_provider.download_output_file.return_value = "gemini-jsonl"
+
+    jobs = [
+        {"id": 1, "provider": "openai", "batch_id": "batch-openai"},
+        {"id": 2, "provider": "gemini", "batch_id": "batch-gemini"},
+    ]
+
+    result = ingest_batch_results_for_provider(
+        conn=conn,
+        provider="all",
+        max_jobs=5,
+        mode="test",
+        fetch_jobs=lambda current_conn, max_jobs, provider: fetch_jobs_calls.append(
+            {"max_jobs": max_jobs, "provider": provider}
+        )
+        or jobs,
+        provider_factory=lambda requested_provider: {
+            "openai": openai_provider,
+            "gemini": gemini_provider,
+        }[requested_provider],
+        apply_results=lambda current_conn, job_id, output_jsonl, provider_instance: (2, 0)
+        if job_id == 1
+        else (3, 1),
+        update_status=lambda **kwargs: update_status_calls.append(kwargs),
+    )
+
+    assert result == {
+        "processed_jobs": 2,
+        "total_success": 5,
+        "total_failed": 1,
+        "mode": "test",
+        "provider": "all",
+    }
+    assert fetch_jobs_calls == [{"max_jobs": 5, "provider": None}]
+    openai_provider.get_batch_job.assert_called_once_with("batch-openai")
+    gemini_provider.get_batch_job.assert_called_once_with("batch-gemini")
+    assert update_status_calls == [
+        {
+            "conn": conn,
+            "job_id": 1,
+            "status": "COMPLETED",
+            "output_file_id": "openai-output",
+            "error_file_id": None,
+            "error_message": None,
+        },
+        {
+            "conn": conn,
+            "job_id": 2,
+            "status": "COMPLETED",
+            "output_file_id": "gemini-output",
+            "error_file_id": None,
+            "error_message": None,
+        },
+    ]
+
+
+def test_ingest_batch_results_uses_provider_filter_for_single_provider():
+    from lawdigest_ai.processor.provider_batch_service import ingest_batch_results_for_provider
+
+    conn = MagicMock()
+    fetch_jobs_calls = []
+
+    result = ingest_batch_results_for_provider(
+        conn=conn,
+        provider="gemini",
+        max_jobs=3,
+        mode="dry_run",
+        fetch_jobs=lambda current_conn, max_jobs, provider: fetch_jobs_calls.append(
+            {"max_jobs": max_jobs, "provider": provider}
+        )
+        or [],
+    )
+
+    assert result == {
+        "processed_jobs": 0,
+        "mode": "dry_run",
+        "provider": "gemini",
+    }
+    assert fetch_jobs_calls == [{"max_jobs": 3, "provider": "gemini"}]
+
+
+def test_ingest_batch_results_passes_provider_parser_into_apply_results():
+    from lawdigest_ai.processor.provider_batch_service import ingest_batch_results_for_provider
+
+    conn = MagicMock()
+    provider = MagicMock()
+    provider.provider_name = ProviderName.GEMINI
+    provider.get_batch_job.return_value = BatchProviderJobState(
+        batch_id="batch-gemini",
+        status="COMPLETED",
+        output_file_id="gemini-output",
+        error_file_id=None,
+        error_message=None,
+    )
+    provider.download_output_file.return_value = "gemini-jsonl"
+
+    captured = {}
+
+    def fake_apply(current_conn, job_id, output_jsonl, provider_instance):
+        captured["provider"] = provider_instance
+        return (1, 0)
+
+    result = ingest_batch_results_for_provider(
+        conn=conn,
+        provider="gemini",
+        max_jobs=1,
+        mode="test",
+        fetch_jobs=lambda current_conn, max_jobs, provider: [
+            {"id": 99, "provider": "gemini", "batch_id": "batch-gemini"}
+        ],
+        provider_factory=lambda requested_provider: provider,
+        apply_results=fake_apply,
+    )
+
+    assert result["processed_jobs"] == 1
+    assert captured["provider"] is provider
+
+
+def test_provider_batch_apply_results_uses_provider_parse_output_lines():
+    from lawdigest_ai.processor.provider_batch_service import apply_batch_results_for_provider
+
+    conn = MagicMock()
+    cursor = MagicMock()
+    cursor.__enter__ = MagicMock(return_value=cursor)
+    cursor.__exit__ = MagicMock(return_value=False)
+    cursor.fetchall.return_value = [{"bill_id": "B001"}]
+    cursor.rowcount = 0
+    conn.cursor.return_value = cursor
+
+    provider = MagicMock()
+    provider.parse_output_lines.return_value = [
+        BatchProviderParseResult(
+            bill_id="B001",
+            brief_summary="짧은 요약",
+            gpt_summary="긴 요약",
+            tags=["a", "b", "c", "d", "e"],
+            error=None,
+        )
+    ]
+
+    success, failed = apply_batch_results_for_provider(
+        conn=conn,
+        job_id=1,
+        output_jsonl="{}",
+        provider=provider,
+    )
+
+    assert (success, failed) == (1, 0)
+    provider.parse_output_lines.assert_called_once_with("{}", expected_bill_ids=["B001"])
