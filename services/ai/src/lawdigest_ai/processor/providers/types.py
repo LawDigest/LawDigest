@@ -194,20 +194,18 @@ class GeminiInstantProvider(InstantProviderBase):
         if not bills:
             return []
 
-        from google.genai import types
-
         from lawdigest_ai.processor.providers.gemini_batch import SYSTEM_INSTRUCTION
         from lawdigest_ai.processor.providers.openai_batch import BatchStructuredSummary, _build_prompt_for_bill
 
         if not model:
             raise ValueError("Gemini instant provider에는 model이 필요합니다.")
 
-        config = types.GenerateContentConfig(
-            systemInstruction=SYSTEM_INSTRUCTION,
-            temperature=0.2,
-            responseMimeType="application/json",
-            responseSchema=BatchStructuredSummary,
-        )
+        config = {
+            "system_instruction": SYSTEM_INSTRUCTION,
+            "temperature": 0.2,
+            "response_mime_type": "application/json",
+            "response_json_schema": BatchStructuredSummary.model_json_schema(by_alias=True),
+        }
 
         results: list[InstantProviderResult] = []
         client = self._get_client()
