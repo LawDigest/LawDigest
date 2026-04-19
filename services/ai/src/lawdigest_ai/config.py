@@ -29,7 +29,7 @@ def get_openai_api_key() -> str:
 
 
 def get_gemini_api_key() -> str:
-    key = GEMINI_API_KEY
+    key = os.getenv("GEMINI_API_KEY") or os.getenv("APIKEY_GEMINI")
     if not key:
         raise ValueError("GEMINI_API_KEY 또는 APIKEY_GEMINI 환경변수가 설정되어야 합니다.")
     return key

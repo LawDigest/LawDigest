@@ -16,7 +16,10 @@ ProviderKey = Literal["openai", "gemini"]
 def _normalize_provider_name(provider: ProviderKey | ProviderName) -> ProviderName:
     if isinstance(provider, ProviderName):
         return provider
-    return ProviderName(provider)
+    try:
+        return ProviderName(provider)
+    except ValueError as exc:
+        raise ValueError(f"지원하지 않는 provider: {provider}") from exc
 
 
 def get_batch_provider(provider: ProviderKey | ProviderName):

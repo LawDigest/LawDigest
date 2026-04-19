@@ -19,11 +19,13 @@ def test_config_raises_without_openai_key(monkeypatch):
         config.get_openai_api_key()
 
 
-def test_config_loads_gemini_key(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "gemini-key")
+def test_config_loads_gemini_key_at_call_time(monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("APIKEY_GEMINI", raising=False)
     import importlib
     import lawdigest_ai.config as config
     importlib.reload(config)
+    monkeypatch.setenv("GEMINI_API_KEY", "gemini-key")
     assert config.get_gemini_api_key() == "gemini-key"
 
 
