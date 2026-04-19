@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
@@ -12,18 +11,14 @@ from lawdigest_ai.processor.providers.openai_batch import (
     BatchStructuredSummary,
     _build_prompt_for_bill,
 )
-from lawdigest_ai.processor.providers.types import BatchProviderBase, ProviderName
+from lawdigest_ai.processor.providers.types import (
+    BatchProviderBase,
+    BatchProviderParseResult,
+    ProviderName,
+)
 
 SYSTEM_INSTRUCTION = "당신은 한국 법안 요약 전문가입니다. 반드시 JSON 객체로만 응답하세요."
-
-
-@dataclass(frozen=True, slots=True)
-class GeminiBatchResult:
-    bill_id: str | None
-    brief_summary: str | None
-    gpt_summary: str | None
-    tags: list[str] | None
-    error: str | None
+GeminiBatchResult = BatchProviderParseResult
 
 
 def _build_gemini_client() -> Any:
@@ -44,6 +39,29 @@ def _extract_text_from_response(response: dict[str, Any]) -> str:
         if isinstance(part, dict) and isinstance(part.get("text"), str)
     ]
     return "".join(texts).strip()
+
+
+def _resolve_response_payload(row: dict[str, Any]) -> dict[str, Any]:
+    response = row.get("response")
+    if isinstance(response, dict):
+        return response
+    return row
+
+
+def _extract_error_payload(row: dict[str, Any], response_payload: dict[str, Any]) -> Any | None:
+    if row.get("error") is not None:
+        return row["error"]
+    if response_payload.get("error") is not None:
+        return response_payload["error"]
+    if response_payload is row and not response_payload.get("candidates"):
+        error_keys = {"status", "code", "message", "details"}
+        if error_keys.intersection(response_payload):
+            return response_payload
+    return None
+
+
+def _default_display_name(source_file_name: str) -> str:
+    return f"lawdigest-gemini-{source_file_name.replace('/', '-')}"
 
 
 def _format_error(error: Any) -> str:
@@ -108,7 +126,7 @@ class GeminiBatchProvider(BatchProviderBase):
         source_file_name: str,
         display_name: str | None = None,
     ) -> Any:
-        config = {"display_name": display_name} if display_name else None
+        config = {"display_name": display_name or _default_display_name(source_file_name)}
         return self._get_client().batches.create(model=model, src=source_file_name, config=config)
 
     def get_batch_job(self, name: str) -> Any:
@@ -123,17 +141,18 @@ class GeminiBatchProvider(BatchProviderBase):
     def parse_output_line(self, line: str) -> GeminiBatchResult:
         row = json.loads(line)
         bill_id = row.get("key") or row.get("custom_id")
-        if row.get("error"):
+        response_payload = _resolve_response_payload(row)
+        error_payload = _extract_error_payload(row, response_payload)
+        if error_payload is not None:
             return GeminiBatchResult(
                 bill_id=bill_id,
                 brief_summary=None,
                 gpt_summary=None,
                 tags=None,
-                error=_format_error(row["error"]),
+                error=_format_error(error_payload),
             )
 
-        response = row.get("response") or {}
-        content = _extract_text_from_response(response)
+        content = _extract_text_from_response(response_payload)
         if not content:
             return GeminiBatchResult(
                 bill_id=bill_id,

@@ -77,6 +77,28 @@ def test_create_batch_job_uses_uploaded_file_name_as_src():
     )
 
 
+def test_create_batch_job_uses_deterministic_default_display_name():
+    from lawdigest_ai.processor.providers.gemini_batch import GeminiBatchProvider
+
+    batch_job = SimpleNamespace(name="batches/job-123")
+    client = SimpleNamespace(
+        files=SimpleNamespace(),
+        batches=SimpleNamespace(create=MagicMock(return_value=batch_job)),
+    )
+    provider = GeminiBatchProvider(client=client)
+
+    provider.create_batch_job(
+        model="models/gemini-2.5-flash",
+        source_file_name="files/input-123",
+    )
+
+    client.batches.create.assert_called_once_with(
+        model="models/gemini-2.5-flash",
+        src="files/input-123",
+        config={"display_name": "lawdigest-gemini-files-input-123"},
+    )
+
+
 def test_get_batch_job_delegates_to_sdk_client():
     from lawdigest_ai.processor.providers.gemini_batch import GeminiBatchProvider
 
@@ -144,6 +166,40 @@ def test_parse_output_line_reads_text_parts_and_validates_shared_schema():
     assert result.brief_summary == "요약"
     assert result.gpt_summary == "상세"
     assert result.tags == ["태그1", "태그2", "태그3", "태그4", "태그5"]
+    assert result.error is None
+
+
+def test_parse_output_line_supports_raw_success_shape_without_key():
+    from lawdigest_ai.processor.providers.gemini_batch import GeminiBatchProvider
+    from lawdigest_ai.processor.providers.openai_batch import BatchStructuredSummary
+
+    provider = GeminiBatchProvider(client=MagicMock())
+    summary = BatchStructuredSummary(
+        brief_summary="원시 요약",
+        gpt_summary="원시 상세",
+        tags=["원시1", "원시2", "원시3", "원시4", "원시5"],
+    ).model_dump_json(by_alias=True)
+    line = json.dumps(
+        {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": summary},
+                        ]
+                    }
+                }
+            ]
+        },
+        ensure_ascii=False,
+    )
+
+    result = provider.parse_output_line(line)
+
+    assert result.bill_id is None
+    assert result.brief_summary == "원시 요약"
+    assert result.gpt_summary == "원시 상세"
+    assert result.tags == ["원시1", "원시2", "원시3", "원시4", "원시5"]
     assert result.error is None
 
 

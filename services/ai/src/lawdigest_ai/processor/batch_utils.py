@@ -1,24 +1,15 @@
 from __future__ import annotations
 
 import json
-import os
 import tempfile
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import pymysql
-import requests
-from pydantic import ValidationError
 
-from lawdigest_ai.config import get_openai_api_key, OPENAI_BASE_URL
 from lawdigest_ai.processor.providers.openai_batch import OpenAIBatchProvider
-from lawdigest_ai.processor.providers.openai_batch import BatchStructuredSummary
 
 ACTIVE_BATCH_STATES = ("VALIDATING", "IN_PROGRESS", "FINALIZING", "SUBMITTED")
-
-
-def _headers() -> Dict[str, str]:
-    return {"Authorization": f"Bearer {get_openai_api_key()}"}
 
 
 def build_batch_request_rows(bills: List[Dict[str, Any]], model: str) -> List[Dict[str, Any]]:
@@ -33,78 +24,26 @@ def write_jsonl_tempfile(rows: List[Dict[str, Any]]) -> str:
 
 
 def openai_upload_batch_file(jsonl_path: str) -> str:
-    with open(jsonl_path, "rb") as f:
-        resp = requests.post(
-            f"{OPENAI_BASE_URL}/files", headers=_headers(),
-            data={"purpose": "batch"},
-            files={"file": (os.path.basename(jsonl_path), f, "application/jsonl")},
-            timeout=60,
-        )
-    resp.raise_for_status()
-    return resp.json()["id"]
+    return OpenAIBatchProvider().upload_batch_file(jsonl_path)
 
 
 def openai_create_batch(input_file_id: str, model: str) -> Dict[str, Any]:
-    payload = {
-        "input_file_id": input_file_id,
-        "endpoint": "/v1/chat/completions",
-        "completion_window": "24h",
-        "metadata": {"model": model, "pipeline": "lawdigest_ai_batch"},
-    }
-    resp = requests.post(
-        f"{OPENAI_BASE_URL}/batches",
-        headers={**_headers(), "Content-Type": "application/json"},
-        data=json.dumps(payload),
-        timeout=60,
-    )
-    resp.raise_for_status()
-    return resp.json()
+    return OpenAIBatchProvider().create_batch_job(model=model, source_file_name=input_file_id)
 
 
 def openai_get_batch(batch_id: str) -> Dict[str, Any]:
-    resp = requests.get(f"{OPENAI_BASE_URL}/batches/{batch_id}", headers=_headers(), timeout=60)
-    resp.raise_for_status()
-    return resp.json()
+    return OpenAIBatchProvider().get_batch_job(batch_id)
 
 
 def openai_download_file_content(file_id: str) -> str:
-    resp = requests.get(
-        f"{OPENAI_BASE_URL}/files/{file_id}/content", headers=_headers(), timeout=120
-    )
-    resp.raise_for_status()
-    return resp.text
-
-
-def _extract_message_content(choice_message: Any) -> str:
-    if isinstance(choice_message, str):
-        return choice_message
-    if isinstance(choice_message, list):
-        return "".join(item.get("text", "") for item in choice_message if isinstance(item, dict))
-    if isinstance(choice_message, dict):
-        content = choice_message.get("content")
-        return _extract_message_content(content) if content else ""
-    return ""
+    return OpenAIBatchProvider().download_output_file(file_id)
 
 
 def parse_output_jsonl_line(
     line: str,
 ) -> Tuple[str, Optional[str], Optional[str], Optional[List[str]], Optional[str]]:
-    row = json.loads(line)
-    bill_id = row.get("custom_id")
-    response = row.get("response") or {}
-    if response.get("status_code") != 200:
-        return bill_id, None, None, None, f"status_code={response.get('status_code')}"
-    choices = (response.get("body") or {}).get("choices") or []
-    if not choices:
-        return bill_id, None, None, None, "choices가 비어있습니다."
-    content = _extract_message_content(choices[0].get("message", {}).get("content", ""))
-    if not content:
-        return bill_id, None, None, None, "message content가 비어있습니다."
-    try:
-        parsed = BatchStructuredSummary.model_validate_json(content)
-    except ValidationError as exc:
-        return bill_id, None, None, None, f"Structured Output 검증 실패: {exc}"
-    return bill_id, parsed.brief_summary, parsed.gpt_summary, parsed.tags, None
+    result = OpenAIBatchProvider().parse_output_line(line)
+    return result.bill_id, result.brief_summary, result.gpt_summary, result.tags, result.error
 
 
 def ensure_status_tables(conn: pymysql.connections.Connection) -> None:
