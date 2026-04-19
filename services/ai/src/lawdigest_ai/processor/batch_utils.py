@@ -155,7 +155,8 @@ def ensure_status_tables(conn: pymysql.connections.Connection) -> None:
     ddl = [
         """CREATE TABLE IF NOT EXISTS ai_batch_jobs (
           id BIGINT AUTO_INCREMENT PRIMARY KEY,
-          batch_id VARCHAR(128) NOT NULL UNIQUE,
+          provider VARCHAR(32) NOT NULL DEFAULT 'openai',
+          batch_id VARCHAR(128) NOT NULL,
           status VARCHAR(32) NOT NULL,
           input_file_id VARCHAR(128) NULL,
           output_file_id VARCHAR(128) NULL,
@@ -170,8 +171,10 @@ def ensure_status_tables(conn: pymysql.connections.Connection) -> None:
           error_message TEXT NULL,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY uq_ai_batch_jobs_provider_batch_id (provider, batch_id),
           INDEX idx_ai_batch_jobs_status (status),
-          INDEX idx_ai_batch_jobs_created_at (created_at)
+          INDEX idx_ai_batch_jobs_created_at (created_at),
+          INDEX idx_ai_batch_jobs_provider_status_created_at (provider, status, created_at)
         )""",
         """CREATE TABLE IF NOT EXISTS ai_batch_items (
           id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -220,13 +223,14 @@ def create_batch_job_with_items(
     model: str,
     bill_ids: List[str],
     status: str = "SUBMITTED",
+    provider: str = "openai",
 ) -> int:
     with conn.cursor() as cursor:
         cursor.execute(
-            """INSERT INTO ai_batch_jobs (batch_id, status, input_file_id, endpoint, model_name, total_count, submitted_at)
-               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            """INSERT INTO ai_batch_jobs (provider, batch_id, status, input_file_id, endpoint, model_name, total_count, submitted_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
             (
-                batch_id, status, input_file_id, "/v1/chat/completions", model,
+                provider, batch_id, status, input_file_id, "/v1/chat/completions", model,
                 len(bill_ids), datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             ),
         )
@@ -274,7 +278,7 @@ def apply_batch_results(
 ) -> Tuple[int, int]:
     success = failed = 0
     with conn.cursor() as cursor:
-        for line in [l for l in output_jsonl.splitlines() if l.strip()]:
+        for line in [raw_line for raw_line in output_jsonl.splitlines() if raw_line.strip()]:
             bill_id, brief, gpt, tags, err = parse_output_jsonl_line(line)
             if not bill_id:
                 failed += 1
