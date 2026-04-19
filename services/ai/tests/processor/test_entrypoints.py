@@ -4,14 +4,24 @@ import pandas as pd
 
 def test_instant_summarize_returns_summary():
     from lawdigest_ai.processor.instant_summarizer import summarize_single_bill
-    mock_df = pd.DataFrame([{
-        "bill_id": "B001", "brief_summary": "요약", "gpt_summary": "상세",
-        "summary_tags": '["a","b","c","d","e"]'
-    }])
-    with patch("lawdigest_ai.processor.instant_summarizer.AISummarizer") as MockSummarizer:
-        instance = MockSummarizer.return_value
-        instance.AI_structured_summarize.return_value = mock_df
+
+    with patch(
+        "lawdigest_ai.processor.instant_summarizer.summarize_single_bill_with_provider",
+        return_value={
+            "bill_id": "B001",
+            "brief_summary": "요약",
+            "gpt_summary": "상세",
+            "summary_tags": '["a","b","c","d","e"]',
+            "error": None,
+        },
+    ) as summarize_with_provider:
         result = summarize_single_bill({"bill_id": "B001", "summary": "원문 내용"})
+
+    summarize_with_provider.assert_called_once_with(
+        {"bill_id": "B001", "summary": "원문 내용"},
+        provider="openai",
+        model=None,
+    )
     assert result["brief_summary"] == "요약"
 
 

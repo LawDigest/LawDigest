@@ -24,7 +24,9 @@ def _as_bool(value: object) -> bool:
 def run_instant_ai_summary(**context):
     params = context.get("params", {})
     mode = params.get("execution_mode") or "dry_run"
-    print(f"[ai-summary-instant] Current Mode: {mode}")
+    provider = params.get("provider") or "openai"
+    model = params.get("model") or None
+    print(f"[ai-summary-instant] Current Mode: {mode}, Provider: {provider}")
 
     bill_json = params.get("bill_json")
     if bill_json:
@@ -55,7 +57,7 @@ def run_instant_ai_summary(**context):
     # 파서 단계 import 실패를 피하기 위해 실행 시점에 import
     from lawdigest_ai.processor.instant_summarizer import summarize_single_bill
 
-    result = summarize_single_bill(bill_data)
+    result = summarize_single_bill(bill_data, provider=provider, model=model)
 
     if mode != "dry_run" and _as_bool(params.get("upsert", True)):
         from lawdigest_ai.db import update_bill_summary
@@ -113,6 +115,19 @@ with DAG(
             title="DB upsert",
             description="True면 요약 결과를 Bill 테이블에 즉시 반영 (dry_run 모드에서는 무시됨)",
         ),
+        "provider": Param(
+            "openai",
+            type="string",
+            enum=["openai", "gemini"],
+            title="요약 제공자",
+            description="즉시 요약에 사용할 provider를 선택합니다.",
+        ),
+        "model": Param(
+            "",
+            type="string",
+            title="모델명",
+            description="비워두면 provider 기본 모델을 사용합니다. openai=SUMMARY_STRUCTURED_MODEL, gemini=GEMINI_INSTANT_MODEL",
+        ),
     },
     doc_md="""
     ## ⚡ Lawdigest AI Summary 즉시 실행 (Single)
@@ -120,7 +135,7 @@ with DAG(
     특정 법안 하나에 대해 즉시 AI 요약을 생성하고 확인하거나 DB에 반영하는 도구 성격의 DAG입니다.
 
     ### 🚀 주요 기능
-    1. **단일 법안 요약**: 입력받은 법안 데이터(ID, 이름, 요약 원문 등)를 기반으로 즉시 OpenAI 요약을 수행합니다.
+    1. **단일 법안 요약**: 입력받은 법안 데이터(ID, 이름, 요약 원문 등)를 기반으로 선택한 provider로 즉시 요약을 수행합니다.
     2. **결과 확인**: 요약된 `brief_summary`, `gpt_summary`, `tags`를 로그와 XCom 결과로 즉시 확인할 수 있습니다.
     3. **선택적 DB 반영**: `upsert=True` 파라미터를 통해 결과를 DB에 즉시 업데이트할 수 있습니다.
 
@@ -134,6 +149,8 @@ with DAG(
     - `bill_json`: (권장) 법안 전체 데이터를 JSON 문자열로 입력
     - `bill_id` ~ `stage`: 개별 필드로 법안 데이터를 직접 입력 (bill_json이 없을 때 사용)
     - `upsert`: 결과를 DB에 업데이트할지 여부 (기본값: True, dry_run 시 무시됨)
+    - `provider`: 즉시 요약에 사용할 provider (기본값: openai)
+    - `model`: 사용할 모델명. 비워두면 provider 기본 모델 사용
 
     ---
     *참고: 특정 법안의 요약 내용이 마음에 들지 않아 다시 생성하고 싶을 때 유용합니다.*
