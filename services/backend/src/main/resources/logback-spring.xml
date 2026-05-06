@@ -18,7 +18,7 @@
     </springProfile>
 
 
-    <springProfile name="prod">
+    <springProfile name="prod,test">
         <property resource="application-prod.properties"/>
         <property name="CONSOLE_PATTERN" value="%d{yy-MM-dd HH:mm:ss, Asia/Seoul} %highlight(%-5level) [%thread] [%logger{0}-%M:%line] - %msg%n" />
         <property name="ROLLING_PATTERN" value="%d{yy-MM-dd HH:mm:ss.SSS, Asia/Seoul} %-5level %logger{0} - %msg %n" />
@@ -64,7 +64,6 @@
 
 
 </configuration>
-
 
 
 
