@@ -25,8 +25,8 @@ def run_instant_ai_summary(**context):
     params = context.get("params", {})
     mode = params.get("execution_mode") or "dry_run"
     provider = params.get("provider") or "openai"
-    model = params.get("model") or None
-    print(f"[ai-summary-instant] Current Mode: {mode}, Provider: {provider}")
+    model = params.get("model")
+    print(f"[ai-summary-instant] Current Mode: {mode}, Provider: {provider}, Model: {model}")
 
     bill_json = params.get("bill_json")
     if bill_json:
@@ -55,7 +55,11 @@ def run_instant_ai_summary(**context):
         sys.path.append(project_root)
 
     # 파서 단계 import 실패를 피하기 위해 실행 시점에 import
+    from lawdigest_ai.config import GEMINI_INSTANT_MODEL
     from lawdigest_ai.processor.instant_summarizer import summarize_single_bill
+
+    if provider == "gemini" and not model:
+        model = GEMINI_INSTANT_MODEL
 
     result = summarize_single_bill(bill_data, provider=provider, model=model)
 

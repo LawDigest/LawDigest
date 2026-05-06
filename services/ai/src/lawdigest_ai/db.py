@@ -1,12 +1,16 @@
 from __future__ import annotations
 import os
+from pathlib import Path
 from typing import Any, Dict
 import pymysql
 from dotenv import load_dotenv, dotenv_values
 
-load_dotenv()
-
-_ENV_DOTENV_PATH = os.getenv("AIRFLOW_DOTENV_PATH", "/opt/airflow/project/.env")
+_AIRFLOW_DOTENV_PATH = os.getenv("AIRFLOW_DOTENV_PATH")
+_DEFAULT_AIRFLOW_DOTENV_PATH = str(
+    Path(__file__).resolve().parents[4] / "services" / "data" / ".env",
+)
+_ENV_DOTENV_PATH = _AIRFLOW_DOTENV_PATH or _DEFAULT_AIRFLOW_DOTENV_PATH
+load_dotenv(dotenv_path=_ENV_DOTENV_PATH)
 
 
 def _get_db_config(prefix: str = "") -> Dict[str, Any]:

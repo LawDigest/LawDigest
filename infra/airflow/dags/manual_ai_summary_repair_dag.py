@@ -26,20 +26,25 @@ def run_batch_ai_summary(**context):
     batch_size = int(params.get("batch_size") or 10)
     mode = params.get("execution_mode") or "dry_run"
     provider = params.get("provider") or "openai"
-    model = params.get("model") or None
+    model = params.get("model")
 
-    print(f"[ai-summary-batch] Current Mode: {mode}, Provider: {provider}")
+    print(f"[ai-summary-batch] Current Mode: {mode}, Provider: {provider}, Model: {model}")
 
     project_root = "/opt/airflow/project"
     if project_root not in sys.path:
         sys.path.append(project_root)
 
+    from lawdigest_ai.config import GEMINI_INSTANT_MODEL
     from lawdigest_ai.processor.manual_summary_repair_service import run_manual_summary_repair
+
+    if provider == "gemini" and not model:
+        model = GEMINI_INSTANT_MODEL
 
     return run_manual_summary_repair(
         mode=mode,
         output_path=output_path,
         batch_size=batch_size,
+        limit=int(params.get("limit") or 200),
         provider=provider,
         model=model,
     )
@@ -70,6 +75,12 @@ with DAG(
             type="integer",
             title="배치 크기",
             description="한 번에 처리할 법안 수",
+        ),
+        "limit": Param(
+            200,
+            type="integer",
+            title="처리 최대 건수",
+            description="법안 재요약 대상 조회 한도입니다.",
         ),
         "provider": Param(
             "openai",
@@ -104,6 +115,7 @@ with DAG(
     - `execution_mode`: 실행 환경 및 실제 DB 반영 여부 선택
     - `output_path`: 작업 중 생성되는 임시 JSON 파일 저장 경로 (기본값: /tmp/lawdigest_missing_summaries.json)
     - `batch_size`: 한 번에 처리할 법안 개수 (기본값: 10)
+    - `limit`: 조회할 법안의 최대 건수 (기본값: 200)
     - `provider`: 결측치 복구에 사용할 provider (기본값: openai)
     - `model`: 사용할 모델명. 비워두면 provider 기본 모델 사용
 

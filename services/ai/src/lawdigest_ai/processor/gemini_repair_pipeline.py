@@ -9,6 +9,7 @@ import pandas as pd
 
 from lawdigest_ai.db import get_db_connection, update_bill_summary
 from lawdigest_ai.processor.gemini_cli_summarizer import GeminiCliSummarizer
+from lawdigest_ai.observability import trace_generation, trace_span
 
 
 DEFAULT_OUTPUT_PATH = "/tmp/gemini_ai_summary_results.json"
@@ -149,40 +150,59 @@ def run_gemini_repair_pipeline(
     )
 
     fetcher = _fetch_missing_bills if target_mode == "missing" else _fetch_latest_bills
-    targets = fetcher(mode=mode, limit=limit, read_mode=read_mode)
+    with trace_span(
+        "gemini_repair_pipeline",
+        input={
+            "mode": mode,
+            "limit": limit,
+            "batch_size": batch_size,
+            "stop_on_error": stop_on_error,
+            "read_mode": read_mode,
+            "target_mode": target_mode,
+        },
+    ) as root_span:
+        targets = fetcher(mode=mode, limit=limit, read_mode=read_mode)
 
-    if target_mode == "latest" and targets:
-        for target in targets:
-            target["brief_summary"] = None
-            target["gpt_summary"] = None
+        if target_mode == "latest" and targets:
+            for target in targets:
+                target["brief_summary"] = None
+                target["gpt_summary"] = None
 
-    summarizer = GeminiCliSummarizer()
-    items: List[Dict[str, Any]] = []
-    success_items: List[Dict[str, Any]] = []
+        summarizer = GeminiCliSummarizer()
+        items = []
+        success_items = []
 
-    for start in range(0, len(targets), batch_size):
-        batch = targets[start:start + batch_size]
-        if not batch:
-            continue
+        for start in range(0, len(targets), batch_size):
+            batch = targets[start:start + batch_size]
+            if not batch:
+                continue
 
-        batch_df = pd.DataFrame(batch)
-        summarizer.failed_bills = []
-        result_df = summarizer.AI_structured_summarize(batch_df)
-        failure_map = {
-            str(entry.get("bill_id")): str(entry.get("error"))
-            for entry in summarizer.failed_bills
-            if entry.get("bill_id") is not None
-        }
+            with trace_generation(
+                root_span,
+                name="gemini_cli_batch_summarize",
+                model="gemini-cli",
+                input={"batch_size": len(batch), "start": start},
+            ) as generation:
+                batch_df = pd.DataFrame(batch)
+                summarizer.failed_bills = []
+                result_df = summarizer.AI_structured_summarize(batch_df)
+                failure_map = {
+                    str(entry.get("bill_id")): str(entry.get("error"))
+                    for entry in summarizer.failed_bills
+                    if entry.get("bill_id") is not None
+                }
 
-        for row in result_df.to_dict("records"):
-            item = _normalize_item(row, failure_map)
-            items.append(item)
-            if item["status"] == "success":
-                success_items.append(item)
+                for row in result_df.to_dict("records"):
+                    item = _normalize_item(row, failure_map)
+                    items.append(item)
+                    if item["status"] == "success":
+                        success_items.append(item)
 
-        if stop_on_error and failure_map:
-            print("[gemini-repair] stop_on_error=True, batch failure detected.")
-            break
+                if stop_on_error and failure_map:
+                    print("[gemini-repair] stop_on_error=True, batch failure detected.")
+                    if generation is not None:
+                        generation.update(status_message="batch failed and stop_on_error enabled")
+                    break
 
     report = {
         "execution_mode": mode,

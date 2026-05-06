@@ -25,6 +25,7 @@ dependencies = [
   "langchain>=0.3.0",
   "langchain-openai>=0.2.0",
   "langchain-community>=0.3.0",
+  "langfuse>=2.57.0",
 ]
 
 [tool.setuptools]

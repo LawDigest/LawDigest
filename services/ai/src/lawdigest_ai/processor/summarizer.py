@@ -5,6 +5,11 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from lawdigest_ai.config import SUMMARY_STRUCTURED_MODEL, SUMMARY_STRUCTURED_FALLBACK_MODEL
+from lawdigest_ai.processor.summary_prompt_templates import (
+    SUMMARY_GPT_FIELD_DESC,
+    SUMMARY_LIST_GUIDELINE,
+    build_proposer_opening_line,
+)
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -17,7 +22,7 @@ except ImportError as exc:
 
 class StructuredBillSummary(BaseModel):
     brief_summary: str = Field(description="법안 핵심을 한 문장으로 요약한 짧은 제목형 요약문")
-    gpt_summary: str = Field(description="법안에서 달라지는 핵심 내용을 3~7개 항목으로 정리한 상세 요약문")
+    gpt_summary: str = Field(description=SUMMARY_GPT_FIELD_DESC)
     tags: list[str] = Field(min_length=5, max_length=5, description="법안 주제를 나타내는 짧은 한국어 태그 5개")
 
 
@@ -40,6 +45,10 @@ class AISummarizer:
         )
 
     def _build_user_prompt(self, row: Dict[str, Any]) -> str:
+        proposer_opening = build_proposer_opening_line(
+            row.get("proposers"),
+            row.get("bill_name") or "법안명 미상",
+        )
         intro = (
             f"[법안명] {row.get('bill_name') or '법안명 미상'}\n"
             f"[발의주체] {row.get('proposer_kind') or ''}\n"
@@ -50,7 +59,7 @@ class AISummarizer:
         task = (
             f"{self.style_prompt}\n"
             "1) brief_summary: 한 문장 제목형 요약\n"
-            "2) gpt_summary: 핵심 변경사항 상세 요약\n"
+            f"2) gpt_summary: \"{proposer_opening}\"로 시작해 {SUMMARY_LIST_GUIDELINE} 후 한 문단으로 마무리\n"
             "3) tags: 한국어 태그 정확히 5개 (중복 금지, 각 2~12자)\n"
         )
         return f"{intro}\n[원문 요약]\n{row.get('summary') or ''}\n\n{task}"

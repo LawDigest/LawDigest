@@ -146,9 +146,25 @@ class OpenAIInstantProvider(InstantProviderBase):
         import pandas as pd
 
         from lawdigest_ai.processor.summarizer import AISummarizer
+        from lawdigest_ai.observability import trace_generation, trace_span
 
         summarizer = AISummarizer()
-        result_df = summarizer.AI_structured_summarize(pd.DataFrame(bills), model=model)
+        with trace_span(
+            "openai_instant_summarize",
+            input={"provider": "openai", "model": model, "count": len(bills)},
+        ) as span:
+            with trace_generation(
+                span,
+                name="openai_summarize_batch",
+                model=model or "default",
+            ) as generation:
+                result_df = summarizer.AI_structured_summarize(
+                    pd.DataFrame(bills),
+                    model=model,
+                )
+                if generation is not None:
+                    generation.update(output=result_df.shape[0])
+
         failure_map = {
             str(entry.get("bill_id")): str(entry.get("error"))
             for entry in summarizer.failed_bills
@@ -196,6 +212,7 @@ class GeminiInstantProvider(InstantProviderBase):
 
         from lawdigest_ai.processor.providers.gemini_batch import SYSTEM_INSTRUCTION
         from lawdigest_ai.processor.providers.openai_batch import BatchStructuredSummary, _build_prompt_for_bill
+        from lawdigest_ai.observability import trace_generation, trace_span
 
         if not model:
             raise ValueError("Gemini instant provider에는 model이 필요합니다.")
@@ -209,32 +226,47 @@ class GeminiInstantProvider(InstantProviderBase):
 
         results: list[InstantProviderResult] = []
         client = self._get_client()
-        for bill in bills:
-            bill_id = bill.get("bill_id")
-            try:
-                response = client.models.generate_content(
+
+        with trace_span(
+            "gemini_instant_summarize",
+            input={"provider": "gemini", "model": model, "count": len(bills)},
+        ) as span:
+            for bill in bills:
+                bill_id = bill.get("bill_id")
+                with trace_generation(
+                    span,
+                    name="gemini_generate_content",
                     model=model,
-                    contents=_build_prompt_for_bill(bill),
-                    config=config,
-                )
-                parsed = BatchStructuredSummary.model_validate_json(response.text)
-                results.append(
-                    InstantProviderResult(
-                        bill_id=str(bill_id) if bill_id is not None else None,
-                        brief_summary=parsed.brief_summary,
-                        gpt_summary=parsed.gpt_summary,
-                        summary_tags=_normalize_summary_tags(parsed.tags),
-                        error=None,
-                    )
-                )
-            except Exception as exc:
-                results.append(
-                    InstantProviderResult(
-                        bill_id=str(bill_id) if bill_id is not None else None,
-                        brief_summary=None,
-                        gpt_summary=None,
-                        summary_tags=None,
-                        error=str(exc),
-                    )
-                )
+                    input={"bill_id": bill_id},
+                ) as generation:
+                    try:
+                        response = client.models.generate_content(
+                            model=model,
+                            contents=_build_prompt_for_bill(bill),
+                            config=config,
+                        )
+                        parsed = BatchStructuredSummary.model_validate_json(response.text)
+                        results.append(
+                            InstantProviderResult(
+                                bill_id=str(bill_id) if bill_id is not None else None,
+                                brief_summary=parsed.brief_summary,
+                                gpt_summary=parsed.gpt_summary,
+                                summary_tags=_normalize_summary_tags(parsed.tags),
+                                error=None,
+                            )
+                        )
+                        if generation is not None:
+                            generation.update(output={"bill_id": bill_id})
+                    except Exception as exc:
+                        if generation is not None:
+                            generation.update(output=None)
+                        results.append(
+                            InstantProviderResult(
+                                bill_id=str(bill_id) if bill_id is not None else None,
+                                brief_summary=None,
+                                gpt_summary=None,
+                                summary_tags=None,
+                                error=str(exc),
+                            )
+                        )
         return results

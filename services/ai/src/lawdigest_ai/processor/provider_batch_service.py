@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Literal
 import pymysql
 
 from lawdigest_ai.config import GEMINI_BATCH_MODEL
+from lawdigest_ai.observability import trace_span
 from lawdigest_ai.processor.batch_utils import (
     create_batch_job_with_items,
     ensure_status_tables,
@@ -175,53 +176,57 @@ def submit_batches(
     jsonl_writer: Callable[[List[Dict[str, Any]]], str] = write_jsonl_tempfile,
     create_job: Callable[..., int] = create_batch_job_with_items,
 ) -> Dict[str, Any]:
-    resolved_model = _resolve_submit_model(provider, model)
-    ensure_tables(conn)
-    bills = fetch_bills(conn, limit=limit)
-    if not bills:
-        print(f"[batch-submit] provider={provider} 제출 대상 법안이 없습니다.")
-        return {"submitted": 0, "mode": mode, "provider": provider}
+    with trace_span(
+        "submit_batches",
+        input={"mode": mode, "provider": provider, "model": model, "limit": limit},
+    ):
+        resolved_model = _resolve_submit_model(provider, model)
+        ensure_tables(conn)
+        bills = fetch_bills(conn, limit=limit)
+        if not bills:
+            print(f"[batch-submit] provider={provider} 제출 대상 법안이 없습니다.")
+            return {"submitted": 0, "mode": mode, "provider": provider}
 
-    if mode == "dry_run":
-        print(f"[batch-submit] [DRY_RUN] provider={provider} {len(bills)}개 법안 제출 대상 선정. (실제 제출 안 함)")
-        return {"submitted": len(bills), "mode": "dry_run", "provider": provider}
+        if mode == "dry_run":
+            print(f"[batch-submit] [DRY_RUN] provider={provider} {len(bills)}개 법안 제출 대상 선정. (실제 제출 안 함)")
+            return {"submitted": len(bills), "mode": "dry_run", "provider": provider}
 
-    provider_instance = provider_factory(provider)
-    request_rows = provider_instance.build_request_rows(bills, model=resolved_model)
-    jsonl_path = jsonl_writer(request_rows)
-    try:
-        input_file_id = provider_instance.upload_batch_file(jsonl_path, display_name=None)
-        batch_state = provider_instance.create_batch_job(
-            model=resolved_model,
-            source_file_name=input_file_id,
-            display_name=None,
-        )
-        provider_name = provider_instance.provider_name.value
-        batch_id = batch_state.batch_id
-        job_id = create_job(
-            conn=conn,
-            batch_id=batch_id,
-            input_file_id=input_file_id,
-            model=resolved_model,
-            bill_ids=[bill["bill_id"] for bill in bills],
-            status=(batch_state.status or "SUBMITTED").upper(),
-            provider=provider_name,
-            endpoint=_detect_endpoint(request_rows),
-        )
-        print(
-            f"[batch-submit] [{mode}] provider={provider_name} job_id={job_id} "
-            f"batch_id={batch_id} count={len(bills)}"
-        )
-        return {
-            "submitted": len(bills),
-            "batch_id": batch_id,
-            "job_id": job_id,
-            "mode": mode,
-            "provider": provider_name,
-        }
-    finally:
-        if os.path.exists(jsonl_path):
-            os.remove(jsonl_path)
+        provider_instance = provider_factory(provider)
+        request_rows = provider_instance.build_request_rows(bills, model=resolved_model)
+        jsonl_path = jsonl_writer(request_rows)
+        try:
+            input_file_id = provider_instance.upload_batch_file(jsonl_path, display_name=None)
+            batch_state = provider_instance.create_batch_job(
+                model=resolved_model,
+                source_file_name=input_file_id,
+                display_name=None,
+            )
+            provider_name = provider_instance.provider_name.value
+            batch_id = batch_state.batch_id
+            job_id = create_job(
+                conn=conn,
+                batch_id=batch_id,
+                input_file_id=input_file_id,
+                model=resolved_model,
+                bill_ids=[bill["bill_id"] for bill in bills],
+                status=(batch_state.status or "SUBMITTED").upper(),
+                provider=provider_name,
+                endpoint=_detect_endpoint(request_rows),
+            )
+            print(
+                f"[batch-submit] [{mode}] provider={provider_name} job_id={job_id} "
+                f"batch_id={batch_id} count={len(bills)}"
+            )
+            return {
+                "submitted": len(bills),
+                "batch_id": batch_id,
+                "job_id": job_id,
+                "mode": mode,
+                "provider": provider_name,
+            }
+        finally:
+            if os.path.exists(jsonl_path):
+                os.remove(jsonl_path)
 
 
 def ingest_batch_results_for_provider(
@@ -234,99 +239,103 @@ def ingest_batch_results_for_provider(
     apply_results: Callable[..., tuple[int, int]] = apply_batch_results_for_provider,
     update_status: Callable[..., None] = update_job_status,
 ) -> Dict[str, Any]:
-    provider_filter = None if provider == "all" else provider
-    if provider == "all":
-        jobs = _fetch_jobs_for_all_providers(conn, max_jobs=max_jobs, fetch_jobs=fetch_jobs)
-    else:
-        jobs = fetch_jobs(conn, max_jobs=max_jobs, provider=provider_filter)
-    if not jobs:
-        print(f"[batch-ingest] provider={provider} 폴링 대상 작업이 없습니다.")
-        return {"processed_jobs": 0, "mode": mode, "provider": provider}
+    with trace_span(
+        "ingest_batch_results",
+        input={"mode": mode, "provider": provider, "max_jobs": max_jobs},
+    ):
+        provider_filter = None if provider == "all" else provider
+        if provider == "all":
+            jobs = _fetch_jobs_for_all_providers(conn, max_jobs=max_jobs, fetch_jobs=fetch_jobs)
+        else:
+            jobs = fetch_jobs(conn, max_jobs=max_jobs, provider=provider_filter)
+        if not jobs:
+            print(f"[batch-ingest] provider={provider} 폴링 대상 작업이 없습니다.")
+            return {"processed_jobs": 0, "mode": mode, "provider": provider}
 
-    total_success = total_failed = 0
-    providers_by_name: dict[str, BatchProviderBase] = {}
+        total_success = total_failed = 0
+        providers_by_name: dict[str, BatchProviderBase] = {}
 
-    for job in jobs:
-        job_id = int(job["id"])
-        batch_id = job["batch_id"]
-        job_provider = str(job.get("provider") or "openai")
-        try:
-            provider_instance = providers_by_name.setdefault(
-                job_provider,
-                provider_factory(job_provider),  # type: ignore[arg-type]
-            )
-            batch_state = provider_instance.get_batch_job(batch_id)
-            status = (batch_state.status or "").upper()
-
-            if status != "COMPLETED" or not batch_state.output_file_id:
-                update_status(
-                    conn=conn,
-                    job_id=job_id,
-                    status=status,
-                    output_file_id=batch_state.output_file_id,
-                    error_file_id=batch_state.error_file_id,
-                    error_message=batch_state.error_message,
-                )
-                print(
-                    f"[batch-ingest] provider={job_provider} batch_id={batch_id} "
-                    f"status={status} - 아직 완료되지 않음"
-                )
-                continue
-
-            if mode == "dry_run":
-                update_status(
-                    conn=conn,
-                    job_id=job_id,
-                    status=status,
-                    output_file_id=batch_state.output_file_id,
-                    error_file_id=batch_state.error_file_id,
-                    error_message=batch_state.error_message,
-                )
-                print(
-                    f"[batch-ingest] [DRY_RUN] provider={job_provider} "
-                    f"batch_id={batch_id} COMPLETED - 결과 적재 생략"
-                )
-                continue
-
+        for job in jobs:
+            job_id = int(job["id"])
+            batch_id = job["batch_id"]
+            job_provider = str(job.get("provider") or "openai")
             try:
-                output_jsonl = provider_instance.download_output_file(batch_state.output_file_id)
-                success, failed = apply_results(conn, job_id, output_jsonl, provider_instance)
-            except Exception as exc:
-                conn.rollback()
+                provider_instance = providers_by_name.setdefault(
+                    job_provider,
+                    provider_factory(job_provider),  # type: ignore[arg-type]
+                )
+                batch_state = provider_instance.get_batch_job(batch_id)
+                status = (batch_state.status or "").upper()
+
+                if status != "COMPLETED" or not batch_state.output_file_id:
+                    update_status(
+                        conn=conn,
+                        job_id=job_id,
+                        status=status,
+                        output_file_id=batch_state.output_file_id,
+                        error_file_id=batch_state.error_file_id,
+                        error_message=batch_state.error_message,
+                    )
+                    print(
+                        f"[batch-ingest] provider={job_provider} batch_id={batch_id} "
+                        f"status={status} - 아직 완료되지 않음"
+                    )
+                    continue
+
+                if mode == "dry_run":
+                    update_status(
+                        conn=conn,
+                        job_id=job_id,
+                        status=status,
+                        output_file_id=batch_state.output_file_id,
+                        error_file_id=batch_state.error_file_id,
+                        error_message=batch_state.error_message,
+                    )
+                    print(
+                        f"[batch-ingest] [DRY_RUN] provider={job_provider} "
+                        f"batch_id={batch_id} COMPLETED - 결과 적재 생략"
+                    )
+                    continue
+
+                try:
+                    output_jsonl = provider_instance.download_output_file(batch_state.output_file_id)
+                    success, failed = apply_results(conn, job_id, output_jsonl, provider_instance)
+                except Exception as exc:
+                    conn.rollback()
+                    update_status(
+                        conn=conn,
+                        job_id=job_id,
+                        status="FINALIZING",
+                        output_file_id=batch_state.output_file_id,
+                        error_file_id=batch_state.error_file_id,
+                        error_message=str(exc),
+                    )
+                    print(
+                        f"[batch-ingest] provider={job_provider} batch_id={batch_id} "
+                        f"결과 적용 실패: {exc}"
+                    )
+                    continue
+
                 update_status(
                     conn=conn,
                     job_id=job_id,
-                    status="FINALIZING",
+                    status=status,
                     output_file_id=batch_state.output_file_id,
                     error_file_id=batch_state.error_file_id,
-                    error_message=str(exc),
+                    error_message=batch_state.error_message,
                 )
+                total_success += success
+                total_failed += failed
                 print(
                     f"[batch-ingest] provider={job_provider} batch_id={batch_id} "
-                    f"결과 적용 실패: {exc}"
+                    f"적재 완료: 성공={success}, 실패={failed}"
+                )
+            except Exception as exc:
+                print(
+                    f"[batch-ingest] provider={job_provider} batch_id={batch_id} "
+                    f"처리 실패: {exc}"
                 )
                 continue
-
-            update_status(
-                conn=conn,
-                job_id=job_id,
-                status=status,
-                output_file_id=batch_state.output_file_id,
-                error_file_id=batch_state.error_file_id,
-                error_message=batch_state.error_message,
-            )
-            total_success += success
-            total_failed += failed
-            print(
-                f"[batch-ingest] provider={job_provider} batch_id={batch_id} "
-                f"적재 완료: 성공={success}, 실패={failed}"
-            )
-        except Exception as exc:
-            print(
-                f"[batch-ingest] provider={job_provider} batch_id={batch_id} "
-                f"처리 실패: {exc}"
-            )
-            continue
 
     return {
         "processed_jobs": len(jobs),

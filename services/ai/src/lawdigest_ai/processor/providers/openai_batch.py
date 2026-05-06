@@ -9,6 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic import ValidationError
 
 from lawdigest_ai.config import OPENAI_BASE_URL, get_openai_api_key
+from lawdigest_ai.processor.summary_prompt_templates import (
+    SUMMARY_LIST_GUIDELINE,
+    build_proposer_opening_line,
+)
 from lawdigest_ai.processor.providers.types import (
     BatchProviderBase,
     BatchProviderJobState,
@@ -29,6 +33,10 @@ def _build_prompt_for_bill(row: Dict[str, Any]) -> str:
         "bill_id": row.get("bill_id"),
         "bill_name": row.get("bill_name"),
         "proposers": row.get("proposers"),
+        "opening_proposer_line": build_proposer_opening_line(
+            row.get("proposers"),
+            str(row.get("bill_name") or "법안명 미상"),
+        ),
         "proposer_kind": row.get("proposer_kind"),
         "propose_date": str(row.get("propose_date") or ""),
         "stage": row.get("stage"),
@@ -37,7 +45,12 @@ def _build_prompt_for_bill(row: Dict[str, Any]) -> str:
     return (
         "다음 법안 정보를 보고 JSON으로만 응답하세요.\n"
         "키는 briefSummary, gptSummary, tags 세 개만 포함해야 합니다.\n"
-        "briefSummary는 1문장 요약, gptSummary는 3~7개 핵심 항목 중심 상세 요약입니다.\n"
+        "briefSummary는 법안의 핵심을 한 문장으로 요약하세요.\n"
+        "gptSummary는 기존 양식에 맞춰 아래 규칙으로 작성하세요.\n"
+        f"1) 첫 줄: \"{{opening_proposer_line}}\"\n"
+        f"2) 다음 줄부터 {SUMMARY_LIST_GUIDELINE}\n"
+        "3) 마지막에 한 단락으로 '이 법안의 취지는 ...' 형태의 종결 문단을 추가\n"
+        "각 항목은 한 문장으로 핵심만 기술하고, 전체는 JSON 문자열에 그대로 담겨도 무방하게 작성하세요.\n"
         "tags는 중복 없는 한국어 태그 정확히 5개입니다.\n\n"
         f"{json.dumps(payload, ensure_ascii=False)}"
     )

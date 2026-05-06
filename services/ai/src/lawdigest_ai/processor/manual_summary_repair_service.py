@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal
 
 from lawdigest_ai.db import get_db_connection, update_bill_summary
+from lawdigest_ai.observability import trace_span
 from lawdigest_ai.processor.provider_instant_service import (
     resolve_instant_model,
     summarize_bills_with_provider,
@@ -25,7 +26,7 @@ def _db_mode_for_execution(mode: str) -> str:
     return "prod" if mode == "prod" else "test"
 
 
-def _fetch_missing_bills(mode: str) -> List[Dict[str, Any]]:
+def _fetch_missing_bills(mode: str, limit: int) -> List[Dict[str, Any]]:
     query = """
     SELECT
         bill_id,
@@ -48,7 +49,7 @@ def _fetch_missing_bills(mode: str) -> List[Dict[str, Any]]:
     conn = get_db_connection(mode=_db_mode_for_execution(mode))
     try:
         with conn.cursor() as cur:
-            cur.execute(query)
+            cur.execute(query + " LIMIT %s", (limit,))
             return list(cur.fetchall())
     finally:
         conn.close()
@@ -91,20 +92,48 @@ def run_manual_summary_repair(
     mode: str = "dry_run",
     output_path: str = DEFAULT_OUTPUT_PATH,
     batch_size: int = 10,
+    limit: int = 200,
     provider: RepairProvider = "openai",
     model: str | None = None,
 ) -> Dict[str, Any]:
     if batch_size < 1:
         raise ValueError("batch_size는 1 이상이어야 합니다.")
+    if limit < 1:
+        raise ValueError("limit는 1 이상이어야 합니다.")
 
     resolved_model = resolve_instant_model(provider, model)
     print(
         f"[manual-summary-repair] mode={mode}, provider={provider}, "
-        f"model={resolved_model}, batch_size={batch_size}"
+        f"model={resolved_model}, limit={limit}, batch_size={batch_size}"
     )
 
-    targets = _fetch_missing_bills(mode)
+    with trace_span(
+        "manual_summary_repair",
+        input={"mode": mode, "provider": provider, "model": resolved_model, "limit": limit, "batch_size": batch_size},
+    ):
+        targets = _fetch_missing_bills(mode, limit=limit)
     items: List[Dict[str, Any]] = []
+
+    if not targets:
+        report = {
+            "execution_mode": mode,
+            "provider": provider,
+            "model": resolved_model,
+            "limit": limit,
+            "batch_size": batch_size,
+            "processed_at": datetime.now(timezone.utc).isoformat(),
+            "stats": {
+                "target_count": 0,
+                "processed_count": 0,
+                "success_count": 0,
+                "failure_count": 0,
+                "db_upserted_count": 0,
+            },
+            "items": [],
+            "output_path": output_path,
+        }
+        _write_json_output(report, output_path)
+        return report
 
     for start in range(0, len(targets), batch_size):
         batch = targets[start:start + batch_size]
@@ -123,6 +152,8 @@ def run_manual_summary_repair(
         "execution_mode": mode,
         "provider": provider,
         "model": resolved_model,
+        "limit": limit,
+        "batch_size": batch_size,
         "processed_at": datetime.now(timezone.utc).isoformat(),
         "stats": {
             "target_count": len(targets),

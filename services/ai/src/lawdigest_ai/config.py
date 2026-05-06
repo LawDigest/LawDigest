@@ -1,15 +1,22 @@
 from __future__ import annotations
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+_AIRFLOW_DOTENV_PATH = os.getenv("AIRFLOW_DOTENV_PATH")
+_DEFAULT_AIRFLOW_DOTENV_PATH = Path(__file__).resolve().parents[4] / "services" / "data" / ".env"
+load_dotenv(
+    dotenv_path=_AIRFLOW_DOTENV_PATH
+    if _AIRFLOW_DOTENV_PATH
+    else str(_DEFAULT_AIRFLOW_DOTENV_PATH),
+)
 
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 QDRANT_HOST = os.getenv("QDRANT_HOST")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
 QDRANT_USE_HTTPS = os.getenv("QDRANT_USE_HTTPS", "false").lower() in ("true", "1", "yes")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 GEMINI_BATCH_MODEL = os.getenv("GEMINI_BATCH_MODEL", GEMINI_MODEL)
 GEMINI_INSTANT_MODEL = os.getenv("GEMINI_INSTANT_MODEL", GEMINI_MODEL)
 GEMINI_CLI_BIN = os.getenv("GEMINI_CLI_BIN", "gemini")
@@ -18,6 +25,11 @@ GEMINI_CLI_TIMEOUT_SECONDS = int(os.getenv("GEMINI_CLI_TIMEOUT_SECONDS", "120"))
 GEMINI_CLI_APPROVAL_MODE = os.getenv("GEMINI_CLI_APPROVAL_MODE", "yolo")
 GEMINI_CLI_HOME = os.getenv("GEMINI_CLI_HOME")
 GEMINI_CLI_WORKDIR = os.getenv("GEMINI_CLI_WORKDIR", "/tmp")
+LANGFUSE_ENABLED = os.getenv("LANGFUSE_ENABLED", "false").lower() not in {"0", "false", "no", "off"}
+LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "https://langfuse.lawdigest.cloud")
+LANGFUSE_PUBLIC_KEY = os.getenv("LANGFUSE_PUBLIC_KEY")
+LANGFUSE_SECRET_KEY = os.getenv("LANGFUSE_SECRET_KEY")
+LANGFUSE_DEBUG = os.getenv("LANGFUSE_DEBUG", "false").lower() in {"1", "true", "yes", "on"}
 
 
 def get_openai_api_key() -> str:

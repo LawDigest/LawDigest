@@ -20,6 +20,12 @@ from lawdigest_ai.config import (
     GEMINI_CLI_TIMEOUT_SECONDS,
     GEMINI_CLI_WORKDIR,
 )
+from lawdigest_ai.processor.summary_prompt_templates import (
+    SUMMARY_GPT_FIELD_DESC,
+    SUMMARY_LIST_GUIDELINE,
+    build_proposer_opening_line,
+)
+from lawdigest_ai.observability import trace_generation, trace_span
 
 
 ACP_PROTOCOL_VERSION = 1
@@ -27,7 +33,7 @@ ACP_QUIET_MS = 0.3
 ACP_SETTLE_TIMEOUT_SECONDS = 5.0
 class StructuredBillSummary(BaseModel):
     brief_summary: str = Field(description="법안 핵심을 한 문장으로 요약한 짧은 제목형 요약문")
-    gpt_summary: str = Field(description="법안에서 달라지는 핵심 내용을 3~7개 항목으로 정리한 상세 요약문")
+    gpt_summary: str = Field(description=SUMMARY_GPT_FIELD_DESC)
     tags: list[str] = Field(min_length=5, max_length=5, description="법안 주제를 나타내는 짧은 한국어 태그 5개")
 
 
@@ -48,6 +54,10 @@ class GeminiCliSummarizer:
         )
 
     def _build_user_prompt(self, row: Dict[str, Any]) -> str:
+        proposer_opening = build_proposer_opening_line(
+            row.get("proposers"),
+            row.get("bill_name") or "법안명 미상",
+        )
         intro = (
             "당신은 대한민국 법안 요약 전문가입니다. 반드시 structured output 스키마에 맞춰 응답하세요.\n\n"
             f"[법안명] {row.get('bill_name') or '법안명 미상'}\n"
@@ -67,10 +77,10 @@ class GeminiCliSummarizer:
             "- 가능하면 '...을/를 위한 [법안명]' 또는 '... 도입 [법안명]'처럼 실제 법안명을 포함하세요.\n"
             "- 길이는 기존 DB처럼 다소 구체적으로 쓰되, '입니다', '합니다' 같은 종결형 문장은 쓰지 마세요.\n"
             "2) gpt_summary: 핵심 변경사항 상세 요약\n"
-            "- 반드시 다음 구조를 따르세요.\n"
-            "  a. 첫 문장: '[발의자]이/가 발의한 [법안명]의 내용 및 목적은 다음과 같습니다:'\n"
-            "  b. 본문: 3~5개의 번호 목록을 사용하세요. 각 항목은 반드시 '1. **[소제목]**: 설명' 형식으로 작성하세요.\n"
-            "  c. 마지막 문단: '이 법안은 ...' 또는 '이번 개정안은 ...' 형식의 마무리 문장을 1개 추가하세요.\n"
+            "  a. 첫 문장: 해당 법안 요약은 정확히 아래 형식으로 시작하세요.\n"
+            f"     \"{proposer_opening}\"\n"
+            f"  b. 본문: {SUMMARY_LIST_GUIDELINE} 항목 형식으로 작성하고, 형식은 '1) ...', '2) ...'를 사용하세요.\n"
+            "  c. 마지막 문단: '이 법안의 취지는 ...' 형태의 한 단락을 추가하세요.\n"
             "- '-' bullet 형식은 사용하지 마세요.\n"
             "- 번호 목록 사이에는 빈 줄을 넣어 기존 DB 스타일과 유사하게 작성하세요.\n"
             "- 핵심 용어는 필요할 때만 **굵게** 표시하세요.\n"
@@ -443,6 +453,8 @@ class GeminiCliSummarizer:
         if df_bills is None or len(df_bills) == 0:
             return df_bills
 
+        resolved_model = model or self.model
+
         for col in ("brief_summary", "gpt_summary"):
             if col not in df_bills.columns:
                 df_bills[col] = None
@@ -457,14 +469,27 @@ class GeminiCliSummarizer:
             return df_bills
 
         success = 0
-        for idx, row in to_process.iterrows():
-            result = self._summarize_one(row.to_dict(), model=model)
-            if result is None:
-                continue
-            df_bills.loc[idx, "brief_summary"] = result.brief_summary
-            df_bills.loc[idx, "gpt_summary"] = result.gpt_summary
-            df_bills.loc[idx, "summary_tags"] = json.dumps(result.tags, ensure_ascii=False)
-            success += 1
+        with trace_span(
+            "gemini_cli_structured_summarize",
+            input={"model": resolved_model, "count": len(to_process)},
+        ) as root_span:
+            for idx, row in to_process.iterrows():
+                bill_id = row.get("bill_id")
+                with trace_generation(
+                    root_span,
+                    name="gemini_cli_summarize_one",
+                    model=resolved_model,
+                    input={"bill_id": bill_id},
+                ) as generation:
+                    result = self._summarize_one(row.to_dict(), model=model)
+                    if result is None:
+                        continue
+                    df_bills.loc[idx, "brief_summary"] = result.brief_summary
+                    df_bills.loc[idx, "gpt_summary"] = result.gpt_summary
+                    df_bills.loc[idx, "summary_tags"] = json.dumps(result.tags, ensure_ascii=False)
+                    success += 1
+                    if generation is not None:
+                        generation.update(output={"bill_id": bill_id})
 
         print(f"[Gemini CLI 구조화 요약 완료] 성공={success}, 실패={len(to_process) - success}")
         return df_bills
