@@ -118,3 +118,5 @@ services/data/tests/polls/fixtures/
 
 .omx/
 services/ai/output/gemini/
+design/assets/
+design/screenshots/

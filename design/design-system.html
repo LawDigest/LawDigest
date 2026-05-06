@@ -1,0 +1,1371 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>모두의입법 · Lawdigest 디자인 시스템</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard-dynamic-subset.css" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet" />
+<style>
+  :root {
+    /* gray */
+    --gray-05: #EBEBEB;  --gray-1: #E0E0E0;  --gray-2: #999999;  --gray-3: #555555;  --gray-4: #262626;
+    /* primary */
+    --primary-1: #F5F7FD;  --primary-2: #96BCFA;  --primary-3: #191919;
+    /* theme */
+    --theme-alert: #E63946;  --theme-info: #D7F963;
+    /* dark */
+    --dark-b: #101012;  --dark-l: #2E2E2E;  --dark-pb: #1E1E1E;
+    /* party */
+    --party-minjoo: #152484;  --party-ppp: #e61e2b;  --party-jk: #0073cf;  --party-reform: #ff7210;
+    --party-jinbo: #d6001c;  --party-future: #45babd;  --party-basic: #00d2c3;  --party-sdp: #f58400;
+    --party-green: #007c36;  --party-independent: #797c85;  --party-majority: #2e2e2e;
+    /* signature gradient (logo, nav border, feed tab) */
+    --rainbow: linear-gradient(90deg, #FBEB59 0%, #FC56D8 31%, #10D9EF 65%, #6CF880 100%);
+    --rainbow-soft: linear-gradient(90deg, rgba(251,235,89,.15) 0%, rgba(252,86,216,.15) 31%, rgba(16,217,239,.15) 65%, rgba(108,248,128,.15) 100%);
+
+    /* page chrome */
+    --bg: #ffffff;
+    --fg: #191919;
+    --muted: #f7f7f9;
+    --border: #ececee;
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+    font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+    -webkit-font-smoothing: antialiased; line-height: 1.5;
+  }
+  a { color: inherit; }
+
+  /* ─── doc layout ─── */
+  .page { max-width: 1080px; margin: 0 auto; padding: 56px 24px 120px; }
+  header.cover { border-bottom: 1px solid var(--border); padding-bottom: 28px; margin-bottom: 48px; }
+  header.cover .eyebrow {
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--gray-2);
+  }
+  header.cover h1 { font-size: 40px; font-weight: 700; margin: 6px 0 6px; letter-spacing: -.02em; }
+  header.cover .subtitle { font-size: 14px; color: var(--gray-3); margin: 0 0 12px; }
+  header.cover p.summary { margin: 0; color: var(--gray-3); max-width: 720px; font-size: 14px; }
+
+  section.section { margin: 64px 0; }
+  section.section > h2 { font-size: 22px; font-weight: 700; letter-spacing: -.01em; margin: 0 0 4px; display: flex; align-items: baseline; gap: 12px; }
+  section.section > h2 .num { font-size: 12px; font-weight: 600; color: var(--gray-2); letter-spacing: .12em; }
+  section.section > p.desc { color: var(--gray-3); font-size: 14px; margin: 0 0 24px; max-width: 720px; }
+  h3.sub { font-size: 14px; font-weight: 600; margin: 28px 0 12px; color: var(--gray-3); letter-spacing: -.005em; }
+
+  /* swatch */
+  .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+  .swatch { border-radius: 12px; border: 1px solid var(--border); overflow: hidden; background: #fff; }
+  .swatch .chip { height: 80px; display: block; }
+  .swatch .meta { padding: 10px 12px; font-size: 12px; line-height: 1.4; }
+  .swatch .meta b { font-size: 13px; display: block; color: var(--gray-4); }
+  .swatch .meta code { color: var(--gray-2); font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+
+  /* spec table */
+  table.spec { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.spec th, table.spec td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  table.spec th { color: var(--gray-2); font-weight: 500; font-size: 12px; letter-spacing: .04em; }
+  table.spec td code { font-family: ui-monospace, monospace; font-size: 12px; color: var(--gray-3); background: var(--muted); padding: 2px 6px; border-radius: 4px; }
+
+  /* preview shell */
+  .preview { border: 1px solid var(--border); border-radius: 16px; background: #fff; overflow: hidden; }
+  .preview .stage {
+    background:
+      linear-gradient(0deg, rgba(0,0,0,.015), rgba(0,0,0,.015)),
+      repeating-linear-gradient(45deg, transparent 0 8px, rgba(0,0,0,.012) 8px 9px);
+    padding: 32px 24px;
+  }
+  .preview .stage.flush { padding: 0; background: #fff; }
+  .preview .meta { border-top: 1px solid var(--border); padding: 10px 14px; font-size: 12px; color: var(--gray-2); display: flex; justify-content: space-between; align-items: center; }
+  .preview .meta code { font-family: ui-monospace, monospace; }
+
+  /* type rows */
+  .type-row { display: grid; grid-template-columns: 130px 110px 1fr; align-items: baseline; gap: 16px; padding: 14px 0; border-bottom: 1px dashed var(--border); }
+  .type-row:last-child { border-bottom: 0; }
+  .type-row .name { font-size: 12px; color: var(--gray-2); font-family: ui-monospace, monospace; }
+  .type-row .meta-info { font-size: 12px; color: var(--gray-3); font-family: ui-monospace, monospace; }
+
+  /* ──────────────────────────────────────────────────────
+   * EXACT COMPONENTS — mirror services/web styles
+   * ────────────────────────────────────────────────────── */
+
+  /* Logo — actual SVG embed */
+  .ld-logo { display: inline-flex; align-items: center; }
+
+  /* Nav border (active indicator) — exact NavBorder.tsx geometry */
+  .nav-pill-border {
+    position: absolute; inset: 0; pointer-events: none;
+    border-radius: 999px;
+    background: var(--rainbow);
+    /* 3px 두께의 outline ring처럼 보이게 마스킹 */
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    padding: 3px;
+  }
+
+  /* Header (desktop, 1024px shell) */
+  .ld-header {
+    height: 98px;
+    display: flex; align-items: center; justify-content: center;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    width: 100%;
+    position: relative;
+  }
+  .ld-header .shell {
+    max-width: 1024px; width: 100%;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 100%;
+  }
+  .ld-header .brand { flex-shrink: 0; }
+  .ld-header nav.center {
+    display: flex; gap: 16px; align-items: center;
+  }
+  .ld-header nav.center .nav-item {
+    position: relative;
+    width: 110px; height: 60px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 500; color: var(--gray-2);
+    background: #fff;
+    text-decoration: none;
+    border-radius: 999px;
+  }
+  .ld-header nav.center .nav-item.is-active { color: var(--primary-3); font-weight: 600; }
+  .ld-header .actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .ld-icon-btn {
+    width: 40px; height: 40px; border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; border: 0; cursor: pointer; color: var(--gray-3);
+  }
+  .ld-icon-btn:hover { background: var(--muted); }
+
+  /* Theme toggle — sun = blue, moon = blue (light state shows sun icon) */
+  .theme-toggle {
+    width: 30px; height: 30px; border-radius: 999px;
+    background: var(--primary-2);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: #fff;
+  }
+
+  /* Buttons (NextUI mirrors) */
+  .ld-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 0; cursor: pointer; font-family: inherit;
+    transition: transform .12s ease, background-color .15s ease;
+  }
+  .ld-btn:active { transform: scale(.98); }
+
+  /* "자세히 보기" — bg-gray-1, text-gray-3, w-[88px] h-8 */
+  .ld-btn.detail {
+    background: var(--gray-1); color: var(--gray-3);
+    width: 88px; height: 32px; font-size: 14px; font-weight: 500;
+    border-radius: 12px;
+  }
+  /* "원문 확인하기" — primary-3 pill, w-[242px] h-[56px] radius-full */
+  .ld-btn.cta-pill {
+    background: var(--primary-3); color: #fff;
+    width: 242px; height: 56px; font-size: 16px; font-weight: 600;
+    border-radius: 999px;
+  }
+  /* error/404 CTA — rounded-none rectangle */
+  .ld-btn.cta-square {
+    background: var(--primary-3); color: #fff;
+    width: 227px; height: 56px; font-size: 20px; font-weight: 500;
+    border-radius: 0;
+  }
+  .ld-btn.cta-square.outline { background: #fff; color: var(--primary-3); border: 1px solid var(--primary-3); }
+  /* Sort segmented — 시간순/HOT */
+  .seg-group { display: inline-flex; align-items: center; gap: 6px; }
+  .seg-btn {
+    height: 32px; padding: 0 14px; border-radius: 999px; border: 0;
+    font-size: 14px; font-weight: 500; cursor: pointer; font-family: inherit;
+    background: transparent; color: var(--gray-2);
+  }
+  .seg-btn.is-active { background: var(--primary-3); color: #fff; }
+  /* dropdown trigger — 전체 with funnel */
+  .dropdown-trigger {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 32px; padding: 0 12px; border: 0; background: transparent;
+    font-size: 14px; color: var(--gray-3); cursor: pointer; font-family: inherit;
+  }
+
+  /* Social login pill (full-rounded, gray border, white) */
+  .social-pill {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    width: 360px; height: 56px; padding: 0 24px;
+    border-radius: 999px; border: 1px solid var(--gray-1); background: #fff;
+    font-size: 16px; font-weight: 500; color: var(--gray-4); cursor: pointer; font-family: inherit;
+  }
+  .social-pill .ico { width: 24px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; }
+  .social-pill .ico.kakao  { background: #FEE500; color: #000; font-weight: 800; font-size: 12px; }
+  .social-pill .ico.google { background: #fff; }
+  .social-pill .ico.naver  { background: #03C75A; color: #fff; font-weight: 800; font-size: 12px; }
+
+  /* ─── BILL CARD (2-column, no shadow, party-bordered proposer card) ─── */
+  .bill-row {
+    display: grid;
+    grid-template-columns: 270px 1fr;
+    gap: 40px;
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--gray-05);
+  }
+  .bill-row .left h3.title { margin: 0 0 6px; font-size: 20px; font-weight: 600; line-height: 1.35; letter-spacing: -.005em; }
+  .bill-row .left .billname { font-size: 13px; color: var(--gray-2); margin: 0 0 10px; }
+  .bill-row .left .meta-row { display: flex; align-items: center; gap: 8px; }
+  .bill-row .left .meta-row .time { font-size: 12px; color: var(--gray-3); }
+  .ld-chip {
+    display: inline-flex; align-items: center; height: 22px; padding: 0 8px;
+    border: 1px solid var(--gray-1); color: var(--gray-2);
+    border-radius: 6px; font-size: 11px; font-weight: 500; background: transparent;
+  }
+  .bill-row .right .body {
+    font-size: 14px; line-height: 1.6; color: var(--gray-4); margin: 0;
+    display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .bill-row .right .body strong { font-weight: 600; }
+  .bill-row .right .more { display: inline-block; margin-top: 6px; font-size: 14px; color: var(--gray-2); cursor: pointer; }
+  .bill-row .right .footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 18px; }
+  .bill-row .right .footer .stats { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--gray-3); }
+  .bill-row .right .footer .stats .pair { display: inline-flex; align-items: center; gap: 4px; }
+
+  /* Proposer card — h-[78px] border-1.5 ${party} */
+  .proposer-card {
+    grid-column: 2;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 78px; padding: 0 18px;
+    border: 1.5px solid var(--gray-1);
+    border-radius: 8px;
+    background: #fff;
+    margin-top: 18px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .proposer-card .who { display: flex; align-items: center; gap: 10px; }
+  .proposer-card .avatar { width: 40px; height: 40px; border-radius: 999px; border: 1px solid #fff; box-shadow: 0 0 0 1px var(--border); flex-shrink: 0; display: inline-flex; overflow: hidden; }
+  .proposer-card h5 { margin: 0; font-weight: 500; font-size: 14px; }
+  .proposer-card .sub { font-size: 12px; color: var(--gray-2); }
+  .proposer-card .party-logo {
+    height: 36px; padding: 4px 0;
+    display: flex; align-items: center;
+    border-radius: 4px;
+  }
+  .proposer-card .party-logo img {
+    height: 28px; max-width: 140px; object-fit: contain;
+  }
+  /* party variants — same map as globals.css */
+  .proposer-card.minjoo      { border-color: var(--party-minjoo); }
+  .proposer-card.ppp         { border-color: var(--party-ppp); }
+  .proposer-card.jk          { border-color: var(--party-jk); }
+  .proposer-card.reform      { border-color: var(--party-reform); }
+  .proposer-card.green       { border-color: var(--party-green); }
+  .proposer-card.independent { border-color: var(--party-independent); }
+
+  /* Party-color circle avatar — w-7 h-7 rounded-full border-1.5 (timeline / vote board) */
+  .party-circle { width: 28px; height: 28px; border-radius: 999px; border: 1.5px solid var(--gray-1); background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.08); display: inline-block; flex-shrink: 0; }
+  .party-circle.minjoo { border-color: var(--party-minjoo); }
+  .party-circle.ppp { border-color: var(--party-ppp); }
+  .party-circle.jk { border-color: var(--party-jk); }
+  .party-circle.reform { border-color: var(--party-reform); }
+  .party-circle.green { border-color: var(--party-green); }
+  .party-circle.independent { border-color: var(--party-independent); }
+
+  /* ── FEED CONTENT TABS — rainbow pill (replica of feed-tab-indicator + feed-content-tab) ── */
+  .feed-tabs {
+    position: relative; display: inline-flex; gap: 5px;
+  }
+  .feed-tabs .indicator {
+    position: absolute; left: 0; top: 0;
+    width: 85px; height: 36px; border-radius: 999px;
+    background: var(--rainbow-soft);
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,.1);
+    transition: transform .35s var(--ease-spring);
+    pointer-events: none; z-index: 0;
+  }
+  .feed-tabs .indicator::before {
+    content: ''; position: absolute; inset: 0; padding: 2px; border-radius: 999px;
+    background: var(--rainbow);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  .feed-tabs button {
+    position: relative; z-index: 1;
+    width: 85px; height: 36px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 3px;
+    border-radius: 999px; border: 0; background: transparent;
+    color: rgba(25,25,25,.4); font-size: 16px; font-weight: 500; cursor: pointer; font-family: inherit;
+    transition: color .25s ease;
+  }
+  .feed-tabs button.is-active { color: var(--primary-3); }
+
+  /* ── Stage tabs (NextUI underlined) ── */
+  .stage-tabs {
+    display: inline-flex; gap: 28px; border-bottom: 0;
+    padding-bottom: 4px; position: relative;
+  }
+  .stage-tabs button {
+    position: relative; height: 36px; padding: 0 4px; background: transparent; border: 0; cursor: pointer; font-family: inherit;
+    font-size: 14px; font-weight: 500; color: var(--gray-2);
+  }
+  .stage-tabs button.is-active { color: var(--primary-3); font-weight: 600; }
+  .stage-tabs button.is-active::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0;
+    height: 2px; background: var(--primary-3); border-radius: 2px;
+  }
+
+  /* Snackbar */
+  .snack {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; border-radius: 8px;
+    color: #fff; font-size: 14px; font-weight: 600;
+    width: 100%; max-width: 480px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  }
+  .snack.error   { background: rgba(239,68,68,.95); }
+  .snack.success { background: rgba(22,163,74,.95); }
+  .snack.cancel  { background: rgba(153,153,153,.95); }
+  .snack.info    { background: rgba(59,130,246,.95); }
+
+  /* Modal */
+  .modal-mock { width: 320px; background: #fff; border-radius: 16px; box-shadow: 0 24px 48px rgba(0,0,0,.18); overflow: hidden; }
+  .modal-mock header { padding: 18px 20px 6px; font-weight: 600; }
+  .modal-mock .body { padding: 4px 20px 18px; font-size: 14px; color: var(--gray-3); }
+  .modal-mock .foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--border); }
+
+  /* Mobile floating nav */
+  .floating-nav {
+    position: relative;
+    width: 320px; height: 62px; padding: 4px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.42);
+    backdrop-filter: blur(40px) saturate(220%) contrast(106%);
+    -webkit-backdrop-filter: blur(40px) saturate(220%) contrast(106%);
+    box-shadow:
+      0 4px 32px rgba(0,0,0,.12),
+      0 1px 8px rgba(0,0,0,.06),
+      inset 0 1px 0 rgba(255,255,255,.95),
+      inset 0 -1px 0 rgba(0,0,0,.04);
+    border: 1px solid rgba(0,0,0,.10);
+    display: flex; align-items: stretch;
+  }
+  .floating-nav .item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; font-size: 11px; font-weight: 500; color: var(--gray-2); cursor: pointer;
+    border-radius: 999px;
+  }
+  .floating-nav .item.is-active {
+    color: var(--primary-3); font-weight: 600;
+    background: rgba(255,255,255,.86);
+    box-shadow: 0 4px 14px rgba(0,0,0,.08);
+  }
+  .floating-nav .item svg { width: 24px; height: 24px; }
+  .floating-nav .item .svg-active   { display: none;  align-items: center; }
+  .floating-nav .item .svg-inactive { display: flex;  align-items: center; }
+  .floating-nav .item.is-active .svg-active   { display: flex; }
+  .floating-nav .item.is-active .svg-inactive { display: none; }
+  .nav-stage {
+    background:
+      radial-gradient(120% 80% at 30% 0%, #ffe5d6 0%, transparent 50%),
+      radial-gradient(100% 80% at 80% 100%, #d6e5ff 0%, transparent 50%),
+      #f3f3f7;
+    padding: 36px;
+    display: flex; justify-content: center; align-items: flex-end; min-height: 220px;
+  }
+
+  /* spinner */
+  .spinner { width: 28px; height: 28px; border-radius: 999px; border: 3px solid var(--gray-1); border-top-color: var(--primary-3); animation: spin .9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* timeline mock */
+  .tl-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 32px 20px 24px; border-bottom: 1px solid var(--gray-05);
+  }
+  .tl-header .left { display: flex; align-items: flex-start; gap: 18px; }
+  .tl-header h1 { font-size: 48px; font-weight: 700; margin: 0; letter-spacing: -.02em; line-height: 1; }
+  .tl-header .meta { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; padding-left: 14px; border-left: 1px solid var(--gray-05); }
+  .tl-header .meta .label { font-size: 14px; color: var(--gray-2); }
+  .tl-header .meta .dday { font-size: 18px; font-weight: 600; letter-spacing: -.005em; }
+  .tl-header .right { display: flex; align-items: center; gap: 24px; padding-top: 18px; }
+  .tl-stage-head { display: flex; align-items: center; gap: 10px; padding: 18px 20px 10px; }
+  .tl-stage-head h3 {
+    font-size: 26px; font-weight: 200; margin: 0;
+  }
+  .tl-stage-head .count { font-size: 13px; color: var(--gray-2); }
+
+  .tl-rail { padding: 10px 20px 20px 30px; position: relative; }
+  .tl-rail::before { content: ''; position: absolute; left: 30px; top: 0; bottom: 0; width: 1px; background: var(--gray-1); }
+  .tl-rail .date-row { display: flex; align-items: baseline; gap: 6px; padding: 10px 0; }
+  .tl-rail .date-row .date { font-size: 22px; font-weight: 700; color: var(--gray-4); }
+  .tl-rail .date-row .day { font-size: 12px; color: var(--gray-2); }
+  .tl-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 6px 0 24px; }
+  .tl-card { border: 1px solid var(--gray-05); border-radius: 12px; padding: 18px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  .tl-card h4 { margin: 0 0 12px; font-size: 18px; font-weight: 600; }
+  .tl-card .count-link { font-size: 12px; color: var(--gray-2); margin-bottom: 10px; }
+  .tl-card .bill-mini { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
+  .tl-card .bill-mini .text { display: flex; flex-direction: column; }
+  .tl-card .bill-mini .text .name { color: var(--gray-4); }
+  .tl-card .bill-mini .text .by { color: var(--gray-2); font-size: 12px; }
+
+  /* dark stage */
+  .dark-stage { background: var(--dark-b); color: #fff; padding: 32px 24px; border-radius: 16px; border: 1px solid var(--dark-l); margin-top: 16px; }
+  .dark-stage h3.sub { color: var(--gray-2); }
+
+  footer.fn { margin-top: 80px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 12px; color: var(--gray-2); }
+
+  /* responsive */
+  @media (max-width: 720px) {
+    header.cover h1 { font-size: 30px; }
+    section.section > h2 { font-size: 18px; }
+    .ld-header { height: 64px; }
+    .ld-header nav.center { display: none; }
+    .bill-row { grid-template-columns: 1fr; gap: 12px; padding: 18px 16px; }
+    .proposer-card { grid-column: 1; }
+    .tl-header h1 { font-size: 30px; }
+    .tl-card-grid { grid-template-columns: 1fr; }
+    .tl-header .right { display: none; }
+    .social-pill { width: 100%; }
+    .type-row { grid-template-columns: 90px 90px 1fr; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="cover">
+    <div class="eyebrow">Design System · v1 · live-grounded</div>
+    <h1>모두의입법 디자인 시스템</h1>
+    <p class="subtitle">서비스 코드명 Lawdigest · services/web 실제 구현 기반</p>
+    <p class="summary">
+      lawdigest.kr 라이브 화면 캡처와 services/web 컴포넌트 구현(NextUI + TailwindCSS)을 1:1로 미러링한 단일 페이지 가이드입니다.
+      모든 토큰·치수·SVG는 실제 코드(<code>tailwind.config.js</code>, <code>styles/globals.css</code>, <code>public/svgs/**</code>)에서 추출했습니다.
+    </p>
+  </header>
+
+  <!-- ============ 0. BRAND SIGNATURE ============ -->
+  <section class="section">
+    <h2><span class="num">00</span> 브랜드 시그니처</h2>
+    <p class="desc">서비스의 시각적 정체성은 무지개 그라디언트 한 가지에 집약되어 있습니다. 같은 그라디언트가 로고 언더라인, 액티브 nav 보더, 콘텐츠 탭 인디케이터 세 곳에 반복적으로 등장합니다.</p>
+
+    <div class="preview">
+      <div class="stage" style="display:flex; flex-direction:column; gap:28px; align-items:flex-start;">
+        <!-- Logo (actual SVG, 2× scale) -->
+        <div class="ld-logo" aria-label="모두의입법 로고">
+          <svg width="214" height="36" viewBox="0 0 107 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g clip-path="url(#clip0_logo_a)">
+              <path d="M10.9717 9.49186L16.6512 9.49186L16.6519 13.3855H18.6692L18.6685 9.49186H24.2592V0L10.9717 0L10.9717 9.49186ZM13.0057 1.79501L22.2196 1.79501V7.70241L13.0057 7.70241L13.0057 1.79501Z" fill="black"/>
+              <path d="M36.5405 12.4709H34.5232V18.3172H36.5405V12.4709Z" fill="black"/>
+              <path d="M30.9505 1.77833L42.204 1.77833V0L28.9165 0V9.49186L42.3874 9.49186V7.73575L30.9505 7.73575V1.77833Z" fill="black"/>
+              <path d="M54.2964 1.05056C53.5295 0.3948 52.4458 0.0224609 51.251 0.0224609C50.0562 0.0224609 48.9725 0.3948 48.2056 1.05056C47.1608 1.96751 46.6162 3.4402 46.6162 5.313C46.6162 7.18581 47.1608 8.64182 48.2056 9.57545C48.9725 10.2312 50.0562 10.6035 51.251 10.6035C52.4458 10.6035 53.5295 10.2312 54.2964 9.57545C55.3801 8.64182 55.8858 7.18581 55.8858 5.313C55.8858 3.4402 55.3801 1.96751 54.2964 1.05056ZM52.9515 8.20835C52.557 8.61959 51.9623 8.82521 51.251 8.82521C50.5397 8.82521 49.9784 8.61959 49.5505 8.20835C48.9169 7.60817 48.6557 6.58007 48.6557 5.313C48.6557 4.04594 48.9169 2.99561 49.5505 2.39543C49.9784 1.98419 50.5619 1.79524 51.251 1.79524C51.9401 1.79524 52.557 1.98419 52.9515 2.39543C53.5851 2.99561 53.8685 4.05706 53.8685 5.313C53.8685 6.56895 53.5906 7.61372 52.9515 8.20835Z" fill="black"/>
+              <path d="M60.0925 0.0112305L58.053 0.0112305V18.317H60.0925V0.0112305Z" fill="black"/>
+              <path d="M68.6004 8.78626C69.7785 8.78626 70.7844 8.44726 71.5346 7.8304C72.4849 7.1024 73.0462 5.94092 73.0462 4.39044C73.0462 2.83995 72.4849 1.70071 71.5346 0.950471C70.7844 0.350283 69.7785 0.0168457 68.6004 0.0168457C67.4222 0.0168457 66.433 0.350283 65.6661 0.950471C64.7325 1.70071 64.1545 2.85662 64.1545 4.39044C64.1545 5.92425 64.7325 7.1024 65.6661 7.8304C66.433 8.44726 67.4389 8.78626 68.6004 8.78626ZM66.9554 2.35647C67.3667 1.98413 67.9446 1.77851 68.6004 1.77851C69.2561 1.77851 69.8341 1.98413 70.262 2.35647C70.7844 2.82328 71.0678 3.51238 71.0678 4.39599C71.0678 5.2796 70.79 6.00205 70.262 6.43552C69.8341 6.83009 69.2506 7.03571 68.6004 7.03571C67.9502 7.03571 67.3667 6.83009 66.9554 6.43552C66.433 6.00761 66.1329 5.2796 66.1329 4.39599C66.1329 3.51238 66.433 2.82328 66.9554 2.35647Z" fill="black"/>
+              <path d="M93.9809 0.0112305V2.78988L90.5799 2.78988V0.0112305L88.5959 0.0112305V2.78988L84.3001 2.78988V0.0112305L82.3162 0.0112305V8.35829L90.5799 8.35829V4.52375L93.9809 4.52375V16.5998L85.3838 16.5998V9.75872H83.3443V18.317L96.0149 18.317V0.0112305L93.9754 0.0112305H93.9809ZM88.6015 6.59662L84.3057 6.59662V4.52375L88.6015 4.52375V6.59662Z" fill="black"/>
+              <path d="M76.0248 2.78988V4.5182V9.75872V16.5942H67.4277V9.75872H65.3882V18.317L78.0588 18.317V9.75872V0.0112305L76.0248 0.0112305V2.78988Z" fill="black"/>
+              <path d="M106.732 12.3992V13.6673L0 13.6673L0 12.3992L106.732 12.3992Z" fill="url(#paint0_logo_a)"/>
+            </g>
+            <defs>
+              <linearGradient id="paint0_logo_a" x1="1.3096e-09" y1="13.0332" x2="106.732" y2="13.0332" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#FBEB59" stop-opacity="0"/>
+                <stop offset="0.0001" stop-color="#FBEB59"/>
+                <stop offset="0.31" stop-color="#FC56D8"/>
+                <stop offset="0.65" stop-color="#10D9EF"/>
+                <stop offset="0.9999" stop-color="#6CF880"/>
+                <stop offset="1" stop-color="#6CF880" stop-opacity="0"/>
+              </linearGradient>
+              <clipPath id="clip0_logo_a">
+                <rect width="106.725" height="18" fill="white"/>
+              </clipPath>
+            </defs>
+          </svg>
+        </div>
+
+        <!-- Gradient swatch -->
+        <div style="width: 100%; max-width: 480px; height: 14px; border-radius: 7px; background: var(--rainbow);"></div>
+
+        <!-- Stops -->
+        <div style="display:flex; gap: 18px; flex-wrap: wrap;">
+          <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px;"><span style="width:14px;height:14px;background:#FBEB59;border-radius:3px;"></span><code>#FBEB59 · 0%</code></span>
+          <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px;"><span style="width:14px;height:14px;background:#FC56D8;border-radius:3px;"></span><code>#FC56D8 · 31%</code></span>
+          <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px;"><span style="width:14px;height:14px;background:#10D9EF;border-radius:3px;"></span><code>#10D9EF · 65%</code></span>
+          <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px;"><span style="width:14px;height:14px;background:#6CF880;border-radius:3px;"></span><code>#6CF880 · 100%</code></span>
+        </div>
+      </div>
+      <div class="meta"><span>brand gradient · used in logo / nav border / feed tabs</span><code>--rainbow</code></div>
+    </div>
+  </section>
+
+  <!-- ============ 1. COLOR ============ -->
+  <section class="section">
+    <h2><span class="num">01</span> 컬러</h2>
+    <p class="desc">중립색은 5단계 그레이스케일 + #191919 단일 다크 강조색 구조이며, 정당색은 카드 보더에 그대로 사용되어 정파 정보를 시각 인코딩합니다.</p>
+
+    <h3 class="sub">중립 (Gray)</h3>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background: var(--gray-05)"></div><div class="meta"><b>gray.0.5</b><code>#EBEBEB</code></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--gray-1)"></div><div class="meta"><b>gray.1</b><code>#E0E0E0</code></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--gray-2)"></div><div class="meta"><b>gray.2</b><code>#999999</code></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--gray-3)"></div><div class="meta"><b>gray.3</b><code>#555555</code></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--gray-4)"></div><div class="meta"><b>gray.4</b><code>#262626</code></div></div>
+    </div>
+
+    <h3 class="sub">프라이머리 / 테마</h3>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background: var(--primary-1)"></div><div class="meta"><b>primary.1</b><code>#F5F7FD · subtle bg</code></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--primary-2)"></div><div class="meta"><b>primary.2</b><code>#96BCFA · sun toggle</code></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--primary-3)"></div><div class="meta"><b>primary.3</b><code>#191919 · dark accent</code></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--theme-alert)"></div><div class="meta"><b>theme.alert</b><code>#E63946 · scrap, error snackbar</code></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--theme-info); color:#333"></div><div class="meta"><b>theme.info</b><code>#D7F963</code></div></div>
+    </div>
+
+    <h3 class="sub">다크 모드 표면</h3>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="chip" style="background: var(--dark-b)"></div><div class="meta"><b>dark.b</b><code>#101012 · base</code></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--dark-pb)"></div><div class="meta"><b>dark.pb</b><code>#1E1E1E · panel</code></div></div>
+      <div class="swatch"><div class="chip" style="background: var(--dark-l)"></div><div class="meta"><b>dark.l</b><code>#2E2E2E · line</code></div></div>
+    </div>
+
+    <h3 class="sub">정당색 (Party) · 보더 클래스명은 한글 정당명 그대로</h3>
+    <div style="display:flex; flex-wrap:wrap; gap:20px 16px; align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;">
+        <div title=".더불어민주당" style="width:52px;height:52px;border-radius:999px;background:#152484;box-shadow:0 2px 8px rgba(21,36,132,.35);cursor:default;"></div>
+        <span style="font-size:10px;font-weight:600;color:#191919;text-align:center;line-height:1.3;word-break:keep-all;">더불어<br>민주당</span>
+        <code style="font-size:9px;color:var(--gray-2);">#152484</code>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;">
+        <div title=".국민의힘" style="width:52px;height:52px;border-radius:999px;background:#E61E2B;box-shadow:0 2px 8px rgba(230,30,43,.35);cursor:default;"></div>
+        <span style="font-size:10px;font-weight:600;color:#191919;text-align:center;line-height:1.3;">국민의힘</span>
+        <code style="font-size:9px;color:var(--gray-2);">#E61E2B</code>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;">
+        <div title=".조국혁신당" style="width:52px;height:52px;border-radius:999px;background:#0073CF;box-shadow:0 2px 8px rgba(0,115,207,.35);cursor:default;"></div>
+        <span style="font-size:10px;font-weight:600;color:#191919;text-align:center;line-height:1.3;word-break:keep-all;">조국<br>혁신당</span>
+        <code style="font-size:9px;color:var(--gray-2);">#0073CF</code>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;">
+        <div title=".개혁신당" style="width:52px;height:52px;border-radius:999px;background:#FF7210;box-shadow:0 2px 8px rgba(255,114,16,.35);cursor:default;"></div>
+        <span style="font-size:10px;font-weight:600;color:#191919;text-align:center;line-height:1.3;">개혁신당</span>
+        <code style="font-size:9px;color:var(--gray-2);">#FF7210</code>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;">
+        <div title=".진보당" style="width:52px;height:52px;border-radius:999px;background:#D6001C;box-shadow:0 2px 8px rgba(214,0,28,.35);cursor:default;"></div>
+        <span style="font-size:10px;font-weight:600;color:#191919;text-align:center;line-height:1.3;">진보당</span>
+        <code style="font-size:9px;color:var(--gray-2);">#D6001C</code>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;">
+        <div title=".새로운미래" style="width:52px;height:52px;border-radius:999px;background:#45BABD;box-shadow:0 2px 8px rgba(69,186,189,.35);cursor:default;"></div>
+        <span style="font-size:10px;font-weight:600;color:#191919;text-align:center;line-height:1.3;word-break:keep-all;">새로운<br>미래</span>
+        <code style="font-size:9px;color:var(--gray-2);">#45BABD</code>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;">
+        <div title=".기본소득당" style="width:52px;height:52px;border-radius:999px;background:#00D2C3;box-shadow:0 2px 8px rgba(0,210,195,.35);cursor:default;"></div>
+        <span style="font-size:10px;font-weight:600;color:#191919;text-align:center;line-height:1.3;word-break:keep-all;">기본<br>소득당</span>
+        <code style="font-size:9px;color:var(--gray-2);">#00D2C3</code>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;">
+        <div title=".사회민주당" style="width:52px;height:52px;border-radius:999px;background:#F58400;box-shadow:0 2px 8px rgba(245,132,0,.35);cursor:default;"></div>
+        <span style="font-size:10px;font-weight:600;color:#191919;text-align:center;line-height:1.3;word-break:keep-all;">사회<br>민주당</span>
+        <code style="font-size:9px;color:var(--gray-2);">#F58400</code>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;">
+        <div title=".녹색정의당" style="width:52px;height:52px;border-radius:999px;background:#007C36;box-shadow:0 2px 8px rgba(0,124,54,.35);cursor:default;"></div>
+        <span style="font-size:10px;font-weight:600;color:#191919;text-align:center;line-height:1.3;word-break:keep-all;">녹색<br>정의당</span>
+        <code style="font-size:9px;color:var(--gray-2);">#007C36</code>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;">
+        <div title=".무소속" style="width:52px;height:52px;border-radius:999px;background:#797C85;box-shadow:0 2px 8px rgba(121,124,133,.3);cursor:default;"></div>
+        <span style="font-size:10px;font-weight:600;color:#191919;text-align:center;line-height:1.3;">무소속</span>
+        <code style="font-size:9px;color:var(--gray-2);">#797C85</code>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;">
+        <div title=".다수" style="width:52px;height:52px;border-radius:999px;background:#2E2E2E;box-shadow:0 2px 8px rgba(46,46,46,.35);cursor:default;"></div>
+        <span style="font-size:10px;font-weight:600;color:#191919;text-align:center;line-height:1.3;">다수</span>
+        <code style="font-size:9px;color:var(--gray-2);">#2E2E2E</code>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2. TYPOGRAPHY ============ -->
+  <section class="section">
+    <h2><span class="num">02</span> 타이포그래피</h2>
+    <p class="desc">한글 본문은 Pretendard Variable. 화면 헤딩에는 코드에서 실제 등장하는 26px / 48px 두 가지 시그니처 사이즈가 반복 사용되며, 타임라인 단계 헤딩은 가벼운 분위기를 위해 <code>font-extralight (200)</code>를 사용합니다.</p>
+
+    <div style="border:1px solid var(--border); border-radius:16px; padding: 8px 20px;">
+      <div class="type-row">
+        <span class="name">tl-display</span><span class="meta-info">48 / 700</span>
+        <div style="font-size:48px; font-weight:700; letter-spacing:-.02em;">타임라인</div>
+      </div>
+      <div class="type-row">
+        <span class="name">section-h</span><span class="meta-info">26 / 700</span>
+        <div style="font-size:26px; font-weight:700;">피드</div>
+      </div>
+      <div class="type-row">
+        <span class="name">stage-h</span><span class="meta-info">26 / 200</span>
+        <div style="font-size:26px; font-weight:200;">위원회 심사</div>
+      </div>
+      <div class="type-row">
+        <span class="name">card-title</span><span class="meta-info">26 / 600</span>
+        <div style="font-size:26px; font-weight:600;">법안 상세 헤딩 (detail=true)</div>
+      </div>
+      <div class="type-row">
+        <span class="name">card-title-list</span><span class="meta-info">20 / 600</span>
+        <div style="font-size:20px; font-weight:600;">피드 카드 한 줄 요약 (text-xl)</div>
+      </div>
+      <div class="type-row">
+        <span class="name">body</span><span class="meta-info">14 / 400 · gray.4</span>
+        <div style="font-size:14px;">법안 본문 (텍스트가 길어지면 line-clamp 8 적용)</div>
+      </div>
+      <div class="type-row">
+        <span class="name">caption</span><span class="meta-info">12 / 400 · gray.2</span>
+        <div style="font-size:12px; color: var(--gray-2);">법안명 · 메타데이터</div>
+      </div>
+      <div class="type-row">
+        <span class="name">tag-xs</span><span class="meta-info">11 / 500 · gray.2</span>
+        <div><span class="ld-chip">위원회 심사</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3. LAYOUT ============ -->
+  <section class="section">
+    <h2><span class="num">03</span> 레이아웃 · 라디우스 · 그림자</h2>
+    <p class="desc">실제 코드에서 사용되는 컨테이너 폭과 컴포넌트 치수를 그대로 옮깁니다.</p>
+
+    <h3 class="sub">컨테이너</h3>
+    <table class="spec">
+      <tr><th>역할</th><th>폭</th><th>코드</th></tr>
+      <tr><td>최소 지원 폭</td><td>360px</td><td><code>min-w-[360px]</code></td></tr>
+      <tr><td>모바일 헤더 높이</td><td>64–72px</td><td><code>NavbarHeight</code></td></tr>
+      <tr><td>데스크톱 헤더 높이</td><td>98px</td><td><code>md:h-[98px]</code></td></tr>
+      <tr><td>데스크톱 헤더 셸</td><td>1024px</td><td><code>max-w-[1024px]</code> (라이브 HTML)</td></tr>
+      <tr><td>피드 컬럼 폭</td><td>880px</td><td><code>lg:w-[880px] mx-auto</code></td></tr>
+      <tr><td>섹션 컨테이너</td><td>768 / 1280</td><td><code>md:max-w-[768px] lg:max-w-[1280px]</code></td></tr>
+      <tr><td>법안 본문 컬럼</td><td>440 / 490</td><td><code>md:w-[440px] lg:w-[490px]</code></td></tr>
+      <tr><td>발의자 카드 폭</td><td>410 / 490</td><td><code>md:w-[410px] lg:w-[490px]</code></td></tr>
+      <tr><td>nav 아이템 (데스크톱)</td><td>110×60px</td><td><code>w-[110px] h-[60px] leading-[60px]</code></td></tr>
+    </table>
+
+    <h3 class="sub">고정 컴포넌트 치수</h3>
+    <table class="spec">
+      <tr><th>역할</th><th>w × h</th><th>코드</th></tr>
+      <tr><td>발의자 카드</td><td>—×78</td><td><code>h-[78px] border-1.5 px-[18px]</code></td></tr>
+      <tr><td>"자세히 보기" 버튼</td><td>88×32</td><td><code>w-[88px] h-8 bg-gray-1</code></td></tr>
+      <tr><td>"원문 확인하기" CTA</td><td>242×56</td><td><code>w-[242px] h-[56px] radius-full bg-primary-3</code></td></tr>
+      <tr><td>404/Error CTA</td><td>261/227×56</td><td><code>rounded-none w-[261/227] h-[56px]</code></td></tr>
+      <tr><td>검색바</td><td>—×40</td><td><code>h-[40px]</code></td></tr>
+      <tr><td>피드 콘텐츠 탭</td><td>85×36</td><td><code>w-[85px] h-[36px] gap-[5px]</code></td></tr>
+      <tr><td>타임라인 정당 마커</td><td>28×28</td><td><code>w-7 h-7 rounded-full border-1.5 ${'$'}{party_name}</code></td></tr>
+      <tr><td>의원 상세 사진</td><td>100×100</td><td><code>w-[100px] h-[100px] border-1.5 shadow-lg</code></td></tr>
+      <tr><td>정당 카드 (마이페이지)</td><td>140×102</td><td><code>w-[140px] h-[102px] rounded-lg border-1.5</code></td></tr>
+    </table>
+
+    <h3 class="sub">라디우스</h3>
+    <table class="spec">
+      <tr><th>이름</th><th>값</th><th>용도</th></tr>
+      <tr><td>none</td><td><code>0</code></td><td>404/Error CTA, 일부 강조 사각 버튼</td></tr>
+      <tr><td>sm</td><td><code>8px</code></td><td>발의자 카드, 스낵바</td></tr>
+      <tr><td>md</td><td><code>12px</code></td><td>버튼, 입력 필드</td></tr>
+      <tr><td>lg</td><td><code>16px</code></td><td>모달, 패널, 정당 카드</td></tr>
+      <tr><td>full</td><td><code>9999px</code></td><td>활성 nav 보더, CTA pill, 플로팅 nav, 콘텐츠 탭 인디케이터, 소셜 로그인 버튼</td></tr>
+    </table>
+  </section>
+
+  <!-- ============ 4. HEADER (live-mirrored) ============ -->
+  <section class="section">
+    <h2><span class="num">04</span> 헤더 (데스크톱)</h2>
+    <p class="desc">실측 라이브 헤더 그대로. 액티브 인디케이터는 점이나 언더라인이 아니라 <strong>무지개 그라디언트 알약 outline</strong>(NavBorder.tsx)이 텍스트를 감쌉니다. 이 보더와 로고 언더라인은 같은 그라디언트입니다.</p>
+
+    <div class="preview">
+      <div class="stage flush">
+        <div class="ld-header">
+          <div class="shell">
+            <div class="brand">
+              <div class="ld-logo">
+                <svg width="107" height="18" viewBox="0 0 107 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g clip-path="url(#clip0_logo_b)">
+                    <path d="M10.9717 9.49186L16.6512 9.49186L16.6519 13.3855H18.6692L18.6685 9.49186H24.2592V0L10.9717 0L10.9717 9.49186ZM13.0057 1.79501L22.2196 1.79501V7.70241L13.0057 7.70241L13.0057 1.79501Z" fill="black"/>
+                    <path d="M36.5405 12.4709H34.5232V18.3172H36.5405V12.4709Z" fill="black"/>
+                    <path d="M30.9505 1.77833L42.204 1.77833V0L28.9165 0V9.49186L42.3874 9.49186V7.73575L30.9505 7.73575V1.77833Z" fill="black"/>
+                    <path d="M54.2964 1.05056C53.5295 0.3948 52.4458 0.0224609 51.251 0.0224609C50.0562 0.0224609 48.9725 0.3948 48.2056 1.05056C47.1608 1.96751 46.6162 3.4402 46.6162 5.313C46.6162 7.18581 47.1608 8.64182 48.2056 9.57545C48.9725 10.2312 50.0562 10.6035 51.251 10.6035C52.4458 10.6035 53.5295 10.2312 54.2964 9.57545C55.3801 8.64182 55.8858 7.18581 55.8858 5.313C55.8858 3.4402 55.3801 1.96751 54.2964 1.05056ZM52.9515 8.20835C52.557 8.61959 51.9623 8.82521 51.251 8.82521C50.5397 8.82521 49.9784 8.61959 49.5505 8.20835C48.9169 7.60817 48.6557 6.58007 48.6557 5.313C48.6557 4.04594 48.9169 2.99561 49.5505 2.39543C49.9784 1.98419 50.5619 1.79524 51.251 1.79524C51.9401 1.79524 52.557 1.98419 52.9515 2.39543C53.5851 2.99561 53.8685 4.05706 53.8685 5.313C53.8685 6.56895 53.5906 7.61372 52.9515 8.20835Z" fill="black"/>
+                    <path d="M60.0925 0.0112305L58.053 0.0112305V18.317H60.0925V0.0112305Z" fill="black"/>
+                    <path d="M68.6004 8.78626C69.7785 8.78626 70.7844 8.44726 71.5346 7.8304C72.4849 7.1024 73.0462 5.94092 73.0462 4.39044C73.0462 2.83995 72.4849 1.70071 71.5346 0.950471C70.7844 0.350283 69.7785 0.0168457 68.6004 0.0168457C67.4222 0.0168457 66.433 0.350283 65.6661 0.950471C64.7325 1.70071 64.1545 2.85662 64.1545 4.39044C64.1545 5.92425 64.7325 7.1024 65.6661 7.8304C66.433 8.44726 67.4389 8.78626 68.6004 8.78626ZM66.9554 2.35647C67.3667 1.98413 67.9446 1.77851 68.6004 1.77851C69.2561 1.77851 69.8341 1.98413 70.262 2.35647C70.7844 2.82328 71.0678 3.51238 71.0678 4.39599C71.0678 5.2796 70.79 6.00205 70.262 6.43552C69.8341 6.83009 69.2506 7.03571 68.6004 7.03571C67.9502 7.03571 67.3667 6.83009 66.9554 6.43552C66.433 6.00761 66.1329 5.2796 66.1329 4.39599C66.1329 3.51238 66.433 2.82328 66.9554 2.35647Z" fill="black"/>
+                    <path d="M93.9809 0.0112305V2.78988L90.5799 2.78988V0.0112305L88.5959 0.0112305V2.78988L84.3001 2.78988V0.0112305L82.3162 0.0112305V8.35829L90.5799 8.35829V4.52375L93.9809 4.52375V16.5998L85.3838 16.5998V9.75872H83.3443V18.317L96.0149 18.317V0.0112305L93.9754 0.0112305H93.9809ZM88.6015 6.59662L84.3057 6.59662V4.52375L88.6015 4.52375V6.59662Z" fill="black"/>
+                    <path d="M76.0248 2.78988V4.5182V9.75872V16.5942H67.4277V9.75872H65.3882V18.317L78.0588 18.317V9.75872V0.0112305L76.0248 0.0112305V2.78988Z" fill="black"/>
+                    <path d="M106.732 12.3992V13.6673L0 13.6673L0 12.3992L106.732 12.3992Z" fill="url(#paint0_logo_b)"/>
+                  </g>
+                  <defs>
+                    <linearGradient id="paint0_logo_b" x1="1.3096e-09" y1="13.0332" x2="106.732" y2="13.0332" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FBEB59" stop-opacity="0"/>
+                      <stop offset="0.0001" stop-color="#FBEB59"/>
+                      <stop offset="0.31" stop-color="#FC56D8"/>
+                      <stop offset="0.65" stop-color="#10D9EF"/>
+                      <stop offset="0.9999" stop-color="#6CF880"/>
+                      <stop offset="1" stop-color="#6CF880" stop-opacity="0"/>
+                    </linearGradient>
+                    <clipPath id="clip0_logo_b">
+                      <rect width="106.725" height="18" fill="white"/>
+                    </clipPath>
+                  </defs>
+                </svg>
+              </div>
+            </div>
+            <nav class="center" aria-label="primary">
+              <a href="#" class="nav-item is-active">
+                <span class="nav-pill-border"></span>
+                피드
+              </a>
+              <a href="#" class="nav-item">타임라인</a>
+              <a href="#" class="nav-item">선거</a>
+              <a href="#" class="nav-item">마이페이지</a>
+            </nav>
+            <div class="actions">
+              <button class="ld-icon-btn" aria-label="theme toggle">
+                <span class="theme-toggle">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="4" fill="#fff"/>
+                    <g stroke="#fff" stroke-width="1.6" stroke-linecap="round">
+                      <path d="M12 3v2"/><path d="M12 19v2"/><path d="M3 12h2"/><path d="M19 12h2"/>
+                      <path d="M5.6 5.6l1.4 1.4"/><path d="M17 17l1.4 1.4"/>
+                      <path d="M5.6 18.4l1.4-1.4"/><path d="M17 7l1.4-1.4"/>
+                    </g>
+                  </svg>
+                </span>
+              </button>
+              <button class="ld-icon-btn" aria-label="알림">
+                <svg width="22" height="22" viewBox="0 0 30 30" fill="none">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M22.5 22.5V12.6c0-4.2-3.4-7.6-7.5-7.6S7.5 8.4 7.5 12.6v9.9h15ZM6.6 23.75h16.9c.2 0 .3-.1.3-.3V12.6c0-4.9-3.9-8.85-8.75-8.85S6.25 7.7 6.25 12.6v10.8c0 .2.1.3.35.35Z" fill="currentColor"/>
+                  <rect x="3.75" y="22.5" width="22.5" height="1.25" fill="currentColor"/>
+                  <rect x="7.5" y="25" width="15" height="1.25" fill="currentColor"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta"><span>실측: shell max-w-[1024px], h-[98px], 4 nav items 110×60</span><code>NavBorder · rainbow stroke 3px</code></div>
+    </div>
+  </section>
+
+  <!-- ============ 5. FEED TABS + SORT ROW (live-mirrored) ============ -->
+  <section class="section">
+    <h2><span class="num">05</span> 피드 헤더 (콘텐츠 탭 + 정렬 + 필터)</h2>
+    <p class="desc">"피드" 26px 헤딩 + 3-탭(리포트·법안·팔로잉) + 정렬 segmented + 단계 필터 드롭다운.</p>
+
+    <div class="preview">
+      <div class="stage flush" style="padding: 24px 20px;">
+        <h2 style="font-size:26px; font-weight:700; margin: 0 0 14px;">피드</h2>
+
+        <!-- content type tabs -->
+        <div class="feed-tabs" id="contentTabs" role="tablist" style="margin-bottom: 20px;">
+          <div class="indicator" id="contentIndicator"></div>
+          <button class="is-active" data-i="0">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 3.5C4 2.7 4.7 2 5.5 2H12L16 6V16.5C16 17.3 15.3 18 14.5 18H5.5C4.7 18 4 17.3 4 16.5V3.5Z" stroke="currentColor" stroke-width="1.4"/><path d="M12 2V6H16" stroke="currentColor" stroke-width="1.4"/><path d="M7 10H13M7 13H11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="15" cy="5" r="3" fill="currentColor"/><path d="M14 5L14.7 5.7L16.3 4" stroke="white" stroke-width="1.1" stroke-linecap="round"/></svg>
+            <span>리포트</span>
+          </button>
+          <button data-i="1">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 5.5H16M4 9.5H16M4 13.5H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>법안</span>
+          </button>
+          <button data-i="2">
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M4 17V3H16V17L10.5 14.2L10 13.95L9.5 14.2L4 17Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+            <span>팔로잉</span>
+          </button>
+        </div>
+
+        <!-- sort + filter row -->
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <div class="seg-group">
+            <button class="seg-btn is-active">시간순</button>
+            <button class="seg-btn">HOT</button>
+          </div>
+          <button class="dropdown-trigger" aria-haspopup="listbox">
+            전체
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M3 5h14M5 10h10M8 15h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="meta"><span>리포트(active) / 법안 / 팔로잉 + 시간순(active) / HOT + 전체 필터</span><code>--rainbow indicator</code></div>
+    </div>
+  </section>
+
+  <!-- ============ 6. BILL ROW (2-column, live-mirrored) ============ -->
+  <section class="section">
+    <h2><span class="num">06</span> 법안 카드 (2단 레이아웃)</h2>
+    <p class="desc">데스크톱에서 한 행은 좌측 메타 컬럼(270px)과 우측 본문 컬럼으로 분할되며, 카드 자체에는 그림자나 보더가 없고 행 사이에 1px 디바이더만 들어갑니다. 발의자 카드는 본문 컬럼 폭에 맞춰 정당색 1.5px 보더로 강조됩니다.</p>
+
+    <div class="preview">
+      <div class="stage flush">
+        <div class="bill-row">
+          <div class="left">
+            <h3 class="title">반려동물 보호·복지 체계의 종합적 구축과 성숙한 반려 문화 확산을 위한 반려동물복지기본법안.</h3>
+            <p class="billname">반려동물복지기본법안</p>
+            <div class="meta-row">
+              <span class="time">2025-12-04</span>
+              <span class="ld-chip">위원회 심사</span>
+            </div>
+          </div>
+          <div class="right">
+            <p class="body">
+              임호선의원 등 12인이 발의한 반려동물복지기본법안의 내용 및 목적은 다음과 같습니다.<br/><br/>
+              1. <strong>[국가 차원의 종합계획 수립]</strong>: 농림축산식품부장관이 반려동물의 보호와 복지 증진을 위해 <strong>5년마다 동물복지종합계획을 수립하고 시행</strong>하도록 하여, 정책이 보다 체계적이고 장기적인 관점에서 추진될 수 있도록 하였습니다.<br/><br/>
+              2. <strong>[소유자의 책임 및 사전교육 강화]</strong>: 반려동물을 기르는 사람의 적정한 …
+            </p>
+            <span class="more">더 보기</span>
+
+            <div class="footer">
+              <div class="stats">
+                <span class="pair">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4.65 20.95V2.65h14.7v18.3l-7.06-3.53-.29-.15-.29.15L4.65 20.95Z" stroke="currentColor" stroke-width="1.3"/></svg>
+                  <span>스크랩</span><span>0</span>
+                </span>
+                <span class="pair">조회수 <span>116</span></span>
+                <button class="ld-icon-btn" aria-label="link">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8.7 7.3 14.1 1.9" stroke="#555" stroke-width="1.5" stroke-linecap="round"/><path d="M14.7 4.5V1.3h-3.2" stroke="#555" stroke-width="1.5" stroke-linecap="round"/><path d="M7.3 1.3H6c-3.3 0-4.7 1.3-4.7 4.7v4c0 3.3 1.3 4.7 4.7 4.7h4c3.3 0 4.7-1.4 4.7-4.7V8.7" stroke="#555" stroke-width="1.5" stroke-linecap="round"/></svg>
+                </button>
+              </div>
+              <button class="ld-btn detail">자세히 보기</button>
+            </div>
+          </div>
+
+          <div class="proposer-card minjoo">
+            <div class="who">
+              <span class="avatar"><svg viewBox="0 0 40 40" width="40" height="40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#B0B7C3"/><circle cx="20" cy="15" r="7.5" fill="#fff"/><path d="M4 40c0-8.837 7.163-16 16-16s16 7.163 16 16" fill="#fff"/></svg></span>
+              <div>
+                <h5>임호선 의원</h5>
+                <div class="sub">임호선 의원 등 12인</div>
+              </div>
+            </div>
+            <div class="party-logo"><img src="./assets/parties/wide/1.png" alt="더불어민주당"></div>
+          </div>
+        </div>
+
+        <div class="bill-row">
+          <div class="left">
+            <h3 class="title">소수파의 국회 고발권 보장을 위해 위원장 명의 고발 거부 시의 연서 요건을 완화하기 위한 국회에서의 증언·감정 등에 관한 법률 일부개정법률안</h3>
+            <p class="billname">국회에서의 증언·감정 등에 관한 법률 일부개정법률안</p>
+            <div class="meta-row">
+              <span class="time">2025-12-04</span>
+              <span class="ld-chip">위원회 심사</span>
+            </div>
+          </div>
+          <div class="right">
+            <p class="body">
+              유상범의원 등 10인이 발의한 국회에서의 증언·감정 등에 관한 법률 일부개정법률안의 내용 및 목적은 다음과 같습니다.<br/><br/>
+              1. <strong>현행 국회 고발 절차의 한계</strong>: 현재 국회에서 위증이나 불출석 등의 행위를 고발할 때, 위원장이 고발을 거부하거나 기피하면 <strong>재적위원 과반수</strong>의 연서가 있어야만 개별 의원 명의로 고발할 수 있어 사실상 <strong>다수당이 고발권을 독점</strong>하기 쉬운 구조입니다.
+            </p>
+            <span class="more">더 보기</span>
+
+            <div class="footer">
+              <div class="stats">
+                <span class="pair">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4.65 20.95V2.65h14.7v18.3l-7.06-3.53-.29-.15-.29.15L4.65 20.95Z" stroke="currentColor" stroke-width="1.3"/></svg>
+                  <span>스크랩</span><span>3</span>
+                </span>
+                <span class="pair">조회수 <span>284</span></span>
+              </div>
+              <button class="ld-btn detail">자세히 보기</button>
+            </div>
+          </div>
+
+          <div class="proposer-card ppp">
+            <div class="who">
+              <span class="avatar"><svg viewBox="0 0 40 40" width="40" height="40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#B0B7C3"/><circle cx="20" cy="15" r="7.5" fill="#fff"/><path d="M4 40c0-8.837 7.163-16 16-16s16 7.163 16 16" fill="#fff"/></svg></span>
+              <div>
+                <h5>유상범 의원</h5>
+                <div class="sub">유상범 의원 등 10인</div>
+              </div>
+            </div>
+            <div class="party-logo"><img src="./assets/parties/wide/2.png" alt="국민의힘"></div>
+          </div>
+        </div>
+      </div>
+      <div class="meta"><span>2-col grid 270 / 1fr · 1px gray-0.5 divider · proposer card border-1.5 ${'$'}{party_name}</span><code>Bill.tsx</code></div>
+    </div>
+  </section>
+
+  <!-- ============ 7. TIMELINE ============ -->
+  <section class="section">
+    <h2><span class="num">07</span> 타임라인 헤더 + 섹션</h2>
+    <p class="desc">큰 헤딩(48px bold) + 메타(국회 회기 / D-day) + 우측 상단 단계 segmented. 각 단계 헤딩은 26px font-extralight (200)으로 가벼운 인상을 줍니다.</p>
+
+    <div class="preview">
+      <div class="stage flush">
+        <div class="tl-header">
+          <div class="left">
+            <h1>타임라인</h1>
+            <div class="meta">
+              <span class="label">제 22대 국회</span>
+              <span class="dday">D-717</span>
+            </div>
+          </div>
+          <div class="right">
+            <div class="seg-group">
+              <button class="seg-btn">접수법안</button>
+              <button class="seg-btn">처리법안</button>
+              <button class="seg-btn">가결법안</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tl-stage-head">
+          <span style="width:10px; height:10px; border-radius:999px; background:#fff; border:1px solid var(--gray-1);"></span>
+          <span style="font-size:22px; font-weight:700;">3.27</span>
+          <span style="font-size:12px; color:var(--gray-2);">금</span>
+        </div>
+
+        <div class="tl-stage-head" style="padding-top:0;">
+          <span style="width:10px; height:10px; border-radius:999px; background:var(--gray-2);"></span>
+          <h3>위원회 심사</h3>
+          <span class="count">심의한 법안 15개 ›</span>
+        </div>
+
+        <div style="padding: 0 20px 24px;">
+          <div class="tl-card-grid">
+            <div class="tl-card">
+              <h4>문화체육관광위원회</h4>
+              <div class="count-link">심사한 법안 14개 ›</div>
+              <div class="bill-mini">
+                <span class="party-circle minjoo"></span>
+                <div class="text"><span class="name">체육지도자 계약서 표준화 및 인권 보호 위한 국민체육진흥법 일부개정법률안</span><span class="by">박덕흠의원 등 10인</span></div>
+              </div>
+              <div class="bill-mini">
+                <span class="party-circle ppp"></span>
+                <div class="text"><span class="name">관람료 감면 지원 규제 완화를 위한 문화유산의 보존 및 활용에 관한 법률 일부개정법률안</span><span class="by">박정하의원 · 임오경의원 등 22인</span></div>
+              </div>
+              <div class="bill-mini">
+                <span class="party-circle minjoo"></span>
+                <div class="text"><span class="name">사진의 창작 활성화와 작가 권익 보호 등을 위한 사진진흥에 관한 법률안</span><span class="by">이연희의원 등 16인</span></div>
+              </div>
+            </div>
+            <div class="tl-card">
+              <h4>정치개혁특별위원회</h4>
+              <div class="count-link">심사한 법안 1개 ›</div>
+              <div class="bill-mini">
+                <span class="party-circle minjoo"></span>
+                <div class="text"><span class="name">재외선거인 투표 편의 증진을 위한 공직선거법 일부개정법률안</span><span class="by">이재강의원 등 11인</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta"><span>"타임라인" 48px bold · 단계명 26px font-extralight · 정당 마커 28×28 border-1.5</span><code>TimelineBoard / *List</code></div>
+    </div>
+  </section>
+
+  <!-- ============ 8. LOGIN ============ -->
+  <section class="section">
+    <h2><span class="num">08</span> 로그인 (소셜 인증)</h2>
+    <p class="desc">중앙 정렬, 로고 아래로 풀 알약 모양의 소셜 로그인 버튼 3개가 8–16px 간격으로 쌓입니다.</p>
+
+    <div class="preview">
+      <div class="stage" style="display:flex; flex-direction:column; align-items:center; gap: 16px; padding: 60px 24px;">
+        <div class="ld-logo" style="margin-bottom: 12px;">
+          <svg width="261" height="44" viewBox="0 0 107 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g clip-path="url(#clip0_logo_c)">
+              <path d="M10.9717 9.49186L16.6512 9.49186L16.6519 13.3855H18.6692L18.6685 9.49186H24.2592V0L10.9717 0L10.9717 9.49186ZM13.0057 1.79501L22.2196 1.79501V7.70241L13.0057 7.70241L13.0057 1.79501Z" fill="black"/>
+              <path d="M36.5405 12.4709H34.5232V18.3172H36.5405V12.4709Z" fill="black"/>
+              <path d="M30.9505 1.77833L42.204 1.77833V0L28.9165 0V9.49186L42.3874 9.49186V7.73575L30.9505 7.73575V1.77833Z" fill="black"/>
+              <path d="M54.2964 1.05056C53.5295 0.3948 52.4458 0.0224609 51.251 0.0224609C50.0562 0.0224609 48.9725 0.3948 48.2056 1.05056C47.1608 1.96751 46.6162 3.4402 46.6162 5.313C46.6162 7.18581 47.1608 8.64182 48.2056 9.57545C48.9725 10.2312 50.0562 10.6035 51.251 10.6035C52.4458 10.6035 53.5295 10.2312 54.2964 9.57545C55.3801 8.64182 55.8858 7.18581 55.8858 5.313C55.8858 3.4402 55.3801 1.96751 54.2964 1.05056ZM52.9515 8.20835C52.557 8.61959 51.9623 8.82521 51.251 8.82521C50.5397 8.82521 49.9784 8.61959 49.5505 8.20835C48.9169 7.60817 48.6557 6.58007 48.6557 5.313C48.6557 4.04594 48.9169 2.99561 49.5505 2.39543C49.9784 1.98419 50.5619 1.79524 51.251 1.79524C51.9401 1.79524 52.557 1.98419 52.9515 2.39543C53.5851 2.99561 53.8685 4.05706 53.8685 5.313C53.8685 6.56895 53.5906 7.61372 52.9515 8.20835Z" fill="black"/>
+              <path d="M60.0925 0.0112305L58.053 0.0112305V18.317H60.0925V0.0112305Z" fill="black"/>
+              <path d="M68.6004 8.78626C69.7785 8.78626 70.7844 8.44726 71.5346 7.8304C72.4849 7.1024 73.0462 5.94092 73.0462 4.39044C73.0462 2.83995 72.4849 1.70071 71.5346 0.950471C70.7844 0.350283 69.7785 0.0168457 68.6004 0.0168457C67.4222 0.0168457 66.433 0.350283 65.6661 0.950471C64.7325 1.70071 64.1545 2.85662 64.1545 4.39044C64.1545 5.92425 64.7325 7.1024 65.6661 7.8304C66.433 8.44726 67.4389 8.78626 68.6004 8.78626ZM66.9554 2.35647C67.3667 1.98413 67.9446 1.77851 68.6004 1.77851C69.2561 1.77851 69.8341 1.98413 70.262 2.35647C70.7844 2.82328 71.0678 3.51238 71.0678 4.39599C71.0678 5.2796 70.79 6.00205 70.262 6.43552C69.8341 6.83009 69.2506 7.03571 68.6004 7.03571C67.9502 7.03571 67.3667 6.83009 66.9554 6.43552C66.433 6.00761 66.1329 5.2796 66.1329 4.39599C66.1329 3.51238 66.433 2.82328 66.9554 2.35647Z" fill="black"/>
+              <path d="M93.9809 0.0112305V2.78988L90.5799 2.78988V0.0112305L88.5959 0.0112305V2.78988L84.3001 2.78988V0.0112305L82.3162 0.0112305V8.35829L90.5799 8.35829V4.52375L93.9809 4.52375V16.5998L85.3838 16.5998V9.75872H83.3443V18.317L96.0149 18.317V0.0112305L93.9754 0.0112305H93.9809ZM88.6015 6.59662L84.3057 6.59662V4.52375L88.6015 4.52375V6.59662Z" fill="black"/>
+              <path d="M76.0248 2.78988V4.5182V9.75872V16.5942H67.4277V9.75872H65.3882V18.317L78.0588 18.317V9.75872V0.0112305L76.0248 0.0112305V2.78988Z" fill="black"/>
+              <path d="M106.732 12.3992V13.6673L0 13.6673L0 12.3992L106.732 12.3992Z" fill="url(#paint0_logo_c)"/>
+            </g>
+            <defs>
+              <linearGradient id="paint0_logo_c" x1="1.3096e-09" y1="13.0332" x2="106.732" y2="13.0332" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#FBEB59" stop-opacity="0"/>
+                <stop offset="0.0001" stop-color="#FBEB59"/>
+                <stop offset="0.31" stop-color="#FC56D8"/>
+                <stop offset="0.65" stop-color="#10D9EF"/>
+                <stop offset="0.9999" stop-color="#6CF880"/>
+                <stop offset="1" stop-color="#6CF880" stop-opacity="0"/>
+              </linearGradient>
+              <clipPath id="clip0_logo_c">
+                <rect width="106.725" height="18" fill="white"/>
+              </clipPath>
+            </defs>
+          </svg>
+        </div>
+        <button class="social-pill"><span class="ico kakao">K</span>카카오톡으로 시작하기</button>
+        <button class="social-pill"><span class="ico google"><svg viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg></span>구글로 시작하기</button>
+        <button class="social-pill"><span class="ico naver">N</span>네이버로 시작하기</button>
+      </div>
+      <div class="meta"><span>버튼 360×56 rounded-full · gray-1 보더 · #FEE500 / #fff / #03C75A</span><code>app/login</code></div>
+    </div>
+  </section>
+
+  <!-- ============ 9. BUTTONS / CHIPS ============ -->
+  <section class="section">
+    <h2><span class="num">09</span> 버튼 · 칩</h2>
+    <p class="desc">실제 코드에서 사용되는 버튼 변형 모음. CTA pill (242×56) / 디테일 (88×32) / 각진 CTA (227×56) / segmented sort.</p>
+
+    <div class="preview">
+      <div class="stage" style="display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
+        <button class="ld-btn cta-pill">원문 확인하기</button>
+        <button class="ld-btn detail">자세히 보기</button>
+        <button class="ld-btn cta-square">홈으로</button>
+        <button class="ld-btn cta-square outline">다시 시도</button>
+        <div class="seg-group">
+          <button class="seg-btn is-active">시간순</button>
+          <button class="seg-btn">HOT</button>
+        </div>
+        <span class="ld-chip">위원회 심사</span>
+        <span class="ld-chip">접수</span>
+        <span class="ld-chip" style="border-color: var(--theme-alert); color: var(--theme-alert);">폐기</span>
+      </div>
+      <div class="meta"><span>NextUI Button · radius full / sm / none · 모두 실제 코드에 등장</span><code>Bill / error / not-found / Feed</code></div>
+    </div>
+  </section>
+
+  <!-- ============ 10. FEEDBACK ============ -->
+  <section class="section">
+    <h2><span class="num">10</span> 피드백 (스낵바 · 모달 · 로딩)</h2>
+    <p class="desc">스낵바는 SUCCESS / ERROR / CANCEL / INFO 4종이며, 라이브에서 가장 자주 보이는 ERROR가 시각적 기준입니다. 모달은 NextUI <code>size=xs</code>를 표준으로 사용합니다.</p>
+
+    <div class="preview">
+      <div class="stage" style="display:flex; flex-direction:column; gap: 12px;">
+        <div class="snack error">
+          <span style="flex:1;">로그인이 필요한 서비스입니다.</span>
+          <a href="#" style="color:#fff; text-decoration: underline; font-weight: 500; font-size: 13px;">로그인 하기</a>
+          <button class="ld-icon-btn" style="color:#fff;" aria-label="close">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1L13 13M13 1L1 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="snack success">해당 법안을 스크랩했습니다.</div>
+        <div class="snack cancel">해당 법안의 스크랩을 취소했습니다.</div>
+        <div class="snack info">새로운 알림이 도착했습니다.</div>
+
+        <div class="modal-mock" style="margin-top: 12px;">
+          <header>주의</header>
+          <div class="body">회원탈퇴를 진행하시겠습니까 ?</div>
+          <div class="foot">
+            <button class="ld-btn detail" style="background: transparent; color: var(--primary-3);">취소</button>
+            <button class="ld-btn detail" style="background: transparent; color: var(--theme-alert);">확인</button>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="spinner"></div>
+          <span style="color:var(--gray-3);font-size:14px;">로딩 중입니다.</span>
+        </div>
+      </div>
+      <div class="meta"><span>error 95% opacity · radius 8 · max-w 480 · with action link</span><code>Snackbar.tsx</code></div>
+    </div>
+  </section>
+
+  <!-- ============ 11. MOBILE FLOATING NAV ============ -->
+  <section class="section">
+    <h2><span class="num">11</span> 모바일 플로팅 네비게이션</h2>
+    <p class="desc">하단 고정, 글래스모피즘(blur 40 saturate 220 contrast 106), 액티브 탭 슬라이딩 인디케이터, 스크롤 시 compact 축소, 검색 열림 시 원형으로 축소 후 검색바 확장. 4개 nav 항목은 desktop과 동일한 피드/타임라인/선거/마이페이지.</p>
+
+    <div class="preview">
+      <div class="stage flush">
+        <div class="nav-stage">
+          <div class="floating-nav" id="floatingNav">
+            <div class="item is-active">
+              <span class="svg-inactive"><svg viewBox="0 0 30 31" fill="none" width="24" height="24"><path d="M3.25 27.25V13.36L15 3.96l11.75 9.4V27.25H3.25Z" stroke="currentColor" stroke-width="1.5"/><path d="M15 28V18" stroke="currentColor" stroke-width="1.5"/></svg></span>
+              <span class="svg-active"><svg viewBox="0 0 30 31" fill="none" width="24" height="24"><path d="M3.25 27.25V13.36L15 3.96l11.75 9.4V27.25H3.25Z" fill="currentColor" fill-opacity=".9" stroke="currentColor" stroke-width="1.5"/><path d="M15 28V18" stroke="currentColor" stroke-width="1.5"/></svg></span>
+              <span>피드</span>
+            </div>
+            <div class="item">
+              <span class="svg-inactive"><svg viewBox="0 0 30 31" fill="none" width="24" height="24"><path d="M18.75 6.66V4.24M18.75 6.66v2.43M18.75 6.66h-5.63M3.75 13.95v10.92c0 1.34 1.12 2.43 2.5 2.43h17.5c1.38 0 2.5-1.09 2.5-2.43V13.95H3.75Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M3.75 14.26V8.91c0-1.48 1.14-2.67 2.56-2.67h2.55" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.86 4.24v5.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M26.25 14.26V8.91c0-1.48-1.1-2.67-2.46-2.67h-.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+              <span class="svg-active"><svg viewBox="0 0 30 31" fill="none" width="24" height="24"><path d="M3.75 8.9144C3.75 7.4377 4.89473 6.2406 6.30682 6.2406H23.7953C25.1509 6.2406 26.2498 7.4377 26.2498 8.9144V24.8692C26.2498 26.2099 25.1307 27.2967 23.75 27.2967H6.25C4.86929 27.2967 3.75 26.2099 3.75 24.8692V8.9144Z" fill="currentColor" fill-opacity="0.15"/><path d="M18.75 6.66V4.24M18.75 6.66v2.43M18.75 6.66h-5.63M3.75 13.95v10.92c0 1.34 1.12 2.43 2.5 2.43h17.5c1.38 0 2.5-1.09 2.5-2.43V13.95H3.75Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M3.75 14.26V8.91c0-1.48 1.14-2.67 2.56-2.67h2.55" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.86 4.24v5.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M26.25 14.26V8.91c0-1.48-1.1-2.67-2.46-2.67h-.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+              <span>타임라인</span>
+            </div>
+            <div class="item">
+              <span class="svg-inactive"><svg viewBox="0 0 30 31" fill="none" width="24" height="24"><circle cx="15" cy="15.5" r="12" stroke="currentColor" stroke-width="2"/><line x1="15" y1="3.5" x2="15" y2="27.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><line x1="15" y1="15.5" x2="23.49" y2="23.99" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span>
+              <span class="svg-active"><svg viewBox="0 0 30 31" fill="none" width="24" height="24"><circle cx="15" cy="15.5" r="12" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="2"/><line x1="15" y1="3.5" x2="15" y2="27.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><line x1="15" y1="15.5" x2="23.49" y2="23.99" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></span>
+              <span>선거</span>
+            </div>
+            <div class="item">
+              <span class="svg-inactive"><svg viewBox="0 0 30 31" fill="none" width="24" height="24"><circle cx="15" cy="9.25" r="5.6" stroke="currentColor" stroke-width="1.3"/><path fill-rule="evenodd" clip-rule="evenodd" d="M4.587 24.217c-.375.815-.626 1.667-.749 2.533h22.324c-.123-.866-.374-1.718-.749-2.533-.554-1.204-1.37-2.308-2.41-3.243-1.04-.935-2.28-1.683-3.655-2.196C17.972 18.265 16.495 18 15 18c-1.495 0-2.972.265-4.347.778-1.375.513-2.614 1.261-3.655 2.196C5.958 21.91 5.141 23.013 4.587 24.217ZM27.423 26.75c.05.414.077.831.077 1.25H2.5c0-.419.027-.836.077-1.25.13-1.048.424-2.077.874-3.055.628-1.365 1.549-2.605 2.71-3.65 1.162-1.046 2.539-1.874 4.054-2.437C11.733 17.041 13.358 16.75 15 16.75c1.642 0 3.267.291 4.784.858 1.516.563 2.893 1.391 4.053 2.437 1.161 1.045 2.082 2.285 2.71 3.65.45.978.744 2.007.875 3.055Z" fill="currentColor" stroke="none"/></svg></span>
+              <span class="svg-active"><svg viewBox="0 0 30 31" fill="none" width="24" height="24"><circle cx="15" cy="9.25" r="5.6" fill="currentColor" fill-opacity="0.9" stroke="currentColor" stroke-width="1.3"/><path d="M27.4226 26.75C27.4741 27.1642 27.5 27.5815 27.5 28L2.5 28C2.5 27.5815 2.52594 27.1642 2.5774 26.75C2.70762 25.7018 3.00125 24.6731 3.4515 23.6948C4.07969 22.3299 5.00043 21.0897 6.16116 20.045C7.3219 19.0004 8.69989 18.1717 10.2165 17.6064C11.733 17.041 13.3585 16.75 15 16.75C16.6415 16.75 18.267 17.041 19.7835 17.6064C21.3001 18.1717 22.6781 19.0004 23.8388 20.045C24.9996 21.0897 25.9203 22.3299 26.5485 23.6948C26.9987 24.6731 27.2924 25.7018 27.4226 26.75Z" fill="currentColor" stroke="none"/></svg></span>
+              <span>마이페이지</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="meta"><span>backdrop-filter blur(40) saturate(220) contrast(106) · 62→43px compact · 검색 열림 시 원형</span><code>mobile-floating-nav.css</code></div>
+    </div>
+  </section>
+
+  <!-- ============ 12. DARK MODE ============ -->
+  <section class="section">
+    <h2><span class="num">12</span> 다크 모드</h2>
+    <p class="desc">베이스는 <code>dark.b</code>(#101012), 패널은 <code>dark.pb</code>(#1E1E1E), 라인은 <code>dark.l</code>(#2E2E2E). 본문 톤은 <code>gray.1/2</code>로 가라앉히고 정당색 보더는 그대로 유지됩니다.</p>
+
+    <div class="dark-stage">
+      <div style="display:flex; gap: 24px; align-items: flex-start;">
+        <div style="flex:1; min-width: 280px;">
+          <div style="display:flex; flex-direction:column; gap:6px; margin-bottom: 12px;">
+            <h3 style="font-size:20px; font-weight:600; margin:0;">예산결산특별위원회 회의 결과</h3>
+            <span style="font-size:12px; color: var(--gray-2);">국회 예산결산특별위원회 (제3차)</span>
+          </div>
+          <p style="font-size:14px; line-height:1.6; color: var(--gray-1); margin:0 0 18px;">
+            2025회계연도 예산안 심사 일정과 주요 쟁점이 정리되었습니다. 본회의 상정은 다음 주 화요일로 예정되어 있습니다.
+          </p>
+          <button class="ld-btn detail" style="background: var(--gray-3); color: var(--gray-1);">자세히 보기</button>
+        </div>
+        <div class="proposer-card minjoo" style="background: var(--gray-4); margin-top: 0; box-shadow: none; flex: 0 0 380px;">
+          <div class="who">
+              <span class="avatar"><svg viewBox="0 0 40 40" width="40" height="40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="20" fill="#B0B7C3"/><circle cx="20" cy="15" r="7.5" fill="#fff"/><path d="M4 40c0-8.837 7.163-16 16-16s16 7.163 16 16" fill="#fff"/></svg></span>
+            <div>
+              <h5 style="color:#fff;">홍길동 의원</h5>
+              <div class="sub">홍길동 의원 등 12인</div>
+            </div>
+          </div>
+          <div class="party-logo"><img src="./assets/parties/dark/1.png" alt="더불어민주당"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 14. PARTY LOGOS ============ -->
+  <section class="section">
+    <h2><span class="num">14</span> 정당 로고</h2>
+    <p class="desc">Oracle ObjectStorage에 저장된 정당 로고 PNG. <code>/party/wide/{id}.png</code> (라이트)·<code>/party/dark/{id}.png</code> (다크) 두 변형이 있습니다. 다크 변형은 일부 정당(1·2·6·7·9·10)만 제공됩니다.</p>
+
+    <table class="spec" style="margin-bottom:32px;">
+      <tr><th>ID</th><th>정당명</th><th>컬러</th><th>다크 변형</th></tr>
+      <tr><td>1</td><td>더불어민주당</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#152484;vertical-align:middle;margin-right:6px;"></span>#152484</td><td>✓</td></tr>
+      <tr><td>2</td><td>국민의힘</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#E61E2B;vertical-align:middle;margin-right:6px;"></span>#E61E2B</td><td>✓</td></tr>
+      <tr><td>3</td><td>더불어민주연합</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#152484;vertical-align:middle;margin-right:6px;"></span>#152484</td><td>—</td></tr>
+      <tr><td>4</td><td>국민의미래</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#E4002B;vertical-align:middle;margin-right:6px;"></span>#E4002B</td><td>—</td></tr>
+      <tr><td>5</td><td>녹색정의당</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#007C36;vertical-align:middle;margin-right:6px;"></span>#007C36</td><td>—</td></tr>
+      <tr><td>6</td><td>새로운미래</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#45BABD;vertical-align:middle;margin-right:6px;"></span>#45BABD</td><td>✓</td></tr>
+      <tr><td>7</td><td>개혁신당</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#FF7210;vertical-align:middle;margin-right:6px;"></span>#FF7210</td><td>✓</td></tr>
+      <tr><td>8</td><td>자유통일당</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#0958A7;vertical-align:middle;margin-right:6px;"></span>#0958A7</td><td>—</td></tr>
+      <tr><td>9</td><td>진보당</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#D6001C;vertical-align:middle;margin-right:6px;"></span>#D6001C</td><td>✓</td></tr>
+      <tr><td>10</td><td>조국혁신당</td><td><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#0073CF;vertical-align:middle;margin-right:6px;"></span>#0073CF</td><td>✓</td></tr>
+    </table>
+
+    <h3 style="font-size:15px;font-weight:700;margin:0 0 16px;color:var(--gray-1);">Wide (라이트 모드)</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:40px;">
+      <div style="background:#fff;border:1px solid var(--gray-3);border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/wide/1.png" alt="더불어민주당" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:var(--gray-2);">더불어민주당</span>
+      </div>
+      <div style="background:#fff;border:1px solid var(--gray-3);border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/wide/2.png" alt="국민의힘" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:var(--gray-2);">국민의힘</span>
+      </div>
+      <div style="background:#fff;border:1px solid var(--gray-3);border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/wide/3.png" alt="더불어민주연합" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:var(--gray-2);">더불어민주연합</span>
+      </div>
+      <div style="background:#fff;border:1px solid var(--gray-3);border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/wide/4.png" alt="국민의미래" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:var(--gray-2);">국민의미래</span>
+      </div>
+      <div style="background:#fff;border:1px solid var(--gray-3);border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/wide/5.png" alt="녹색정의당" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:var(--gray-2);">녹색정의당</span>
+      </div>
+      <div style="background:#fff;border:1px solid var(--gray-3);border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/wide/6.png" alt="새로운미래" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:var(--gray-2);">새로운미래</span>
+      </div>
+      <div style="background:#fff;border:1px solid var(--gray-3);border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/wide/7.png" alt="개혁신당" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:var(--gray-2);">개혁신당</span>
+      </div>
+      <div style="background:#fff;border:1px solid var(--gray-3);border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/wide/8.png" alt="자유통일당" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:var(--gray-2);">자유통일당</span>
+      </div>
+      <div style="background:#fff;border:1px solid var(--gray-3);border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/wide/9.png" alt="진보당" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:var(--gray-2);">진보당</span>
+      </div>
+      <div style="background:#fff;border:1px solid var(--gray-3);border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/wide/10.png" alt="조국혁신당" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:var(--gray-2);">조국혁신당</span>
+      </div>
+    </div>
+
+    <h3 style="font-size:15px;font-weight:700;margin:0 0 16px;color:var(--gray-1);">Dark (다크 모드) — 제공 정당만</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;">
+      <div style="background:#18181b;border:1px solid #333;border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/dark/1.png" alt="더불어민주당 dark" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:#aaa;">더불어민주당</span>
+      </div>
+      <div style="background:#18181b;border:1px solid #333;border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/dark/2.png" alt="국민의힘 dark" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:#aaa;">국민의힘</span>
+      </div>
+      <div style="background:#18181b;border:1px solid #333;border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/dark/6.png" alt="새로운미래 dark" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:#aaa;">새로운미래</span>
+      </div>
+      <div style="background:#18181b;border:1px solid #333;border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/dark/7.png" alt="개혁신당 dark" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:#aaa;">개혁신당</span>
+      </div>
+      <div style="background:#18181b;border:1px solid #333;border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/dark/9.png" alt="진보당 dark" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:#aaa;">진보당</span>
+      </div>
+      <div style="background:#18181b;border:1px solid #333;border-radius:12px;padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <img src="./assets/parties/dark/10.png" alt="조국혁신당 dark" style="height:32px;object-fit:contain;max-width:140px;">
+        <span style="font-size:11px;color:#aaa;">조국혁신당</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 13. SVG ASSETS ============ -->
+  <section class="section">
+    <h2><span class="num">13</span> SVG 자산</h2>
+    <p class="desc">자체 제작 SVG는 <code>public/svgs</code>에 위치합니다. nav 아이콘은 모두 30×31 viewBox에 <code>isActive</code> 분기 fill을 가집니다.</p>
+
+    <h3 class="sub" style="margin:0 0 14px;">브랜드 · 내비게이션</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:32px;align-items:flex-start;">
+
+      <!-- Logo -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:160px;">
+        <div style="background:#f8f9fa;border-radius:8px;padding:16px 20px;display:flex;align-items:center;justify-content:center;">
+          <svg width="107" height="18" viewBox="0 0 107 18" fill="none" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip_s13)"><path d="M10.9717 9.49186L16.6512 9.49186L16.6519 13.3855H18.6692L18.6685 9.49186H24.2592V0L10.9717 0L10.9717 9.49186ZM13.0057 1.79501L22.2196 1.79501V7.70241L13.0057 7.70241L13.0057 1.79501Z" fill="black"/><path d="M36.5405 12.4709H34.5232V18.3172H36.5405V12.4709Z" fill="black"/><path d="M30.9505 1.77833L42.204 1.77833V0L28.9165 0V9.49186L42.3874 9.49186V7.73575L30.9505 7.73575V1.77833Z" fill="black"/><path d="M54.2964 1.05056C53.5295 0.3948 52.4458 0.0224609 51.251 0.0224609C50.0562 0.0224609 48.9725 0.3948 48.2056 1.05056C47.1608 1.96751 46.6162 3.4402 46.6162 5.313C46.6162 7.18581 47.1608 8.64182 48.2056 9.57545C48.9725 10.2312 50.0562 10.6035 51.251 10.6035C52.4458 10.6035 53.5295 10.2312 54.2964 9.57545C55.3801 8.64182 55.8858 7.18581 55.8858 5.313C55.8858 3.4402 55.3801 1.96751 54.2964 1.05056ZM52.9515 8.20835C52.557 8.61959 51.9623 8.82521 51.251 8.82521C50.5397 8.82521 49.9784 8.61959 49.5505 8.20835C48.9169 7.60817 48.6557 6.58007 48.6557 5.313C48.6557 4.04594 48.9169 2.99561 49.5505 2.39543C49.9784 1.98419 50.5619 1.79524 51.251 1.79524C51.9401 1.79524 52.557 1.98419 52.9515 2.39543C53.5851 2.99561 53.8685 4.05706 53.8685 5.313C53.8685 6.56895 53.5906 7.61372 52.9515 8.20835Z" fill="black"/><path d="M60.0925 0.0112305L58.053 0.0112305V18.317H60.0925V0.0112305Z" fill="black"/><path d="M68.6004 8.78626C69.7785 8.78626 70.7844 8.44726 71.5346 7.8304C72.4849 7.1024 73.0462 5.94092 73.0462 4.39044C73.0462 2.83995 72.4849 1.70071 71.5346 0.950471C70.7844 0.350283 69.7785 0.0168457 68.6004 0.0168457C67.4222 0.0168457 66.433 0.350283 65.6661 0.950471C64.7325 1.70071 64.1545 2.85662 64.1545 4.39044C64.1545 5.92425 64.7325 7.1024 65.6661 7.8304C66.433 8.44726 67.4389 8.78626 68.6004 8.78626ZM66.9554 2.35647C67.3667 1.98413 67.9446 1.77851 68.6004 1.77851C69.2561 1.77851 69.8341 1.98413 70.262 2.35647C70.7844 2.82328 71.0678 3.51238 71.0678 4.39599C71.0678 5.2796 70.79 6.00205 70.262 6.43552C69.8341 6.83009 69.2506 7.03571 68.6004 7.03571C67.9502 7.03571 67.3667 6.83009 66.9554 6.43552C66.433 6.00761 66.1329 5.2796 66.1329 4.39599C66.1329 3.51238 66.433 2.82328 66.9554 2.35647Z" fill="black"/><path d="M93.9809 0.0112305V2.78988L90.5799 2.78988V0.0112305L88.5959 0.0112305V2.78988L84.3001 2.78988V0.0112305L82.3162 0.0112305V8.35829L90.5799 8.35829V4.52375L93.9809 4.52375V16.5998L85.3838 16.5998V9.75872H83.3443V18.317L96.0149 18.317V0.0112305L93.9754 0.0112305H93.9809ZM88.6015 6.59662L84.3057 6.59662V4.52375L88.6015 4.52375V6.59662Z" fill="black"/><path d="M76.0248 2.78988V4.5182V9.75872V16.5942H67.4277V9.75872H65.3882V18.317L78.0588 18.317V9.75872V0.0112305L76.0248 0.0112305V2.78988Z" fill="black"/><path d="M106.732 12.3992V13.6673L0 13.6673L0 12.3992L106.732 12.3992Z" fill="url(#grad_s13)"/></g><defs><linearGradient id="grad_s13" x1="0" y1="13.0332" x2="106.732" y2="13.0332" gradientUnits="userSpaceOnUse"><stop stop-color="#FBEB59" stop-opacity="0"/><stop offset="0.0001" stop-color="#FBEB59"/><stop offset="0.31" stop-color="#FC56D8"/><stop offset="0.65" stop-color="#10D9EF"/><stop offset="0.9999" stop-color="#6CF880"/><stop offset="1" stop-color="#6CF880" stop-opacity="0"/></linearGradient><clipPath id="clip_s13"><rect width="106.725" height="18" fill="white"/></clipPath></defs></svg>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:#191919;">Logo</span>
+        <code style="font-size:10px;color:var(--gray-2);">images/logo.svg · 107×18</code>
+      </div>
+
+      <!-- NavBorder -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:linear-gradient(135deg,#fff9ed,#eef4ff);border-radius:8px;padding:20px;display:flex;align-items:center;justify-content:center;">
+          <svg width="100" height="50" viewBox="0 0 100 50" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.5" y="1.5" width="97" height="47" rx="23.5" stroke="url(#nb_s13)" stroke-width="3"/><defs><linearGradient id="nb_s13" x1="0" y1="25" x2="100" y2="25" gradientUnits="userSpaceOnUse"><stop stop-color="#FBEB59" stop-opacity="0"/><stop offset="0.0001" stop-color="#FBEB59"/><stop offset="0.31" stop-color="#FC56D8"/><stop offset="0.65" stop-color="#10D9EF"/><stop offset="0.9999" stop-color="#6CF880"/><stop offset="1" stop-color="#6CF880" stop-opacity="0"/></linearGradient></defs></svg>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:#191919;">NavBorder</span>
+        <code style="font-size:10px;color:var(--gray-2);">navigation/NavBorder.tsx · 100×50</code>
+      </div>
+
+      <!-- IconHome -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#f8f9fa;border-radius:8px;padding:14px 20px;display:flex;align-items:center;justify-content:center;gap:20px;">
+          <div style="text-align:center;"><svg viewBox="0 0 30 31" fill="none" width="30" height="31"><path d="M3.25 27.25V13.36L15 3.96l11.75 9.4V27.25H3.25Z" stroke="currentColor" stroke-width="1.5"/><path d="M15 28V18" stroke="currentColor" stroke-width="1.5"/></svg><div style="font-size:9px;color:var(--gray-2);margin-top:4px;">inactive</div></div>
+          <div style="text-align:center;"><svg viewBox="0 0 30 31" fill="none" width="30" height="31"><path d="M3.25 27.25V13.36L15 3.96l11.75 9.4V27.25H3.25Z" fill="currentColor" fill-opacity=".9" stroke="currentColor" stroke-width="1.5"/><path d="M15 28V18" stroke="currentColor" stroke-width="1.5"/></svg><div style="font-size:9px;color:var(--gray-2);margin-top:4px;">active</div></div>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:#191919;">IconHome</span>
+        <code style="font-size:10px;color:var(--gray-2);">navigation/Home.tsx · 30×31</code>
+      </div>
+
+      <!-- IconTimeline -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#f8f9fa;border-radius:8px;padding:14px 20px;display:flex;align-items:center;justify-content:center;gap:20px;">
+          <div style="text-align:center;"><svg viewBox="0 0 30 31" fill="none" width="30" height="31"><path d="M18.75 6.66V4.24M18.75 6.66v2.43M18.75 6.66h-5.63M3.75 13.95v10.92c0 1.34 1.12 2.43 2.5 2.43h17.5c1.38 0 2.5-1.09 2.5-2.43V13.95H3.75Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M3.75 14.26V8.91c0-1.48 1.14-2.67 2.56-2.67h2.55" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.86 4.24v5.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M26.25 14.26V8.91c0-1.48-1.1-2.67-2.46-2.67h-.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><div style="font-size:9px;color:var(--gray-2);margin-top:4px;">inactive</div></div>
+          <div style="text-align:center;"><svg viewBox="0 0 30 31" fill="none" width="30" height="31"><path d="M3.75 8.9144C3.75 7.4377 4.89473 6.2406 6.30682 6.2406H23.7953C25.1509 6.2406 26.2498 7.4377 26.2498 8.9144V24.8692C26.2498 26.2099 25.1307 27.2967 23.75 27.2967H6.25C4.86929 27.2967 3.75 26.2099 3.75 24.8692V8.9144Z" fill="currentColor" fill-opacity="0.15"/><path d="M18.75 6.66V4.24M18.75 6.66v2.43M18.75 6.66h-5.63M3.75 13.95v10.92c0 1.34 1.12 2.43 2.5 2.43h17.5c1.38 0 2.5-1.09 2.5-2.43V13.95H3.75Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M3.75 14.26V8.91c0-1.48 1.14-2.67 2.56-2.67h2.55" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8.86 4.24v5.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M26.25 14.26V8.91c0-1.48-1.1-2.67-2.46-2.67h-.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><div style="font-size:9px;color:var(--gray-2);margin-top:4px;">active</div></div>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:#191919;">IconTimeline</span>
+        <code style="font-size:10px;color:var(--gray-2);">navigation/Timeline.tsx · 30×31</code>
+      </div>
+
+      <!-- IconElection -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#f8f9fa;border-radius:8px;padding:14px 20px;display:flex;align-items:center;justify-content:center;gap:20px;">
+          <div style="text-align:center;"><svg viewBox="0 0 30 31" fill="none" width="30" height="31"><circle cx="15" cy="15.5" r="12" stroke="currentColor" stroke-width="2"/><line x1="15" y1="3.5" x2="15" y2="27.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><line x1="15" y1="15.5" x2="23.49" y2="23.99" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><div style="font-size:9px;color:var(--gray-2);margin-top:4px;">inactive</div></div>
+          <div style="text-align:center;"><svg viewBox="0 0 30 31" fill="none" width="30" height="31"><circle cx="15" cy="15.5" r="12" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="2"/><line x1="15" y1="3.5" x2="15" y2="27.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><line x1="15" y1="15.5" x2="23.49" y2="23.99" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg><div style="font-size:9px;color:var(--gray-2);margin-top:4px;">active</div></div>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:#191919;">IconElection</span>
+        <code style="font-size:10px;color:var(--gray-2);">navigation/Election.tsx · 30×31</code>
+      </div>
+
+      <!-- IconMyPage -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#f8f9fa;border-radius:8px;padding:14px 20px;display:flex;align-items:center;justify-content:center;gap:20px;">
+          <div style="text-align:center;"><svg viewBox="0 0 30 31" fill="none" width="30" height="31"><circle cx="15" cy="9.25" r="5.6" stroke="currentColor" stroke-width="1.3"/><path fill-rule="evenodd" clip-rule="evenodd" d="M4.587 24.217c-.375.815-.626 1.667-.749 2.533h22.324c-.123-.866-.374-1.718-.749-2.533-.554-1.204-1.37-2.308-2.41-3.243-1.04-.935-2.28-1.683-3.655-2.196C17.972 18.265 16.495 18 15 18c-1.495 0-2.972.265-4.347.778-1.375.513-2.614 1.261-3.655 2.196C5.958 21.91 5.141 23.013 4.587 24.217ZM27.423 26.75c.05.414.077.831.077 1.25H2.5c0-.419.027-.836.077-1.25.13-1.048.424-2.077.874-3.055.628-1.365 1.549-2.605 2.71-3.65 1.162-1.046 2.539-1.874 4.054-2.437C11.733 17.041 13.358 16.75 15 16.75c1.642 0 3.267.291 4.784.858 1.516.563 2.893 1.391 4.053 2.437 1.161 1.045 2.082 2.285 2.71 3.65.45.978.744 2.007.875 3.055Z" fill="currentColor" stroke="none"/></svg><div style="font-size:9px;color:var(--gray-2);margin-top:4px;">inactive</div></div>
+          <div style="text-align:center;"><svg viewBox="0 0 30 31" fill="none" width="30" height="31"><circle cx="15" cy="9.25" r="5.6" fill="currentColor" fill-opacity="0.9" stroke="currentColor" stroke-width="1.3"/><path d="M27.4226 26.75C27.4741 27.1642 27.5 27.5815 27.5 28L2.5 28C2.5 27.5815 2.52594 27.1642 2.5774 26.75C2.70762 25.7018 3.00125 24.6731 3.4515 23.6948C4.07969 22.3299 5.00043 21.0897 6.16116 20.045C7.3219 19.0004 8.69989 18.1717 10.2165 17.6064C11.733 17.041 13.3585 16.75 15 16.75C16.6415 16.75 18.267 17.041 19.7835 17.6064C21.3001 18.1717 22.6781 19.0004 23.8388 20.045C24.9996 21.0897 25.9203 22.3299 26.5485 23.6948C26.9987 24.6731 27.2924 25.7018 27.4226 26.75Z" fill="currentColor" stroke="none"/></svg><div style="font-size:9px;color:var(--gray-2);margin-top:4px;">active</div></div>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:#191919;">IconMyPage</span>
+        <code style="font-size:10px;color:var(--gray-2);">navigation/MyPage.tsx · 30×31</code>
+      </div>
+
+    </div>
+
+    <h3 class="sub" style="margin:0 0 14px;">공통 · 헤더 아이콘</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;">
+
+      <!-- IconScrabSmall -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#f8f9fa;border-radius:8px;padding:14px 20px;display:flex;align-items:center;justify-content:center;gap:20px;">
+          <div style="text-align:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4.65 20.9483V2.65H19.35V20.9483L12.2907 17.4186L12 17.2733L11.7093 17.4186L4.65 20.9483Z" stroke="#555555" stroke-width="1.3"/></svg><div style="font-size:9px;color:var(--gray-2);margin-top:4px;">inactive</div></div>
+          <div style="text-align:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4.65 20.9483V2.65H19.35V20.9483L12.2907 17.4186L12 17.2733L11.7093 17.4186L4.65 20.9483Z" fill="#E63946"/></svg><div style="font-size:9px;color:var(--gray-2);margin-top:4px;">active</div></div>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:#191919;">IconScrabSmall</span>
+        <code style="font-size:10px;color:var(--gray-2);">common/ScrabSmall.tsx · 24×24</code>
+      </div>
+
+      <!-- IconSearchbar -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#f8f9fa;border-radius:8px;padding:14px 20px;display:flex;align-items:center;justify-content:center;">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M15 8.75C15 12.2017 12.2017 15 8.75 15C5.29822 15 2.5 12.2017 2.5 8.75C2.5 5.29822 5.29822 2.5 8.75 2.5C12.2017 2.5 15 5.29822 15 8.75Z" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16.6667 16.6667L13.1694 13.1694" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:#191919;">IconSearchbar</span>
+        <code style="font-size:10px;color:var(--gray-2);">common/Search.tsx · 20×20</code>
+      </div>
+
+      <!-- IconNotification -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#f8f9fa;border-radius:8px;padding:14px 20px;display:flex;align-items:center;justify-content:center;">
+          <svg width="30" height="30" viewBox="0 0 30 30" fill="none"><path fill-rule="evenodd" clip-rule="evenodd" d="M22.5 22.5V12.6419C22.5 8.40781 19.1179 5 15 5C10.8821 5 7.5 8.40781 7.5 12.6419V22.5L22.5 22.5ZM6.55585 23.75L23.4441 23.75C23.617 23.75 23.75 23.6149 23.75 23.4392V12.6419C23.75 7.73648 19.8271 3.75 15 3.75C10.1729 3.75 6.25 7.73648 6.25 12.6419V23.4392C6.25 23.6149 6.38298 23.75 6.55585 23.75Z" fill="black"/><rect x="3.75" y="22.5" width="22.5" height="1.25" fill="black"/><rect x="7.5" y="25" width="15" height="1.25" fill="black"/></svg>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:#191919;">IconNotification</span>
+        <code style="font-size:10px;color:var(--gray-2);">header/Notification.tsx · 30×30</code>
+      </div>
+
+      <!-- IconArrowLeft -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#f8f9fa;border-radius:8px;padding:14px 20px;display:flex;align-items:center;justify-content:center;">
+          <svg width="30" height="30" viewBox="0 0 30 30" fill="none"><path d="M12.57 8.93018L6.5 15.0002L12.57 21.0702" stroke="black" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/><path d="M23.5 15H6.67004" stroke="black" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:#191919;">IconArrowLeft</span>
+        <code style="font-size:10px;color:var(--gray-2);">header/ArrowLeft.tsx · 30×30</code>
+      </div>
+
+      <!-- IconClock -->
+      <div style="border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="background:#f8f9fa;border-radius:8px;padding:14px 20px;display:flex;align-items:center;justify-content:center;">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#999999"/><path d="M9 4.5V9H13.5" stroke="#999999"/></svg>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:#191919;">IconClock</span>
+        <code style="font-size:10px;color:var(--gray-2);">common/Clock.tsx · 18×18</code>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="fn">
+    소스 기준: <code>services/web/tailwind.config.js</code>, <code>styles/globals.css</code>, <code>styles/mobile-floating-nav.css</code>, <code>components/**</code>, <code>public/svgs/**</code>, <code>public/images/logo.svg</code> · 정당 로고: Oracle ObjectStorage (<code>design/assets/parties/</code>, ID 1–10) · 라이브 캡처: lawdigest.kr (2026-04-25) · 캡처물: <code>design/screenshots/*.png</code>
+  </footer>
+</main>
+
+<script>
+  (function () {
+    const tabs = document.getElementById('contentTabs');
+    if (!tabs) return;
+    const ind = tabs.querySelector('.indicator');
+    const buttons = tabs.querySelectorAll('button');
+    buttons.forEach(b => {
+      b.addEventListener('click', () => {
+        buttons.forEach(x => x.classList.remove('is-active'));
+        b.classList.add('is-active');
+        const i = parseInt(b.dataset.i || '0', 10);
+        ind.style.transform = `translateX(${i * (85 + 5)}px)`;
+      });
+    });
+  })();
+
+  (function () {
+    const nav = document.getElementById('floatingNav');
+    if (!nav) return;
+    nav.querySelectorAll('.item').forEach(item => {
+      item.addEventListener('click', () => {
+        nav.querySelectorAll('.item').forEach(i => i.classList.remove('is-active'));
+        item.classList.add('is-active');
+      });
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>모두의입법 · Lawdigest — 서비스 소개</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard-dynamic-subset.css" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block" rel="stylesheet" />
+<style>
+:root {
+  --g05:#EBEBEB; --g1:#E0E0E0; --g2:#999; --g3:#555; --g4:#262626;
+  --p1:#F5F7FD; --p2:#96BCFA; --p3:#191919;
+  --alert:#E63946; --info:#D7F963;
+  --db:#101012; --dl:#2E2E2E; --dpb:#1E1E1E;
+  --rainbow:linear-gradient(90deg,#FBEB59 0%,#FC56D8 31%,#10D9EF 65%,#6CF880 100%);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+  --ease-out:cubic-bezier(.22,1,.36,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,system-ui,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;-webkit-font-smoothing:antialiased;background:#fff;color:var(--p3);overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+
+/* animations */
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+@keyframes fade-up{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:none}}
+@keyframes aurora-spin{to{transform:rotate(360deg)}}
+@keyframes bounce-down{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(7px)}}
+@keyframes dash-flow{to{stroke-dashoffset:-40}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes ping{0%{transform:scale(1);opacity:1}100%{transform:scale(2.2);opacity:0}}
+@keyframes shimmer{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+
+/* reveal */
+.rev{opacity:0;transform:translateY(28px);transition:opacity .7s var(--ease-out),transform .7s var(--ease-out)}
+.rev.in{opacity:1;transform:none}
+.rev-l{opacity:0;transform:translateX(-28px);transition:opacity .7s var(--ease-out),transform .7s var(--ease-out)}
+.rev-l.in{opacity:1;transform:none}
+.rev-r{opacity:0;transform:translateX(28px);transition:opacity .7s var(--ease-out),transform .7s var(--ease-out)}
+.rev-r.in{opacity:1;transform:none}
+.d1{transition-delay:.1s!important}.d2{transition-delay:.2s!important}
+.d3{transition-delay:.3s!important}.d4{transition-delay:.4s!important}
+.d5{transition-delay:.5s!important}
+
+/* nav */
+.site-nav{position:fixed;top:0;left:0;right:0;z-index:200;height:64px;display:flex;align-items:center;justify-content:space-between;padding:0 40px;background:rgba(255,255,255,.88);backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid rgba(0,0,0,.06)}
+.nav-logo{display:flex;align-items:center}
+.nav-links{display:flex;align-items:center;gap:28px;font-size:14px;font-weight:500;color:var(--g3)}
+.nav-links a:hover{color:var(--p3)}
+.nav-cta{height:36px;padding:0 20px;background:var(--p3);color:#fff!important;border-radius:999px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:5px;transition:transform .15s ease,box-shadow .15s ease}
+.nav-cta:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(0,0,0,.22)}
+
+/* hero */
+.hero{min-height:100vh;padding:120px 24px 100px;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.hero-aurora{position:absolute;inset:-60%;background:conic-gradient(from 0deg at 50% 55%,rgba(251,235,89,.2) 0deg,rgba(252,86,216,.15) 90deg,rgba(16,217,239,.13) 180deg,rgba(108,248,128,.11) 270deg,rgba(251,235,89,.2) 360deg);animation:aurora-spin 26s linear infinite;pointer-events:none}
+.hero-content{position:relative;z-index:1;text-align:center;max-width:900px;width:100%}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:999px;background:rgba(25,25,25,.06);font-size:13px;font-weight:500;color:var(--g3);margin-bottom:28px;animation:fade-up .5s ease both}
+.live-dot{width:7px;height:7px;border-radius:50%;background:linear-gradient(135deg,#FC56D8,#10D9EF);position:relative;flex-shrink:0}
+.live-dot::after{content:'';position:absolute;inset:-3px;border-radius:50%;border:1.5px solid #10D9EF;animation:ping 1.8s ease-in-out infinite}
+.hero h1{font-size:clamp(44px,7.5vw,92px);font-weight:900;letter-spacing:-.04em;line-height:1.07;margin-bottom:20px;animation:fade-up .6s .1s ease both}
+.rainbow-text{background:linear-gradient(90deg,#FBEB59 0%,#FC56D8 35%,#10D9EF 70%,#6CF880 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-sub{font-size:clamp(16px,2.2vw,22px);color:var(--g3);line-height:1.65;max-width:560px;margin:0 auto 44px;animation:fade-up .6s .2s ease both}
+.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:64px;animation:fade-up .6s .3s ease both}
+.btn-filled{height:52px;padding:0 28px;border-radius:999px;background:var(--p3);color:#fff;font-size:15px;font-weight:600;border:none;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:transform .15s var(--ease-spring),box-shadow .15s ease}
+.btn-filled:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.24)}
+.btn-ghost{height:52px;padding:0 28px;border-radius:999px;background:transparent;color:var(--p3);border:1.5px solid var(--g1);font-size:15px;font-weight:500;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px;transition:border-color .15s,background .15s}
+.btn-ghost:hover{border-color:var(--g2);background:var(--p1)}
+.hero-stats{display:flex;background:rgba(255,255,255,.78);backdrop-filter:blur(20px);border:1px solid rgba(0,0,0,.07);border-radius:20px;padding:24px 36px;animation:fade-up .6s .4s ease both}
+.stat{flex:1;text-align:center;padding:0 24px;position:relative}
+.stat+.stat::before{content:'';position:absolute;left:0;top:15%;bottom:15%;width:1px;background:var(--g05)}
+.stat-v{font-size:30px;font-weight:900;letter-spacing:-.03em;background:linear-gradient(90deg,#FBEB59 0%,#FC56D8 31%,#10D9EF 65%,#6CF880 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.stat-l{font-size:12px;color:var(--g2);margin-top:4px;font-weight:500}
+.scroll-hint{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--g2);animation:fade-in 1s 1.5s ease both}
+.scroll-arrow{animation:bounce-down 2.2s ease-in-out infinite;transform-origin:center}
+
+/* section commons */
+.ctr{max-width:1100px;margin:0 auto;padding:0 32px}
+.sec{padding:120px 0}
+.sec-tag{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--g2);display:block;margin-bottom:12px}
+.sec-h2{font-size:clamp(26px,3.5vw,42px);font-weight:800;letter-spacing:-.03em;line-height:1.2;margin-bottom:14px}
+.sec-p{font-size:16px;color:var(--g3);line-height:1.72;max-width:500px}
+.rainbow-bar{height:3px;background:var(--rainbow);border:none;margin:0}
+
+/* devices */
+.dev-sec{padding:120px 0 80px;background:var(--p1);overflow:hidden}
+.dev-header{text-align:center;margin-bottom:72px}
+.dev-header .sec-p{margin:0 auto}
+.dev-grid{max-width:1100px;margin:0 auto;padding:0 32px;display:grid;grid-template-columns:1fr 340px;grid-template-rows:auto auto;gap:20px;align-items:start}
+.dev-lbl{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--g2);margin-bottom:10px}
+.dev-lbl::before{content:'';display:block;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.5}
+
+/* browser frame */
+.browser{border-radius:14px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.12),0 24px 64px rgba(0,0,0,.18);background:#1C1C1C;animation:float 7s ease-in-out infinite}
+.browser-bar{height:40px;background:#2A2A2C;display:flex;align-items:center;padding:0 16px;gap:7px}
+.bd{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.bd.r{background:#FF5F57}.bd.y{background:#FEBC2E}.bd.g{background:#28C840}
+.b-url{margin-left:12px;flex:1;max-width:320px;height:24px;background:#3A3A3C;border-radius:5px;display:flex;align-items:center;padding:0 10px;font-size:11px;font-family:ui-monospace,monospace;color:#888;gap:4px}
+.b-screen{aspect-ratio:16/9;overflow:hidden}
+.b-screen img{width:100%;height:100%;object-fit:cover;object-position:top center;transition:opacity .4s ease}
+.screen-tabs{display:flex;gap:8px;margin-top:16px;justify-content:center;flex-wrap:wrap}
+.stab{height:32px;padding:0 14px;border-radius:999px;border:1.5px solid var(--g1);background:#fff;font-size:13px;font-weight:500;color:var(--g3);cursor:pointer;font-family:inherit;transition:all .2s ease}
+.stab.active{background:var(--p3);color:#fff;border-color:var(--p3)}
+
+/* tablet frame */
+.dev-tablet{animation:float 7s 1.2s ease-in-out infinite}
+.tablet{background:#1C1C1C;border-radius:16px;padding:12px;box-shadow:0 8px 24px rgba(0,0,0,.18),0 24px 56px rgba(0,0,0,.14)}
+.tablet-screen{border-radius:6px;overflow:hidden;aspect-ratio:4/3}
+.tablet-screen img{width:100%;height:100%;object-fit:cover;object-position:top}
+
+/* phone frame */
+.dev-phone{display:flex;justify-content:center;animation:float 7s 2.4s ease-in-out infinite}
+.phone{width:190px;background:#1C1C1C;border-radius:42px;padding:16px 10px 20px;box-shadow:0 8px 24px rgba(0,0,0,.18),0 24px 56px rgba(0,0,0,.14)}
+.phone-notch-bar{height:28px;display:flex;align-items:center;justify-content:center;margin-bottom:6px}
+.phone-notch{width:64px;height:8px;background:#2A2A2C;border-radius:4px}
+.phone-screen{border-radius:28px;overflow:hidden;aspect-ratio:9/19.5;position:relative}
+.phone-screen img{width:100%;height:100%;object-fit:cover;object-position:top}
+.pnav{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);width:152px;height:32px;background:rgba(255,255,255,.42);backdrop-filter:blur(20px) saturate(200%);border-radius:999px;border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:space-around;padding:0 10px}
+.pni{width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;position:relative}
+.pni.on{background:rgba(255,255,255,.8)}
+.pni.on::after{content:'';position:absolute;inset:0;border-radius:999px;background:linear-gradient(90deg,#FBEB59,#FC56D8,#10D9EF,#6CF880);-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;padding:1.5px}
+
+/* features */
+.feat-sec{padding:120px 0}
+.feat-header{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:end;margin-bottom:60px}
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.feat-card{background:#fff;border:1px solid var(--g05);border-radius:20px;padding:28px 24px;position:relative;overflow:hidden;transition:transform .25s var(--ease-out),box-shadow .25s var(--ease-out)}
+.feat-card::before{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;background:var(--rainbow);transform:scaleX(0);transform-origin:left;transition:transform .35s var(--ease-out)}
+.feat-card:hover{transform:translateY(-5px);box-shadow:0 20px 48px rgba(0,0,0,.1)}
+.feat-card:hover::before{transform:scaleX(1)}
+.feat-ic{width:48px;height:48px;border-radius:14px;background:var(--p1);display:flex;align-items:center;justify-content:center;margin-bottom:16px;color:var(--p3)}
+.feat-ic .material-symbols-outlined{font-size:22px;font-variation-settings:'FILL' 0,'wght' 400}
+.feat-title{font-size:16px;font-weight:700;margin-bottom:8px}
+.feat-desc{font-size:13px;color:var(--g3);line-height:1.65}
+
+/* architecture */
+.arch-sec{padding:120px 0;background:var(--db);overflow:hidden}
+.arch-sec .sec-tag{color:rgba(255,255,255,.3)}
+.arch-sec .sec-h2{color:#fff}
+.arch-sec .sec-p{color:rgba(255,255,255,.48)}
+.arch-svg-wrap{margin-top:64px;overflow-x:auto}
+.arch-svg-wrap svg{display:block;margin:0 auto}
+.arch-edge{fill:none;stroke-width:1.5;stroke-dasharray:7 5;animation:dash-flow 1.6s linear infinite}
+
+/* pipeline */
+.pipe-sec{padding:120px 0;background:var(--p1)}
+.pipe-svg-wrap{margin-top:56px;overflow-x:auto;padding-bottom:8px}
+.pipe-svg-wrap svg{display:block;margin:0 auto}
+
+/* stack */
+.stack-sec{padding:120px 0}
+.stack-cats{display:flex;flex-direction:column;gap:28px;margin-top:52px}
+.scat-lbl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--g2);margin-bottom:10px}
+.sbadges{display:flex;flex-wrap:wrap;gap:10px}
+.badge{display:inline-flex;align-items:center;gap:8px;height:38px;padding:0 16px;background:#fff;border:1px solid var(--g05);border-radius:10px;font-size:13px;font-weight:600;color:var(--g4);transition:transform .15s,box-shadow .15s}
+.badge:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.06)}
+.bdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* footer */
+footer{padding:48px 40px;border-top:1px solid var(--g05);display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--g2)}
+footer a:hover{color:var(--p3)}
+.ftlinks{display:flex;gap:24px}
+
+/* responsive */
+@media(max-width:960px){
+  .site-nav{padding:0 24px}
+  .nav-links{gap:18px}
+  .dev-grid{grid-template-columns:1fr}
+  .dev-tablet,.dev-phone{display:none}
+  .feat-header{grid-template-columns:1fr}
+  .feat-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:640px){
+  .hero{padding:100px 20px 80px}
+  .hero-stats{padding:20px 16px;flex-wrap:wrap}
+  .stat{min-width:48%}
+  .stat+.stat::before{display:none}
+  .feat-grid{grid-template-columns:1fr}
+  .nav-links .hs{display:none}
+  footer{flex-direction:column;gap:16px;text-align:center}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="site-nav">
+  <a class="nav-logo" href="#">
+    <svg width="107" height="18" viewBox="0 0 107 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <g clip-path="url(#c0)">
+        <path d="M10.9717 9.49186L16.6512 9.49186L16.6519 13.3855H18.6692L18.6685 9.49186H24.2592V0L10.9717 0L10.9717 9.49186ZM13.0057 1.79501L22.2196 1.79501V7.70241L13.0057 7.70241L13.0057 1.79501Z" fill="#191919"/>
+        <path d="M36.5405 12.4709H34.5232V18.3172H36.5405V12.4709Z" fill="#191919"/>
+        <path d="M30.9505 1.77833L42.204 1.77833V0L28.9165 0V9.49186L42.3874 9.49186V7.73575L30.9505 7.73575V1.77833Z" fill="#191919"/>
+        <path d="M54.2964 1.05056C53.5295.3948 52.4458.0224609 51.251.0224609 50.0562.0224609 48.9725.3948 48.2056 1.05056 47.1608 1.96751 46.6162 3.4402 46.6162 5.313 46.6162 7.18581 47.1608 8.64182 48.2056 9.57545 48.9725 10.2312 50.0562 10.6035 51.251 10.6035 52.4458 10.6035 53.5295 10.2312 54.2964 9.57545 55.3801 8.64182 55.8858 7.18581 55.8858 5.313 55.8858 3.4402 55.3801 1.96751 54.2964 1.05056ZM52.9515 8.20835C52.557 8.61959 51.9623 8.82521 51.251 8.82521 50.5397 8.82521 49.9784 8.61959 49.5505 8.20835 48.9169 7.60817 48.6557 6.58007 48.6557 5.313 48.6557 4.04594 48.9169 2.99561 49.5505 2.39543 49.9784 1.98419 50.5619 1.79524 51.251 1.79524 51.9401 1.79524 52.557 1.98419 52.9515 2.39543 53.5851 2.99561 53.8685 4.05706 53.8685 5.313 53.8685 6.56895 53.5906 7.61372 52.9515 8.20835Z" fill="#191919"/>
+        <path d="M60.0925.0112305L58.053.0112305V18.317H60.0925V.0112305Z" fill="#191919"/>
+        <path d="M68.6004 8.78626C69.7785 8.78626 70.7844 8.44726 71.5346 7.8304 72.4849 7.1024 73.0462 5.94092 73.0462 4.39044 73.0462 2.83995 72.4849 1.70071 71.5346.950471 70.7844.350283 69.7785.0168457 68.6004.0168457 67.4222.0168457 66.433.350283 65.6661.950471 64.7325 1.70071 64.1545 2.85662 64.1545 4.39044 64.1545 5.92425 64.7325 7.1024 65.6661 7.8304 66.433 8.44726 67.4389 8.78626 68.6004 8.78626ZM66.9554 2.35647C67.3667 1.98413 67.9446 1.77851 68.6004 1.77851 69.2561 1.77851 69.8341 1.98413 70.262 2.35647 70.7844 2.82328 71.0678 3.51238 71.0678 4.39599 71.0678 5.2796 70.79 6.00205 70.262 6.43552 69.8341 6.83009 69.2506 7.03571 68.6004 7.03571 67.9502 7.03571 67.3667 6.83009 66.9554 6.43552 66.433 6.00761 66.1329 5.2796 66.1329 4.39599 66.1329 3.51238 66.433 2.82328 66.9554 2.35647Z" fill="#191919"/>
+        <path d="M93.9809.0112305V2.78988L90.5799 2.78988V.0112305L88.5959.0112305V2.78988L84.3001 2.78988V.0112305L82.3162.0112305V8.35829L90.5799 8.35829V4.52375L93.9809 4.52375V16.5998L85.3838 16.5998V9.75872H83.3443V18.317L96.0149 18.317V.0112305L93.9754.0112305H93.9809ZM88.6015 6.59662L84.3057 6.59662V4.52375L88.6015 4.52375V6.59662Z" fill="#191919"/>
+        <path d="M76.0248 2.78988V4.5182V9.75872V16.5942H67.4277V9.75872H65.3882V18.317L78.0588 18.317V9.75872V.0112305L76.0248.0112305V2.78988Z" fill="#191919"/>
+        <path d="M106.732 12.3992V13.6673L0 13.6673L0 12.3992L106.732 12.3992Z" fill="url(#logo-rg)"/>
+      </g>
+      <defs>
+        <linearGradient id="logo-rg" x1="0" y1="13.0332" x2="106.732" y2="13.0332" gradientUnits="userSpaceOnUse">
+          <stop stop-color="#FBEB59" stop-opacity="0"/>
+          <stop offset="0.0001" stop-color="#FBEB59"/>
+          <stop offset="0.31" stop-color="#FC56D8"/>
+          <stop offset="0.65" stop-color="#10D9EF"/>
+          <stop offset="0.9999" stop-color="#6CF880"/>
+          <stop offset="1" stop-color="#6CF880" stop-opacity="0"/>
+        </linearGradient>
+        <clipPath id="c0"><rect width="106.725" height="18" fill="white"/></clipPath>
+      </defs>
+    </svg>
+  </a>
+  <div class="nav-links">
+    <a href="#devices" class="hs">화면 소개</a>
+    <a href="#features" class="hs">주요 기능</a>
+    <a href="#architecture" class="hs">아키텍처</a>
+    <a href="design-system.html">디자인 시스템</a>
+    <a href="https://lawdigest.kr" target="_blank" class="nav-cta">
+      서비스 바로가기
+      <span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span>
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-aurora" aria-hidden="true"></div>
+  <div class="hero-content">
+    <span class="eyebrow">
+      <span class="live-dot"></span>
+      국회 법안 AI 요약 서비스 · lawdigest.kr
+    </span>
+    <h1>
+      <span class="rainbow-text">복잡한 국회 법안</span>,<br>
+      AI가 쉽게 읽어드립니다
+    </h1>
+    <p class="hero-sub">
+      매일 쏟아지는 수백 건의 법률개정안을 GPT-5가 핵심만 골라 요약합니다.<br>
+      피드 형식으로 편리하게, 내 삶과 관련된 법안을 한눈에 확인하세요.
+    </p>
+    <div class="hero-btns">
+      <a href="https://lawdigest.kr" target="_blank" class="btn-filled">
+        서비스 바로가기
+        <span class="material-symbols-outlined" style="font-size:16px">arrow_forward</span>
+      </a>
+      <a href="design-system.html" class="btn-ghost">
+        <span class="material-symbols-outlined" style="font-size:16px">palette</span>
+        디자인 시스템
+      </a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><div class="stat-v">4개</div><div class="stat-l">마이크로서비스</div></div>
+      <div class="stat"><div class="stat-v">8개</div><div class="stat-l">Airflow DAG</div></div>
+      <div class="stat"><div class="stat-v">GPT-5</div><div class="stat-l">AI 요약 엔진</div></div>
+      <div class="stat"><div class="stat-v">실시간</div><div class="stat-l">국회 데이터 연동</div></div>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>SCROLL</span>
+    <svg class="scroll-arrow" width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M4 6.5L9 11.5L14 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+</section>
+<hr class="rainbow-bar">
+
+<!-- DEVICES -->
+<section id="devices" class="dev-sec">
+  <div class="ctr">
+    <div class="dev-header rev">
+      <span class="sec-tag">UI 미리보기</span>
+      <h2 class="sec-h2">모든 기기에서<br>최적화된 경험</h2>
+      <p class="sec-p">데스크톱, 태블릿, 모바일 — 어떤 디바이스에서도 일관되고 아름다운 인터페이스를 제공합니다.</p>
+    </div>
+  </div>
+  <div class="dev-grid">
+    <!-- Desktop -->
+    <div style="grid-row:1/3" class="rev-l">
+      <span class="dev-lbl">Desktop · 1440px</span>
+      <div class="browser">
+        <div class="browser-bar">
+          <span class="bd r"></span><span class="bd y"></span><span class="bd g"></span>
+          <div class="b-url">🔒 lawdigest.kr</div>
+        </div>
+        <div class="b-screen">
+          <img id="dscreen" src="screenshots/home-desktop.png" alt="홈 피드" />
+        </div>
+      </div>
+      <div class="screen-tabs" style="margin-top:16px">
+        <button class="stab active" onclick="sw('home-desktop.png',this)">홈 피드</button>
+        <button class="stab" onclick="sw('timeline-desktop.png',this)">타임라인</button>
+        <button class="stab" onclick="sw('election-desktop.png',this)">선거</button>
+        <button class="stab" onclick="sw('mypage-desktop.png',this)">마이페이지</button>
+        <button class="stab" onclick="sw('login-desktop.png',this)">로그인</button>
+      </div>
+    </div>
+    <!-- Tablet -->
+    <div class="dev-tablet rev-r">
+      <span class="dev-lbl">Tablet · 768px</span>
+      <div class="tablet">
+        <div class="tablet-screen">
+          <img src="screenshots/timeline-desktop.png" alt="타임라인">
+        </div>
+      </div>
+    </div>
+    <!-- Phone -->
+    <div class="dev-phone rev-r d2">
+      <div>
+        <span class="dev-lbl">Mobile · 390px</span>
+        <div class="phone">
+          <div class="phone-notch-bar"><div class="phone-notch"></div></div>
+          <div class="phone-screen">
+            <img src="screenshots/mypage-desktop.png" alt="마이페이지">
+            <div class="pnav">
+              <div class="pni on">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M3 10.5L12 3L21 10.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V10.5z" fill="rgba(25,25,25,.85)"/>
+                </svg>
+              </div>
+              <div class="pni">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M3 4h18M3 9h18M3 14h12M3 19h8" stroke="rgba(100,100,100,.7)" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="pni">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="rgba(100,100,100,.7)" stroke-width="1.5" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div class="pni">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="8" r="4" stroke="rgba(100,100,100,.7)" stroke-width="1.5"/>
+                  <path d="M4 20c0-3.87 3.58-7 8-7s8 3.13 8 7" stroke="rgba(100,100,100,.7)" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<hr class="rainbow-bar">
+
+<!-- FEATURES -->
+<section id="features" class="feat-sec">
+  <div class="ctr">
+    <div class="feat-header">
+      <div class="rev">
+        <span class="sec-tag">주요 기능</span>
+        <h2 class="sec-h2">입법을 더 쉽고<br>스마트하게</h2>
+      </div>
+      <p class="sec-p rev d1">복잡한 법률 언어를 누구나 이해할 수 있는 언어로 바꾸고, 관심 분야의 법안을 놓치지 않도록 도와드립니다.</p>
+    </div>
+    <div class="feat-grid">
+      <div class="feat-card rev d1">
+        <div class="feat-ic"><span class="material-symbols-outlined">auto_awesome</span></div>
+        <div class="feat-title">AI 법안 요약</div>
+        <div class="feat-desc">GPT-5 기반으로 법안 핵심 내용을 한 문장 + 항목별 상세 요약으로 제공합니다.</div>
+      </div>
+      <div class="feat-card rev d2">
+        <div class="feat-ic"><span class="material-symbols-outlined">label</span></div>
+        <div class="feat-title">태그 분류</div>
+        <div class="feat-desc">법안별 주제 태그를 자동 생성해 관심 분야를 빠르게 탐색할 수 있습니다.</div>
+      </div>
+      <div class="feat-card rev d3">
+        <div class="feat-ic"><span class="material-symbols-outlined">person_add</span></div>
+        <div class="feat-title">의원 / 정당 팔로우</div>
+        <div class="feat-desc">관심 의원·정당의 법안 활동을 실시간으로 구독하고 팔로우 피드에서 확인합니다.</div>
+      </div>
+      <div class="feat-card rev d1">
+        <div class="feat-ic"><span class="material-symbols-outlined">timeline</span></div>
+        <div class="feat-title">법안 타임라인</div>
+        <div class="feat-desc">발의 → 위원회 → 본회의까지 처리 단계를 시각적으로 추적합니다.</div>
+      </div>
+      <div class="feat-card rev d2">
+        <div class="feat-ic"><span class="material-symbols-outlined">bookmarks</span></div>
+        <div class="feat-title">좋아요 &amp; 알림</div>
+        <div class="feat-desc">관심 법안을 저장하고, 상태 변경 시 실시간 알림을 받아보세요.</div>
+      </div>
+      <div class="feat-card rev d3">
+        <div class="feat-ic"><span class="material-symbols-outlined">forum</span></div>
+        <div class="feat-title">RAG 챗봇</div>
+        <div class="feat-desc">법안 기반 벡터 검색 + LLM을 활용한 자연어 질의응답을 제공합니다.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE -->
+<section id="architecture" class="arch-sec">
+  <div class="ctr">
+    <div class="rev">
+      <span class="sec-tag">시스템 아키텍처</span>
+      <h2 class="sec-h2">확장 가능한<br>마이크로서비스 구조</h2>
+      <p class="sec-p">4개 독립 서비스가 Airflow 파이프라인으로 연결됩니다. AI 요약은 OpenAI·Gemini 배치 API를 provider-aware 방식으로 처리합니다.</p>
+    </div>
+  </div>
+  <div class="arch-svg-wrap rev d2">
+    <svg viewBox="0 0 1100 480" width="1100" height="480" xmlns="http://www.w3.org/2000/svg" style="max-width:100%">
+      <defs>
+        <linearGradient id="ar" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FBEB59"/><stop offset=".31" stop-color="#FC56D8"/><stop offset=".65" stop-color="#10D9EF"/><stop offset="1" stop-color="#6CF880"/></linearGradient>
+        <marker id="mw" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="rgba(255,255,255,.35)"/></marker>
+        <marker id="mb" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#96BCFA"/></marker>
+        <marker id="mg" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#6CF880"/></marker>
+        <marker id="mc" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#10D9EF"/></marker>
+        <marker id="my" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#FBEB59"/></marker>
+        <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+
+      <!-- bg grid -->
+      <pattern id="bgrid" width="44" height="44" patternUnits="userSpaceOnUse">
+        <path d="M44 0L0 0 0 44" fill="none" stroke="rgba(255,255,255,.025)" stroke-width="1"/>
+      </pattern>
+      <rect width="1100" height="480" fill="url(#bgrid)"/>
+
+      <!-- top rainbow bar -->
+      <rect x="0" y="0" width="1100" height="3" fill="url(#ar)"/>
+
+      <!-- ── GROUP LABELS ── -->
+      <text x="40" y="36" font-family="Pretendard Variable,sans-serif" font-size="10" font-weight="700" letter-spacing="2" fill="rgba(255,255,255,.22)">CLIENT</text>
+      <text x="210" y="36" font-family="Pretendard Variable,sans-serif" font-size="10" font-weight="700" letter-spacing="2" fill="rgba(150,188,250,.5)">FRONTEND</text>
+      <text x="410" y="36" font-family="Pretendard Variable,sans-serif" font-size="10" font-weight="700" letter-spacing="2" fill="rgba(150,188,250,.5)">BACKEND</text>
+      <text x="650" y="36" font-family="Pretendard Variable,sans-serif" font-size="10" font-weight="700" letter-spacing="2" fill="rgba(108,248,128,.5)">STORAGE</text>
+      <text x="40" y="216" font-family="Pretendard Variable,sans-serif" font-size="10" font-weight="700" letter-spacing="2" fill="rgba(251,235,89,.5)">ORCHESTRATION</text>
+      <text x="220" y="216" font-family="Pretendard Variable,sans-serif" font-size="10" font-weight="700" letter-spacing="2" fill="rgba(150,188,250,.4)">DATA PIPELINE</text>
+      <text x="420" y="216" font-family="Pretendard Variable,sans-serif" font-size="10" font-weight="700" letter-spacing="2" fill="rgba(16,217,239,.5)">AI SERVICE</text>
+      <text x="650" y="216" font-family="Pretendard Variable,sans-serif" font-size="10" font-weight="700" letter-spacing="2" fill="rgba(252,86,216,.4)">EXTERNAL AI</text>
+
+      <!-- separator -->
+      <line x1="40" y1="168" x2="1060" y2="168" stroke="rgba(255,255,255,.06)" stroke-width="1" stroke-dasharray="4 4"/>
+
+      <!-- ── NODES ROW 1 ── -->
+      <!-- Browser -->
+      <g filter="url(#glow)">
+        <rect x="40" y="50" width="130" height="56" rx="10" fill="#1E1E24" stroke="rgba(255,255,255,.14)" stroke-width="1"/>
+        <text x="105" y="73" font-family="Pretendard Variable,sans-serif" font-size="12" fill="rgba(255,255,255,.9)" text-anchor="middle" font-weight="600">Browser</text>
+        <text x="105" y="90" font-family="Pretendard Variable,sans-serif" font-size="10" fill="rgba(255,255,255,.35)" text-anchor="middle">웹 클라이언트</text>
+      </g>
+      <!-- Next.js -->
+      <g filter="url(#glow)">
+        <rect x="210" y="50" width="145" height="56" rx="10" fill="#141C2E" stroke="#96BCFA" stroke-width="1.5"/>
+        <text x="282" y="73" font-family="Pretendard Variable,sans-serif" font-size="12" fill="rgba(255,255,255,.95)" text-anchor="middle" font-weight="700">Next.js Web</text>
+        <text x="282" y="90" font-family="Pretendard Variable,sans-serif" font-size="10" fill="rgba(150,188,250,.65)" text-anchor="middle">services/web</text>
+      </g>
+      <!-- Spring Boot -->
+      <g filter="url(#glow)">
+        <rect x="410" y="50" width="160" height="56" rx="10" fill="#141C2E" stroke="#96BCFA" stroke-width="1.5"/>
+        <text x="490" y="73" font-family="Pretendard Variable,sans-serif" font-size="12" fill="rgba(255,255,255,.95)" text-anchor="middle" font-weight="700">Spring Boot API</text>
+        <text x="490" y="90" font-family="Pretendard Variable,sans-serif" font-size="10" fill="rgba(150,188,250,.65)" text-anchor="middle">services/backend</text>
+      </g>
+      <!-- MySQL -->
+      <g filter="url(#glow)">
+        <rect x="648" y="50" width="130" height="52" rx="10" fill="#162014" stroke="#6CF880" stroke-width="1.5"/>
+        <text x="713" y="72" font-family="Pretendard Variable,sans-serif" font-size="12" fill="rgba(255,255,255,.95)" text-anchor="middle" font-weight="700">MySQL</text>
+        <text x="713" y="89" font-family="Pretendard Variable,sans-serif" font-size="10" fill="rgba(108,248,128,.65)" text-anchor="middle">법안 · 의원 · 유저</text>
+      </g>
+      <!-- Redis -->
+      <g filter="url(#glow)">
+        <rect x="800" y="50" width="110" height="52" rx="10" fill="#220E14" stroke="#FC56D8" stroke-width="1.5"/>
+        <text x="855" y="72" font-family="Pretendard Variable,sans-serif" font-size="12" fill="rgba(255,255,255,.95)" text-anchor="middle" font-weight="700">Redis</text>
+        <text x="855" y="89" font-family="Pretendard Variable,sans-serif" font-size="10" fill="rgba(252,86,216,.65)" text-anchor="middle">캐시 · 세션</text>
+      </g>
+
+      <!-- ── NODES ROW 2 ── -->
+      <!-- Airflow -->
+      <g filter="url(#glow)">
+        <rect x="40" y="230" width="135" height="56" rx="10" fill="#1E1B0A" stroke="#FBEB59" stroke-width="1.5"/>
+        <text x="107" y="253" font-family="Pretendard Variable,sans-serif" font-size="12" fill="rgba(255,255,255,.95)" text-anchor="middle" font-weight="700">Airflow</text>
+        <text x="107" y="270" font-family="Pretendard Variable,sans-serif" font-size="10" fill="rgba(251,235,89,.65)" text-anchor="middle">8 DAGs</text>
+      </g>
+      <!-- Data Service -->
+      <g filter="url(#glow)">
+        <rect x="225" y="230" width="145" height="56" rx="10" fill="#141C2E" stroke="#96BCFA" stroke-width="1.5"/>
+        <text x="297" y="253" font-family="Pretendard Variable,sans-serif" font-size="12" fill="rgba(255,255,255,.95)" text-anchor="middle" font-weight="700">Data Service</text>
+        <text x="297" y="270" font-family="Pretendard Variable,sans-serif" font-size="10" fill="rgba(150,188,250,.65)" text-anchor="middle">services/data</text>
+      </g>
+      <!-- AI Service -->
+      <g filter="url(#glow)">
+        <rect x="420" y="230" width="150" height="56" rx="10" fill="#0E1A1E" stroke="#10D9EF" stroke-width="1.5"/>
+        <text x="495" y="253" font-family="Pretendard Variable,sans-serif" font-size="12" fill="rgba(255,255,255,.95)" text-anchor="middle" font-weight="700">AI Service</text>
+        <text x="495" y="270" font-family="Pretendard Variable,sans-serif" font-size="10" fill="rgba(16,217,239,.65)" text-anchor="middle">services/ai · Python</text>
+      </g>
+      <!-- OpenAI / Gemini -->
+      <g>
+        <rect x="648" y="230" width="145" height="52" rx="10" fill="#0E0E14" stroke="rgba(255,255,255,.18)" stroke-width="1" stroke-dasharray="5 3"/>
+        <text x="720" y="252" font-family="Pretendard Variable,sans-serif" font-size="11" fill="rgba(255,255,255,.6)" text-anchor="middle" font-weight="600">OpenAI · Gemini</text>
+        <text x="720" y="268" font-family="Pretendard Variable,sans-serif" font-size="10" fill="rgba(255,255,255,.3)" text-anchor="middle">GPT-5 Batch API</text>
+      </g>
+      <!-- Qdrant -->
+      <g>
+        <rect x="810" y="230" width="110" height="52" rx="10" fill="#0E0E14" stroke="rgba(255,255,255,.18)" stroke-width="1" stroke-dasharray="5 3"/>
+        <text x="865" y="252" font-family="Pretendard Variable,sans-serif" font-size="11" fill="rgba(255,255,255,.6)" text-anchor="middle" font-weight="600">Qdrant</text>
+        <text x="865" y="268" font-family="Pretendard Variable,sans-serif" font-size="10" fill="rgba(255,255,255,.3)" text-anchor="middle">벡터 DB (RAG)</text>
+      </g>
+
+      <!-- 국회 Open API (external, bottom) -->
+      <g>
+        <rect x="225" y="360" width="145" height="52" rx="10" fill="#0E0E14" stroke="rgba(255,255,255,.14)" stroke-width="1" stroke-dasharray="5 3"/>
+        <text x="297" y="382" font-family="Pretendard Variable,sans-serif" font-size="11" fill="rgba(255,255,255,.55)" text-anchor="middle" font-weight="600">국회 Open API</text>
+        <text x="297" y="398" font-family="Pretendard Variable,sans-serif" font-size="10" fill="rgba(255,255,255,.28)" text-anchor="middle">외부 공공 데이터</text>
+      </g>
+
+      <!-- ── EDGES ── -->
+      <!-- Browser → Next.js -->
+      <path d="M170 78 H208" class="arch-edge" stroke="rgba(150,188,250,.5)" marker-end="url(#mb)" style="animation-delay:0s"/>
+      <!-- Next.js ↔ Spring Boot (bidirectional) -->
+      <path d="M355 74 H408" class="arch-edge" stroke="rgba(150,188,250,.55)" marker-end="url(#mb)" style="animation-delay:.2s"/>
+      <path d="M410 84 H358" class="arch-edge" stroke="rgba(150,188,250,.3)" marker-end="url(#mb)" style="animation-delay:.5s"/>
+      <!-- Spring Boot ↔ MySQL -->
+      <path d="M570 71 H646" class="arch-edge" stroke="rgba(108,248,128,.55)" marker-end="url(#mg)" style="animation-delay:.3s"/>
+      <path d="M648 83 H572" class="arch-edge" stroke="rgba(108,248,128,.3)" marker-end="url(#mg)" style="animation-delay:.7s"/>
+      <!-- Spring Boot → Redis -->
+      <path d="M570 78 H798" class="arch-edge" stroke="rgba(252,86,216,.4)" marker-end="url(#mw)" style="animation-delay:.6s"/>
+      <!-- Airflow → Data -->
+      <path d="M175 258 H223" class="arch-edge" stroke="rgba(251,235,89,.55)" marker-end="url(#my)" style="animation-delay:.4s"/>
+      <!-- Airflow → AI Service (curved) -->
+      <path d="M175 248 Q310 210 418 248" class="arch-edge" stroke="rgba(251,235,89,.25)" stroke-dasharray="5 5" marker-end="url(#my)" style="animation-delay:1s"/>
+      <!-- Data → AI Service -->
+      <path d="M370 258 H418" class="arch-edge" stroke="rgba(150,188,250,.55)" marker-end="url(#mb)" style="animation-delay:.55s"/>
+      <!-- 국회 API → Data -->
+      <path d="M297 360 V288" class="arch-edge" stroke="rgba(255,255,255,.25)" marker-end="url(#mw)" style="animation-delay:.9s"/>
+      <!-- Data → MySQL (curved) -->
+      <path d="M357 242 Q540 190 646 100" class="arch-edge" stroke="rgba(108,248,128,.3)" stroke-dasharray="5 5" marker-end="url(#mg)" style="animation-delay:1.2s"/>
+      <!-- AI → OpenAI -->
+      <path d="M570 252 H646" class="arch-edge" stroke="rgba(16,217,239,.55)" marker-end="url(#mc)" style="animation-delay:.75s"/>
+      <!-- AI → Qdrant -->
+      <path d="M570 265 H808" class="arch-edge" stroke="rgba(16,217,239,.35)" stroke-dasharray="5 5" marker-end="url(#mc)" style="animation-delay:1.1s"/>
+      <!-- AI → MySQL (요약 결과) -->
+      <path d="M495 230 C495 170 640 120 648 100" class="arch-edge" stroke="rgba(108,248,128,.25)" stroke-dasharray="4 5" marker-end="url(#mg)" style="animation-delay:1.4s"/>
+
+      <!-- LEGEND -->
+      <g transform="translate(920,350)">
+        <text font-family="Pretendard Variable,sans-serif" font-size="10" font-weight="700" letter-spacing="1.5" fill="rgba(255,255,255,.28)">LEGEND</text>
+        <line x1="0" y1="18" x2="28" y2="18" stroke="rgba(150,188,250,.7)" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="34" y="22" font-family="Pretendard Variable,sans-serif" font-size="11" fill="rgba(255,255,255,.45)">내부 통신</text>
+        <line x1="0" y1="40" x2="28" y2="40" stroke="rgba(255,255,255,.3)" stroke-width="1" stroke-dasharray="4 4"/>
+        <text x="34" y="44" font-family="Pretendard Variable,sans-serif" font-size="11" fill="rgba(255,255,255,.45)">외부 연동</text>
+        <line x1="0" y1="62" x2="28" y2="62" stroke="rgba(108,248,128,.7)" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <text x="34" y="66" font-family="Pretendard Variable,sans-serif" font-size="11" fill="rgba(255,255,255,.45)">데이터 흐름</text>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<!-- PIPELINE -->
+<section id="pipeline" class="pipe-sec">
+  <div class="ctr">
+    <div class="rev">
+      <span class="sec-tag">데이터 파이프라인</span>
+      <h2 class="sec-h2">국회 → AI → 피드,<br>완전 자동화</h2>
+      <p class="sec-p">Airflow 8개 DAG가 수집부터 AI 요약, 피드 제공까지 전 과정을 자동으로 처리합니다.</p>
+    </div>
+  </div>
+  <div class="pipe-svg-wrap rev d1">
+    <svg viewBox="0 0 1100 300" width="1100" height="300" xmlns="http://www.w3.org/2000/svg" style="max-width:100%">
+      <defs>
+        <linearGradient id="pr" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#FBEB59"/>
+          <stop offset=".31" stop-color="#FC56D8"/>
+          <stop offset=".65" stop-color="#10D9EF"/>
+          <stop offset="1" stop-color="#6CF880"/>
+        </linearGradient>
+        <marker id="pad" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill="#CCC"/>
+        </marker>
+      </defs>
+      <!-- progress track -->
+      <line x1="110" y1="130" x2="990" y2="130" stroke="#E8E8E8" stroke-width="2.5"/>
+      <line x1="110" y1="130" x2="990" y2="130" stroke="url(#pr)" stroke-width="2.5" opacity=".7"
+            stroke-dasharray="880" stroke-dashoffset="880">
+        <animate attributeName="stroke-dashoffset" from="880" to="0" dur="2.2s" fill="freeze" begin="0.8s"
+                 calcMode="spline" keySplines=".4 0 .2 1"/>
+      </line>
+      <!-- connectors -->
+      <line x1="147" y1="130" x2="262" y2="130" stroke="#DDD" stroke-width="1.5" marker-end="url(#pad)"/>
+      <line x1="347" y1="130" x2="462" y2="130" stroke="#DDD" stroke-width="1.5" marker-end="url(#pad)"/>
+      <line x1="547" y1="130" x2="662" y2="130" stroke="#DDD" stroke-width="1.5" marker-end="url(#pad)"/>
+      <line x1="747" y1="130" x2="862" y2="130" stroke="#DDD" stroke-width="1.5" marker-end="url(#pad)"/>
+
+      <!-- Stage 1: 국회 API -->
+      <g transform="translate(110,130)">
+        <circle r="36" fill="#FFFBE6" stroke="#FBEB59" stroke-width="2.5"/>
+        <text y="-5" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="10.5" font-weight="700" fill="#7A6100">국회</text>
+        <text y="10" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="10.5" font-weight="700" fill="#7A6100">Open API</text>
+        <text y="58" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="11" fill="#999">외부 소스</text>
+        <rect x="-30" y="-66" width="60" height="20" rx="10" fill="#FBEB59" opacity=".75"/>
+        <text y="-52" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="9.5" font-weight="700" fill="#5C4800">매시간</text>
+      </g>
+      <!-- Stage 2: 수집 -->
+      <g transform="translate(305,130)">
+        <circle r="36" fill="#EEF4FF" stroke="#96BCFA" stroke-width="2.5"/>
+        <text y="-5" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="10.5" font-weight="700" fill="#1A3E80">데이터</text>
+        <text y="10" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="10.5" font-weight="700" fill="#1A3E80">수집</text>
+        <text y="58" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="11" fill="#999">services/data</text>
+        <rect x="-40" y="-66" width="80" height="20" rx="10" fill="#96BCFA" opacity=".7"/>
+        <text y="-52" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="9.5" font-weight="700" fill="#0A2560">bill_ingest_dag</text>
+      </g>
+      <!-- Stage 3: MySQL -->
+      <g transform="translate(505,130)">
+        <circle r="36" fill="#F0FFF4" stroke="#6CF880" stroke-width="2.5"/>
+        <text y="-5" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="10.5" font-weight="700" fill="#115E11">MySQL</text>
+        <text y="10" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="10.5" font-weight="700" fill="#115E11">저장</text>
+        <text y="58" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="11" fill="#999">법안 원문 DB</text>
+        <rect x="-34" y="-66" width="68" height="20" rx="10" fill="#6CF880" opacity=".7"/>
+        <text y="-52" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="9.5" font-weight="700" fill="#0E4E0E">자동 적재</text>
+      </g>
+      <!-- Stage 4: AI 요약 -->
+      <g transform="translate(705,130)">
+        <circle r="36" fill="#F0FEFF" stroke="#10D9EF" stroke-width="2.5"/>
+        <text y="-5" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="10.5" font-weight="700" fill="#095A6A">AI 요약</text>
+        <text y="10" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="10.5" font-weight="700" fill="#095A6A">처리</text>
+        <text y="58" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="11" fill="#999">services/ai</text>
+        <rect x="-40" y="-66" width="80" height="20" rx="10" fill="#10D9EF" opacity=".7"/>
+        <text y="-52" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="9.5" font-weight="700" fill="#054A5C">GPT-5 Batch</text>
+      </g>
+      <!-- Stage 5: 유저 피드 -->
+      <g transform="translate(905,130)">
+        <circle r="36" fill="#FFF0F5" stroke="#FC56D8" stroke-width="2.5"/>
+        <text y="-5" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="10.5" font-weight="700" fill="#7A0050">유저</text>
+        <text y="10" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="10.5" font-weight="700" fill="#7A0050">피드</text>
+        <text y="58" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="11" fill="#999">lawdigest.kr</text>
+        <rect x="-32" y="-66" width="64" height="20" rx="10" fill="#FC56D8" opacity=".7"/>
+        <text y="-52" text-anchor="middle" font-family="Pretendard Variable,sans-serif" font-size="9.5" font-weight="700" fill="#600040">실시간</text>
+      </g>
+    </svg>
+  </div>
+</section>
+<hr class="rainbow-bar">
+
+<!-- STACK -->
+<section class="stack-sec">
+  <div class="ctr">
+    <div class="rev">
+      <span class="sec-tag">기술 스택</span>
+      <h2 class="sec-h2">검증된 기술로<br>구축된 서비스</h2>
+    </div>
+    <div class="stack-cats">
+      <div class="rev d1">
+        <div class="scat-lbl">Frontend</div>
+        <div class="sbadges">
+          <span class="badge"><span class="bdot" style="background:#000"></span>Next.js 13</span>
+          <span class="badge"><span class="bdot" style="background:#3178C6"></span>TypeScript</span>
+          <span class="badge"><span class="bdot" style="background:#06B6D4"></span>Tailwind CSS</span>
+          <span class="badge"><span class="bdot" style="background:#000"></span>NextUI</span>
+          <span class="badge"><span class="bdot" style="background:#E63946"></span>React Query</span>
+          <span class="badge"><span class="bdot" style="background:#191919"></span>Pretendard</span>
+        </div>
+      </div>
+      <div class="rev d2">
+        <div class="scat-lbl">Backend</div>
+        <div class="sbadges">
+          <span class="badge"><span class="bdot" style="background:#6DB33F"></span>Spring Boot 3.1</span>
+          <span class="badge"><span class="bdot" style="background:#ED8B00"></span>Java 17</span>
+          <span class="badge"><span class="bdot" style="background:#6DB33F"></span>Spring Security</span>
+          <span class="badge"><span class="bdot" style="background:#FF4438"></span>Redis</span>
+          <span class="badge"><span class="bdot" style="background:#4479A1"></span>MySQL 8.0</span>
+          <span class="badge"><span class="bdot" style="background:#5791CB"></span>Spring Data JPA</span>
+        </div>
+      </div>
+      <div class="rev d3">
+        <div class="scat-lbl">AI / Data</div>
+        <div class="sbadges">
+          <span class="badge"><span class="bdot" style="background:#3776AB"></span>Python 3.10+</span>
+          <span class="badge"><span class="bdot" style="background:#412991"></span>OpenAI GPT-5</span>
+          <span class="badge"><span class="bdot" style="background:#4285F4"></span>Google Gemini</span>
+          <span class="badge"><span class="bdot" style="background:#017CEE"></span>Apache Airflow 3.1</span>
+          <span class="badge"><span class="bdot" style="background:#FF4785"></span>Qdrant</span>
+        </div>
+      </div>
+      <div class="rev d4">
+        <div class="scat-lbl">Infrastructure</div>
+        <div class="sbadges">
+          <span class="badge"><span class="bdot" style="background:#2496ED"></span>Docker</span>
+          <span class="badge"><span class="bdot" style="background:#009639"></span>Nginx</span>
+          <span class="badge"><span class="bdot" style="background:#E6522C"></span>Prometheus</span>
+          <span class="badge"><span class="bdot" style="background:#F46800"></span>Grafana</span>
+          <span class="badge"><span class="bdot" style="background:#F05032"></span>GitHub Actions</span>
+          <span class="badge"><span class="bdot" style="background:#C74634"></span>Oracle Cloud</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div style="display:flex;align-items:center;gap:16px">
+    <svg width="80" height="13" viewBox="0 0 107 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity:.5">
+      <g clip-path="url(#fc)">
+        <path d="M10.9717 9.49186L16.6512 9.49186L16.6519 13.3855H18.6692L18.6685 9.49186H24.2592V0L10.9717 0L10.9717 9.49186ZM13.0057 1.79501L22.2196 1.79501V7.70241L13.0057 7.70241L13.0057 1.79501Z M36.5405 12.4709H34.5232V18.3172H36.5405V12.4709Z M30.9505 1.77833L42.204 1.77833V0L28.9165 0V9.49186L42.3874 9.49186V7.73575L30.9505 7.73575V1.77833Z M60.0925.0112305L58.053.0112305V18.317H60.0925V.0112305Z M76.0248 2.78988V4.5182V9.75872V16.5942H67.4277V9.75872H65.3882V18.317L78.0588 18.317V9.75872V.0112305L76.0248.0112305V2.78988Z M93.9809.0112305V2.78988L90.5799 2.78988V.0112305L88.5959.0112305V2.78988L84.3001 2.78988V.0112305L82.3162.0112305V8.35829L90.5799 8.35829V4.52375L93.9809 4.52375V16.5998L85.3838 16.5998V9.75872H83.3443V18.317L96.0149 18.317V.0112305Z" fill="#999"/>
+        <clipPath id="fc"><rect width="106.725" height="18" fill="white"/></clipPath>
+      </g>
+    </svg>
+    <span>© 2024–2026 모두의입법. All rights reserved.</span>
+  </div>
+  <div class="ftlinks">
+    <a href="https://lawdigest.kr" target="_blank">서비스</a>
+    <a href="design-system.html">디자인 시스템</a>
+    <a href="https://github.com/LawDigest" target="_blank">GitHub</a>
+  </div>
+</footer>
+
+<script>
+function sw(src, btn) {
+  var img = document.getElementById('dscreen');
+  img.style.opacity = '0';
+  setTimeout(function() {
+    img.src = 'screenshots/' + src;
+    img.style.opacity = '1';
+  }, 200);
+  document.querySelectorAll('.stab').forEach(function(t) { t.classList.remove('active'); });
+  btn.classList.add('active');
+}
+
+var io = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) {
+    if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+  });
+}, { threshold: 0.08 });
+document.querySelectorAll('.rev, .rev-l, .rev-r').forEach(function(el) { io.observe(el); });
+</script>
+</body>
+</html>
