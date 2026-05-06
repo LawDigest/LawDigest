@@ -53,10 +53,10 @@ public class BillController {
     @GetMapping("/mainfeed")
     public BaseResponse<BillListResponse> getBillsFromMainFeed(
             @Parameter(example = "0", description = "스크롤할 때마다 page값을 0에서 1씩 늘려주면 됩니다.")
-            @RequestParam(name = "page")
+            @RequestParam(name = "page", defaultValue = "0")
             int page,
             @Parameter(example = "3", description = "한번에 가져올 데이터 크기를 의미합니다.")
-            @RequestParam(name = "size")
+            @RequestParam(name = "size", defaultValue = "3")
             int size,
             @Parameter(example = "공포", description = "법안의 단계 현황을 나타냅니다.")
             @Schema(type = "string", allowableValues = {"접수", "위원회심사",
@@ -78,9 +78,9 @@ public class BillController {
     @GetMapping("/mainfeed/stage")
     public BaseResponse<BillListResponse> getBillsByStage(
             @Parameter(example = "0", description = "스크롤할 때마다 page값을 0에서 1씩 늘려주면 됩니다.")
-            @RequestParam(name = "page") int page,
+            @RequestParam(name = "page", defaultValue = "0") int page,
             @Parameter(example = "3", description = "한번에 가져올 데이터 크기를 의미합니다.")
-            @RequestParam(name = "size") int size,
+            @RequestParam(name = "size", defaultValue = "3") int size,
             @Parameter(example = "공포", description = "법안의 단계 현황을 나타냅니다.")
             @Schema(type = "string", allowableValues = {"접수", "위원회 심사",
                     "본회의 심의","공포"})

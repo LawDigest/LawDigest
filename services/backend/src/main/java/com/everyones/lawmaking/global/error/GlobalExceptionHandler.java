@@ -3,6 +3,7 @@ package com.everyones.lawmaking.global.error;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -26,6 +27,15 @@ public class GlobalExceptionHandler {
 
         log.error(e.getErrorInfoLog());
         return new ResponseEntity<>(ErrorResponse.from(e), HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    protected ResponseEntity<ErrorResponse> handleMissingServletRequestParameterException(
+            final MissingServletRequestParameterException e
+    ) {
+        log.error(e.getMessage());
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.from(ErrorCode.BAD_REQUEST));
     }
 
     //401 error
