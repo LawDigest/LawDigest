@@ -48,12 +48,13 @@ RESOLVED_REF="$(load_ref "$REF_INPUT")" || {
   echo "✗ git ref를 찾을 수 없습니다: $REF_INPUT"
   exit 1
 }
+RESOLVED_COMMIT="$(git -C "$REPO_ROOT" rev-parse --verify "$RESOLVED_REF^{commit}")"
 
 if [ ! -d "$DEV_WORKTREE_PATH/.git" ] && [ ! -f "$DEV_WORKTREE_PATH/.git" ]; then
-  git -C "$REPO_ROOT" worktree add --detach "$DEV_WORKTREE_PATH" "$RESOLVED_REF"
+  git -C "$REPO_ROOT" worktree add --detach "$DEV_WORKTREE_PATH" "$RESOLVED_COMMIT"
 else
   git -C "$DEV_WORKTREE_PATH" fetch origin --prune
-  git -C "$DEV_WORKTREE_PATH" checkout --detach "$RESOLVED_REF"
+  git -C "$DEV_WORKTREE_PATH" checkout --detach "$RESOLVED_COMMIT"
 fi
 
 mkdir -p "$RUNTIME_ROOT"
@@ -85,6 +86,7 @@ NEXT_PUBLIC_DOMAIN="$NEXT_PUBLIC_DOMAIN" \
 
 echo "✓ 개발모드 배포 완료"
 echo "  ref: $RESOLVED_REF"
+echo "  resolved: ${RESOLVED_COMMIT:0:7}"
 echo "  commit: $(git -C "$DEV_WORKTREE_PATH" rev-parse --short HEAD)"
 echo "  runtime: $CURRENT_LINK"
 echo "  url: $NEXT_PUBLIC_DOMAIN"

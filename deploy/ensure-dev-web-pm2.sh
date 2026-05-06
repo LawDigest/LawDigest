@@ -68,15 +68,21 @@ process.stdin.on("end", () => {
   const status = app.pm2_env?.status ?? "";
   const cwd = app.pm2_env?.pm_cwd ?? app.pm2_env?.cwd ?? "";
   const pid = String(app.pid ?? 0);
-  process.stdout.write([status, cwd, pid].join("\t"));
+  const nodeEnv = app.pm2_env?.NODE_ENV ?? app.pm2_env?.env?.NODE_ENV ?? "";
+  const port = app.pm2_env?.PORT ?? app.pm2_env?.env?.PORT ?? "";
+  process.stdout.write([status, cwd, pid, nodeEnv, port].join("\t"));
 });' "$PM2_NAME" 2>/dev/null || true
 )"
 
 if [ -n "$CURRENT_STATE" ]; then
-  IFS=$'\t' read -r CURRENT_STATUS CURRENT_CWD CURRENT_PID <<< "$CURRENT_STATE"
+  IFS=$'\t' read -r CURRENT_STATUS CURRENT_CWD CURRENT_PID CURRENT_NODE_ENV CURRENT_PORT <<< "$CURRENT_STATE"
   CURRENT_CWD_REALPATH="$(realpath -m "$CURRENT_CWD")"
 
-  if [ "$CURRENT_STATUS" = "online" ] && [ "$CURRENT_CWD_REALPATH" = "$TARGET_REALPATH" ] && [ "${CURRENT_PID:-0}" != "0" ]; then
+  if [ "$CURRENT_STATUS" = "online" ] \
+    && [ "$CURRENT_CWD_REALPATH" = "$TARGET_REALPATH" ] \
+    && [ "${CURRENT_PID:-0}" != "0" ] \
+    && [ "$CURRENT_NODE_ENV" = "development" ] \
+    && [ "$CURRENT_PORT" = "$WEB_PORT" ]; then
     log "✓ PM2 개발 서버가 이미 정상 상태입니다"
     "$PM2_BIN" save >/dev/null
     exit 0
