@@ -2,6 +2,8 @@ import getQueryClient from '@/lib/getQueryClient';
 import { Feed, Layout } from '@/components';
 import { getBillByStage } from '@/components/Feed/Feed/apis';
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const queryClient = getQueryClient();
 
