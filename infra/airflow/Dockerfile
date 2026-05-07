@@ -7,10 +7,16 @@ USER airflow
 ARG AIRFLOW_CONSTRAINTS_REFERENCE="constraints-3.1.8"
 ARG PYTHON_VERSION="3.12"
 
-# requirements.txt 복사
-COPY requirements.txt /requirements.txt
+# requirements 파일 복사
+COPY --chown=airflow:root requirements-airflow.txt /requirements-airflow.txt
+COPY --chown=airflow:root requirements-runtime.txt /requirements-runtime.txt
 
-# 패키지 설치 시 공식 constraints 파일을 참조하여 무한 루프 방지
+# Airflow와 함께 고정해도 되는 의존성은 공식 constraints로 재현성을 확보한다.
 RUN pip install --no-cache-dir \
-    -r /requirements.txt \
+    -r /requirements-airflow.txt \
     --constraint "https://raw.githubusercontent.com/apache/airflow/${AIRFLOW_CONSTRAINTS_REFERENCE}/constraints-${PYTHON_VERSION}.txt"
+
+# pydantic-ai-slim 등 앱 런타임 의존성은 Airflow constraints보다 높은
+# opentelemetry-api 버전을 요구하므로 별도 단계에서 해결한다.
+RUN pip install --no-cache-dir \
+    -r /requirements-runtime.txt
