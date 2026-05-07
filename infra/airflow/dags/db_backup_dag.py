@@ -8,12 +8,11 @@ import sys
 from airflow.models.dag import DAG
 from airflow.operators.python import PythonOperator
 
-# 프로젝트 루트 경로를 sys.path에 추가하여 module을 찾을 수 있도록 합니다.
-sys.path.append('/opt/airflow/project')
+# 백업 스크립트 경로를 sys.path에 추가하여 module을 찾을 수 있도록 합니다.
+sys.path.append('/opt/airflow/project/services/data/scripts/db')
 
 # database_backup.py의 main 함수를 import
-# airflow/dags 폴더 입장에서 상위 폴더인 project 루트를 기준으로 import
-from jobs.database_backup import main as db_backup_main
+from database_backup import main as db_backup_main
 
 with DAG(
     dag_id="db_backup_dag",

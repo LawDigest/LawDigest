@@ -30,7 +30,7 @@ default_args = {
 @dag(
     dag_id="election_news_ingest",
     description="선거 관련 네이버 뉴스 시간별 수집",
-    schedule_interval="0 * * * *",
+    schedule="0 * * * *",
     start_date=datetime(2026, 4, 12),
     catchup=False,
     default_args=default_args,

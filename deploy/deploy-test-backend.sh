@@ -78,7 +78,7 @@ ROLLBACK_CONTAINER_NAME="${ROLLBACK_CONTAINER_NAME:-${CONTAINER_NAME}.rollback}"
 HEALTHCHECK_PATH="${HEALTHCHECK_PATH:-/actuator/health}"
 
 container_exists() {
-  docker inspect "$1" >/dev/null 2>&1
+  docker container inspect "$1" >/dev/null 2>&1
 }
 
 remove_container_if_exists() {

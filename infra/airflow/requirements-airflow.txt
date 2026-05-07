@@ -1,0 +1,36 @@
+# ===================================================================
+# Airflow DAGs - constrained by Airflow 3.1.8 (Python 3.12)
+# ===================================================================
+
+# Airflow providers
+apache-airflow-providers-mysql
+pymysql
+
+# Interactive/debug helpers
+IPython
+
+# Core libraries
+pendulum>=3.0.0
+python-dotenv>=1.0.1
+requests>=2.32.3
+
+# Web scraping
+beautifulsoup4>=4.13.0
+lxml>=5.2.0
+
+# Data analysis and PDF parsing
+pandas>=2.2.0
+pymupdf>=1.27.2.2
+fonttools>=4.60.0
+
+# AI provider SDKs compatible with Airflow constraints
+openai>=1.50.0
+google-genai>=1.56.0
+
+# Progress bars
+tqdm>=4.66.0
+
+# Google API clients
+google-api-python-client>=2.150.0
+google-api-core>=2.20.0
+googleapis-common-protos>=1.65.0
