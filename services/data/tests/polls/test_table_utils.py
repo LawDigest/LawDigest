@@ -136,6 +136,11 @@ class TestExtractPercentagesFromCells:
         result = extract_percentages_from_cells(row, start_col=1)
         assert result == [0.0, 100.0, 50.0]
 
+    def test_trailing_percent_sign(self) -> None:
+        row = ["전체", "37.9%", "39.3%", "3.2%"]
+        result = extract_percentages_from_cells(row, start_col=1)
+        assert result == [37.9, 39.3, 3.2]
+
 
 # ─── extract_percentages_from_bunched_cell ───────────────────────────────────
 

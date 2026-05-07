@@ -25,6 +25,7 @@ from lawdigest_data.polls.parser import (
     _FlowerResearchParser,
     _HangilResearchParser,
     _IpsosParser,
+    _J2InsightParser,
     _KoreanResearchParser,
     _KStatResearchParser,
     _NextResearchParser,
@@ -32,6 +33,7 @@ from lawdigest_data.polls.parser import (
     _ResearchAndResearchParser,
     _SignalPulseParser,
     _STIParser,
+    _SETInnovationParser,
     _TableFormatParser,
     _DailyResearchParser,
     _WinjiKoreaParser,
@@ -218,6 +220,14 @@ class TestSelectParser:
     def test_select_research_and_research(self):
         cls = self.parser._select_parser("(주)리서치앤리서치")
         assert cls is _ResearchAndResearchParser
+
+    def test_select_j2_insight(self):
+        cls = self.parser._select_parser("제이투인사이트랩")
+        assert cls is _J2InsightParser
+
+    def test_select_set_innovation(self):
+        cls = self.parser._select_parser("(주)에스티이노베이션")
+        assert cls is _SETInnovationParser
 
     def test_unknown_pollster_raises(self):
         with pytest.raises(UnknownPollsterError, match="미등록기관"):
