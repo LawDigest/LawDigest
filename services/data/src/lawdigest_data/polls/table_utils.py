@@ -97,7 +97,7 @@ def extract_percentages_from_cells(
     result: List[float] = []
     cells = row[start_col:end_col]
     for cell in cells:
-        text = str(cell or "").strip()
+        text = str(cell or "").strip().rstrip("%")
         try:
             v = float(text)
         except ValueError:

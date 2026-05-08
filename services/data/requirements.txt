@@ -12,3 +12,4 @@ langchain-openai
 langchain-google-genai
 llama-index
 pydantic-ai-slim[openai]
+fonttools>=4.62.0

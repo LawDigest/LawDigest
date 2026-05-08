@@ -197,6 +197,16 @@
       "description": "(주)피앰아이 결과표 파서 – '표\\n제목\\nN\\n【\\n】' Q마커, BASE:ALL/'▣ 전 체 ▣' 포맷A + 사례수헤더 포맷B, 요약컬럼 필터",
       "pollster_names": ["(주)피앰아이", "피앰아이"]
     },
+    "j2insight_format": {
+      "class": "_J2InsightParser",
+      "description": "제이투인사이트랩 결과보고서 파서 – row[0][0]='[질문명] QN. 질문문', row[1] 선택지, row[2] 전 체, col4+ 비율",
+      "pollster_names": ["제이투인사이트랩", "J2인사이트랩", "제이트인사이트랩"]
+    },
+    "setinnovation_format": {
+      "class": "_SETInnovationParser",
+      "description": "에스티이노베이션 결과보고서 파서 – '[표N] 제목'과 테이블 순서 대응, [표1] 응답자 특성 제외, row[2] 전체 행, col4+ 비율",
+      "pollster_names": ["(주)에스티이노베이션", "에스티이노베이션", "에스이티노베이션"]
+    },
     "researchj_format": {
       "class": "_ResearchJParser",
       "description": "리서치제이 결과보고서 파서 – 'QN. 제목' 데이터 페이지(테이블 有), row[2]='전체', N/WN=(N)패턴, col9+ float 비율, 헤더 D/D-1/D+1 탐색",
