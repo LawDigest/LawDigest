@@ -21,6 +21,7 @@ from lawdigest_data.polls.parser import (
     PollResultParser,
     UnknownPollsterError,
     _build_parser_key_map,
+    _AceResearchParser,
     _EmbrainPublicParser,
     _FlowerResearchParser,
     _HangilResearchParser,
@@ -31,6 +32,7 @@ from lawdigest_data.polls.parser import (
     _NextResearchParser,
     _RealMeterParser,
     _ResearchAndResearchParser,
+    _ResearchViewParser,
     _SignalPulseParser,
     _STIParser,
     _SETInnovationParser,
@@ -150,6 +152,242 @@ class TestPollParserProtocol:
         instance = parser_cls()
         result = instance.parse([])
         assert isinstance(result, list)
+
+
+class TestDailyResearchParserBehavior:
+    def test_uses_parenthesized_question_marker_as_pending_title(self):
+        parser = _DailyResearchParser()
+        table = [
+            ["구 분", "", "조사완료", "가중값", "후보 A", "후보 B"],
+            ["전 체", "", "500", "500", "60.0", "40.0"],
+        ]
+
+        results = parser.parse(
+            [
+                (
+                    "1) 후보 지지도\n만약 내일 당장 선거가 치러진다면",
+                    [],
+                    "1) 후보 지지도\n만약 내일 당장 선거가 치러진다면",
+                ),
+                ("", [table], ""),
+            ]
+        )
+
+        assert len(results) == 1
+        assert results[0].question_title == "후보 지지도"
+
+    def test_prefers_table_title_marker_for_cross_table_pages(self):
+        parser = _DailyResearchParser()
+        table = [
+            ["구 분", "", "조사완료", "가중값", "후보 A", "후보 B"],
+            ["전 체", "", "500", "500", "60.0", "40.0"],
+        ]
+
+        results = parser.parse(
+            [
+                ("【표1】 후보 지지도", [table], "【표1】 후보 지지도"),
+                ("【표2】 당선가능성", [table], "【표2】 당선가능성"),
+            ]
+        )
+
+        assert [r.question_title for r in results] == ["후보 지지도", "당선가능성"]
+
+    def test_merges_split_table_pages_with_same_title(self):
+        parser = _DailyResearchParser()
+        first_table = [
+            ["구 분", "", "조사완료", "가중값", "후보 A", "후보 B"],
+            ["전 체", "", "500", "500", "45.0", "50.0"],
+        ]
+        second_table = [
+            ["구 분", "", "조사완료", "가중값", "기타", "없음"],
+            ["전 체", "", "500", "500", "3.0", "2.0"],
+        ]
+
+        results = parser.parse(
+            [
+                ("【표2-1】 후보 지지도", [first_table], "【표2-1】 후보 지지도"),
+                ("【표2-2】 후보 지지도", [second_table], "【표2-2】 후보 지지도"),
+            ]
+        )
+
+        assert len(results) == 1
+        assert results[0].question_title == "후보 지지도"
+        assert results[0].response_options == ["후보 A", "후보 B", "기타", "없음"]
+        assert results[0].overall_percentages == [45.0, 50.0, 3.0, 2.0]
+
+
+class TestAceResearchParserBehavior:
+    def test_parses_split_table_title_marker(self):
+        parser = _AceResearchParser()
+        table = [
+            ["", None, "사례수", None, "정치적 이념 성향", None],
+            [None, None, "조사\n완료", "가중값\n적용", "보수", "진보"],
+            ["■ 전 체 ■", None, "(1010)", "(1010)", "60.0", "40.0"],
+        ]
+        text = "표\n정치적 이념 성향\n<\n1>\nQ4. 정치적 이념 성향은?"
+
+        results = parser.parse([("", [table], text)])
+
+        assert len(results) == 1
+        assert results[0].question_number == 1
+        assert results[0].question_title == "정치적 이념 성향"
+        assert results[0].response_options == ["보수", "진보"]
+
+    def test_drops_summary_tail_when_option_repeats(self):
+        parser = _AceResearchParser()
+        table = [
+            ["", None, "사례수", None, "이재명 대통령 국정 수행 평가", None, None, None, None, None, None, None],
+            [
+                "",
+                None,
+                "조사\n완료",
+                "가중값\n적용",
+                "매우 잘하고 있다",
+                "다소 잘하고 있다",
+                "다소 잘 못하고 있다",
+                "매우 잘 못하고 있다",
+                "잘 모르겠다",
+                "잘하고 있다",
+                "잘 못하고 있다",
+                "잘 모르겠다",
+            ],
+            ["■ 전 체 ■", None, "(1010)", "(1010)", "28.5", "17.4", "16.9", "29.5", "7.7", "45.9", "46.4", "7.7"],
+        ]
+        text = "표\n이재명 대통령 국정 수행 평가\n<\n2>\nQ5. 국정 수행 평가?"
+
+        results = parser.parse([("", [table], text)])
+
+        assert len(results) == 1
+        assert results[0].response_options == [
+            "매우 잘하고 있다",
+            "다소 잘하고 있다",
+            "다소 잘 못하고 있다",
+            "매우 잘 못하고 있다",
+            "잘 모르겠다",
+        ]
+        assert results[0].overall_percentages == [28.5, 17.4, 16.9, 29.5, 7.7]
+
+
+class TestResearchViewParserBehavior:
+    def test_uses_latest_compact_date_row_for_trend_table(self):
+        parser = _ResearchViewParser()
+        table = [
+            ["1. 후보지지도\n(%)", None, None, None, None, None],
+            ["", None, "조사완료\n(사례수)", "가중값적용\n(사례수)", "후보 A", "후보 B"],
+            ["260207-08 (1차)", None, "500", "500", "42.5", "34.6"],
+            ["260425-26 (2차)", None, "500", "500", "44.6", "39.8"],
+            ["성별", "남성", "238", "254", "46.7", "39.9"],
+        ]
+
+        results = parser.parse([("", [table], "")])
+
+        assert len(results) == 1
+        assert results[0].question_title == "후보지지도"
+        assert results[0].overall_percentages == [44.6, 39.8]
+
+
+class TestKoreanResearchParserBehavior:
+    def test_parses_split_title_with_bunched_total_percentages(self):
+        parser = _KoreanResearchParser()
+        table = [
+            ["전체", "사례수 (명)", None, "후보 A", "후보 B", "없음", "계"],
+            [None, "조사완료사례수(명)", "가중값 적용 사례수(명)", None, None, None, None],
+            ["▣ 전체 ▣", "(500)", "(500)", "10 20 70 100", None, None, None],
+        ]
+        text = "표 \n김해시장 지지도\n[\n1]\n문\n선생님께서는 누구를 지지하십니까?"
+
+        results = parser.parse([(text, [table], text)])
+
+        assert len(results) == 1
+        assert results[0].question_title == "김해시장 지지도"
+        assert results[0].response_options == ["후보 A", "후보 B", "없음"]
+        assert results[0].overall_percentages == [10.0, 20.0, 70.0]
+
+
+class TestRealMeterParserBehavior:
+    def test_uses_question_line_before_bare_q_marker(self):
+        parser = _RealMeterParser()
+        table = [
+            ["구 분", None, "조사\n완료\n사례수", "가중값\n적용\n사례수", "정책 A", "정책 B"],
+            ["전체", None, "(804) (804)", None, "18.2", "15.4"],
+        ]
+        text = "다음에서 제시되는 정책 중 가장 중요하다고 생각하시는 항목을 선택해주십시오\nQ1.\n‘\n’\n."
+
+        results = parser.parse([("", [table], text)])
+
+        assert len(results) == 1
+        assert results[0].question_number == 1
+        assert results[0].question_title == (
+            "다음에서 제시되는 정책 중 가장 중요하다고 생각하시는 항목을 선택해주십시오"
+        )
+        assert results[0].overall_percentages == [18.2, 15.4]
+
+    def test_merges_split_pages_with_same_question_number(self):
+        parser = _RealMeterParser()
+        first_table = [
+            ["구 분", None, "조사\n완료\n사례수", "가중값\n적용\n사례수", "정책 A", "정책 B"],
+            ["전체", None, "(804) (804)", None, "40.0", "35.0"],
+        ]
+        second_table = [
+            ["구 분", None, "조사\n완료\n사례수", "가중값\n적용\n사례수", "정책 C", "정책 D"],
+            ["전체", None, "(804) (804)", None, "15.0", "10.0"],
+        ]
+        first_text = "광역단체 정책의제\nQ1."
+        second_text = "광역단체 정책의제\nQ1."
+
+        results = parser.parse([("", [first_table], first_text), ("", [second_table], second_text)])
+
+        assert len(results) == 1
+        assert results[0].response_options == ["정책 A", "정책 B", "정책 C", "정책 D"]
+        assert results[0].overall_percentages == [40.0, 35.0, 15.0, 10.0]
+
+    def test_recovers_fragmented_first_option_and_percentage(self):
+        parser = _RealMeterParser()
+        table = [
+            ["", None, None, None, None, None, None, None, None],
+            [
+                "구",
+                "조사\n분 완료\n사례수",
+                "가중값\n적용 박\n사례수",
+                "효진",
+                "성기선",
+                "안민석",
+                "유은혜",
+                "없음",
+                "잘 모름",
+            ],
+            ["전 체", "(1001)", "(1001) 1", "2.03", "12.60", "20.17", "22.99", "16.36", "15.85"],
+        ]
+
+        result = parser._extract_from_tables([table], "단일후보 적합도", "단일후보 적합도")
+
+        assert result is not None
+        assert result.response_options[0] == "박효진"
+        assert result.overall_percentages[0] == 12.03
+        assert round(sum(result.overall_percentages), 2) == 100.0
+
+    def test_uses_pending_title_when_table_page_has_no_q_marker(self):
+        parser = _RealMeterParser()
+        table = [
+            ["", None, None, None, None, None, None, None, None],
+            [
+                "구",
+                "조사\n분 완료\n사례수",
+                "가중값\n적용 박\n사례수",
+                "효진",
+                "성기선",
+                "안민석",
+                "유은혜",
+                "없음",
+                "잘 모름",
+            ],
+            ["전 체", "(1001)", "(1001) 1", "2.03", "12.60", "20.17", "22.99", "16.36", "15.85"],
+        ]
+
+        results = parser.parse([("단일후보 적합도", [], "단일후보 적합도"), ("", [table], "")])
+
+        assert len(results) == 1
+        assert results[0].question_title == "단일후보 적합도"
 
 
 # ── PollResultParser 레지스트리 로드 ─────────────────────────────────────────
