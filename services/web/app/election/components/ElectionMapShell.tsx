@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Layout } from '@/components';
 import { useGetElectionSelector } from '../apis/queries';
 import { compareElectionSelectorItems, getDefaultElectionId } from '../utils/compareRules';
@@ -31,13 +31,15 @@ function isValidTab(value: string | null): value is ElectionInnerTab {
 }
 
 export default function ElectionMapShell() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const selectorQuery = useGetElectionSelector();
 
-  const tabParam = searchParams.get('tab');
-  const activeTab: ElectionInnerTab = isValidTab(tabParam) ? tabParam : 'map';
+  const initialTab: ElectionInnerTab = (() => {
+    const tabParam = searchParams.get('tab');
+    return isValidTab(tabParam) ? tabParam : 'map';
+  })();
 
+  const [activeTab, setActiveTab] = useState<ElectionInnerTab>(initialTab);
   const [confirmedRegion, setConfirmedRegion] = useState<ConfirmedRegion | null>(DEFAULT_REGION);
   const [selectedElectionId, setSelectedElectionId] = useState('local-2026');
 
@@ -67,14 +69,16 @@ export default function ElectionMapShell() {
   const electionName = selectedElection?.election_name ?? LOCAL_ELECTION_NAME;
   const electionDate = selectedElection?.election_date ? new Date(selectedElection.election_date) : LOCAL_ELECTION_DATE;
 
-  const handleTabChange = useCallback(
-    (tab: ElectionInnerTab) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set('tab', tab);
-      router.push(`?${params.toString()}`, { scroll: false });
-    },
-    [router, searchParams],
-  );
+  const handleTabChange = useCallback((tab: ElectionInnerTab) => {
+    setActiveTab(tab);
+
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tab);
+    window.history.replaceState(window.history.state, '', url.toString());
+  }, []);
 
   return (
     <Layout nav logo>
