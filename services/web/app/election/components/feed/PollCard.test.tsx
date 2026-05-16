@@ -13,7 +13,7 @@ const mockItem = {
   publishedAt: '2026-04-03T00:00:00Z',
   results: [
     { partyName: '더불어민주당', pct: 47.3, delta: 1.2, color: '#152484' },
-    { partyName: '국민의힘', pct: 43.1, delta: -0.8, color: '#C9151E' },
+    { partyName: '국민의힘', pct: 43.1, delta: -0.8, color: '#E61E2B' },
   ],
   region: '서울특별시',
 };

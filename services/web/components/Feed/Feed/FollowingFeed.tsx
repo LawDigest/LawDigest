@@ -35,7 +35,7 @@ export default function FollowingFeed() {
         <button
           type="button"
           onClick={() => router.push('/login')}
-          className="px-4 py-2 text-sm font-medium text-white bg-black rounded-full dark:bg-white dark:text-black">
+          className="px-4 py-2 text-sm font-medium text-white bg-primary-3 rounded-full dark:bg-gray-0.5 dark:text-black">
           로그인하기
         </button>
       </div>

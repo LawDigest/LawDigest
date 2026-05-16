@@ -21,9 +21,9 @@ export default function BillTab({
         variant="underlined"
         classNames={{
           tabList: 'w-full p-0 border-b border-divider',
-          cursor: 'bg-black dark:bg-white',
+          cursor: 'bg-primary-3 dark:bg-gray-0.5',
           tab: 'px-0 h-10',
-          tabContent: 'mx-2 group-data-[selected=true]:text-black group-data-[selected=true]:dark:text-white',
+          tabContent: 'mx-2 group-data-[selected=true]:text-primary-3 group-data-[selected=true]:dark:text-gray-0.5',
         }}
         selectedKey={type}
         onSelectionChange={clickHandler}

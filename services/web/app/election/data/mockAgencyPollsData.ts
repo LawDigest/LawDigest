@@ -54,9 +54,9 @@ const REALMETER_OHMYNEWS_PPP: AgencyPoll = {
   method: 'ARS(무선70%+유선30%)',
   questionTitle: '경기도지사 국민의힘 후보 지지도',
   results: [
-    { label: '김은혜', pct: 20.3, color: '#C9151E' },
-    { label: '유승민', pct: 15.7, color: '#C9151E' },
-    { label: '안철수', pct: 12.4, color: '#C9151E' },
+    { label: '김은혜', pct: 20.3, color: '#E61E2B' },
+    { label: '유승민', pct: 15.7, color: '#E61E2B' },
+    { label: '안철수', pct: 12.4, color: '#E61E2B' },
     { label: '기타 인물', pct: 4.4, color: '#aaa' },
     { label: '없음/모름', pct: 47.2, color: '#ddd' },
   ],
@@ -76,7 +76,7 @@ const REALMETER_PARTY_SUPPORT: AgencyPoll = {
   questionTitle: '정당지지도 (경기도)',
   results: [
     { label: '더불어민주당', pct: 48.7, color: '#152484' },
-    { label: '국민의힘', pct: 23.7, color: '#C9151E' },
+    { label: '국민의힘', pct: 23.7, color: '#E61E2B' },
     { label: '개혁신당', pct: 4.5, color: '#FF7210' },
     { label: '조국혁신당', pct: 4.1, color: '#6A3FA0' },
     { label: '진보당', pct: 1.6, color: '#D6001C' },
@@ -98,7 +98,7 @@ const REALMETER_PARTY_SUPPORT_V2: AgencyPoll = {
   questionTitle: '정당지지도 (경기도)',
   results: [
     { label: '더불어민주당', pct: 54.9, color: '#152484' },
-    { label: '국민의힘', pct: 20.8, color: '#C9151E' },
+    { label: '국민의힘', pct: 20.8, color: '#E61E2B' },
     { label: '개혁신당', pct: 6.1, color: '#FF7210' },
     { label: '조국혁신당', pct: 3.0, color: '#6A3FA0' },
     { label: '진보당', pct: 2.1, color: '#D6001C' },
@@ -120,7 +120,7 @@ const HANGIL_GOVERNOR_RACE: AgencyPoll = {
   questionTitle: '경기도지사 선거 정당별 지지도',
   results: [
     { label: '더불어민주당 후보', pct: 45.4, color: '#152484' },
-    { label: '국민의힘 후보', pct: 30.3, color: '#C9151E' },
+    { label: '국민의힘 후보', pct: 30.3, color: '#E61E2B' },
     { label: '기타후보', pct: 5.9, color: '#aaa' },
     { label: '없다/모름', pct: 18.3, color: '#ddd' },
   ],
@@ -142,7 +142,7 @@ const REALMETER_PRESIDENT_APPROVAL: AgencyPoll = {
     { label: '매우 잘함', pct: 46.3, color: '#152484' },
     { label: '잘하는 편', pct: 10.0, color: '#96BCFA' },
     { label: '잘못하는 편', pct: 8.8, color: '#fca5a5' },
-    { label: '매우 잘못함', pct: 27.2, color: '#C9151E' },
+    { label: '매우 잘못함', pct: 27.2, color: '#E61E2B' },
     { label: '잘 모름', pct: 7.7, color: '#ddd' },
   ],
 };
@@ -163,7 +163,7 @@ const REALMETER_GOVERNOR_APPROVAL: AgencyPoll = {
     { label: '매우 잘함', pct: 13.2, color: '#152484' },
     { label: '잘하는 편', pct: 25.5, color: '#96BCFA' },
     { label: '잘못하는 편', pct: 21.1, color: '#fca5a5' },
-    { label: '매우 잘못함', pct: 18.8, color: '#C9151E' },
+    { label: '매우 잘못함', pct: 18.8, color: '#E61E2B' },
     { label: '잘 모름', pct: 21.4, color: '#ddd' },
   ],
 };
@@ -191,7 +191,7 @@ export const POLL_SUMMARY = {
     name: '국민의힘',
     pct: 23.7,
     change: -1.3,
-    color: '#C9151E',
+    color: '#E61E2B',
   },
   gap: 25.0, // 1위-2위 격차
   undecided: 15.1, // 없음 + 잘 모름

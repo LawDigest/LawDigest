@@ -9,7 +9,7 @@ vi.mock('@/components/common/PartyLogoReplacement/PartyLogoReplacement', () => (
 
 const PARTIES = [
   { name: '더불어민주당', color: '#152484' },
-  { name: '국민의힘', color: '#C9151E' },
+  { name: '국민의힘', color: '#E61E2B' },
 ];
 
 describe('PartyRingSelector', () => {

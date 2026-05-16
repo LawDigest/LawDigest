@@ -35,7 +35,7 @@ export const MOCK_PARTY_POLL_DATA: PartyPollResult[] = [
   },
   {
     partyName: '국민의힘',
-    color: '#C9151E',
+    color: '#E61E2B',
     nationalPct: 23.7, // 리얼미터 오마이뉴스 2026.03
     regionalPct: {
       서울특별시: 25.1,

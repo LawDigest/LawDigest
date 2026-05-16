@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { getPartyColor as getDesignPartyColor } from '@/constants/party';
 import { useGetElectionPollOverview } from '../apis/queries';
 import { aggregatePartySnapshots, normalizePartyName } from '../utils/partyName';
 import { ConfirmedRegion } from './ElectionMapShell';
@@ -35,10 +36,7 @@ interface ElectionFeedViewProps {
 function getPartyColor(partyName: string) {
   const normalizedPartyName = normalizePartyName(partyName);
 
-  if (normalizedPartyName.includes('더불어민주')) return '#152484';
-  if (normalizedPartyName.includes('국민의힘')) return '#C9151E';
-  if (normalizedPartyName === 'undecided') return '#999999';
-  return '#5b6475';
+  return normalizedPartyName === 'undecided' ? '#999999' : getDesignPartyColor(normalizedPartyName);
 }
 
 export default function ElectionFeedView({ confirmedRegion, selectedElectionId }: ElectionFeedViewProps) {

@@ -19,7 +19,7 @@ export default function TimelineBoard() {
   return (
     <Card
       classNames={{
-        base: ['shadow-[0_4px_6px_-2px_rgba(0,_0,_0,_0.1)] md:shadow-none'],
+        base: ['shadow-none'],
       }}
       className="w-full border-b md:border-none dark:border-dark-l mx-auto bg-transparent md:dark:bg-primary-3 md:mt-10 md:mb-6 md:w-[708px] md:pt-3 md:rounded-xl">
       <CardBody className="flex flex-col items-center gap-1 md:flex-row md:justify-center md:gap-[50px] md:shadow-none">
@@ -27,7 +27,7 @@ export default function TimelineBoard() {
           <h2 className="font-semibold text-[26px] md:text-[48px] md:font-bold">타임라인</h2>
           <div className="flex items-center justify-center gap-3 md:flex-col md:gap-1">
             <p className="text-xs font-semibold text-gray-2 md:text-[20px] md:font-normal">제 22대 국회</p>
-            <Divider orientation="vertical" className="h-4 w-[1px] bg-black md:hidden" />
+            <Divider orientation="vertical" className="h-4 w-[1px] bg-primary-3 md:hidden" />
             <p className="text-lg font-semibold">{`D-${getDDay('2028-04-11')}`}</p>
           </div>
         </div>

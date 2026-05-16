@@ -20,7 +20,7 @@ export default function FeedTab({
         aria-label="Options"
         variant="light"
         classNames={{
-          cursor: ['rounded-full bg-black dark:bg-white'],
+          cursor: ['rounded-full bg-primary-3 dark:bg-gray-0.5'],
           tabList: ['gap-0'],
           tab: ['w-[74px] h-[36px] '],
           tabContent:

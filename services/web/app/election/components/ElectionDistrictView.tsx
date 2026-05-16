@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ElectionPollRegionResponse, ElectionRegionCode } from '@/types';
+import { getPartyColor as getDesignPartyColor } from '@/constants/party';
 import { useGetElectionCandidateDetails, useGetElectionCandidates, useGetElectionPollRegion } from '../apis/queries';
 import { ConfirmedRegion } from './ElectionMapShell';
 import { MOCK_DISTRICT, MockAiIssue, IMPORTANCE_LABEL } from '../data/mockDistrictData';
@@ -26,11 +27,7 @@ interface DistrictCandidateViewModel {
 }
 
 function getPartyColor(name: string) {
-  if (name.includes('더불어민주')) return '#152484';
-  if (name.includes('국민의힘')) return '#C9151E';
-  if (name.includes('개혁신당')) return '#FF7210';
-  if (name.includes('조국')) return '#6A3FA0';
-  return '#5b6475';
+  return getDesignPartyColor(name);
 }
 
 function formatPercentage(value: number | null) {

@@ -1,6 +1,7 @@
 'use client';
 
 import { ElectionPollCandidateResponse } from '@/types';
+import { PARTY_COLOR } from '@/constants/party';
 import { Line } from 'react-chartjs-2';
 
 interface ElectionCandidatePollPanelProps {
@@ -23,7 +24,13 @@ function CandidateBar({ label, percentage, color }: { label: string; percentage:
 }
 
 function palette(index: number) {
-  const colors = ['#152484', '#C9151E', '#2E8B57', '#FF7210', '#6A3FA0'];
+  const colors = [
+    PARTY_COLOR.더불어민주당,
+    PARTY_COLOR.국민의힘,
+    PARTY_COLOR.녹색정의당,
+    PARTY_COLOR.개혁신당,
+    PARTY_COLOR.조국혁신당,
+  ];
   return colors[index % colors.length];
 }
 

@@ -9,7 +9,7 @@ export default async function UserInfo({ queryClient }: { queryClient: QueryClie
   const { user_name, user_image_url, user_email } = userInfo;
 
   return (
-    <section className="flex items-center px-[30px] justify-between h-[200px] shadow-md rounded-b-xl md:rounded-xl bg-white pt-3 pb-7 md:py-6 dark:bg-primary-3 lg:bg-gray-0.5 lg:shadow-none md:h-[300px] md:w-[708px] md:mt-10 md:bg-gray-4 md:dark:bg-dark-pb md:text-white lg:text-black lg:dark:text-white lg:h-[260px] lg:w-[200px] lg:justify-center lg:relative">
+    <section className="flex items-center px-[30px] justify-between h-[200px] shadow-none rounded-b-xl md:rounded-xl bg-white pt-3 pb-7 md:py-6 dark:bg-primary-3 lg:bg-gray-0.5 md:h-[300px] md:w-[708px] md:mt-10 md:bg-gray-4 md:dark:bg-dark-pb md:text-white lg:text-black lg:dark:text-white lg:h-[260px] lg:w-[200px] lg:justify-center lg:relative">
       <div className="flex items-center w-full lg:flex-col lg:gap-5">
         <div className="relative">
           <Image

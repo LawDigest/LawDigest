@@ -17,9 +17,9 @@ export default function ElectionModeTabs({ selectedKey }: ElectionModeTabsProps)
         variant="underlined"
         classNames={{
           tabList: 'w-full p-0 border-b border-default-200',
-          cursor: 'bg-black',
+          cursor: 'bg-primary-3',
           tab: 'h-11 px-0',
-          tabContent: 'text-sm text-gray-500 group-data-[selected=true]:text-black',
+          tabContent: 'text-sm text-gray-500 group-data-[selected=true]:text-primary-3',
         }}>
         <Tab key="REGIONAL" title="지역별 보기" />
         <Tab

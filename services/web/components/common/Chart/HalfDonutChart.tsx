@@ -383,13 +383,13 @@ export default function HalfDonutChart({
             <span className="font-semibold">{((tooltip.value / approvalCount) * 100).toFixed(1)}%</span>
           </div>
 
-          {/* 툴팁 삼각형 화살표 */}
+          {/* 툴팁 화살표 */}
           <div
-            className="absolute w-0 h-0 border-t-8 border-l-8 border-r-8 border-l-transparent border-r-transparent border-t-popover"
+            className="absolute h-3 w-3 bg-popover"
             style={{
-              bottom: '-8px',
+              bottom: '-6px',
               left: '50%',
-              transform: 'translateX(-50%)',
+              transform: 'translateX(-50%) rotate(45deg)',
             }}
           />
         </div>

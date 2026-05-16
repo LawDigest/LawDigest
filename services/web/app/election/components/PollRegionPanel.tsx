@@ -1,6 +1,7 @@
 'use client';
 
 import { ElectionPollRegionResponse } from '@/types';
+import { getPartyColor } from '@/constants/party';
 import { aggregatePartySnapshots, normalizePartyName } from '../utils/partyName';
 
 interface PollRegionPanelProps {
@@ -25,10 +26,7 @@ function SnapshotBar({ label, percentage, color }: { label: string; percentage: 
 function getBarColor(name: string) {
   const normalizedName = normalizePartyName(name);
 
-  if (normalizedName.includes('더불어민주')) return '#152484';
-  if (normalizedName.includes('국민의힘')) return '#C9151E';
-  if (normalizedName === 'undecided') return '#999999';
-  return '#5b6475';
+  return normalizedName === 'undecided' ? '#999999' : getPartyColor(normalizedName);
 }
 
 export default function PollRegionPanel({ response, region }: PollRegionPanelProps) {

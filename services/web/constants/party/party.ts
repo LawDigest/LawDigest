@@ -94,11 +94,29 @@ export const PARTY_COLOR = {
   국민의힘: '#E61E2B',
   더불어민주연합: '#152484',
   국민의미래: '#E4002B',
+  정의당: '#FFED00',
+  기본소득당: '#00D2C3',
+  시대전환: '#5B157F',
   녹새정의당: '#007C36',
+  녹색정의당: '#007C36',
   새로운미래: '#45BABD',
   개혁신당: '#FF7210',
   자유통일당: '#0958A7',
   진보당: '#D6001C',
   조국혁신당: '#0073CF',
+  한국의희망: '#004B83',
+  사회민주당: '#F58400',
   무소속: '#797C85',
 } as const;
+
+export const UNKNOWN_PARTY_COLOR = '#797C85';
+
+export function getPartyColor(partyName: string | null | undefined): string {
+  if (!partyName) {
+    return UNKNOWN_PARTY_COLOR;
+  }
+
+  const matched = Object.entries(PARTY_COLOR).find(([key]) => partyName.includes(key) || key.includes(partyName));
+
+  return matched?.[1] ?? UNKNOWN_PARTY_COLOR;
+}
