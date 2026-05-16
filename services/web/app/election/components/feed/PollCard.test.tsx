@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
+import { getPartyColor } from '@/constants/party';
 import PollCard from './PollCard';
 
 const mockItem = {
@@ -12,8 +13,8 @@ const mockItem = {
   marginOfError: '95% 신뢰수준 ±3.1%p',
   publishedAt: '2026-04-03T00:00:00Z',
   results: [
-    { partyName: '더불어민주당', pct: 47.3, delta: 1.2, color: '#152484' },
-    { partyName: '국민의힘', pct: 43.1, delta: -0.8, color: '#E61E2B' },
+    { partyName: '더불어민주당', pct: 47.3, delta: 1.2, color: getPartyColor('더불어민주당') },
+    { partyName: '국민의힘', pct: 43.1, delta: -0.8, color: getPartyColor('국민의힘') },
   ],
   region: '서울특별시',
 };

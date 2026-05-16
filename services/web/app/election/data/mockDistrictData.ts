@@ -1,5 +1,7 @@
 // services/web/app/election/data/mockDistrictData.ts
 
+import { getPartyColor } from '@/constants/party';
+
 export interface MockCandidate {
   id: string;
   name: string;
@@ -75,10 +77,10 @@ export const MOCK_DISTRICT: MockDistrict = {
   ],
   poll: {
     leadParty: '더불어민주당',
-    leadPartyColor: '#152484',
+    leadPartyColor: getPartyColor('더불어민주당'),
     leadPct: 47.3,
     secondParty: '국민의힘',
-    secondPartyColor: '#E61E2B',
+    secondPartyColor: getPartyColor('국민의힘'),
     secondPct: 43.1,
     undecidedPct: 7.2,
     reliability: 95,
@@ -88,7 +90,7 @@ export const MOCK_DISTRICT: MockDistrict = {
       id: 'c1',
       name: '홍길동',
       partyName: '더불어민주당',
-      partyColor: '#152484',
+      partyColor: getPartyColor('더불어민주당'),
       slogan: '함께 만드는 서울의 미래',
       supportPct: 47.3,
       career: ['전 서울시 경제부시장', '전 국회의원 (19대)', '서울대학교 경제학과 졸업'],
@@ -98,7 +100,7 @@ export const MOCK_DISTRICT: MockDistrict = {
       id: 'c2',
       name: '이순신',
       partyName: '국민의힘',
-      partyColor: '#E61E2B',
+      partyColor: getPartyColor('국민의힘'),
       slogan: '강한 서울, 행복한 시민',
       supportPct: 43.1,
       career: ['전 행정안전부 장관', '전 서울시 행정1부시장', '연세대학교 행정학과 졸업'],
@@ -108,7 +110,7 @@ export const MOCK_DISTRICT: MockDistrict = {
       id: 'c3',
       name: '강감찬',
       partyName: '조국혁신당',
-      partyColor: '#6A3FA0',
+      partyColor: getPartyColor('조국혁신당'),
       slogan: '새로운 서울의 시작',
       supportPct: 7.2,
       career: ['전 시민단체 대표', '전 서울시의원 (3선)', '고려대학교 법학과 졸업'],

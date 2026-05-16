@@ -23,11 +23,11 @@ export default function SubTabBar<T extends string>({ tabs, active, onChange }: 
         selectedKey={active}
         onSelectionChange={(key: Key) => onChange(key as T)}
         classNames={{
-          cursor: 'rounded-full bg-gray-4 dark:bg-white',
+          cursor: 'rounded-full bg-primary-3 dark:bg-gray-0.5',
           tabList: 'gap-0',
           tab: 'h-[32px] px-3.5',
           tabContent:
-            'text-sm font-semibold group-data-[selected=true]:text-white group-data-[selected=true]:dark:text-gray-4 text-gray-2',
+            'text-sm font-semibold text-gray-2 group-data-[selected=true]:text-white group-data-[selected=true]:dark:text-black',
         }}>
         {tabs.map(({ key, label }) => (
           <Tab key={key} title={label} />

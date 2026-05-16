@@ -1,7 +1,7 @@
 'use client';
 
 import { ElectionPollRegionResponse } from '@/types';
-import { getPartyColor } from '@/constants/party';
+import { getPartyColor, UNKNOWN_PARTY_COLOR } from '@/constants/party';
 import { aggregatePartySnapshots, normalizePartyName } from '../utils/partyName';
 
 interface PollRegionPanelProps {
@@ -26,7 +26,7 @@ function SnapshotBar({ label, percentage, color }: { label: string; percentage: 
 function getBarColor(name: string) {
   const normalizedName = normalizePartyName(name);
 
-  return normalizedName === 'undecided' ? '#999999' : getPartyColor(normalizedName);
+  return normalizedName === 'undecided' ? UNKNOWN_PARTY_COLOR : getPartyColor(normalizedName);
 }
 
 export default function PollRegionPanel({ response, region }: PollRegionPanelProps) {

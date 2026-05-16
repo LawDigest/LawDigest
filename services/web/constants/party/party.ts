@@ -111,12 +111,25 @@ export const PARTY_COLOR = {
 
 export const UNKNOWN_PARTY_COLOR = '#797C85';
 
+const PARTY_COLOR_ALIAS: Record<string, keyof typeof PARTY_COLOR> = {
+  민주: '더불어민주당',
+  국힘: '국민의힘',
+};
+
 export function getPartyColor(partyName: string | null | undefined): string {
   if (!partyName) {
     return UNKNOWN_PARTY_COLOR;
   }
 
-  const matched = Object.entries(PARTY_COLOR).find(([key]) => partyName.includes(key) || key.includes(partyName));
+  const trimmedPartyName = partyName.trim();
+  if (!trimmedPartyName) {
+    return UNKNOWN_PARTY_COLOR;
+  }
+
+  const normalizedPartyName = PARTY_COLOR_ALIAS[trimmedPartyName] ?? trimmedPartyName;
+  const matched = Object.entries(PARTY_COLOR).find(
+    ([key]) => normalizedPartyName.includes(key) || key.includes(normalizedPartyName),
+  );
 
   return matched?.[1] ?? UNKNOWN_PARTY_COLOR;
 }

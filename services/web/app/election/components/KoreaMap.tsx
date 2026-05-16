@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
+import { getPartyColor } from '@/constants/party';
 import type { FeatureCollection, Feature, Geometry, Position } from 'geojson';
 import type {
   Topology,
@@ -17,6 +18,8 @@ import { MOCK_POLL_DATA } from '../data/mockPollData';
 const TOPO_OBJECT_KEY = 'skorea_provinces_geo';
 const TRANSITION_DURATION = 750;
 const SWIPE_THRESHOLD = 40;
+const DEMOCRATIC_COLOR = getPartyColor('더불어민주당');
+const PPP_COLOR = getPartyColor('국민의힘');
 
 // ─── 선거 데이터 (제9회 전국동시지방선거 mock – 8회 결과 기준) ─────────────────
 
@@ -58,98 +61,98 @@ export interface RegionCentroidInfo {
 export const ELECTION_INFO: Record<string, ProvinceElectionInfo> = {
   서울특별시: {
     title: '서울특별시장',
-    c1: { name: '오세훈', party: '국힘', color: '#e61e2b' },
-    c2: { name: '송영길', party: '민주', color: '#152484' },
+    c1: { name: '오세훈', party: '국힘', color: PPP_COLOR },
+    c2: { name: '송영길', party: '민주', color: DEMOCRATIC_COLOR },
   },
   부산광역시: {
     title: '부산광역시장',
-    c1: { name: '박형준', party: '국힘', color: '#e61e2b' },
-    c2: { name: '변성완', party: '민주', color: '#152484' },
+    c1: { name: '박형준', party: '국힘', color: PPP_COLOR },
+    c2: { name: '변성완', party: '민주', color: DEMOCRATIC_COLOR },
   },
   대구광역시: {
     title: '대구광역시장',
-    c1: { name: '홍준표', party: '국힘', color: '#e61e2b' },
-    c2: { name: '서재헌', party: '민주', color: '#152484' },
+    c1: { name: '홍준표', party: '국힘', color: PPP_COLOR },
+    c2: { name: '서재헌', party: '민주', color: DEMOCRATIC_COLOR },
   },
   인천광역시: {
     title: '인천광역시장',
-    c1: { name: '유정복', party: '국힘', color: '#e61e2b' },
-    c2: { name: '박남춘', party: '민주', color: '#152484' },
+    c1: { name: '유정복', party: '국힘', color: PPP_COLOR },
+    c2: { name: '박남춘', party: '민주', color: DEMOCRATIC_COLOR },
   },
   광주광역시: {
     title: '광주광역시장',
-    c1: { name: '강기정', party: '민주', color: '#152484' },
-    c2: { name: '김재식', party: '국힘', color: '#e61e2b' },
+    c1: { name: '강기정', party: '민주', color: DEMOCRATIC_COLOR },
+    c2: { name: '김재식', party: '국힘', color: PPP_COLOR },
   },
   대전광역시: {
     title: '대전광역시장',
-    c1: { name: '이장우', party: '국힘', color: '#e61e2b' },
-    c2: { name: '허태정', party: '민주', color: '#152484' },
+    c1: { name: '이장우', party: '국힘', color: PPP_COLOR },
+    c2: { name: '허태정', party: '민주', color: DEMOCRATIC_COLOR },
   },
   울산광역시: {
     title: '울산광역시장',
-    c1: { name: '김두겸', party: '국힘', color: '#e61e2b' },
-    c2: { name: '송철호', party: '민주', color: '#152484' },
+    c1: { name: '김두겸', party: '국힘', color: PPP_COLOR },
+    c2: { name: '송철호', party: '민주', color: DEMOCRATIC_COLOR },
   },
   세종특별자치시: {
     title: '세종특별자치시장',
-    c1: { name: '최민호', party: '국힘', color: '#e61e2b' },
-    c2: { name: '이춘희', party: '민주', color: '#152484' },
+    c1: { name: '최민호', party: '국힘', color: PPP_COLOR },
+    c2: { name: '이춘희', party: '민주', color: DEMOCRATIC_COLOR },
   },
   경기도: {
     title: '경기도지사',
-    c1: { name: '김동연', party: '민주', color: '#152484' },
-    c2: { name: '김은혜', party: '국힘', color: '#e61e2b' },
+    c1: { name: '김동연', party: '민주', color: DEMOCRATIC_COLOR },
+    c2: { name: '김은혜', party: '국힘', color: PPP_COLOR },
   },
   강원도: {
     title: '강원특별자치도지사',
-    c1: { name: '김진태', party: '국힘', color: '#e61e2b' },
-    c2: { name: '이광재', party: '민주', color: '#152484' },
+    c1: { name: '김진태', party: '국힘', color: PPP_COLOR },
+    c2: { name: '이광재', party: '민주', color: DEMOCRATIC_COLOR },
   },
   강원특별자치도: {
     title: '강원특별자치도지사',
-    c1: { name: '김진태', party: '국힘', color: '#e61e2b' },
-    c2: { name: '이광재', party: '민주', color: '#152484' },
+    c1: { name: '김진태', party: '국힘', color: PPP_COLOR },
+    c2: { name: '이광재', party: '민주', color: DEMOCRATIC_COLOR },
   },
   충청북도: {
     title: '충청북도지사',
-    c1: { name: '김영환', party: '국힘', color: '#e61e2b' },
-    c2: { name: '노영민', party: '민주', color: '#152484' },
+    c1: { name: '김영환', party: '국힘', color: PPP_COLOR },
+    c2: { name: '노영민', party: '민주', color: DEMOCRATIC_COLOR },
   },
   충청남도: {
     title: '충청남도지사',
-    c1: { name: '김태흠', party: '국힘', color: '#e61e2b' },
-    c2: { name: '양승조', party: '민주', color: '#152484' },
+    c1: { name: '김태흠', party: '국힘', color: PPP_COLOR },
+    c2: { name: '양승조', party: '민주', color: DEMOCRATIC_COLOR },
   },
   전라북도: {
     title: '전북특별자치도지사',
-    c1: { name: '김관영', party: '민주', color: '#152484' },
-    c2: { name: '조배숙', party: '국힘', color: '#e61e2b' },
+    c1: { name: '김관영', party: '민주', color: DEMOCRATIC_COLOR },
+    c2: { name: '조배숙', party: '국힘', color: PPP_COLOR },
   },
   전북특별자치도: {
     title: '전북특별자치도지사',
-    c1: { name: '김관영', party: '민주', color: '#152484' },
-    c2: { name: '조배숙', party: '국힘', color: '#e61e2b' },
+    c1: { name: '김관영', party: '민주', color: DEMOCRATIC_COLOR },
+    c2: { name: '조배숙', party: '국힘', color: PPP_COLOR },
   },
   전라남도: {
     title: '전라남도지사',
-    c1: { name: '김영록', party: '민주', color: '#152484' },
-    c2: { name: '이정현', party: '국힘', color: '#e61e2b' },
+    c1: { name: '김영록', party: '민주', color: DEMOCRATIC_COLOR },
+    c2: { name: '이정현', party: '국힘', color: PPP_COLOR },
   },
   경상북도: {
     title: '경상북도지사',
-    c1: { name: '이철우', party: '국힘', color: '#e61e2b' },
-    c2: { name: '임미애', party: '민주', color: '#152484' },
+    c1: { name: '이철우', party: '국힘', color: PPP_COLOR },
+    c2: { name: '임미애', party: '민주', color: DEMOCRATIC_COLOR },
   },
   경상남도: {
     title: '경상남도지사',
-    c1: { name: '박완수', party: '국힘', color: '#e61e2b' },
-    c2: { name: '양문석', party: '민주', color: '#152484' },
+    c1: { name: '박완수', party: '국힘', color: PPP_COLOR },
+    c2: { name: '양문석', party: '민주', color: DEMOCRATIC_COLOR },
   },
   제주특별자치도: {
     title: '제주특별자치도지사',
-    c1: { name: '오영훈', party: '민주', color: '#152484' },
-    c2: { name: '허향진', party: '국힘', color: '#e61e2b' },
+    c1: { name: '오영훈', party: '민주', color: DEMOCRATIC_COLOR },
+    c2: { name: '허향진', party: '국힘', color: PPP_COLOR },
   },
 };
 
@@ -646,7 +649,7 @@ export default function KoreaMap({
               const gukHimAvg = pollCount > 0 ? gukHimSum / pollCount : 0;
               const minJuAvg = pollCount > 0 ? minJuSum / pollCount : 0;
               const leadingParty = gukHimAvg >= minJuAvg ? '국힘' : '민주';
-              const leadingColor = gukHimAvg >= minJuAvg ? '#e61e2b' : '#152484';
+              const leadingColor = gukHimAvg >= minJuAvg ? PPP_COLOR : DEMOCRATIC_COLOR;
               const leadingPct = Math.max(gukHimAvg, minJuAvg);
               regionCentroidsOut.push({
                 regionIndex: idx,

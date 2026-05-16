@@ -9,7 +9,7 @@ import {
   ElectionPollOverviewResponse,
   ElectionPollSnapshotItem,
 } from '@/types';
-import { getPartyColor, PARTY_COLOR } from '@/constants/party';
+import { getPartyColor, PARTY_COLOR, UNKNOWN_PARTY_COLOR } from '@/constants/party';
 import {
   useGetElectionPollCandidate,
   useGetElectionPollOverview,
@@ -39,7 +39,7 @@ const SUB_TABS: { key: PollSubView; label: string }[] = [
 function getColorForName(name: string) {
   const normalizedName = normalizePartyName(name);
 
-  if (normalizedName === 'undecided') return '#999999';
+  if (normalizedName === 'undecided') return UNKNOWN_PARTY_COLOR;
   return getPartyColor(normalizedName);
 }
 
@@ -410,7 +410,7 @@ function OverviewView({
       </div>
 
       <div className="space-y-4 md:grid md:grid-cols-5 md:gap-4 md:space-y-0">
-        <div className="rounded-3xl border border-gray-1/60 bg-white p-5 shadow-sm dark:border-dark-l dark:bg-dark-pb md:col-span-3">
+        <div className="rounded-2xl border border-gray-1/60 bg-white p-5 shadow-none dark:border-dark-l dark:bg-dark-pb md:col-span-3">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-[14px] font-semibold tracking-tight text-gray-4 dark:text-white">정당지지율 추이</h3>

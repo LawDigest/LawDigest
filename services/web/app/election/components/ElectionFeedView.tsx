@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { getPartyColor as getDesignPartyColor } from '@/constants/party';
+import { getPartyColor as getDesignPartyColor, UNKNOWN_PARTY_COLOR } from '@/constants/party';
 import { useGetElectionPollOverview } from '../apis/queries';
 import { aggregatePartySnapshots, normalizePartyName } from '../utils/partyName';
 import { ConfirmedRegion } from './ElectionMapShell';
@@ -36,7 +36,7 @@ interface ElectionFeedViewProps {
 function getPartyColor(partyName: string) {
   const normalizedPartyName = normalizePartyName(partyName);
 
-  return normalizedPartyName === 'undecided' ? '#999999' : getDesignPartyColor(normalizedPartyName);
+  return normalizedPartyName === 'undecided' ? UNKNOWN_PARTY_COLOR : getDesignPartyColor(normalizedPartyName);
 }
 
 export default function ElectionFeedView({ confirmedRegion, selectedElectionId }: ElectionFeedViewProps) {

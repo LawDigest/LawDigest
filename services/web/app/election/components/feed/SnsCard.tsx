@@ -10,7 +10,7 @@ interface SnsCardProps {
 
 export default function SnsCard({ item }: SnsCardProps) {
   return (
-    <article className="bg-white dark:bg-dark-b p-4 rounded-xl border border-gray-200 dark:border-dark-l shadow-sm">
+    <article className="bg-white dark:bg-dark-b p-4 rounded-xl border border-gray-1 dark:border-dark-l shadow-none">
       {/* 헤더 */}
       <div className="flex items-center gap-2 mb-3">
         <FeedTypeChip type="sns" platform={item.platform} />

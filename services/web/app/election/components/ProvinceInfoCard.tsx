@@ -24,17 +24,16 @@ const ProvinceInfoCard = forwardRef<HTMLDivElement, ProvinceInfoCardProps>(({ pr
       ref={ref}
       className={[
         'flex flex-col gap-1 w-[140px]',
-        'bg-white backdrop-blur-md rounded-lg shadow-sm',
+        'bg-white backdrop-blur-md rounded-lg shadow-none',
         'border border-gray-100',
-        side === 'left' ? 'border-r-[2px] pl-2 pr-1.5 py-1.5' : 'border-l-[2px] pr-2 pl-1.5 py-1.5',
+        side === 'left' ? 'pl-2 pr-1.5 py-1.5' : 'pr-2 pl-1.5 py-1.5',
       ].join(' ')}
-      style={{
-        borderRightColor: side === 'left' ? leadingColor : undefined,
-        borderLeftColor: side === 'right' ? leadingColor : undefined,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.10)',
-      }}>
+      style={{ borderColor: leadingColor }}>
       {/* 직책명 */}
-      <p className="text-[14px] font-bold text-black leading-tight truncate">{info.title}</p>
+      <p className="flex items-center gap-1.5 text-[14px] font-bold text-black leading-tight truncate">
+        <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: leadingColor }} />
+        <span className="truncate">{info.title}</span>
+      </p>
 
       {/* 후보명 행 */}
       <div className="flex justify-between gap-1">

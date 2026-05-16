@@ -1,6 +1,8 @@
 // services/web/app/election/data/mockPartyPollData.ts
 // 경기도 기반 실제 파싱 데이터 참고 (리얼미터 2026.03 기준)
 
+import { getPartyColor } from '@/constants/party';
+
 export interface PartyPollResult {
   partyName: string;
   color: string;
@@ -11,7 +13,7 @@ export interface PartyPollResult {
 export const MOCK_PARTY_POLL_DATA: PartyPollResult[] = [
   {
     partyName: '더불어민주당',
-    color: '#152484',
+    color: getPartyColor('더불어민주당'),
     nationalPct: 48.7, // 리얼미터 오마이뉴스 2026.03
     regionalPct: {
       서울특별시: 47.3,
@@ -35,7 +37,7 @@ export const MOCK_PARTY_POLL_DATA: PartyPollResult[] = [
   },
   {
     partyName: '국민의힘',
-    color: '#E61E2B',
+    color: getPartyColor('국민의힘'),
     nationalPct: 23.7, // 리얼미터 오마이뉴스 2026.03
     regionalPct: {
       서울특별시: 25.1,
@@ -59,7 +61,7 @@ export const MOCK_PARTY_POLL_DATA: PartyPollResult[] = [
   },
   {
     partyName: '개혁신당',
-    color: '#FF7210',
+    color: getPartyColor('개혁신당'),
     nationalPct: 4.5, // 리얼미터 오마이뉴스 2026.03
     regionalPct: {
       서울특별시: 5.2,
@@ -83,7 +85,7 @@ export const MOCK_PARTY_POLL_DATA: PartyPollResult[] = [
   },
   {
     partyName: '조국혁신당',
-    color: '#6A3FA0',
+    color: getPartyColor('조국혁신당'),
     nationalPct: 4.1, // 리얼미터 오마이뉴스 2026.03
     regionalPct: {
       서울특별시: 4.5,
