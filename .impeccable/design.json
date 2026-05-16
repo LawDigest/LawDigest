@@ -45,24 +45,17 @@
         "displayName": "Signature Magenta",
         "canonical": "#FC56D8",
         "tonalRamp": ["#330028", "#6B0055", "#A80B8C", "#DC2FBB", "#FC56D8", "#FF91E8", "#FFC7F4", "#FFF0FB"]
-      },
-      "party-minjoo": {
-        "role": "tertiary",
-        "displayName": "Party Blue",
-        "canonical": "#152484",
-        "tonalRamp": ["#070B27", "#101A5E", "#152484", "#2842B5", "#5D73D8", "#A5B2EF", "#DDE3FA", "#F3F5FE"]
-      },
-      "party-ppp": {
-        "role": "tertiary",
-        "displayName": "Party Red",
-        "canonical": "#E61E2B",
-        "tonalRamp": ["#360509", "#7D0F17", "#B91722", "#E61E2B", "#F0646E", "#F7A6AD", "#FDE0E3", "#FFF4F5"]
-      },
-      "party-independent": {
-        "role": "tertiary",
-        "displayName": "Independent Gray",
-        "canonical": "#797C85",
-        "tonalRamp": ["#18191C", "#30323A", "#4D505A", "#797C85", "#A4A7AF", "#C9CBD0", "#E6E7EA", "#F6F6F8"]
+      }
+    },
+    "domainColorPolicy": {
+      "party": {
+        "ownership": "domain-data",
+        "sourceOfTruth": "services/web/constants/party/party.ts",
+        "readApi": "getPartyColor()",
+        "usage": "후보, 정당, 발의자, 여론조사, 타임라인, 지도, 차트의 소속 표식",
+        "prohibitedUsage": "CTA, 배경 장식, 감정적 강조, 제품 브랜드 팔레트",
+        "fallback": "알 수 없는 정당과 무소속은 정당 색상 레지스트리의 중립 fallback을 사용한다.",
+        "migrationNote": "정당 색상값은 정당명, 로고, 당색 변경에 따라 바뀔 수 있으므로 향후 DB나 관리자 설정으로 이전할 수 있다."
       }
     },
     "typographyMeta": {
@@ -201,12 +194,12 @@
       "refersTo": "poll-snapshot-bar",
       "description": "정당 또는 후보 지지율을 색상과 숫자로 함께 표시하는 선거 데이터 패턴이다.",
       "html": "<div class=\"ds-poll-bar\"><div class=\"ds-poll-bar-head\"><span>더불어민주당</span><strong>42%</strong></div><div class=\"ds-poll-bar-track\"><div class=\"ds-poll-bar-fill\"></div></div></div>",
-      "css": ".ds-poll-bar { display: grid; gap: 4px; font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; } .ds-poll-bar-head { display: flex; justify-content: space-between; gap: 16px; color: #555555; font-size: 12px; } .ds-poll-bar-head strong { color: #262626; font-weight: 700; } .ds-poll-bar-track { height: 8px; width: 100%; overflow: hidden; border-radius: 9999px; background: #F5F7FD; } .ds-poll-bar-fill { width: 42%; height: 100%; border-radius: 9999px; background: #152484; }"
+      "css": ".ds-poll-bar { display: grid; gap: 4px; font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; } .ds-poll-bar-head { display: flex; justify-content: space-between; gap: 16px; color: #555555; font-size: 12px; } .ds-poll-bar-head strong { color: #262626; font-weight: 700; } .ds-poll-bar-track { height: 8px; width: 100%; overflow: hidden; border-radius: 9999px; background: #F5F7FD; } .ds-poll-bar-fill { width: 42%; height: 100%; border-radius: 9999px; background: var(--party-color); }"
     }
   ],
   "narrative": {
     "northStar": "시민의 해설 지도",
-    "overview": "모두의입법의 시각 시스템은 복잡한 입법·정치 정보를 시민이 바로 읽을 수 있는 지도처럼 펼쳐야 한다. 첫 화면은 단순하고 차분해야 하지만, 사용자가 더 들어가면 법안, 의원, 정당, 선거, 타임라인, 출처를 정확히 추적할 수 있어야 한다. 미학은 과시보다 신뢰에 가깝고, 레인보우 시그니처와 정당 색상은 장식이 아니라 분류, 탐색, 정체성 표시를 위해 제한적으로 사용한다.",
+    "overview": "모두의입법의 시각 시스템은 복잡한 입법·정치 정보를 시민이 바로 읽을 수 있는 지도처럼 펼쳐야 한다. 첫 화면은 단순하고 차분해야 하지만, 사용자가 더 들어가면 법안, 의원, 정당, 선거, 타임라인, 출처를 정확히 추적할 수 있어야 한다. 미학은 과시보다 신뢰에 가깝고, 레인보우 시그니처는 브랜드와 탐색 진입점에 제한적으로 사용한다. 정당 색상은 디자인 팔레트가 아니라 변경 가능한 도메인 데이터로 다룬다.",
     "keyCharacteristics": [
       "단일 한국어 산세리프 중심의 명확한 정보 위계",
       "평평한 카드, 얇은 경계선, 절제된 그림자",
@@ -222,7 +215,7 @@
       },
       {
         "name": "The Party Color Is Data Rule",
-        "body": "정당 색상은 소속, 비교, 지도, 차트, 타임라인 표식에만 사용한다. CTA, 배경 장식, 감정적 강조에 사용하지 않는다. 새 구현은 PARTY_COLOR를 직접 참조하거나 getPartyColor()를 통해 색을 가져온다.",
+        "body": "정당 색상은 제품 팔레트가 아니라 변경 가능한 도메인 데이터다. DESIGN.md는 정당별 실제 색상값을 소유하지 않고, 소속, 비교, 지도, 차트, 타임라인 표식에만 사용한다는 원칙을 소유한다. CTA, 배경 장식, 감정적 강조에는 사용하지 않는다. 새 구현은 PARTY_COLOR를 직접 참조하거나 getPartyColor()를 통해 색을 가져온다.",
         "section": "colors"
       },
       {

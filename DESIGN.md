@@ -22,16 +22,12 @@ colors:
   rainbow-magenta: "#FC56D8"
   rainbow-cyan: "#10D9EF"
   rainbow-green: "#6CF880"
-  party-minjoo: "#152484"
-  party-ppp: "#E61E2B"
-  party-jk: "#0073CF"
-  party-reform: "#FF7210"
-  party-jinbo: "#D6001C"
-  party-future: "#45BABD"
-  party-basic: "#00D2C3"
-  party-sdp: "#F58400"
-  party-green: "#007C36"
-  party-independent: "#797C85"
+domainColors:
+  party:
+    ownership: "domain-data"
+    sourceOfTruth: "services/web/constants/party/party.ts"
+    usage: "후보, 정당, 발의자, 여론조사, 타임라인, 지도, 차트의 소속 표식"
+    fallback: "알 수 없는 정당과 무소속은 정당 색상 레지스트리의 중립 fallback을 사용"
 typography:
   display:
     fontFamily: "Pretendard Variable, Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, Helvetica Neue, Segoe UI, Apple SD Gothic Neo, Noto Sans KR, Malgun Gothic, sans-serif"
@@ -140,7 +136,7 @@ components:
 
 ## 2. Colors
 
-팔레트는 무채색 정보 표면 위에 시민적 신뢰를 주는 검은 잉크, 부드러운 파란 보조색, 그리고 정치 정보를 구분하는 정당 색상으로 구성한다.
+팔레트는 무채색 정보 표면 위에 시민적 신뢰를 주는 검은 잉크, 부드러운 파란 보조색, 그리고 제한적인 브랜드 시그니처로 구성한다. 정당 색상은 디자인 시스템 팔레트가 아니라 변경 가능한 도메인 색상 레지스트리로 관리한다.
 
 ### Primary
 - **Civic Ink**: 기본 텍스트, 주요 CTA, 선택 상태의 기준색이다. 순수 검정 대신 `primary-ink`를 사용해 딱딱한 대비를 줄인다.
@@ -152,7 +148,7 @@ components:
 - **Info Lime**: 특별한 정보성 표식에만 사용한다. 법안·정치 정보의 기본 강조색으로 남발하지 않는다.
 
 ### Tertiary
-- **Party Spectrum**: 정당 색상은 후보, 정당, 발의자, 여론조사, 타임라인 표식에 사용한다. 색은 정보의 출처와 소속을 보여주는 데이터 레이어이며 감정적 강조가 아니다. 구현의 source of truth는 `services/web/constants/party/party.ts`의 `PARTY_COLOR`와 `getPartyColor()`다.
+- **Party Spectrum**: 정당 색상은 고정 디자인 토큰이 아니라 정당명, 로고, 당색 변경에 따라 바뀔 수 있는 도메인 데이터다. 후보, 정당, 발의자, 여론조사, 타임라인 표식에만 사용하며, 실제 색상값의 source of truth는 `services/web/constants/party/party.ts`의 `PARTY_COLOR`와 `getPartyColor()`다. 향후 DB나 관리자 설정으로 이전해도 디자인 원칙은 유지된다.
 - **Alert Red**: 오류, 경고, AI 요약 주의 문구, 선거 임박 상태처럼 사용자의 주의가 필요한 순간에만 사용한다.
 
 ### Neutral
@@ -166,7 +162,7 @@ components:
 
 **The Neutral First Rule.** 화면의 80% 이상은 무채색 정보 표면이어야 한다. 정치색과 레인보우는 정보 구조가 요구할 때만 등장한다.
 
-**The Party Color Is Data Rule.** 정당 색상은 소속, 비교, 지도, 차트, 타임라인 표식에만 사용한다. CTA, 배경 장식, 감정적 강조에 사용하지 않는다. 새 구현은 `PARTY_COLOR`를 직접 참조하거나 `getPartyColor()`를 통해 색을 가져온다.
+**The Party Color Is Data Rule.** 정당 색상은 제품 팔레트가 아니라 변경 가능한 도메인 데이터다. `DESIGN.md`는 정당별 실제 색상값을 소유하지 않고, 소속, 비교, 지도, 차트, 타임라인 표식에만 사용한다는 원칙을 소유한다. CTA, 배경 장식, 감정적 강조에는 사용하지 않는다. 새 구현은 `PARTY_COLOR`를 직접 참조하거나 `getPartyColor()`를 통해 색을 가져온다.
 
 **The Rainbow Entry Rule.** 레인보우는 브랜드 서명과 검색·탐색 진입점에만 사용한다. 본문 카드 안의 텍스트 강조나 정치 정보 강조에 쓰지 않는다.
 
