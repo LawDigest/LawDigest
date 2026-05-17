@@ -10,12 +10,15 @@ describe('ElectionHeader', () => {
     expect(screen.getByText('날짜 미정')).toBeInTheDocument();
   });
 
-  it('D-day 상태 색상 클래스를 실제 className으로 적용한다', () => {
+  it('D-day를 이전 텍스트형 표기로 렌더링한다', () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     render(<ElectionHeader electionName="제21대 대통령선거" electionDate={today} />);
 
-    expect(screen.getByText('D-DAY').parentElement).toHaveClass('bg-theme-alert', 'text-white');
+    expect(screen.getByText('D-')).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.getByText('D-').parentElement).toHaveClass('text-theme-alert');
+    expect(screen.getByText('D-').parentElement).not.toHaveClass('rounded-full');
   });
 });

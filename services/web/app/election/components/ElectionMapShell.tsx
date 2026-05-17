@@ -14,7 +14,7 @@ import ElectionDistrictView from './ElectionDistrictView';
 import ElectionSelector from './ElectionSelector';
 
 // 2026 전국동시지방선거
-const LOCAL_ELECTION_DATE = new Date('2026-06-03');
+const LOCAL_ELECTION_DDAY_TARGET_DATE = new Date(2026, 5, 3);
 const LOCAL_ELECTION_NAME = '제9회 전국동시지방선거';
 
 export interface ConfirmedRegion {
@@ -67,7 +67,6 @@ export default function ElectionMapShell() {
   );
 
   const electionName = selectedElection?.election_name ?? LOCAL_ELECTION_NAME;
-  const electionDate = selectedElection?.election_date ? new Date(selectedElection.election_date) : LOCAL_ELECTION_DATE;
 
   const handleTabChange = useCallback((tab: ElectionInnerTab) => {
     setActiveTab(tab);
@@ -83,7 +82,7 @@ export default function ElectionMapShell() {
   return (
     <Layout nav logo>
       <div className="flex w-full flex-col">
-        <ElectionHeader electionName={electionName} electionDate={electionDate} />
+        <ElectionHeader electionName={electionName} electionDate={LOCAL_ELECTION_DDAY_TARGET_DATE} />
         {sortedElections.length > 0 && (
           <div className="px-5 pt-4">
             <ElectionSelector

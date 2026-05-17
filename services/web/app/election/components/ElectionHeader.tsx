@@ -28,10 +28,10 @@ function getDdayLabel(dday: number): string {
   return `D+${Math.abs(dday)}`;
 }
 
-function getDdayClassName(dday: number): string {
-  if (dday <= 0) return 'bg-theme-alert text-white';
-  if (dday <= 7) return 'bg-primary-2 text-white';
-  return 'bg-gray-1 text-gray-4';
+function getDdayTextClassName(dday: number): string {
+  if (dday <= 0) return 'text-theme-alert';
+  if (dday <= 7) return 'text-primary-2';
+  return 'text-gray-4 dark:text-white';
 }
 
 function formatDate(date: Date): string {
@@ -49,7 +49,7 @@ export default function ElectionHeader({ electionName, electionDate }: ElectionH
   const dateLabel = useMemo(() => formatDate(electionDate), [electionDate]);
 
   const ddayLabel = getDdayLabel(dday);
-  const ddayClassName = getDdayClassName(dday);
+  const ddayTextClassName = getDdayTextClassName(dday);
 
   return (
     <header className="flex items-start justify-between gap-4 px-5 pt-6 pb-4">
@@ -58,15 +58,9 @@ export default function ElectionHeader({ electionName, electionDate }: ElectionH
         <h1 className="text-2xl font-bold leading-snug text-gray-4 dark:text-white">{electionName}</h1>
       </div>
       <div className="flex flex-col items-center gap-0.5 shrink-0" aria-label={`선거까지 ${ddayLabel}`}>
-        <span className={`rounded-full px-3 py-1 tabular-nums ${ddayClassName}`}>
-          {dday === 0 ? (
-            <span className="text-2xl font-black">{ddayLabel}</span>
-          ) : (
-            <>
-              <span className="text-2xl font-thin">{dday > 0 ? 'D-' : 'D+'}</span>
-              <span className="text-4xl font-black">{Math.abs(dday)}</span>
-            </>
-          )}
+        <span className={`tabular-nums ${ddayTextClassName}`}>
+          <span className="text-2xl font-thin">{dday >= 0 ? 'D-' : 'D+'}</span>
+          <span className="text-4xl font-black">{Math.abs(dday)}</span>
         </span>
         <span className="text-xs font-semibold text-gray-3 tabular-nums">{dateLabel}</span>
       </div>
