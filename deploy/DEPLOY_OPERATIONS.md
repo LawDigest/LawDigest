@@ -6,7 +6,7 @@
 
 - 웹 프론트엔드 도메인별 배포
 - 테스트 백엔드
-- GitHub Actions 기반 자동 배포
+- 서버 로컬 셸에서 실행하는 배포 스크립트
 
 개별 절차는 아래 문서를 함께 참고한다.
 
@@ -20,9 +20,6 @@
 
 ### 프론트엔드
 
-- 운영 자동 배포: [`.github/workflows/deploy-web-prod.yml`](../.github/workflows/deploy-web-prod.yml)
-- 테스트 자동 배포: [`.github/workflows/deploy-web-test.yml`](../.github/workflows/deploy-web-test.yml)
-- 개발 수동 배포: [`.github/workflows/deploy-web-dev-mode.yml`](../.github/workflows/deploy-web-dev-mode.yml)
 - 운영 배포 스크립트: [`deploy/deploy-prod-web.sh`](./deploy-prod-web.sh)
 - 테스트 배포 스크립트: [`deploy/deploy-test-web.sh`](./deploy-test-web.sh)
 - 개발 배포 스크립트: [`deploy/deploy-dev-web.sh`](./deploy-dev-web.sh)
@@ -31,41 +28,40 @@
 
 ### 백엔드
 
-- 자동 배포 워크플로우: [`.github/workflows/deploy-backend-dev.yml`](../.github/workflows/deploy-backend-dev.yml)
 - 배포 스크립트: [`deploy/deploy-test-backend.sh`](./deploy-test-backend.sh)
 - 테스트 API 진입점: `https://test.api.lawdigest.kr`
 - 런타임 구조: Docker 컨테이너 재기동
 
 ### 서버 전제
 
-- GitHub Actions는 GitHub-hosted runner에서 실행되고, SSH로 이 서버에 접속한다.
+- 배포는 이 서버의 로컬 셸에서 실행한다.
+- GitHub Actions 기반 배포는 사용하지 않는다.
 - 배포 스크립트는 서버의 `.env` 파일을 기준으로 동작한다.
 - 프론트는 `services/web/.env`
 - 백엔드는 `services/backend/.env`
 
-## 자동 배포 흐름
+## 배포 흐름
 
 ### 프론트 배포
 
 - 운영 웹
-  - `main` 푸시 시 자동 실행
+  - `main` 기준 worktree를 준비한다.
   - `deploy-prod-web.sh`로 production build 배포
 - 테스트 웹
-  - `dev` 푸시 시 자동 실행
+  - `dev` 기준 worktree를 준비한다.
   - `deploy-test-web.sh`로 production build 배포
 - 개발 웹
-  - 수동 dispatch 시 원하는 `git_ref`를 지정
+  - 원하는 `git_ref`를 지정한다.
   - `deploy-dev-web.sh`로 `next dev` 배포
   - PM2 데몬 재시작 후 누락될 수 있으므로 `install-dev-web-watchdog.sh`로 watchdog cron을 유지
 
 ### 백엔드 배포
 
-1. GitHub Actions에서 백엔드 변경 여부를 감지한다.
-2. 서버의 `dev-backend-release` worktree를 최신 `main` 기준으로 맞춘다.
-3. `deploy-test-backend.sh`를 실행한다.
-4. 스크립트는 staging 컨테이너를 먼저 띄운다.
-5. staging 헬스체크가 통과해야 live 컨테이너를 교체한다.
-6. live 헬스체크가 실패하면 이전 컨테이너를 자동 복구한다.
+1. 서버의 `dev-backend-release` worktree를 배포할 ref 기준으로 맞춘다.
+2. `deploy-test-backend.sh`를 실행한다.
+3. 스크립트는 staging 컨테이너를 먼저 띄운다.
+4. staging 헬스체크가 통과해야 live 컨테이너를 교체한다.
+5. live 헬스체크가 실패하면 이전 컨테이너를 자동 복구한다.
 
 ## 수동 배포
 
