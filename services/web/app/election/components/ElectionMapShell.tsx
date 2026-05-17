@@ -82,7 +82,7 @@ export default function ElectionMapShell() {
 
   return (
     <Layout nav logo>
-      <div className="flex flex-col w-full md:max-w-[768px] mx-auto">
+      <div className="flex w-full flex-col">
         <ElectionHeader electionName={electionName} electionDate={electionDate} />
         {sortedElections.length > 0 && (
           <div className="px-5 pt-4">

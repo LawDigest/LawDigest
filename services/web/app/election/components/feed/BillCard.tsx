@@ -18,7 +18,7 @@ const STAGE_CONFIG: Record<string, { className: string }> = {
 export default function BillCard({ item }: BillCardProps) {
   const stageClass = STAGE_CONFIG[item.billStage]?.className ?? 'bg-gray-100 text-gray-500';
   return (
-    <article className="bg-white dark:bg-dark-b p-4 rounded-xl border border-gray-200 dark:border-dark-l shadow-sm">
+    <article className="bg-white dark:bg-dark-b p-4 rounded-xl border border-gray-1 dark:border-dark-l shadow-none">
       <div className="flex items-center gap-2 mb-3">
         <FeedTypeChip type="bill" />
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${stageClass}`}>{item.billStage}</span>

@@ -21,9 +21,10 @@ interface ElectionInnerTabBarProps {
 
 export default function ElectionInnerTabBar({ activeTab, onChange }: ElectionInnerTabBarProps) {
   return (
-    <nav
+    <div
+      role="tablist"
       aria-label="선거 탭"
-      className="flex border-b border-gray-1 dark:border-dark-l bg-white dark:bg-dark-b overflow-x-auto scrollbar-hide">
+      className="flex overflow-x-auto border-b border-divider bg-white dark:border-dark-l dark:bg-dark-b scrollbar-hide">
       {TABS.map(({ key, label }) => {
         const isActive = key === activeTab;
         return (
@@ -34,19 +35,19 @@ export default function ElectionInnerTabBar({ activeTab, onChange }: ElectionInn
             aria-selected={isActive}
             onClick={() => onChange(key)}
             className={[
-              'relative flex-1 min-w-[72px] py-3 text-sm font-semibold transition-colors whitespace-nowrap',
-              isActive ? 'text-gray-4 dark:text-white' : 'text-gray-2 hover:text-gray-3 dark:hover:text-gray-1',
+              'relative flex-1 min-w-[72px] h-10 px-0 text-sm font-medium transition-colors whitespace-nowrap',
+              isActive ? 'text-primary-3 dark:text-gray-0.5' : 'text-gray-2 hover:text-gray-3 dark:hover:text-gray-1',
             ].join(' ')}>
             {label}
             {isActive && (
               <span
                 aria-hidden="true"
-                className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-8 rounded-full bg-gradient-to-r from-primary-2 to-primary-3"
+                className="absolute bottom-0 left-0 h-[2px] w-full rounded-full bg-primary-3 dark:bg-gray-0.5"
               />
             )}
           </button>
         );
       })}
-    </nav>
+    </div>
   );
 }

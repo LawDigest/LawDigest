@@ -1,13 +1,6 @@
-export const COLOR = {
-  국민의힘: '#E61E2B',
-  더불어민주당: '#0B68B3',
-  정의당: '#FFED00',
-  기본소득당: '#00D2C3',
-  시대전환: '#5B157F',
-  진보당: '#D6001C',
-  한국의희망: '#004B83',
-  무소속: '#797C85',
-} as const;
+import { PARTY_COLOR } from './party';
+
+export const COLOR = PARTY_COLOR;
 
 export const PARTY_NAME_MAP = {
   국민의힘: '국민의힘',

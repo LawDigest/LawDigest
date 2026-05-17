@@ -11,7 +11,7 @@ interface ImageCardProps {
 
 export default function ImageCard({ item }: ImageCardProps) {
   return (
-    <article className="bg-white dark:bg-dark-b rounded-xl border border-gray-200 dark:border-dark-l shadow-sm overflow-hidden">
+    <article className="bg-white dark:bg-dark-b rounded-xl border border-gray-1 dark:border-dark-l shadow-none overflow-hidden">
       <div className="p-4">
         <div className="flex items-center gap-2 mb-3">
           <FeedTypeChip type="image" />

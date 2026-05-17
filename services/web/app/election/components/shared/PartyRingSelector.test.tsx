@@ -1,6 +1,7 @@
 // services/web/app/election/components/shared/PartyRingSelector.test.tsx
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
+import { getPartyColor } from '@/constants/party';
 import PartyRingSelector from './PartyRingSelector';
 
 vi.mock('@/components/common/PartyLogoReplacement/PartyLogoReplacement', () => ({
@@ -8,8 +9,8 @@ vi.mock('@/components/common/PartyLogoReplacement/PartyLogoReplacement', () => (
 }));
 
 const PARTIES = [
-  { name: '더불어민주당', color: '#152484' },
-  { name: '국민의힘', color: '#C9151E' },
+  { name: '더불어민주당', color: getPartyColor('더불어민주당') },
+  { name: '국민의힘', color: getPartyColor('국민의힘') },
 ];
 
 describe('PartyRingSelector', () => {

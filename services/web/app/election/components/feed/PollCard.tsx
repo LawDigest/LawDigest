@@ -18,7 +18,7 @@ interface PollCardProps {
 export default function PollCard({ item }: PollCardProps) {
   const maxPct = Math.max(...item.results.map((r) => r.pct));
   return (
-    <article className="bg-white dark:bg-dark-b p-4 rounded-xl border border-gray-200 dark:border-dark-l shadow-sm">
+    <article className="bg-white dark:bg-dark-b p-4 rounded-xl border border-gray-1 dark:border-dark-l shadow-none">
       <div className="flex items-center gap-2 mb-3">
         <FeedTypeChip type="poll" />
         <span className="text-xs font-semibold text-gray-700 dark:text-white truncate">{item.pollster}</span>

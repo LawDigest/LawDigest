@@ -9,6 +9,7 @@ import {
   ElectionPollOverviewResponse,
   ElectionPollSnapshotItem,
 } from '@/types';
+import { getPartyColor, PARTY_COLOR, UNKNOWN_PARTY_COLOR } from '@/constants/party';
 import {
   useGetElectionPollCandidate,
   useGetElectionPollOverview,
@@ -38,12 +39,8 @@ const SUB_TABS: { key: PollSubView; label: string }[] = [
 function getColorForName(name: string) {
   const normalizedName = normalizePartyName(name);
 
-  if (normalizedName.includes('더불어민주')) return '#152484';
-  if (normalizedName.includes('국민의힘')) return '#C9151E';
-  if (normalizedName.includes('개혁신당')) return '#FF7210';
-  if (normalizedName.includes('조국')) return '#6A3FA0';
-  if (normalizedName === 'undecided') return '#999999';
-  return '#5b6475';
+  if (normalizedName === 'undecided') return UNKNOWN_PARTY_COLOR;
+  return getPartyColor(normalizedName);
 }
 
 function formatCompactDate(dateText: string) {
@@ -106,7 +103,15 @@ interface StatCardProps {
   icon: string;
 }
 
-function StatCard({ label, value, sub, changeLabel, positive, accentColor = '#152484', icon }: StatCardProps) {
+function StatCard({
+  label,
+  value,
+  sub,
+  changeLabel,
+  positive,
+  accentColor = PARTY_COLOR.더불어민주당,
+  icon,
+}: StatCardProps) {
   return (
     <div className="flex min-w-[220px] flex-1 flex-col gap-2 rounded-2xl border border-gray-1 bg-white p-4 dark:border-dark-l dark:bg-dark-pb">
       <div className="flex items-center justify-between">
@@ -117,7 +122,7 @@ function StatCard({ label, value, sub, changeLabel, positive, accentColor = '#15
           <span
             className="rounded-full px-2 py-0.5 text-[10px] font-bold"
             style={{
-              color: positive ? '#152484' : '#C9151E',
+              color: positive ? PARTY_COLOR.더불어민주당 : PARTY_COLOR.국민의힘,
               backgroundColor: positive ? '#E8EDFF' : '#FFEAEA',
             }}>
             {changeLabel}
@@ -405,7 +410,7 @@ function OverviewView({
       </div>
 
       <div className="space-y-4 md:grid md:grid-cols-5 md:gap-4 md:space-y-0">
-        <div className="rounded-3xl border border-gray-1/60 bg-white p-5 shadow-sm dark:border-dark-l dark:bg-dark-pb md:col-span-3">
+        <div className="rounded-2xl border border-gray-1/60 bg-white p-5 shadow-none dark:border-dark-l dark:bg-dark-pb md:col-span-3">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h3 className="text-[14px] font-semibold tracking-tight text-gray-4 dark:text-white">정당지지율 추이</h3>
@@ -516,7 +521,10 @@ function OverviewView({
         <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
           <div className="rounded-2xl border border-gray-1 bg-white p-4 dark:border-dark-l dark:bg-dark-pb">
             <div className="mb-3 flex items-center gap-2">
-              <span className="inline-block h-3 w-3 rounded-full bg-[#152484]" />
+              <span
+                className="inline-block h-3 w-3 rounded-full"
+                style={{ backgroundColor: PARTY_COLOR.더불어민주당 }}
+              />
               <h3 className="text-[13px] font-bold text-gray-4 dark:text-white">선두권 후보 경쟁도</h3>
             </div>
             <div className="space-y-2">
@@ -537,7 +545,7 @@ function OverviewView({
 
           <div className="rounded-2xl border border-gray-1 bg-white p-4 dark:border-dark-l dark:bg-dark-pb">
             <div className="mb-3 flex items-center gap-2">
-              <span className="inline-block h-3 w-3 rounded-full bg-[#C9151E]" />
+              <span className="inline-block h-3 w-3 rounded-full" style={{ backgroundColor: PARTY_COLOR.국민의힘 }} />
               <h3 className="text-[13px] font-bold text-gray-4 dark:text-white">후속 후보 비교</h3>
             </div>
             <div className="space-y-2">

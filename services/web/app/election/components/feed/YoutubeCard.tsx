@@ -11,7 +11,7 @@ interface YoutubeCardProps {
 
 export default function YoutubeCard({ item }: YoutubeCardProps) {
   return (
-    <article className="bg-white dark:bg-dark-b p-4 rounded-xl border border-gray-200 dark:border-dark-l shadow-sm">
+    <article className="bg-white dark:bg-dark-b p-4 rounded-xl border border-gray-1 dark:border-dark-l shadow-none">
       {/* 헤더 */}
       <div className="flex items-center gap-2 mb-3">
         <FeedTypeChip type="youtube" />
@@ -24,7 +24,7 @@ export default function YoutubeCard({ item }: YoutubeCardProps) {
       <div className="flex gap-3">
         <div className="relative w-[140px] shrink-0 rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
           <Image src={item.thumbnailUrl} alt={item.title} fill unoptimized className="object-cover" />
-          <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+          <div className="absolute inset-0 bg-primary-3/25 flex items-center justify-center">
             <button
               type="button"
               aria-label="영상 재생"

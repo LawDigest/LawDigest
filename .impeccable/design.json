@@ -1,0 +1,263 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-16T20:15:04+09:00",
+  "title": "Design System: 모두의입법",
+  "extensions": {
+    "colorMeta": {
+      "surface-white": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["#191919", "#262626", "#555555", "#999999", "#E0E0E0", "#EBEBEB", "#F7F7F9", "#FFFFFF"]
+      },
+      "surface-soft": {
+        "role": "neutral",
+        "displayName": "Soft Civic Wash",
+        "canonical": "#F5F7FD",
+        "tonalRamp": ["#111827", "#24304C", "#4D5A84", "#7C8AB5", "#AEB9DD", "#D7DFF2", "#EEF2FB", "#F8FAFF"]
+      },
+      "primary-ink": {
+        "role": "primary",
+        "displayName": "Civic Ink",
+        "canonical": "#191919",
+        "tonalRamp": ["#0A0A0A", "#191919", "#262626", "#3A3A3A", "#555555", "#797979", "#B8B8B8", "#EBEBEB"]
+      },
+      "primary-soft-blue": {
+        "role": "primary",
+        "displayName": "Soft Assembly Blue",
+        "canonical": "#96BCFA",
+        "tonalRamp": ["#10213F", "#1F3E75", "#345FA6", "#5D8DDA", "#96BCFA", "#BCD5FC", "#DDEAFF", "#F2F7FF"]
+      },
+      "alert-red": {
+        "role": "tertiary",
+        "displayName": "Civic Alert Red",
+        "canonical": "#E63946",
+        "tonalRamp": ["#3B060B", "#731019", "#A71926", "#CF2A37", "#E63946", "#F0757D", "#F8B8BD", "#FDECEE"]
+      },
+      "nav-active-blue": {
+        "role": "primary",
+        "displayName": "Mobile Active Blue",
+        "canonical": "#0088FF",
+        "tonalRamp": ["#001A33", "#003C73", "#005FB3", "#0088FF", "#4DADFF", "#99D0FF", "#D6ECFF", "#F0F8FF"]
+      },
+      "rainbow-magenta": {
+        "role": "secondary",
+        "displayName": "Signature Magenta",
+        "canonical": "#FC56D8",
+        "tonalRamp": ["#330028", "#6B0055", "#A80B8C", "#DC2FBB", "#FC56D8", "#FF91E8", "#FFC7F4", "#FFF0FB"]
+      }
+    },
+    "domainColorPolicy": {
+      "party": {
+        "ownership": "domain-data",
+        "sourceOfTruth": "services/web/constants/party/party.ts",
+        "readApi": "getPartyColor()",
+        "usage": "후보, 정당, 발의자, 여론조사, 타임라인, 지도, 차트의 소속 표식",
+        "prohibitedUsage": "CTA, 배경 장식, 감정적 강조, 제품 브랜드 팔레트",
+        "fallback": "알 수 없는 정당과 무소속은 정당 색상 레지스트리의 중립 fallback을 사용한다.",
+        "migrationNote": "정당 색상값은 정당명, 로고, 당색 변경에 따라 바뀔 수 있으므로 향후 DB나 관리자 설정으로 이전할 수 있다."
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "오류 화면, 특수 상태, 선거 D-day 숫자처럼 예외적 장면에만 사용한다."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "피드 제목, 타임라인 단계, 법안 상세 제목, 선거 헤더에 사용한다."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "법안 카드의 핵심 요약과 섹션 제목에 사용한다."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "법안 요약과 본문 독해 텍스트에 사용한다."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "칩, 날짜, 정당명, 단계명, 작은 액션 라벨에 사용한다."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card-rest",
+        "value": "none",
+        "purpose": "법안 피드 카드, 상세 카드, 기본 정보 컨테이너에 사용한다."
+      },
+      {
+        "name": "subtle-surface",
+        "value": "0 1px 3px rgba(0, 0, 0, 0.10)",
+        "purpose": "검색 입력, 작은 버튼, 가벼운 입력 표면에 사용한다."
+      },
+      {
+        "name": "floating-glass",
+        "value": "0 4px 32px rgba(0, 0, 0, 0.12), 0 1px 8px rgba(0, 0, 0, 0.06)",
+        "purpose": "모바일 플로팅 내비게이션에만 사용한다."
+      },
+      {
+        "name": "feedback-toast",
+        "value": "0 10px 15px -3px rgba(0, 0, 0, 0.10)",
+        "purpose": "스낵바와 일시적 피드백에 사용한다."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "150ms ease",
+        "purpose": "버튼과 아이콘의 단순 상태 변화에 사용한다."
+      },
+      {
+        "name": "state-standard",
+        "value": "220ms ease",
+        "purpose": "색, 배경, opacity 변화의 기본값이다."
+      },
+      {
+        "name": "mobile-nav-ease",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "모바일 플로팅 내비게이션 확장과 compact 전환에 사용한다."
+      },
+      {
+        "name": "rainbow-spin",
+        "value": "5s linear infinite",
+        "purpose": "확장 검색 테두리의 회전에만 사용한다."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "원문 확인, 로그인, 핵심 이동처럼 다음 행동이 명확할 때 사용한다.",
+      "html": "<button class=\"ds-button-primary\">원문 확인하기</button>",
+      "css": ".ds-button-primary { display: inline-flex; align-items: center; justify-content: center; min-width: 242px; height: 56px; padding: 0 32px; border: 0; border-radius: 9999px; background: #191919; color: #FFFFFF; font: 600 14px/1.4 'Pretendard Variable', Pretendard, system-ui, sans-serif; cursor: pointer; transition: background 180ms ease, transform 180ms ease; } .ds-button-primary:hover { background: #262626; } .ds-button-primary:focus-visible { outline: 2px solid #96BCFA; outline-offset: 3px; } .ds-button-primary:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Secondary Detail Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "법안 카드 안의 자세히 보기 같은 보조 이동에 사용한다.",
+      "html": "<button class=\"ds-button-secondary\">자세히 보기</button>",
+      "css": ".ds-button-secondary { display: inline-flex; align-items: center; justify-content: center; width: 88px; height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: #E0E0E0; color: #555555; font: 500 14px/1.4 'Pretendard Variable', Pretendard, system-ui, sans-serif; cursor: pointer; transition: background 160ms ease, color 160ms ease; } .ds-button-secondary:hover { background: #EBEBEB; color: #262626; } .ds-button-secondary:focus-visible { outline: 2px solid #96BCFA; outline-offset: 2px; }"
+    },
+    {
+      "name": "Stage Chip",
+      "kind": "chip",
+      "refersTo": "chip-stage",
+      "description": "법안 처리 단계와 작은 상태 라벨을 낮은 대비로 표시한다.",
+      "html": "<span class=\"ds-chip-stage\">위원회 심사</span>",
+      "css": ".ds-chip-stage { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 8px; border: 1px solid #E0E0E0; border-radius: 8px; background: transparent; color: #999999; font: 500 12px/1.4 'Pretendard Variable', Pretendard, system-ui, sans-serif; white-space: nowrap; }"
+    },
+    {
+      "name": "Bill Feed Card",
+      "kind": "card",
+      "refersTo": "card-bill",
+      "description": "한 문장 요약, 원제목, 단계, AI 요약, 액션을 순서대로 읽게 하는 기본 독해 단위다.",
+      "html": "<article class=\"ds-bill-card\"><header><p class=\"ds-bill-time\">3일 전</p><h2>전세사기 피해자 지원을 확대하는 법안</h2><p class=\"ds-bill-name\">주택임대차보호법 일부개정법률안</p><span class=\"ds-chip-stage\">접수</span></header><p class=\"ds-bill-body\">AI 요약은 법안의 핵심 쟁점과 생활 영향을 먼저 설명하고, 세부 정보로 이동할 수 있게 한다.</p></article>",
+      "css": ".ds-bill-card { width: 100%; max-width: 490px; padding: 24px 20px; border: 0; border-radius: 0; background: #FFFFFF; color: #191919; box-shadow: none; font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; } .ds-bill-card header { display: grid; gap: 8px; } .ds-bill-time { margin: 0; color: #555555; font-size: 12px; letter-spacing: 0; } .ds-bill-card h2 { margin: 0; font-size: 20px; line-height: 1.35; font-weight: 600; } .ds-bill-name { margin: 0; color: #999999; font-size: 14px; line-height: 1.5; } .ds-bill-body { margin: 20px 0 0; color: #191919; font-size: 16px; line-height: 1.55; }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "법안, 의원, 정당명 검색의 기본 입력 표면이다.",
+      "html": "<label class=\"ds-search-field\"><span class=\"ds-search-icon\">⌕</span><input placeholder=\"법안, 의원, 정당명으로 검색\" /></label>",
+      "css": ".ds-search-field { display: flex; align-items: center; gap: 10px; width: min(600px, 100%); height: 40px; padding: 0 14px; border-radius: 16px; background: #FFFFFF; color: #191919; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.10); font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; } .ds-search-field:focus-within { background: #F5F7FD; outline: 2px solid #96BCFA; outline-offset: 2px; } .ds-search-field input { width: 100%; min-width: 0; border: 0; outline: 0; background: transparent; color: #191919; font-size: 16px; } .ds-search-field input::placeholder { color: #999999; } .ds-search-icon { color: #555555; font-size: 18px; }"
+    },
+    {
+      "name": "Mobile Floating Navigation",
+      "kind": "nav",
+      "refersTo": "mobile-nav",
+      "description": "모바일 하단에서 피드, 타임라인, 선거, 마이페이지와 검색을 전환하는 대표 조작부다.",
+      "html": "<nav class=\"ds-mobile-nav\"><a class=\"ds-mobile-nav-item is-active\">피드</a><a class=\"ds-mobile-nav-item\">타임라인</a><a class=\"ds-mobile-nav-item\">선거</a><a class=\"ds-mobile-nav-item\">마이페이지</a><button class=\"ds-mobile-search\">⌕</button></nav>",
+      "css": ".ds-mobile-nav { display: inline-flex; align-items: center; gap: 2px; height: 62px; padding: 4px; border: 1px solid rgba(0, 0, 0, 0.10); border-radius: 9999px; background: rgba(255, 255, 255, 0.42); backdrop-filter: blur(40px) saturate(220%) contrast(106%); box-shadow: 0 4px 32px rgba(0, 0, 0, 0.12), 0 1px 8px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.95); font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; } .ds-mobile-nav-item { display: inline-flex; align-items: center; justify-content: center; min-width: 72px; height: 52px; padding: 0 8px; border-radius: 9999px; color: #3A3A3A; font-size: 12px; font-weight: 700; text-decoration: none; } .ds-mobile-nav-item.is-active { background: rgba(255, 255, 255, 0.72); color: #0088FF; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.10), 0 2px 10px rgba(0, 0, 0, 0.10); } .ds-mobile-search { display: inline-flex; align-items: center; justify-content: center; width: 62px; height: 62px; border: 0; border-radius: 9999px; background: conic-gradient(from 0deg at 50% 50%, #FBEB59 0%, #FC56D8 31%, #10D9EF 65%, #6CF880 100%); color: #191919; cursor: pointer; }"
+    },
+    {
+      "name": "Poll Snapshot Bar",
+      "kind": "custom",
+      "refersTo": "poll-snapshot-bar",
+      "description": "정당 또는 후보 지지율을 색상과 숫자로 함께 표시하는 선거 데이터 패턴이다.",
+      "html": "<div class=\"ds-poll-bar\"><div class=\"ds-poll-bar-head\"><span>더불어민주당</span><strong>42%</strong></div><div class=\"ds-poll-bar-track\"><div class=\"ds-poll-bar-fill\"></div></div></div>",
+      "css": ".ds-poll-bar { display: grid; gap: 4px; font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; } .ds-poll-bar-head { display: flex; justify-content: space-between; gap: 16px; color: #555555; font-size: 12px; } .ds-poll-bar-head strong { color: #262626; font-weight: 700; } .ds-poll-bar-track { height: 8px; width: 100%; overflow: hidden; border-radius: 9999px; background: #F5F7FD; } .ds-poll-bar-fill { width: 42%; height: 100%; border-radius: 9999px; background: var(--party-color); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "시민의 해설 지도",
+    "overview": "모두의입법의 시각 시스템은 복잡한 입법·정치 정보를 시민이 바로 읽을 수 있는 지도처럼 펼쳐야 한다. 첫 화면은 단순하고 차분해야 하지만, 사용자가 더 들어가면 법안, 의원, 정당, 선거, 타임라인, 출처를 정확히 추적할 수 있어야 한다. 미학은 과시보다 신뢰에 가깝고, 레인보우 시그니처는 브랜드와 탐색 진입점에 제한적으로 사용한다. 정당 색상은 디자인 팔레트가 아니라 변경 가능한 도메인 데이터로 다룬다.",
+    "keyCharacteristics": [
+      "단일 한국어 산세리프 중심의 명확한 정보 위계",
+      "평평한 카드, 얇은 경계선, 절제된 그림자",
+      "정당 색상은 데이터 표식으로만 사용",
+      "레인보우 시그니처는 브랜드와 검색 진입점에만 제한적으로 사용",
+      "모바일은 플로팅 내비게이션과 터치 친화적 높이를 우선"
+    ],
+    "rules": [
+      {
+        "name": "The Neutral First Rule",
+        "body": "화면의 80% 이상은 무채색 정보 표면이어야 한다. 정치색과 레인보우는 정보 구조가 요구할 때만 등장한다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Party Color Is Data Rule",
+        "body": "정당 색상은 제품 팔레트가 아니라 변경 가능한 도메인 데이터다. DESIGN.md는 정당별 실제 색상값을 소유하지 않고, 소속, 비교, 지도, 차트, 타임라인 표식에만 사용한다는 원칙을 소유한다. CTA, 배경 장식, 감정적 강조에는 사용하지 않는다. 새 구현은 PARTY_COLOR를 직접 참조하거나 getPartyColor()를 통해 색을 가져온다.",
+        "section": "colors"
+      },
+      {
+        "name": "The Rainbow Entry Rule",
+        "body": "레인보우는 브랜드 서명과 검색·탐색 진입점에만 사용한다. 본문 카드 안의 텍스트 강조나 정치 정보 강조에 쓰지 않는다.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "제품 UI에서는 Pretendard 계열 하나로 충분하다. 법안과 선거 정보의 신뢰성을 해치는 장식 서체를 추가하지 않는다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Korean Readability Rule",
+        "body": "한국어 본문에는 음수 자간을 쓰지 않는다. 짧은 라벨에만 최대 0.01em 수준의 자간을 허용한다.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Trust Rule",
+        "body": "정보 카드는 기본적으로 뜨지 않는다. 카드가 떠 보이면 정보보다 장식이 먼저 보이는지 검사한다.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Floating Control Exception",
+        "body": "유리 질감, 블러, 깊은 그림자는 모바일 플로팅 내비게이션과 일시적 피드백 레이어에서만 허용한다.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do PRODUCT.md의 Easy to learn, Hard to master 원칙을 화면 계층에 반영한다. 첫 줄은 쉽게, 상세는 깊게 만든다.",
+      "Do 법안 요약, 원문 링크, 처리 단계, 날짜, 출처, AI 주의 문구를 신뢰 정보로 다룬다.",
+      "Do 정당 색상을 전체 경계선, avatar ring, 차트 bar, dot처럼 데이터 표식으로 사용한다.",
+      "Do 모바일 조작부는 56px 안팎의 터치 크기를 지키고, 검색 입력은 iOS 확대를 피하기 위해 16px 이상으로 유지한다.",
+      "Do 다크 모드에서도 본문, 경계선, 카드 층위가 유지되도록 dark-bg, dark-panel, dark-line을 구분한다."
+    ],
+    "donts": [
+      "Don't 관공서 포털처럼 보이게 만들지 않는다. 과도한 표, 딱딱한 안내문, 절차명만 나열하는 화면은 금지한다.",
+      "Don't 정치적으로 편향된 커뮤니티처럼 보이게 만들지 않는다. 특정 정당 색을 CTA나 화면 배경의 주색으로 쓰지 않는다.",
+      "Don't 과하게 SaaS 같은 대시보드로 만들지 않는다. 의미 없는 metric card, marketing hero, 장식용 gradient text를 금지한다.",
+      "Don't 레인보우 시그니처를 본문 강조나 법안 중요도 표시에 쓰지 않는다. 검색과 브랜드 진입점 밖에서는 드물어야 한다.",
+      "Don't 정보 카드에 두꺼운 side-stripe border를 쓰지 않는다. 정당색이 필요하면 전체 border, dot, avatar ring, chart bar로 표현한다.",
+      "Don't 모달을 첫 선택으로 쓰지 않는다. 검색, 필터, 상세 확장은 가능하면 inline 또는 progressive disclosure로 처리한다."
+    ]
+  }
+}

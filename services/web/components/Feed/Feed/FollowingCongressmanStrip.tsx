@@ -21,7 +21,7 @@ export default function FollowingCongressmanStrip() {
   return (
     <Card
       classNames={{
-        base: ['shadow-[0_4px_6px_-2px_rgba(0,_0,_0,_0.1)] md:shadow-[0_0_6px_rgba(0,_0,_0,_0.1)]'],
+        base: ['shadow-none'],
       }}
       className="w-full pl-5 mx-auto bg-transparent md:mt-10 md:mb-6 md:h-[200px] md:w-[708px] md:pt-3 md:rounded-xl md:dark:bg-primary-3 md:border border-b dark:border-dark-l">
       <CardHeader className="pt-2 pb-0 pl-0">

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ElectionPollRegionResponse, ElectionRegionCode } from '@/types';
+import { getPartyColor as getDesignPartyColor } from '@/constants/party';
 import { useGetElectionCandidateDetails, useGetElectionCandidates, useGetElectionPollRegion } from '../apis/queries';
 import { ConfirmedRegion } from './ElectionMapShell';
 import { MOCK_DISTRICT, MockAiIssue, IMPORTANCE_LABEL } from '../data/mockDistrictData';
@@ -26,11 +27,7 @@ interface DistrictCandidateViewModel {
 }
 
 function getPartyColor(name: string) {
-  if (name.includes('더불어민주')) return '#152484';
-  if (name.includes('국민의힘')) return '#C9151E';
-  if (name.includes('개혁신당')) return '#FF7210';
-  if (name.includes('조국')) return '#6A3FA0';
-  return '#5b6475';
+  return getDesignPartyColor(name);
 }
 
 function formatPercentage(value: number | null) {
@@ -73,7 +70,7 @@ function CandidateCard({
     <button
       type="button"
       onClick={onSelect}
-      className="min-w-[272px] bg-white dark:bg-dark-pb rounded-2xl p-5 shadow-sm flex flex-col gap-4 text-left transition-all"
+      className="min-w-[272px] bg-white dark:bg-dark-pb rounded-xl p-5 shadow-none flex flex-col gap-4 text-left transition-all"
       style={{
         border: isSelected ? `2px solid ${candidate.partyColor}` : '1.5px solid #dbe4e7',
         outline: 'none',
@@ -141,14 +138,14 @@ function DistrictPollCard({ response }: { response?: ElectionPollRegionResponse 
 
   if (!summary.lead) {
     return (
-      <div className="bg-white dark:bg-dark-pb rounded-3xl p-6 border border-gray-1 dark:border-dark-l">
+      <div className="bg-white dark:bg-dark-pb rounded-2xl p-6 border border-gray-1 dark:border-dark-l">
         <p className="text-sm text-gray-2">해당 지역의 핵심 여론 스냅샷이 아직 없습니다.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white dark:bg-dark-pb rounded-3xl p-6 border border-gray-1 dark:border-dark-l">
+    <div className="bg-white dark:bg-dark-pb rounded-2xl p-6 border border-gray-1 dark:border-dark-l">
       <div className="flex justify-between items-end mb-6">
         <div>
           <p className="text-2xl font-extrabold text-gray-4 dark:text-white">{summary.lead.percentage}%</p>
@@ -232,8 +229,8 @@ function EmptyDistrictState({ onSelect }: { onSelect: (region: ConfirmedRegion) 
 
   return (
     <div className="px-4 py-6">
-      <div className="bg-gray-0.5/50 dark:bg-dark-b border-2 border-dashed border-gray-1 dark:border-dark-l rounded-3xl p-8 text-center">
-        <div className="w-16 h-16 bg-white dark:bg-dark-pb rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
+      <div className="bg-gray-0.5/50 dark:bg-dark-b border-2 border-dashed border-gray-1 dark:border-dark-l rounded-2xl p-8 text-center">
+        <div className="w-16 h-16 bg-white dark:bg-dark-pb rounded-full flex items-center justify-center mx-auto mb-4 shadow-none">
           <span className="material-symbols-outlined text-gray-2 text-3xl">location_off</span>
         </div>
         <h4 className="font-bold text-lg text-gray-4 dark:text-white mb-2">지역구를 설정해보세요</h4>
@@ -406,7 +403,7 @@ export default function ElectionDistrictView({
       </section>
 
       <section className="px-4 mb-8">
-        <div className="bg-gray-0.5/50 dark:bg-dark-b rounded-3xl p-5 relative overflow-hidden">
+        <div className="bg-gray-0.5/50 dark:bg-dark-b rounded-2xl p-5 relative overflow-hidden">
           <span
             className="material-symbols-outlined absolute top-3 right-4 text-5xl text-gray-2 opacity-10 select-none"
             aria-hidden>

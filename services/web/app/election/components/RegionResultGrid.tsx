@@ -5,7 +5,7 @@ interface RegionResult {
   leadingParty: string;
   leadingPartyShort: string;
   percentage: number;
-  partyColorClass: string;
+  partyColor: string;
 }
 
 interface RegionResultGridProps {
@@ -23,19 +23,20 @@ export default function RegionResultGrid({ regions, onRegionClick }: RegionResul
             key={region.regionName}
             type="button"
             onClick={() => onRegionClick?.(region.regionName)}
-            className="flex flex-col gap-2 rounded-xl bg-white dark:bg-dark-pb border border-gray-1 dark:border-dark-l shadow-sm p-3.5 text-left transition hover:shadow-md hover:border-gray-2 dark:hover:border-dark-l active:scale-[0.97]">
+            className="flex flex-col gap-2 rounded-xl bg-white dark:bg-dark-pb border border-gray-1 dark:border-dark-l shadow-none p-3.5 text-left transition hover:border-gray-2 hover:bg-gray-0.5/40 dark:hover:border-dark-l dark:hover:bg-dark-b active:scale-[0.97]">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-bold text-gray-4 dark:text-white leading-tight">{region.regionName}</span>
               <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold text-white ${region.partyColorClass}`}>
+                className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold text-white"
+                style={{ backgroundColor: region.partyColor }}>
                 {region.leadingPartyShort}
               </span>
             </div>
             {/* 득표율 바 */}
             <div className="h-1.5 w-full rounded-full bg-gray-1 dark:bg-dark-l overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${region.partyColorClass}`}
-                style={{ width: `${region.percentage}%` }}
+                className="h-full rounded-full transition-all"
+                style={{ backgroundColor: region.partyColor, width: `${region.percentage}%` }}
               />
             </div>
             <p className="text-xs text-gray-2 tabular-nums">
