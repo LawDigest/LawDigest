@@ -18,11 +18,13 @@ LawDigest 웹 프론트엔드 배포 기준을 도메인별로 정리한 문서�
 - `dev.lawdigest.kr`은 hot reload와 개발자 오버레이를 유지해야 하므로 production build로 배포하지 않는다.
 - 개발 도메인은 PM2 `dump.pm2`만 단독으로 신뢰하지 않고, [`ensure-dev-web-pm2.sh`](./ensure-dev-web-pm2.sh)와 watchdog 설치 스크립트로 복구 경로를 유지한다.
 
-## 자동 배포 / 수동 배포
+## 배포 실행 기준
 
-- 운영 자동 배포: [`.github/workflows/deploy-web-prod.yml`](../.github/workflows/deploy-web-prod.yml)
-- 테스트 자동 배포: [`.github/workflows/deploy-web-test.yml`](../.github/workflows/deploy-web-test.yml)
-- 개발 수동 배포: [`.github/workflows/deploy-web-dev-mode.yml`](../.github/workflows/deploy-web-dev-mode.yml)
+웹 배포는 GitHub Actions가 아니라 서버 로컬 셸에서 아래 스크립트를 직접 실행한다.
+
+- 운영 배포: `./deploy/deploy-prod-web.sh <target-worktree>`
+- 테스트 배포: `./deploy/deploy-test-web.sh <target-worktree>`
+- 개발 배포: `./deploy/deploy-dev-web.sh <git-ref>`
 
 ## 세부 절차 문서
 
