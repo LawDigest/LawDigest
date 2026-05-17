@@ -20,7 +20,16 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('./ElectionHeader', () => ({
-  default: ({ electionName }: { electionName: string }) => <div data-testid="election-header">{electionName}</div>,
+  default: ({ electionName, electionDate }: { electionName: string; electionDate: Date }) => (
+    <div data-testid="election-header">
+      <span>{electionName}</span>
+      <span data-testid="election-header-date">
+        {`${electionDate.getFullYear()}.${String(electionDate.getMonth() + 1).padStart(2, '0')}.${String(
+          electionDate.getDate(),
+        ).padStart(2, '0')}`}
+      </span>
+    </div>
+  ),
 }));
 
 vi.mock('./ElectionSelector', () => ({
@@ -81,6 +90,7 @@ describe('ElectionMapShell', () => {
     render(<ElectionMapShell />);
 
     expect(screen.getByTestId('election-map-tab-view')).toBeInTheDocument();
+    expect(screen.getByTestId('election-header-date')).toHaveTextContent('2026.06.03');
     expect(screen.queryByTestId('regional-election-view')).not.toBeInTheDocument();
     expect(screen.queryByTestId('presidential-election-view')).not.toBeInTheDocument();
   });
