@@ -1,399 +1,358 @@
 # Pipeline Monitor Design System
 
-이 문서는 `services/pipeline-monitor` 구현 에이전트를 위한 디자인 시스템 기준서다. 사람이 읽는 시각 문서는 같은 폴더의 `DESIGN.html`을 사용한다.
+이 문서는 `services/pipeline-monitor` 구현 에이전트를 위한 디자인 시스템 기준서다. 사람용 시각 문서는 같은 폴더의 `DESIGN.html`을 사용한다.
 
-## 제품 성격
+## 방향 전환
 
-Pipeline Monitor는 법안 데이터 파이프라인 운영 상태를 읽기 전용으로 확인하는 운영 콘솔이다. 사용자는 파이프라인을 실행하거나 수정하는 사람이 아니라, 현재 어떤 작업이 성공했는지, 실패했다면 어디서 멈췄는지, 결과물이 어디에 있는지를 빠르게 판단해야 하는 운영자다.
+Pipeline Monitor는 별도의 운영 SaaS처럼 보이면 안 된다. 기존 모두의입법 웹의 디자인 문법을 유지하면서 기능만 데이터 파이프라인 모니터링으로 바뀌어야 한다.
 
-MVP의 기본 전제는 다음과 같다.
+즉, 새 서비스는 다음처럼 보여야 한다.
 
-- 독립 웹서비스로 구축한다.
-- 기본 도메인은 `monitor.lawdigest.cloud`로 둔다.
-- 데이터 소스는 자체 파이프라인 런타임이 남기는 JSONL 실행 로그와 산출물 메타데이터다.
-- 앱은 읽기 전용이다. 실행, 재시도, 삭제, 롤백 버튼은 MVP에 넣지 않는다.
-- 차트는 실제 집계 데이터가 있을 때만 사용한다. 데이터가 없으면 표, 타임라인, 로그, 상태 요약을 우선한다.
+- 모두의입법의 하위 운영 화면처럼 느껴진다.
+- 레인보우 그라디언트 라인, Pretendard 기반 한글 타이포그래피, rounded-full 탭과 버튼, 흰색 카드 표면, 모바일 floating nav 감각을 이어받는다.
+- 데이터 모니터링 기능은 표와 로그 중심이지만, 시각 언어는 기존 피드/타임라인/선거 탭의 문법과 연결된다.
+- 운영 도구라고 해서 무채색 어드민 콘솔로 분리하지 않는다.
 
-## 디자인 원칙
+## 기존 모두의입법 디자인 소스
 
-### 1. 운영 판단 우선
+디자인 기준은 아래 기존 웹 파일에서 가져온다.
 
-첫 화면에서 가장 먼저 보여야 하는 것은 장식적 지표가 아니라 최근 실행 상태, 실패 단계, 마지막 성공 시각, 산출물 위치다. 모든 컴포넌트는 "지금 봐야 할 것"을 먼저 드러내야 한다.
+| Source | 가져올 문법 |
+| --- | --- |
+| `services/web/tailwind.config.js` | `primary`, `gray`, `theme`, `dark`, `party` 색상 토큰 |
+| `services/web/styles/globals.css` | Pretendard 폰트, feed tab rainbow indicator, status snackbar 색 |
+| `services/web/styles/mobile-floating-nav.css` | 모바일 floating nav의 glass surface, rounded-full, indicator motion |
+| `services/web/public/images/logo.svg` | 레인보우 underline gradient |
+| `services/web/components/Feed/FeedTab/FeedTab.tsx` | NextUI `Tabs`, rounded-full cursor, `bg-primary-3` active state |
+| `services/web/components/Bill/BillList/Bill/Bill.tsx` | white card, `radius="none"`, `shadow="none"`, gray secondary button |
+| `services/web/app/election/components/SeatSummaryCard.tsx` | rounded-xl, white surface, border-gray-1, small uppercase labels |
 
-### 2. 조용하지만 밀도 있게
+## 브랜드 토큰
 
-화면은 데이터가 많아도 피곤하지 않아야 한다. 넓은 여백과 큰 카드로 정보를 흩뜨리지 않고, 표와 타임라인을 중심으로 스캔 가능한 밀도를 유지한다.
+### Font
 
-### 3. 상태는 색상만으로 표현하지 않는다
+기존 웹은 전역에서 Pretendard를 우선하고, 코드 계열은 `Fira Code`와 시스템 monospace를 사용한다.
 
-성공, 실패, 실행 중, 알 수 없음 상태는 색상과 함께 텍스트, 아이콘, 보조 설명을 항상 제공한다. 색상은 보조 신호이며 단독 의미 전달 수단이 아니다.
+```css
+--font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Noto Sans KR', sans-serif;
+--font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+```
 
-### 4. 운영 도구는 마케팅 페이지처럼 보이지 않는다
+구현 규칙:
 
-히어로 섹션, 장식용 그래디언트, 글래스모피즘, 의미 없는 차트, 둥근 대형 카드, 감성적인 문구를 사용하지 않는다. 인터페이스는 시민 데이터 운영 도구답게 차분하고 정확해야 한다.
+- 한글 UI 본문은 Pretendard 기준으로 잡는다.
+- 실행 ID, 파일 경로, JSON key, CLI 명령은 mono로 표시한다.
+- 화면 내 letter spacing은 기본적으로 0이다.
+- 기존 웹처럼 작은 uppercase 라벨에는 제한적으로 tracking을 사용할 수 있다.
 
-## 정보 구조
+### Core Color
 
-### Dashboard
-
-최근 파이프라인 실행 상태를 압축해 보여주는 기본 화면이다.
-
-- 최근 실행 10건
-- 마지막 성공 실행
-- 마지막 실패 실행
-- 현재 실행 중인 작업
-- 실패 단계와 오류 요약
-- 주요 산출물 링크
-
-### Runs
-
-실행 이력을 표 중심으로 탐색하는 화면이다.
-
-- 실행 ID
-- 명령 이름
-- 시작 시각
-- 종료 시각
-- 소요 시간
-- 상태
-- 처리 건수
-- 오류 요약
-- 산출물 존재 여부
-
-### Run Detail
-
-단일 실행을 깊게 확인하는 화면이다.
-
-- 실행 메타데이터
-- 단계별 타임라인
-- 구조화 로그
-- 오류 스택
-- Gemini CLI, Codex CLI, Claude CLI 호출 정보
-- 입력 파일과 출력 파일
-
-### Artifacts
-
-결과 파일을 확인하는 화면이다.
-
-- JSON 요약 결과
-- Markdown 리포트
-- 원천 데이터 스냅샷
-- 실행별 파일 위치
-- 파일 크기와 생성 시각
-
-### Settings
-
-읽기 전용 환경 확인 화면이다.
-
-- 로그 디렉터리
-- 런타임 버전
-- 기본 모델 설정
-- CLI 경로
-- 모니터링 앱 빌드 정보
-
-## 레이아웃
-
-### App Shell
-
-- 좌측 내비게이션과 상단 상태 바를 사용한다.
-- 본문 최대 너비는 `1280px`이다.
-- 데스크톱에서는 상세 화면을 `2fr 1fr` 2열로 구성한다.
-- 모바일에서는 모든 영역을 단일 열로 쌓는다.
-- 페이지 섹션을 과도하게 카드화하지 않는다. 반복 항목, 표 컨테이너, 코드 블록, 상태 패널에만 경계선을 사용한다.
-
-### Density
-
-- 테이블 행 높이는 `44px`에서 `52px` 사이를 기본값으로 한다.
-- 요약 지표는 4개 이하로 제한한다.
-- 필터 바는 한 줄 스캔이 가능해야 하며, 긴 설명 문구를 포함하지 않는다.
-- 버튼은 명확한 명령이 있을 때만 사용한다. 읽기 전용 MVP에서는 링크와 필터 컨트롤이 대부분이다.
-
-## 디자인 토큰
-
-### Color
+기존 Tailwind 토큰을 그대로 옮긴다.
 
 | Token | Value | Usage |
 | --- | --- | --- |
-| `--color-bg` | `#f7f7f3` | 앱 전체 배경 |
-| `--color-surface` | `#ffffff` | 표, 패널, 코드 외 일반 표면 |
-| `--color-surface-muted` | `#eeeeea` | 보조 표면, 필터 바 |
-| `--color-border` | `#d7d8d2` | 패널, 표, 입력 경계 |
-| `--color-border-strong` | `#b8bbb2` | 강조 구분선 |
-| `--color-text` | `#1f2320` | 본문 텍스트 |
-| `--color-text-muted` | `#68706a` | 보조 텍스트 |
-| `--color-primary` | `#315c4f` | 선택 상태, 주요 링크 |
-| `--color-primary-strong` | `#24463d` | hover, 강조 텍스트 |
-| `--color-success` | `#1f7a4d` | 성공 |
-| `--color-warning` | `#9a5b05` | 경고, 지연 |
-| `--color-danger` | `#b3261e` | 실패 |
-| `--color-running` | `#4f6475` | 실행 중 |
-| `--color-unknown` | `#7c766d` | 알 수 없음 |
-| `--color-code-bg` | `#111411` | 로그, JSON 블록 배경 |
-| `--color-code-text` | `#e7eee7` | 로그, JSON 블록 텍스트 |
+| `gray-0.5` | `#EBEBEB` | 연한 배경, inactive surface |
+| `gray-1` | `#E0E0E0` | border, secondary button |
+| `gray-2` | `#999999` | 보조 텍스트 |
+| `gray-3` | `#555555` | 중간 텍스트 |
+| `gray-4` | `#262626` | 강한 텍스트 |
+| `primary-1` | `#F5F7FD` | 부드러운 배경 |
+| `primary-2` | `#96BCFA` | 정보 강조, 실행 중 |
+| `primary-3` | `#191919` | primary button, active tab, 핵심 텍스트 |
+| `theme-alert` | `#E63946` | 실패, 위험 |
+| `theme-info` | `#D7F963` | 신규/정보성 강조 |
+| `dark-b` | `#101012` | dark page background |
+| `dark-l` | `#2E2E2E` | dark border |
+| `dark-pb` | `#1E1E1E` | dark panel background |
 
-색상 사용 규칙:
+### Rainbow Gradient
 
-- 한 화면에서 `primary`를 넓은 면적으로 사용하지 않는다.
-- 상태 색상은 배지, 왼쪽 바, 작은 강조 텍스트에만 사용한다.
-- 배경은 밝은 중립색을 유지한다.
-- 보라색/청색 그래디언트와 어두운 SaaS 대시보드 톤을 피한다.
+모두의입법 로고와 피드 탭 인디케이터의 핵심 문법이다.
 
-### Typography
+```css
+--rainbow: linear-gradient(90deg, #FBEB59 0%, #FC56D8 31%, #10D9EF 65%, #6CF880 100%);
+--rainbow-soft: linear-gradient(
+  90deg,
+  rgba(251, 235, 89, 0.15) 0%,
+  rgba(252, 86, 216, 0.15) 31%,
+  rgba(16, 217, 239, 0.15) 65%,
+  rgba(108, 248, 128, 0.15) 100%
+);
+```
 
-| Token | Value |
+사용 규칙:
+
+- 레인보우는 underline, active tab border, thin divider, 핵심 상태 accent에 사용한다.
+- 큰 배경 전체를 레인보우로 채우지 않는다.
+- 운영 상태 색상을 레인보우 하나로 대체하지 않는다. 상태 색은 별도로 둔다.
+- 레인보우는 "모두의입법 브랜드 연결"을 만드는 신호다.
+
+### Status Color
+
+운영 상태는 기존 웹의 snackbar/status 문법과 브랜드 토큰을 조합한다.
+
+| Status | Label | Color | Note |
+| --- | --- | --- | --- |
+| `success` | 성공 | `#16A34A` | 기존 `.SUCCESS` 계열 |
+| `failed` | 실패 | `#E63946` | `theme-alert` |
+| `running` | 실행 중 | `#96BCFA` | `primary-2` |
+| `warning` | 경고 | `#FBEB59` | rainbow yellow |
+| `fallback` | fallback | `#FC56D8` | rainbow magenta |
+| `unknown` | 알 수 없음 | `#999999` | `gray-2` |
+
+색상만으로 상태를 전달하지 않는다. 항상 한글 라벨을 함께 표시한다.
+
+## 화면 구조
+
+### Product Mapping
+
+기존 모두의입법 화면 문법을 데이터 모니터링 기능으로 치환한다.
+
+| 모두의입법 문법 | Pipeline Monitor 치환 |
 | --- | --- |
-| `--font-sans` | `Pretendard, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif` |
-| `--font-mono` | `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace` |
-| Page title | `28px / 1.2 / 700` |
-| Section title | `18px / 1.35 / 700` |
-| Body | `15px / 1.65 / 400` |
-| Table | `14px / 1.45 / 400` |
-| Caption | `12px / 1.45 / 500` |
-| Code | `13px / 1.6 / 400` |
+| `피드` | 최근 파이프라인 실행 피드 |
+| `시간순 / HOT` 탭 | `최근순 / 실패 우선` 탭 |
+| `리포트 / 법안 / 팔로잉` content tab | `실행 / 산출물 / 알림` content tab |
+| `타임라인` | run step timeline |
+| `선거 D-day header` | scheduler / next run countdown |
+| `법안 카드` | run card |
+| `정당 ring / colored bar` | provider / command accent |
+| `원문 확인하기` primary button | 산출물 확인하기 |
 
-폰트 크기를 viewport width로 조정하지 않는다. 자간은 `0`을 기본값으로 한다.
+### Navigation
 
-### Spacing
+독립 운영 서비스이지만 모두의입법의 모바일 floating nav 문법을 유지한다.
 
-| Token | Value |
-| --- | --- |
-| `--space-1` | `4px` |
-| `--space-2` | `8px` |
-| `--space-3` | `12px` |
-| `--space-4` | `16px` |
-| `--space-5` | `24px` |
-| `--space-6` | `32px` |
-| `--space-7` | `48px` |
+권장 nav item:
 
-### Shape and Shadow
+- `피드`: 최근 실행 피드
+- `타임라인`: 단계별 실행 이력
+- `산출물`: JSON/Markdown artifact
+- `설정`: 런타임 설정 확인
 
-- 기본 radius는 `6px`이다.
-- 최대 radius는 `8px`이다.
-- pill 형태는 상태 배지처럼 작은 요소에만 사용한다.
-- 그림자는 기본적으로 사용하지 않는다.
-- 필요한 경우 `0 1px 2px rgba(15, 23, 20, 0.08)` 이하의 아주 약한 그림자만 사용한다.
+모바일:
 
-## 컴포넌트
+- 기존 `mobile-floating-nav`와 같은 bottom floating shell을 사용한다.
+- active indicator는 glass pill 또는 rainbow outline pill을 사용한다.
+- 검색 대신 command/run id 검색을 연결할 수 있다.
 
-### AppShell
+데스크톱:
 
-앱의 기본 골격이다.
+- 모두의입법 웹의 모바일 우선 정체성을 유지하되, 운영 화면에서는 좌측 narrow rail 또는 상단 pill nav를 사용할 수 있다.
+- 데스크톱에서도 floating nav를 억지로 크게 늘리지 않는다.
 
-- 좌측: 서비스 이름, 내비게이션, 환경 배지
-- 상단: 현재 로그 갱신 상태, 마지막 수집 시각, 새로고침 링크
-- 본문: 화면별 콘텐츠
+## Typography
 
-### SummaryStrip
+| Role | Class 느낌 | Guideline |
+| --- | --- | --- |
+| Page title | `text-[26px] font-bold` | 모바일 기본 화면 제목 |
+| Desktop title | `md:text-[48px] md:font-bold` | 타임라인형 큰 제목에만 사용 |
+| Section title | `text-2xl font-semibold` | 상세 섹션 제목 |
+| Card title | `text-xl font-semibold` | run card 핵심 요약 |
+| Body | `text-sm md:text-base` | 로그 전 설명, 카드 본문 |
+| Caption | `text-xs font-semibold text-gray-2` | 상태/시간/보조 정보 |
+| Metric | `text-2xl font-semibold tabular-nums` | 처리 건수, 소요 시간 |
+| D-day style metric | `text-4xl font-black` | 다음 스케줄 countdown 등 제한적 사용 |
 
-최근 상태를 3개에서 4개의 요약 항목으로 보여준다.
+## Surface
 
-- 마지막 성공
-- 마지막 실패
-- 실행 중
-- 오늘 처리 건수
+기존 모두의입법은 화면별로 다음 표면을 섞어 사용한다.
 
-각 항목은 숫자보다 의미를 먼저 보여준다. 예: `마지막 성공 21:04 KST`, `실패 없음`, `Gemini fallback 1회`.
+- 법안 카드: 흰색, shadow none, radius none에 가까운 평평한 카드
+- 선거 카드: 흰색, `rounded-xl`, `border-gray-1`, shadow none
+- 모바일 nav: 반투명 흰색, 강한 blur, rounded-full, 미세한 inset shadow
+- 탭 indicator: rainbow outline + soft rainbow fill
 
-### RunTable
+Pipeline Monitor 적용:
 
-실행 이력의 기본 탐색 컴포넌트다.
+- run feed card는 기존 법안 카드처럼 흰색/평면/텍스트 중심으로 만든다.
+- dashboard summary는 선거 요약 카드처럼 rounded-xl과 border를 사용한다.
+- active filter와 content tab은 feed tab의 rainbow pill indicator를 따른다.
+- 로그/JSON 블록은 어두운 코드 표면을 쓰되, 주변 UI는 모두의입법의 밝은 표면을 유지한다.
 
-필수 열:
+## Component Rules
 
-- 상태
-- 실행 ID
-- 명령
-- 시작 시각
-- 소요 시간
-- 처리 건수
-- 오류
-- 산출물
+### BrandHeader
+
+목적: 운영 서비스가 모두의입법 계열임을 첫 화면에서 명확히 보여준다.
+
+구성:
+
+- `모두의입법` wordmark 또는 text logo
+- 아래 2px rainbow underline
+- `Pipeline Monitor` subtitle
+- 마지막 갱신 시각
 
 규칙:
 
-- 상태 열은 첫 번째에 둔다.
-- 긴 오류 메시지는 한 줄 요약 후 상세 화면으로 연결한다.
-- 실행 ID는 모노스페이스로 표시한다.
-- 기본 정렬은 시작 시각 내림차순이다.
+- headline은 과도하게 마케팅 문구화하지 않는다.
+- 레인보우는 underline으로 사용한다.
 
-### RunStatusBadge
+### ContentTypeTabs
 
-상태를 표현하는 작은 배지다.
+기존 `Feed`의 `리포트 / 법안 / 팔로잉` 탭을 계승한다.
 
-| Status | Label | Color |
-| --- | --- | --- |
-| `success` | 성공 | `--color-success` |
-| `failed` | 실패 | `--color-danger` |
-| `running` | 실행 중 | `--color-running` |
-| `warning` | 경고 | `--color-warning` |
-| `unknown` | 알 수 없음 | `--color-unknown` |
+권장 탭:
 
-배지에는 항상 한글 라벨을 넣는다. 색상만 있는 점이나 아이콘 단독 표현은 금지한다.
+- `실행`
+- `산출물`
+- `알림`
 
-### CommandFilter
+스타일:
 
-명령별 실행 이력을 필터링한다.
+- 전체 탭 wrapper는 `relative flex items-center gap-[5px]`
+- active indicator는 `feed-tab-indicator` 방식
+- tab width는 85px에서 시작하되 한글 길이에 따라 92px까지 허용
+- active text는 `#191919`, inactive text는 `rgba(25, 25, 25, 0.4)`
 
-- `summary`
-- `ingest`
-- `latest-bills`
-- `monitoring`
-- `all`
+### SortTabs
 
-segmented control 형태로 구현한다. 버튼 높이는 `36px` 이상을 유지한다.
+기존 `시간순 / HOT` 탭을 계승한다.
 
-### TimeRangeControl
+권장 탭:
 
-조회 기간을 선택한다.
+- `최근순`
+- `실패 우선`
 
-- 최근 1시간
-- 최근 24시간
-- 최근 7일
-- 사용자 지정
+스타일:
 
-상대 시간과 절대 시간을 함께 보여준다.
+- NextUI Tabs `variant="light"` 또는 동일한 DOM/CSS
+- active cursor: `rounded-full bg-primary-3 dark:bg-gray-0.5`
+- active text: white
+- height: 36px
+
+### RunFeedCard
+
+기존 법안 카드의 정보 구조를 모니터링 run에 맞게 바꾼다.
+
+구성:
+
+- 상단 caption: relative time 또는 started_at
+- 제목: run summary. 예: `최신 법안 5건 요약 성공`
+- 보조 제목: command/run_id
+- 본문: 처리 건수, provider, fallback 여부, 오류 요약
+- footer: 처리 시간, artifact count, `자세히 보기`
+
+스타일:
+
+- `bg-white`
+- `dark:bg-dark-b dark:lg:bg-dark-pb`
+- `shadow-none`
+- feed에서는 radius를 크게 주지 않는다.
+- proposer card처럼 오른쪽 또는 하단에 provider/command accent panel을 붙일 수 있다.
+
+### StatusChip
+
+상태 표시용 chip이다.
+
+스타일:
+
+- `text-xs`
+- `border-1`
+- radius는 `sm` 또는 `full`
+- failed/fallback/running은 색상 border와 light fill을 함께 사용
+
+규칙:
+
+- 색상 점만 쓰지 않는다.
+- `성공`, `실패`, `실행 중`, `경고`, `fallback`, `알 수 없음` 라벨을 유지한다.
+
+### TimelineBoard
+
+기존 `TimelineBoard`의 큰 제목, D-day, 세 가지 수치 요약 문법을 사용한다.
+
+모니터링 치환:
+
+- 제목: `파이프라인 타임라인`
+- 보조: `최근 24시간`
+- D-day 영역: `다음 실행까지 04:21` 또는 `지연 +12분`
+- 요약 지표: `성공`, `실패`, `fallback`
 
 ### StepTimeline
 
-실행 상세 화면의 핵심 컴포넌트다.
+run detail의 단계별 타임라인이다.
 
-표시 단계 예시:
+스타일:
 
-- log read
-- bill fetch
-- Gemini CLI summary
-- Codex CLI fallback
-- structured validation
-- artifact write
+- 기존 timeline list처럼 세로 라인과 원형 marker를 사용한다.
+- marker에는 status color를 적용한다.
+- 단계 제목은 `text-sm font-bold`, 결과 요약은 `text-xs font-semibold text-gray-2`.
 
-각 단계는 상태, 시작 시각, 소요 시간, 오류 요약을 포함한다.
+### ArtifactCard
+
+산출물 파일을 보여주는 카드다.
+
+구성:
+
+- 파일명
+- 형식: JSON/MD/log
+- 생성 시각
+- 파일 크기
+- 관련 run id
+- `산출물 확인하기` primary full pill button
+
+스타일:
+
+- primary button은 기존 `원문 확인하기`처럼 `h-[56px]`, `rounded-full`, `bg-primary-3`, `text-white`.
+- 보조 버튼은 `bg-gray-1 text-gray-3`.
 
 ### JsonBlock
 
-구조화 결과나 원시 로그를 보여주는 코드 블록이다.
+로그/JSON은 운영 화면에 꼭 필요하지만 브랜드 표면과 충돌하지 않게 제한적으로 사용한다.
 
-- 배경은 `--color-code-bg`를 사용한다.
-- 긴 줄은 줄바꿈하지 않고 가로 스크롤을 허용한다.
-- 복사 버튼은 명확한 아이콘 또는 `복사` 텍스트 버튼으로 제공한다.
-- JSON은 가능하면 pretty print한다.
+스타일:
 
-### TracebackBlock
+- `background: #101012`
+- text: `#EBEBEB`
+- radius: 12px 이하
+- 내부는 mono
+- 주변에는 rainbow top border 또는 small label을 붙여 브랜드 연결을 만든다.
 
-실패 원인을 보여주는 오류 블록이다.
+## Motion
 
-- 첫 줄에 사용자 친화적인 요약을 둔다.
-- 상세 스택은 접을 수 있어야 한다.
-- 민감 정보가 포함될 가능성이 있는 환경 변수는 마스킹한다.
+기존 웹의 motion을 계승한다.
 
-### ArtifactLink
+| Motion | Source | Usage |
+| --- | --- | --- |
+| `fade-in 0.35s ease-out` | Tailwind keyframes | 새 run feed 등장 |
+| `fade-up 0.35s ease-out` | Tailwind keyframes | summary card 등장 |
+| `slide-in-left/right 0.3s` | Tailwind keyframes | timeline 전환 |
+| `bar-grow 0.4s` | Tailwind keyframes | 처리량 bar |
+| tab indicator spring | `feed-tab-indicator` | content tab active 이동 |
 
-산출물 파일로 연결되는 행 또는 링크다.
+motion은 상태 이해를 보조해야 한다. 로그가 계속 움직이거나 수치가 과하게 튀는 애니메이션은 쓰지 않는다.
 
-- 파일명
-- 파일 형식
-- 파일 크기
-- 생성 시각
-- 관련 실행 ID
+## Responsive
 
-로컬 파일 경로는 서버 내부 경로임을 명확히 표시한다.
-
-### EmptyState
-
-데이터가 없을 때의 상태다.
-
-원칙:
-
-- "아직 실행 로그가 없습니다"처럼 사실만 말한다.
-- 실행 버튼을 제공하지 않는다.
-- 로그 디렉터리와 수집 기준을 안내한다.
-
-### ErrorState
-
-모니터링 앱 자체가 로그를 읽지 못하는 상태다.
-
-필수 정보:
-
-- 실패 원인 요약
-- 읽으려던 경로
-- 마지막 성공한 읽기 시각
-- 앱 재시도 가능 여부
-
-## 상태 표현
-
-### Success
-
-- 색상: `--color-success`
-- 메시지: 완료된 작업과 산출물 위치를 함께 보여준다.
-- 예: `성공 - 5건 요약, JSON 산출물 생성`
-
-### Failed
-
-- 색상: `--color-danger`
-- 메시지: 실패 단계와 재현 가능한 오류 요약을 보여준다.
-- 예: `실패 - Gemini CLI 응답 파싱 실패`
-
-### Running
-
-- 색상: `--color-running`
-- 메시지: 시작 시각과 경과 시간을 보여준다.
-- 예: `실행 중 - 2분 14초 경과`
-
-### Warning
-
-- 색상: `--color-warning`
-- 메시지: 결과는 있으나 운영자가 확인해야 하는 상태를 표현한다.
-- 예: `경고 - Codex CLI fallback 1회 발생`
-
-### Unknown
-
-- 색상: `--color-unknown`
-- 메시지: 로그가 불완전하거나 종료 이벤트가 없음을 명확히 말한다.
-- 예: `알 수 없음 - 종료 이벤트 누락`
-
-## 데이터 표시 규칙
-
-- 기본 시간대는 KST다.
-- 상세 툴팁이나 보조 텍스트에 UTC 원본 시간을 제공할 수 있다.
-- 기간은 `2분 14초`, `830ms`처럼 읽기 쉬운 단위로 표현한다.
-- 큰 숫자는 쉼표를 사용한다.
-- 실행 ID와 파일명은 모노스페이스로 표시한다.
-- 오류 메시지는 첫 줄을 요약하고, 원문은 상세 영역에서 보여준다.
-
-## 접근성
-
-- 모든 인터랙티브 요소는 키보드로 접근 가능해야 한다.
-- 상태 배지는 색상 외 텍스트 라벨을 포함해야 한다.
-- 표 헤더는 `th`와 scope를 사용한다.
-- 필터 컨트롤은 현재 선택 상태를 스크린 리더가 알 수 있어야 한다.
-- 로그와 JSON 블록은 복사 기능 없이도 선택 가능해야 한다.
-- 텍스트 대비는 WCAG AA 이상을 목표로 한다.
-
-## 반응형 기준
+기존 웹은 모바일 우선이다. Pipeline Monitor도 모바일에서 먼저 완성되어야 한다.
 
 | Width | Behavior |
 | --- | --- |
-| `< 720px` | 단일 열, 좌측 내비게이션은 상단 압축형으로 전환 |
-| `720px - 1023px` | 단일 열 본문, 테이블은 가로 스크롤 허용 |
-| `>= 1024px` | 좌측 내비게이션 고정, 상세 화면 2열 |
+| `< 768px` | feed-first 단일 열, bottom floating nav, summary는 세로 스택 |
+| `768px - 1023px` | 카드와 표를 혼합, table은 horizontal scroll 허용 |
+| `>= 1024px` | 본문 최대폭을 유지하고 detail 화면만 2열 허용 |
 
-테이블은 모바일에서 카드 목록으로 변환하지 않는다. 운영 데이터의 비교 가능성을 유지하기 위해 가로 스크롤 테이블을 사용한다.
+표는 모바일에서 완전히 카드로 바꾸지 않는다. 비교가 필요한 run history는 가로 스크롤 표를 허용한다.
 
-## 구현 금지 사항
+## Data Monitoring Constraints
 
-- MVP에서 파이프라인 실행, 재시도, 삭제 버튼 추가 금지
-- 실제 데이터 없는 차트 추가 금지
-- 그래디언트 배경, 유리 질감, 장식용 blob 사용 금지
-- 의미 없는 KPI 카드 남발 금지
-- 상태를 색상 점 하나로만 표현하는 패턴 금지
-- 표 대신 카드 목록만 제공하는 패턴 금지
-- 시스템 내부 경로를 사용자용 다운로드 링크처럼 표현하는 것 금지
+브랜드 문법을 유지하더라도 기능 제약은 유지한다.
 
-## 에이전트 구현 체크리스트
+- MVP는 read-only다.
+- 파이프라인 실행/재시도/삭제 버튼은 넣지 않는다.
+- 실제 데이터 없는 차트는 만들지 않는다.
+- run feed, timeline, artifact, JSON log가 우선이다.
+- 장애 상태는 감성 문구가 아니라 원인과 경로를 보여준다.
 
-- [ ] `DESIGN.md`의 토큰을 CSS 변수 또는 theme 객체로 옮긴다.
-- [ ] 첫 화면은 최근 실행 상태와 실패 원인을 먼저 보여준다.
-- [ ] `RunTable`과 `StepTimeline`을 우선 구현한다.
-- [ ] 모든 상태 표현에 한글 라벨을 포함한다.
-- [ ] 데이터가 없거나 로그가 깨진 상태를 별도 UI로 처리한다.
-- [ ] 실제 데이터가 없으면 차트를 만들지 않는다.
-- [ ] 모바일에서 표가 깨지지 않도록 가로 스크롤 컨테이너를 둔다.
-- [ ] 배포 전 사람용 `DESIGN.html`과 시각 방향이 어긋나지 않는지 확인한다.
+## Implementation Checklist
+
+- [ ] `services/web/tailwind.config.js`의 색상 토큰을 새 앱에 복제하거나 공유한다.
+- [ ] Pretendard CDN 또는 같은 font stack을 적용한다.
+- [ ] `#191919` primary button과 rounded-full CTA를 사용한다.
+- [ ] logo/feed tab의 rainbow gradient를 active tab, underline, divider에 적용한다.
+- [ ] 기존 `FeedTab`의 `시간순 / HOT` 문법을 `최근순 / 실패 우선`으로 치환한다.
+- [ ] 기존 content tab 문법을 `실행 / 산출물 / 알림`으로 치환한다.
+- [ ] mobile floating nav 문법을 유지한다.
+- [ ] run card는 기존 법안 카드처럼 텍스트 중심, 흰색 표면, 낮은 장식으로 만든다.
+- [ ] status chip은 색상과 한글 라벨을 함께 제공한다.
+- [ ] 로그/JSON은 어두운 코드 블록을 사용하되 전체 화면 톤은 모두의입법과 맞춘다.
