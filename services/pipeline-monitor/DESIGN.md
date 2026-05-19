@@ -2,26 +2,36 @@
 
 이 문서는 `services/pipeline-monitor` 구현 에이전트를 위한 디자인 시스템 기준서다. 사람용 시각 문서는 같은 폴더의 `DESIGN.html`을 사용한다.
 
-## Design Reset
+## Scope
 
-이전 시안의 실패 원인은 토큰 문제가 아니라 미감과 구조 문제였다.
+이 디자인 시스템은 모두의입법 데이터 파이프라인 운영 모니터링 웹서비스를 위한 시각 언어, 레이아웃 규칙, 컴포넌트 기준, 상태 표현, 접근성 기준을 정의한다.
 
-- 필터가 모바일 첫 화면을 점유했다.
-- 상태 요약이 거대한 박스 네 개로 쌓이며 초보자 예제처럼 보였다.
-- 정보 위계가 `font-weight: bold`에만 의존했다.
-- 운영 화면인데 실행 흐름과 실패 추적이 먼저 보이지 않았다.
-- 모두의입법 토큰을 썼지만 모두의입법답지도, 모니터링 도구답지도 않았다.
+목표는 특정 화면 하나를 예쁘게 꾸미는 것이 아니라 다음 구현 단계에서 반복 가능한 제품 화면을 만들 수 있게 하는 것이다.
 
-이번 재설계는 다음을 기준으로 한다.
+- 실시간 파이프라인 상태를 빠르게 판단한다.
+- 실패, fallback, 실행 중 상태를 먼저 확인한다.
+- Gemini CLI, Codex CLI, Claude CLI 같은 provider 차이를 명확히 드러낸다.
+- 로그, 산출물, schema validation 결과를 추적 가능하게 보여준다.
+- 기존 모두의입법 웹의 토큰과 브랜드 감각을 가져오되 운영 도구에 맞게 밀도와 위계를 재정의한다.
 
-- **Mobile first:** 모바일은 데스크톱 table의 축소판이 아니라 `Pocket Ops` 화면이다.
-- **Incident first:** 마지막 성공보다 "지금 확인할 문제"가 먼저 보인다.
-- **Filters recede:** 필터는 큰 input stack이 아니라 얇은 horizontal rail이다.
-- **Run rows, not blocks:** 실행 목록은 compact row로 읽힌다.
-- **Aesthetic discipline:** 검정 command surface, 종이 같은 off-white surface, 얇은 rule, 정확한 숫자, 작은 accent만 사용한다.
-- **Rainbow minimal:** 레인보우는 브랜드 hairline과 wordmark underline만 허용한다.
+## Foundation
 
-## Extracted Brand Materials
+### Design Voice
+
+`Civic Ops Ledger`
+
+시민 서비스의 신뢰감과 운영 도구의 정밀함을 결합한다. 화면은 장식적인 대시보드가 아니라 실행 기록을 읽는 장부처럼 보여야 한다. 단, 장부라는 말이 건조함을 뜻하지는 않는다. typography, line, spacing, contrast가 살아 있어야 한다.
+
+### Principles
+
+- **Status first:** 첫 화면은 설명이 아니라 현재 상태 판단으로 시작한다.
+- **Incident over filters:** 필터는 사용자가 상태를 본 뒤 쓰는 도구다. 필터가 화면을 지배하면 실패다.
+- **Rows over blocks:** 실행 이력은 큰 카드가 아니라 compact row와 rule의 리듬으로 읽힌다.
+- **Traceable by default:** 선택된 run은 로그와 산출물까지 이어져야 한다.
+- **Minimal rainbow:** 레인보우는 브랜드 signature로만 쓴다. 상태, 버튼, 차트 장식에는 쓰지 않는다.
+- **Human-grade finish:** 토큰 목록만 맞추고 미감이 죽어 있으면 실패다. 간격, 줄바꿈, 밀도, 균형을 구현 단계에서 계속 확인한다.
+
+## Brand Extraction
 
 기존 모두의입법 웹에서 가져올 것은 UI 구조가 아니라 재료다.
 
@@ -32,23 +42,6 @@
 | `services/web/tailwind.config.js` | `#191919`, `#96BCFA`, `#E63946`, gray scale, dark tokens |
 | `services/web/styles/globals.css` | Pretendard stack, Material Symbols, status colors |
 | `services/web/public/images/logo.svg` | 1-2px rainbow signature only |
-
-## Visual Direction
-
-### Scene
-
-운영자가 배포 직후 노트북이나 27-inch 모니터에서 파이프라인 상태를 빠르게 확인한다. 화면은 밝은 환경에서도 읽혀야 하고, 모바일에서는 걸어가며 "문제가 있는지"만 즉시 판단할 수 있어야 한다.
-
-### References
-
-- GitHub Actions: 실행 단위와 로그 추적성.
-- Linear: 밀도 있는 row와 선택 상태.
-- Raycast: 단단한 control surface.
-- 모두의입법: Pretendard, neutral surfaces, `#191919` ink, 제한적 rainbow signature.
-
-### Aesthetic Lane
-
-`Civic Ops Ledger`: 시민 서비스의 신뢰감과 운영 도구의 정밀함을 합친다. 차트 장식이 아니라 실행 기록 장부처럼 보이되, typography와 spacing은 정제되어야 한다.
 
 ## Tokens
 
@@ -63,6 +56,7 @@
 --strong: #262626;
 --ink: #191919;
 --blue: #96BCFA;
+--blue-strong: #305FBA;
 --alert: #E63946;
 --lime: #D7F963;
 --dark: #101012;
@@ -75,30 +69,25 @@
 --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 ```
 
-Rules:
+### Token Rules
 
 - `#999999` is too weak for small text. Use `#707070` or darker for labels.
 - Numbers use tabular figures.
 - Large text exists only when it reflects priority. Do not enlarge every metric.
-- Default radius is `8px`; shell radius can be `12px`.
-- Shadows are rare. Use lines and tone before shadow.
+- Default radius is `8px`; shell radius can be `12px`; device/specimen radius can be larger only when it frames an example.
+- Shadows are rare. Use line, tone, and spacing before shadow.
 
-## Rainbow Policy
+## Typography
 
-Allowed:
+- Font family: Pretendard first, system sans fallback.
+- Mono family: Fira Code for log, run id, artifact path, schema output.
+- Page title: 48-56px desktop, 30-34px mobile.
+- Section title: 24-28px desktop, 22-24px mobile.
+- Body: 14-16px.
+- Metadata and chips: never below 12px.
+- Korean line breaks must be inspected on mobile. Do not rely on accidental browser wrapping.
 
-- Top page hairline.
-- Wordmark underline.
-
-Disallowed:
-
-- Gradient buttons.
-- Gradient pills.
-- Gradient charts.
-- Status colors mapped to rainbow stops.
-- Repeated rainbow borders.
-
-## UX Structure
+## Layout Patterns
 
 ### Mobile: Pocket Ops
 
@@ -201,6 +190,15 @@ Mobile starts collapsed after selected row; desktop is right-side panel.
 | `fallback` | fallback | `#191919` text, `#DCDCD6` border |
 | `unknown` | 알 수 없음 | `#707070` |
 
+## Accessibility
+
+- Body contrast must satisfy WCAG AA.
+- Interactive controls must have visible focus states.
+- Icon-only buttons require `aria-label`.
+- Run rows must not rely on color alone; include text status.
+- Log panels must preserve selectable text.
+- Mobile screenshots must be checked at 390px width before handoff.
+
 ## Implementation Checklist
 
 - [ ] Mobile first: filters must not occupy the first viewport as stacked blocks.
@@ -211,3 +209,4 @@ Mobile starts collapsed after selected row; desktop is right-side panel.
 - [ ] No generic KPI card grid as first screen.
 - [ ] No fake charts without real data.
 - [ ] No write actions in MVP.
+- [ ] Inspect mobile and desktop screenshots before merging UI changes.

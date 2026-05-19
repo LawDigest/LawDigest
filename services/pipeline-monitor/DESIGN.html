@@ -170,6 +170,20 @@
       font-weight: 600;
     }
 
+    .system-kicker {
+      display: inline-flex;
+      width: fit-content;
+      min-height: 30px;
+      align-items: center;
+      padding: 0 10px;
+      border: 1px solid #363636;
+      border-radius: 8px;
+      background: #202020;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
     .mobile-frame {
       min-height: 520px;
       padding: 14px;
@@ -906,6 +920,82 @@
       word-break: keep-all;
     }
 
+    .token-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .token {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--raised);
+    }
+
+    .token-chip {
+      height: 72px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .token-body {
+      display: grid;
+      gap: 3px;
+      padding: 10px 12px 12px;
+    }
+
+    .token-body strong {
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .token-body code {
+      color: var(--secondary);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .type-specimen {
+      display: grid;
+      gap: 10px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--raised);
+    }
+
+    .type-display {
+      color: var(--ink);
+      font-size: 38px;
+      font-weight: 900;
+      line-height: 1.08;
+      text-wrap: balance;
+    }
+
+    .type-body {
+      max-width: 760px;
+      margin: 0;
+      color: var(--secondary);
+      font-size: 15px;
+      font-weight: 600;
+      word-break: keep-all;
+    }
+
+    .specimen-label {
+      display: inline-flex;
+      width: fit-content;
+      min-height: 28px;
+      align-items: center;
+      padding: 0 9px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--wash);
+      color: var(--blue-strong);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
     .checklist {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -970,7 +1060,8 @@
 
       .problem-grid,
       .rule-grid,
-      .principles {
+      .principles,
+      .token-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
@@ -1016,9 +1107,14 @@
       .problem-grid,
       .rule-grid,
       .principles,
+      .token-grid,
       .checklist,
       .health-rail {
         grid-template-columns: 1fr;
+      }
+
+      .type-display {
+        font-size: 28px;
       }
 
       .mobile-frame {
@@ -1078,15 +1174,16 @@
             <strong>모두의입법</strong>
             <span aria-hidden="true"></span>
           </a>
-          <h1 id="page-title"><span class="mobile-line">상태 판단이</span> <span class="mobile-line">먼저 보이는</span> <span class="mobile-line">Pipeline Monitor</span></h1>
+          <div class="system-kicker">DESIGN SYSTEM</div>
+          <h1 id="page-title"><span class="mobile-line">Pipeline Monitor</span> <span class="mobile-line">Design System</span></h1>
           <p>
-            기존 시안은 필터와 박스가 화면을 먹어치웠다. 새 기준은 다르다. 모바일 첫 화면은 incident, filter rail, run rows 순서로 읽히고, 데스크톱은 ledger와 trace가 한 화면에서 맞물린다.
+            모두의입법 데이터 파이프라인 운영 모니터링 서비스를 위한 토큰, 레이아웃, 컴포넌트, 상태 언어, 적용 예시를 정의한다. 이 문서의 주인공은 특정 화면 문구가 아니라 반복 가능한 시각 시스템이다.
           </p>
         </div>
         <div class="hero-notes" aria-label="재설계 기준">
-          <div class="hero-note"><b>Mobile first</b><span>필터는 rail, 상태는 incident strip</span></div>
-          <div class="hero-note"><b>Ledger rhythm</b><span>row와 rule로 실행 흐름을 만든다</span></div>
-          <div class="hero-note"><b>Minimal rainbow</b><span>브랜드 line 외에는 쓰지 않는다</span></div>
+          <div class="hero-note"><b>Foundation</b><span>Civic Ops Ledger 시각 언어</span></div>
+          <div class="hero-note"><b>Components</b><span>Incident, rail, ledger, trace 규칙</span></div>
+          <div class="hero-note"><b>Specimen</b><span>모바일과 데스크톱 적용 예시</span></div>
         </div>
       </div>
 
@@ -1167,50 +1264,89 @@ artifact latest-bills-summary.json</code></pre>
 
     <div class="doc-layout">
       <nav class="side-nav" aria-label="문서 내비게이션">
-        <a href="#problems">진단</a>
-        <a href="#mobile">모바일 원칙</a>
-        <a href="#desktop">데스크톱 화면</a>
+        <a href="#overview">개요</a>
+        <a href="#tokens">토큰</a>
+        <a href="#typography">타입</a>
+        <a href="#layout">레이아웃</a>
         <a href="#components">컴포넌트</a>
-        <a href="#checklist">체크리스트</a>
+        <a href="#specimen">적용 예시</a>
+        <a href="#accessibility">검증 기준</a>
       </nav>
 
       <main class="content">
-        <section class="section" id="problems">
+        <section class="section" id="overview">
           <div class="section-head">
-            <h2>무엇을 고쳤나</h2>
+            <h2>시스템 개요</h2>
             <p>
-              문제는 색이 아니라 제품 화면으로서의 미감과 판단 순서였다. 그래서 필터 스택, 거대한 metric block, 반복 박스 구조를 제거했다.
+              이 디자인 시스템은 파이프라인 상태를 빠르게 판단하고, 실패 원인과 산출물까지 추적하는 운영 화면을 만들기 위한 기준이다.
             </p>
           </div>
           <div class="section-body">
             <div class="principles">
               <article class="principle">
-                <strong>필터는 뒤로</strong>
-                <p>필터는 사용자가 상태를 본 뒤 쓰는 도구다. 모바일 첫 화면을 input 박스로 채우지 않는다.</p>
+                <strong>Civic Ops Ledger</strong>
+                <p>시민 서비스의 신뢰감과 운영 장부의 정밀함을 결합한다. 장식보다 판단 흐름을 우선한다.</p>
               </article>
               <article class="principle">
-                <strong>사건이 먼저</strong>
-                <p>마지막 성공보다 현재 확인할 실패, fallback, 실행 중 상태가 먼저 보이게 한다.</p>
+                <strong>Incident first</strong>
+                <p>마지막 성공보다 현재 확인할 실패, fallback, 실행 중 상태가 먼저 보인다.</p>
               </article>
               <article class="principle">
-                <strong>행으로 읽기</strong>
-                <p>실행 이력은 카드 덩어리가 아니라 compact row로 읽힌다. 시간과 provider가 같은 리듬을 갖는다.</p>
+                <strong>Reusable language</strong>
+                <p>토큰, 컴포넌트, 상태 문구를 재사용해 다음 구현 화면에서도 같은 밀도와 미감을 유지한다.</p>
               </article>
             </div>
           </div>
         </section>
 
-        <section class="section" id="mobile">
+        <section class="section" id="tokens">
           <div class="section-head">
-            <h2>Mobile: Pocket Ops</h2>
+            <h2>디자인 토큰</h2>
             <p>
-              모바일은 데스크톱 테이블의 축소판이 아니다. 운영자가 이동 중에 문제 여부를 확인하는 작은 ops 화면이다.
+              기존 모두의입법 웹의 neutral-first 감각을 유지하되, 운영 도구에 맞게 검정 command surface와 작은 상태 색을 더한다.
+            </p>
+          </div>
+          <div class="section-body">
+            <div class="token-grid" aria-label="색상 토큰">
+              <article class="token"><div class="token-chip" style="background:#191919"></div><div class="token-body"><strong>Ink</strong><code>#191919</code></div></article>
+              <article class="token"><div class="token-chip" style="background:#fcfcfa"></div><div class="token-body"><strong>Surface</strong><code>#FCFCFA</code></div></article>
+              <article class="token"><div class="token-chip" style="background:#96bcfa"></div><div class="token-body"><strong>Blue</strong><code>#96BCFA</code></div></article>
+              <article class="token"><div class="token-chip" style="background:#e63946"></div><div class="token-body"><strong>Alert</strong><code>#E63946</code></div></article>
+              <article class="token"><div class="token-chip" style="background:#168a4a"></div><div class="token-body"><strong>Success</strong><code>#168A4A</code></div></article>
+              <article class="token"><div class="token-chip" style="background:#dcdcd6"></div><div class="token-body"><strong>Line</strong><code>#DCDCD6</code></div></article>
+              <article class="token"><div class="token-chip" style="background:linear-gradient(90deg,#FBEB59 0%,#FC56D8 31%,#10D9EF 65%,#6CF880 100%)"></div><div class="token-body"><strong>Rainbow</strong><code>signature only</code></div></article>
+              <article class="token"><div class="token-chip" style="background:#101012"></div><div class="token-body"><strong>Log Dark</strong><code>#101012</code></div></article>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="typography">
+          <div class="section-head">
+            <h2>타이포그래피</h2>
+            <p>
+              제목, 메타데이터, 로그가 서로 다른 임무를 갖도록 크기와 무게를 명확히 구분한다.
+            </p>
+          </div>
+          <div class="section-body">
+            <div class="type-specimen">
+              <span class="specimen-label">Pretendard + Fira Code</span>
+              <div class="type-display">실패를 먼저 보고, 로그까지 바로 추적한다.</div>
+              <p class="type-body">본문은 14-16px, 메타와 칩은 12px 이하로 내려가지 않는다. 숫자는 tabular figures로 맞추고, 로그와 artifact path는 mono로 읽힌다.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="layout">
+          <div class="section-head">
+            <h2>레이아웃 패턴</h2>
+            <p>
+              같은 데이터를 모바일과 데스크톱에 그대로 축소하지 않는다. 사용 맥락에 맞게 Pocket Ops와 Ledger + Trace로 나눈다.
             </p>
           </div>
           <div class="section-body">
             <div class="principles">
               <article class="principle">
-                <strong>Incident strip</strong>
+                <strong>Mobile: Pocket Ops</strong>
                 <p>첫 화면에서 가장 중요한 상태 한 줄을 보여준다. 실패 원인과 trace 진입점이 함께 있어야 한다.</p>
               </article>
               <article class="principle">
@@ -1218,18 +1354,18 @@ artifact latest-bills-summary.json</code></pre>
                 <p>기간, 상태, provider, 검색은 34px 높이의 가로 rail로 둔다. full-width input stack은 금지한다.</p>
               </article>
               <article class="principle">
-                <strong>Run stack</strong>
-                <p>상태 marker, command, provider, 시간, 소요 시간이 한 row 안에서 읽히도록 한다.</p>
+                <strong>Desktop: Ledger + Trace</strong>
+                <p>실행 목록과 선택된 run의 trace를 동시에 본다. table, detail, log가 한 흐름으로 이어져야 한다.</p>
               </article>
             </div>
           </div>
         </section>
 
-        <section class="section" id="desktop">
+        <section class="section" id="specimen">
           <div class="section-head">
-            <h2>Desktop: Ledger + Trace</h2>
+            <h2>적용 예시</h2>
             <p>
-              데스크톱에서는 실행 목록과 선택된 run의 trace를 동시에 본다. 단순 table이 아니라 판단 흐름이 이어지는 ledger 화면이다.
+              아래 화면은 디자인 시스템을 적용한 specimen이다. 실제 구현에서는 이 구조를 기준으로 데이터와 상호작용을 연결한다.
             </p>
           </div>
           <div class="section-body">
@@ -1355,7 +1491,7 @@ artifact latest-bills-summary.json</code></pre>
           <div class="section-head">
             <h2>컴포넌트 기준</h2>
             <p>
-              디자인 시스템은 박스 이름의 목록이 아니라, 실제 화면에서 어떤 판단 흐름을 만들지까지 포함해야 한다.
+              각 컴포넌트는 모양보다 역할이 먼저다. 이름, 상태, 밀도, 상호작용이 구현 단계에서 흔들리지 않아야 한다.
             </p>
           </div>
           <div class="section-body">
@@ -1370,21 +1506,21 @@ artifact latest-bills-summary.json</code></pre>
           </div>
         </section>
 
-        <section class="section" id="checklist">
+        <section class="section" id="accessibility">
           <div class="section-head">
-            <h2>구현 체크리스트</h2>
+            <h2>접근성 및 검증 기준</h2>
             <p>
-              이 기준은 실제 구현 때 디자인이 다시 초보자 예제처럼 무너지는 것을 막기 위한 가드레일이다.
+              디자인 시스템은 눈으로 보기 좋은 것에서 끝나지 않는다. 구현 전후로 대비, 포커스, 모바일 줄바꿈, 로그 가독성을 확인한다.
             </p>
           </div>
           <div class="section-body">
             <ul class="checklist">
-              <li><span class="check">1</span><span>모바일 첫 화면에 full-width 필터 stack을 만들지 않는다.</span></li>
-              <li><span class="check">2</span><span>상태 요약은 거대 KPI 카드가 아니라 compact incident와 health rail로 처리한다.</span></li>
-              <li><span class="check">3</span><span>실행 목록은 mobile run rows와 desktop ledger table을 별도로 설계한다.</span></li>
-              <li><span class="check">4</span><span>레인보우는 상단 hairline과 wordmark underline 외에 사용하지 않는다.</span></li>
-              <li><span class="check">5</span><span>작은 텍스트는 #707070 이상 대비를 유지한다.</span></li>
-              <li><span class="check">6</span><span>MVP에는 실행, 재시도, 삭제, 롤백 버튼을 넣지 않는다.</span></li>
+              <li><span class="check">1</span><span>본문 대비는 WCAG AA를 통과한다. 작은 텍스트는 #707070 이상으로 유지한다.</span></li>
+              <li><span class="check">2</span><span>아이콘 단독 버튼에는 aria-label을 둔다. 포커스 상태는 눈에 보여야 한다.</span></li>
+              <li><span class="check">3</span><span>상태는 색만으로 구분하지 않는다. 성공, 실패, 실행 중 같은 텍스트 라벨을 함께 쓴다.</span></li>
+              <li><span class="check">4</span><span>390px 모바일 캡처에서 제목, incident, filter rail이 화면 밖으로 밀리지 않아야 한다.</span></li>
+              <li><span class="check">5</span><span>로그와 artifact path는 선택 가능한 텍스트로 남긴다. 이미지화하지 않는다.</span></li>
+              <li><span class="check">6</span><span>레인보우는 상단 hairline과 wordmark underline 외에 사용하지 않는다.</span></li>
             </ul>
           </div>
         </section>
