@@ -10,7 +10,7 @@ from lawdigest_ai.processor.provider_instant_service import (
     summarize_bills_with_provider,
     summarize_single_bill_with_provider,
 )
-from lawdigest_ai.processor.gemini_cli_summarizer import GeminiCliSummarizer
+from lawdigest_ai.processor.gemini_cli_summarizer import GeminiCliSummarizer, build_cli_summarizer
 
 
 def _write_json_output(payload: Any, output_path: str) -> None:
@@ -61,6 +61,21 @@ def summarize_single_bill_with_gemini_cli(
     return result
 
 
+def summarize_single_bill_with_cli(
+    bill_data: Dict[str, Any],
+    cli_provider: str = "gemini",
+    output_path: str | None = None,
+) -> Dict[str, Any]:
+    """단일 법안에 대해 선택한 headless CLI 기반 요약을 수행하고 결과 dict를 반환합니다."""
+    df = pd.DataFrame([bill_data])
+    summarizer = build_cli_summarizer(cli_provider)
+    result_df = summarizer.AI_structured_summarize(df)
+    result = _normalize_summary_keys(result_df.to_dict("records")[0])
+    if output_path:
+        _write_json_output(result, output_path)
+    return result
+
+
 def summarize_bills_with_gemini_cli(
     bills: List[Dict[str, Any]],
     output_path: str | None = None,
@@ -68,6 +83,21 @@ def summarize_bills_with_gemini_cli(
     """복수의 법안에 대해 Gemini CLI 기반 요약을 수행하고 결과 리스트를 반환합니다."""
     df = pd.DataFrame(bills)
     summarizer = GeminiCliSummarizer()
+    result_df = summarizer.AI_structured_summarize(df)
+    result = _normalize_summary_keys_list(result_df.to_dict("records"))
+    if output_path:
+        _write_json_output(result, output_path)
+    return result
+
+
+def summarize_bills_with_cli(
+    bills: List[Dict[str, Any]],
+    cli_provider: str = "gemini",
+    output_path: str | None = None,
+) -> List[Dict[str, Any]]:
+    """복수의 법안에 대해 선택한 headless CLI 기반 요약을 수행하고 결과 리스트를 반환합니다."""
+    df = pd.DataFrame(bills)
+    summarizer = build_cli_summarizer(cli_provider)
     result_df = summarizer.AI_structured_summarize(df)
     result = _normalize_summary_keys_list(result_df.to_dict("records"))
     if output_path:

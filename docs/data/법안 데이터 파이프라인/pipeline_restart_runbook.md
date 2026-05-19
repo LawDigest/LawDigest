@@ -1,250 +1,202 @@
-# 데이터 파이프라인 재가동 런북
+# 데이터 파이프라인 런타임 런북
 
-> 작성일: 2026-03-23
-> 현재 상태: Airflow 실행 중, 주요 DAG는 일시정지 상태일 수 있습니다.
-
----
-
-## 현재 상태 요약
-
-```
-마지막 성공 실행: Airflow UI에서 가장 최근 성공 DAGRun 기준 확인
-현재 queued 상태: Airflow 메타DB 또는 UI에서 확인
-```
-
-**재가동 전 아래 체크리스트를 확인하세요.**
+> 작성일: 2026-05-19
+> 현재 방향: **Airflow 폐기, 자체 `lawdigest-pipeline` 런타임으로 전환**
 
 ---
 
-## 1. 재가동 전 체크리스트
+## 1. 운영 원칙
 
-### 1.1 서비스 상태 확인
+Lawdigest 데이터 파이프라인은 더 이상 Airflow DAG를 표준 실행 경로로 보지 않습니다.
+
+기존 Airflow DAG는 구현 참고용 legacy artifact로만 남기고, 실제 실행은 `lawdigest_data.runtime`의 `lawdigest-pipeline` CLI를 기준으로 합니다. AI 요약 표준 경로는 배치 제출/회수가 아니라 Gemini CLI 기반 실시간 처리입니다. 실행 결과는 append-only JSONL 로그로 남기며, 이후 직접 구현할 파이프라인 모니터링 사이트는 이 실행 이력을 읽는 구조로 확장합니다.
+
+기본 실행 로그:
 
 ```bash
-# Airflow 컨테이너 상태 확인
-docker ps --format "table {{.Names}}\t{{.Status}}" | grep airflow
-
-# 예상 결과:
-# airflow-airflow-webserver-1    Up XX hours (unhealthy)  ← 정상 (헬스체크 경로 이슈)
-# airflow-airflow-scheduler-1    Up XX hours (healthy)
-# airflow-airflow-worker-1       Up XX hours (healthy)
-# airflow-airflow-triggerer-1    Up XX hours (healthy)
-# airflow-postgres-1             Up XX hours (healthy)
-# airflow-redis-1                Up XX hours (healthy)
+/tmp/lawdigest-pipeline/pipeline-runs.jsonl
 ```
 
-### 1.2 DAG 목록 및 일시정지 상태 확인
+운영 로그 위치를 고정하려면:
 
 ```bash
-docker exec airflow-airflow-webserver-1 airflow dags list
-```
-
-### 1.3 DB 연결 확인
-
-```bash
-# 프로덕션 DB (lawDB)
-docker exec airflow-airflow-webserver-1 python3 -c "
-import pymysql
-conn = pymysql.connect(host='140.245.74.246', port=2835, user='root',
-    password='d@X!qbhQgXE62ibPc!hti', database='lawDB')
-print('lawDB 연결 성공:', conn.get_server_info())
-conn.close()
-"
-```
-
-### 1.3.1 provider-aware AI 배포 전 migration 확인
-
-provider-aware AI 배치/즉시 요약 경로를 배포하기 전에는 아래 migration이 테스트 DB와 운영 DB에 먼저 반영되어 있어야 합니다.
-
-```bash
-infra/db/migrations/20260419_add_provider_to_ai_batch_jobs.sql
-```
-
-이 migration은 `ai_batch_jobs.provider` 컬럼과 `(provider, batch_id)` 복합 유니크 키를 추가합니다. 반영되지 않으면 `ai_batch_submit_dag`, `ai_batch_ingest_dag`가 런타임에서 실패할 수 있습니다.
-
-### 1.4 큐잉된 DAG 정리 (필요 시)
-
-재가동 전 이전 queued 상태로 남아있는 실행을 정리합니다.
-
-```bash
-# 현재 실행 상태 확인
-docker exec airflow-postgres-1 psql -U airflow -d airflow -c \
-  "SELECT dag_id, state, logical_date FROM dag_run WHERE state IN ('queued','running') ORDER BY logical_date;"
+export LAWDIGEST_PIPELINE_LOG_DIR=/var/log/lawdigest-pipeline
 ```
 
 ---
 
-## 2. DAG 재가동 순서
+## 2. 실행 환경
 
-### 단계 1: 데이터 수집 DAG 활성화 (우선)
+로컬/서버 체크아웃에서 아래처럼 실행합니다.
 
 ```bash
-# 1-1. 법안 수집 DAG 활성화
-docker exec airflow-airflow-webserver-1 airflow dags unpause bill_ingest_dag
-
-# 1-2. 법안 상태 동기화 DAG 활성화 (의원/타임라인/결과/표결)
-docker exec airflow-airflow-webserver-1 airflow dags unpause bill_status_sync_dag
-
-# 1-3. 수동 수집 DAG는 필요할 때만 UI에서 트리거
-# manual_bill_collect_dag
+cd /home/ubuntu/project/Lawdigest
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli --help
 ```
 
-### 단계 2: AI 배치 DAG 활성화
+패키지 설치 환경에서는 console script도 사용할 수 있습니다.
 
 ```bash
-# 2-1. AI 배치 제출 DAG
-docker exec airflow-airflow-webserver-1 airflow dags unpause ai_batch_submit_dag
-
-# 2-2. AI 배치 결과 수신 DAG (provider=all 기본)
-docker exec airflow-airflow-webserver-1 airflow dags unpause ai_batch_ingest_dag
-```
-
-### 단계 3: DB 백업 DAG 활성화
-
-```bash
-docker exec airflow-airflow-webserver-1 airflow dags unpause db_backup_dag
-```
-
-> **수동 실행 DAG** (`manual_bill_collect_dag`, `manual_ai_summary_repair_dag`, `manual_ai_summary_instant_dag`, `gemini_ai_summary_repair_dag`)은 스케줄 없이 필요 시 수동 트리거하므로 별도 활성화 불필요.
-
----
-
-## 3. 수동 테스트 실행
-
-재가동 직후 정상 동작 여부를 확인하려면 `dry_run` 모드로 수동 트리거합니다.
-
-```bash
-# 법안 수집 dry-run 테스트 (DB 저장 없이 수집만)
-docker exec airflow-airflow-webserver-1 airflow dags trigger \
-  bill_ingest_dag \
-  --conf '{"execution_mode": "dry_run", "start_date": "2026-03-22", "end_date": "2026-03-23"}'
-
-# 상태 동기화 dry-run 테스트
-docker exec airflow-airflow-webserver-1 airflow dags trigger \
-  bill_status_sync_dag \
-  --conf '{"execution_mode": "dry_run", "start_date": "2026-03-22", "end_date": "2026-03-23"}'
-```
-
-```bash
-# 실행 상태 모니터링
-docker exec airflow-postgres-1 psql -U airflow -d airflow -c \
-  "SELECT dag_id, state, logical_date FROM dag_run ORDER BY logical_date DESC LIMIT 5;"
-```
-
-> 코드 반영이 필요하면 먼저 [Airflow 배포 문서](../../deploy/AIRFLOW_DEPLOY.md) 절차로 `git pull`과 컨테이너 재기동을 수행한 뒤 여기 절차를 진행하세요.
-
-### 3.1 AI DAG 파라미터 운영 기준
-
-- `ai_batch_submit_dag`
-  - 기본값: `provider=openai`
-  - 필요 시 UI에서 `provider=gemini`와 `model=<custom>` 지정 가능
-- `ai_batch_ingest_dag`
-  - 기본값: `provider=all`
-  - 특정 provider만 회수하고 싶을 때만 `openai` 또는 `gemini` 사용
-- `manual_ai_summary_instant_dag`
-  - `provider=openai|gemini`
-  - `model`을 비우면 provider 기본 모델 사용
-- `manual_ai_summary_repair_dag`
-  - `provider=openai|gemini`
-  - `model`을 비우면 provider 기본 모델 사용
-- `gemini_ai_summary_repair_dag`
-  - Gemini CLI fallback 경로
-  - native API provider 선택 경로와 별도 용도
-
-### 3.2 수동 smoke 예시
-
-```bash
-# Gemini Batch 제출 dry-run
-docker exec airflow-airflow-webserver-1 airflow dags trigger \
-  ai_batch_submit_dag \
-  --conf '{"execution_mode": "dry_run", "provider": "gemini", "limit": 5}'
-
-# provider=all ingest dry-run
-docker exec airflow-airflow-webserver-1 airflow dags trigger \
-  ai_batch_ingest_dag \
-  --conf '{"execution_mode": "dry_run", "provider": "all", "max_jobs": 5}'
-
-# Gemini 즉시 요약 dry-run
-docker exec airflow-airflow-webserver-1 airflow dags trigger \
-  manual_ai_summary_instant_dag \
-  --conf '{"execution_mode": "dry_run", "provider": "gemini", "bill_json": "{\"bill_id\":\"TEST-1\",\"summary\":\"테스트 요약 원문\"}"}'
+lawdigest-pipeline --help
 ```
 
 ---
 
-## 4. 이전 실패 원인 분석 및 조치
+## 3. 핵심 명령
 
-### 4.1 update_bills 태스크 반복 실패 (2025-12-21~22)
-
-**증상**: 구형 시간별 동기화 DAG의 법안 수집 단계가 약 50초 후 실패
-**후속 태스크**: 타임라인/결과/표결 단계가 연쇄적으로 `upstream_failed`
-
-**확인 방법**:
+### 3.1 법안 수집
 
 ```bash
-# 실패 태스크 로그 확인
-docker exec airflow-airflow-webserver-1 airflow tasks logs \
-  <구형 DAG ID> update_bills <실행_날짜>
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  bill-ingest \
+  --mode dry_run \
+  --start-date 2026-05-19 \
+  --end-date 2026-05-19 \
+  --age 22
 ```
 
-**가능한 원인**:
-1. DB 연결 타임아웃 (DB 서버 재시작/점검)
-2. 국회 Open API 응답 오류 또는 변경
-3. `WorkFlowManager.py` 내부 매핑/적재 오류
-
----
-
-## 5. Airflow 웹 UI 접속
-
-- **URL**: http://localhost:8081 (또는 https://airflow.lawdigest.cloud)
-- **계정**: airflow
-- **비밀번호**: oracleserver2220!
-
-UI에서 DAG 활성화/비활성화 및 수동 트리거가 가능합니다.
-
----
-
-## 6. 전체 재가동 스크립트 (한 번에)
+운영 반영:
 
 ```bash
-#!/bin/bash
-# 모든 자동 스케줄 DAG 활성화
-
-AIRFLOW="docker exec airflow-airflow-webserver-1 airflow dags unpause"
-
-echo "=== 데이터 수집 DAG 활성화 ==="
-$AIRFLOW bill_ingest_dag
-$AIRFLOW bill_status_sync_dag
-
-echo "=== AI 배치 DAG 활성화 ==="
-$AIRFLOW ai_batch_submit_dag
-$AIRFLOW ai_batch_ingest_dag
-
-echo "=== DB 백업 DAG 활성화 ==="
-$AIRFLOW db_backup_dag
-
-echo "=== 활성화 결과 확인 ==="
-docker exec airflow-airflow-webserver-1 airflow dags list
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  bill-ingest \
+  --mode prod \
+  --start-date 2026-05-19 \
+  --end-date 2026-05-19 \
+  --age 22
 ```
 
----
-
-## 7. 롤백 (필요 시)
-
-문제 발생 시 전체 DAG을 다시 일시정지합니다.
+### 3.2 법안 상태 동기화
 
 ```bash
-for dag in bill_ingest_dag bill_status_sync_dag \
-           ai_batch_submit_dag ai_batch_ingest_dag \
-           db_backup_dag; do
-  docker exec airflow-airflow-webserver-1 airflow dags pause $dag
-  echo "Paused: $dag"
-done
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  bill-status-sync \
+  --mode dry_run \
+  --start-date 2026-05-19 \
+  --end-date 2026-05-19 \
+  --age 22
 ```
+
+### 3.3 AI 실시간 요약 (표준)
+
+```bash
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  ai-summary \
+  --mode dry_run \
+  --cli-provider gemini \
+  --limit 1 \
+  --batch-size 1 \
+  --output-path /tmp/lawdigest-gemini-cli-summary.json
+```
+
+이 경로는 Gemini CLI headless 실행 결과를 기존 API 배치와 같은 `BatchStructuredSummary` 스키마로 검증합니다. 응답 키는 `briefSummary`, `gptSummary`, `tags`만 허용하고, DB에는 기존 컬럼인 `brief_summary`, `gpt_summary`, `summary_tags`로 반영합니다.
+
+Gemini CLI가 quota 초과, API 장애, CLI 오류, 구조화 응답 검증 실패 등으로 실패하면 같은 row를 Codex CLI로 한 번 재시도합니다. Codex fallback 기본 모델은 `gpt-5.3-codex-spark`입니다.
+
+Fallback smoke 예시:
+
+```bash
+GEMINI_CLI_BIN=/bin/false \
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  ai-summary \
+  --mode dry_run \
+  --read-mode prod \
+  --target-mode latest \
+  --cli-provider gemini \
+  --limit 1 \
+  --batch-size 1 \
+  --output-path /tmp/lawdigest-codex-fallback-smoke.json
+```
+
+이 smoke는 Gemini 실행 파일을 의도적으로 실패시켜 Codex fallback 경로가 실제로 동작하는지 확인합니다. `dry_run`이므로 DB에는 반영하지 않습니다.
+
+### 3.4 AI Batch 제출 (legacy fallback)
+
+```bash
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  ai-batch-submit \
+  --mode dry_run \
+  --provider gemini \
+  --limit 5
+```
+
+### 3.5 AI Batch 결과 회수 (legacy fallback)
+
+```bash
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  ai-batch-ingest \
+  --mode dry_run \
+  --provider all \
+  --max-jobs 5
+```
+
+### 3.6 Native API 기반 결측 요약 복구
+
+```bash
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  ai-repair-native \
+  --mode dry_run \
+  --provider gemini \
+  --limit 5 \
+  --batch-size 1 \
+  --output-path /tmp/lawdigest-native-repair.json
+```
+
+### 3.7 CLI 기반 결측 요약 복구 (compatibility alias)
+
+```bash
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  ai-repair-cli \
+  --mode dry_run \
+  --cli-provider gemini \
+  --limit 1 \
+  --batch-size 1 \
+  --output-path /tmp/lawdigest-cli-repair.json
+```
+
+`ai-repair-cli`는 기존 명령 호환용입니다. 신규 운영에서는 `ai-summary --cli-provider gemini`를 우선 사용합니다.
+
+사용 가능한 CLI provider:
+
+- `gemini`
+- `codex`
+- `claude`
 
 ---
 
-## 8. 참고 문서
+## 4. 스케줄 운영
 
-- [파이프라인 아키텍처](./pipeline_architecture.md)
-- Airflow 롤백 런북: `docs/data/legacy/airflow_rollback_runbook.md`
+Airflow 대신 `systemd timer` 또는 cron을 사용합니다. 우선은 수동 실행으로 검증하고, 스케줄이 필요해지면 아래 순서로 timer를 추가합니다.
+
+1. `/usr/local/bin/lawdigest-pipeline-wrapper`에 `PYTHONPATH`와 작업 디렉터리를 고정
+2. `bill-ingest`, `bill-status-sync`, `ai-summary`를 각각 별도 timer로 등록
+3. timer stdout/stderr는 journald와 `pipeline-runs.jsonl` 양쪽에서 확인
+4. 실패 알림은 모니터링 사이트 또는 별도 notifier에서 후속 구현
+
+---
+
+## 5. Airflow 폐기 상태
+
+Airflow는 신규 운영 경로에서 제외합니다.
+
+- `infra/airflow/dags/*`: legacy reference
+- `infra/airflow/docker-compose.yaml`: legacy reference
+- Airflow 컨테이너 재기동/재배포: 중단
+- 신규 파이프라인 기능: `lawdigest_data.runtime`에만 추가
+
+Airflow 파일을 완전히 삭제하기 전까지는 과거 DAG의 파라미터와 실행 순서를 참고할 수 있지만, 운영 판단은 `lawdigest-pipeline` 결과와 JSONL 실행 로그를 기준으로 합니다.
+
+---
+
+## 6. 다음 모니터링 사이트 설계 기준
+
+직접 구현할 데이터 파이프라인 모니터링 사이트는 우선 아래 데이터를 읽으면 됩니다.
+
+- 최근 run 목록
+- command별 성공/실패 횟수
+- step별 처리 결과
+- 실패 traceback
+- 산출물 JSON 경로
+- provider별 AI 요약 성공률
+
+초기 데이터 소스는 `pipeline-runs.jsonl`이고, 운영 필요성이 커지면 같은 이벤트를 DB 테이블(`pipeline_runs`, `pipeline_run_steps`, `pipeline_artifacts`)에도 기록합니다.

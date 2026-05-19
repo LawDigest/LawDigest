@@ -17,7 +17,15 @@ if [ ! -d "$HOST_GEMINI_HOME" ]; then
 fi
 
 LATEST_NODE_BIN="$(find "$HOST_NVM_DIR/versions/node" -path '*/bin/node' | sort | tail -n 1)"
-LATEST_GEMINI_JS="$(find "$HOST_NVM_DIR/versions/node" -path '*/lib/node_modules/@google/gemini-cli/dist/index.js' | sort | tail -n 1)"
+LATEST_GEMINI_BIN="$(find "$HOST_NVM_DIR/versions/node" -path '*/bin/gemini' | sort | tail -n 1)"
+LATEST_GEMINI_JS="$(find "$HOST_NVM_DIR/versions/node" -path '*/lib/node_modules/@google/gemini-cli/bundle/gemini.js' -o -path '*/lib/node_modules/@google/gemini-cli/dist/index.js' | sort | tail -n 1)"
+
+if [ -n "$LATEST_GEMINI_BIN" ] && [ -x "$LATEST_GEMINI_BIN" ]; then
+  RESOLVED_GEMINI_BIN="$(readlink -f "$LATEST_GEMINI_BIN")"
+  if [ -n "$RESOLVED_GEMINI_BIN" ] && [ -f "$RESOLVED_GEMINI_BIN" ]; then
+    LATEST_GEMINI_JS="$RESOLVED_GEMINI_BIN"
+  fi
+fi
 
 if [ -z "$LATEST_NODE_BIN" ] || [ ! -x "$LATEST_NODE_BIN" ]; then
   echo "Host node binary not found or not executable under $HOST_NVM_DIR" >&2

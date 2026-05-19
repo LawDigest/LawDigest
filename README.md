@@ -7,8 +7,8 @@
 [![Next.js](https://img.shields.io/badge/Next.js-13-black?style=flat-square&logo=next.js)](https://nextjs.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.1-6DB33F?style=flat-square&logo=springboot&logoColor=white)](https://spring.io/projects/spring-boot)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--5-412991?style=flat-square&logo=openai&logoColor=white)](https://openai.com/)
-[![Apache Airflow](https://img.shields.io/badge/Apache_Airflow-3.1-017CEE?style=flat-square&logo=apacheairflow&logoColor=white)](https://airflow.apache.org/)
+[![Gemini CLI](https://img.shields.io/badge/Gemini_CLI-Realtime_AI-4285F4?style=flat-square&logo=googlegemini&logoColor=white)](https://ai.google.dev/gemini-api/docs/cli)
+[![Codex CLI](https://img.shields.io/badge/Codex_CLI-Fallback-412991?style=flat-square&logo=openai&logoColor=white)](https://developers.openai.com/codex)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql&logoColor=white)](https://www.mysql.com/)
 
 </div>
@@ -27,7 +27,7 @@
 
 | 기능 | 설명 |
 |------|------|
-| **AI 법안 요약** | GPT-5 기반으로 법안 핵심 내용을 한 문장 + 항목별 상세 요약 제공 |
+| **AI 법안 요약** | Gemini CLI 기반 실시간 요약 + Codex CLI fallback으로 법안 핵심 내용을 한 문장 + 항목별 상세 요약 제공 |
 | **태그 분류** | 법안별 주제 태그 자동 생성으로 관심 분야 빠른 탐색 |
 | **의원 / 정당 팔로우** | 관심 의원·정당의 법안 활동을 실시간으로 구독 |
 | **법안 타임라인** | 발의 → 위원회 → 본회의까지 처리 단계 시각화 |
@@ -51,8 +51,8 @@
 
 ### AI / Data
 ![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
-![Apache Airflow](https://img.shields.io/badge/Apache_Airflow-017CEE?style=for-the-badge&logo=apacheairflow&logoColor=white)
+![Gemini CLI](https://img.shields.io/badge/Gemini_CLI-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white)
+![Codex CLI](https://img.shields.io/badge/Codex_CLI-412991?style=for-the-badge&logo=openai&logoColor=white)
 ![Qdrant](https://img.shields.io/badge/Qdrant-FF4785?style=for-the-badge)
 
 ### Infrastructure
@@ -80,12 +80,14 @@ graph LR
     end
 
     subgraph AI_SERVICE["services/ai"]
-        Processor["processor | AI 요약 배치"]
+        Processor["processor | Gemini CLI 실시간 요약"]
         RAG["rag | RAG 챗봇"]
     end
 
     subgraph PIPELINE["services/data"]
+        Runtime["lawdigest-pipeline | 자체 런타임"]
         Data["데이터 수집 | DataFetcher · DataProcessor"]
+        RunLog[("pipeline-runs.jsonl")]
     end
 
     subgraph STORAGE["Storage"]
@@ -96,8 +98,9 @@ graph LR
 
     subgraph EXTERNAL["External"]
         OpenAPI["🏛️ 국회 Open API"]
-        OpenAI["🤖 OpenAI GPT-5"]
-        Airflow["⚙️ Airflow 3.1"]
+        Gemini["🤖 Gemini CLI"]
+        Codex["🧠 Codex CLI fallback"]
+        OpenAI["🤖 OpenAI / Gemini Batch legacy"]
     end
 
     %% --- 보이지 않는 연결로 수직 순서 고정 ---
@@ -110,12 +113,15 @@ graph LR
     API --> DB
     API --> Redis
 
-    Airflow -->|"수집 DAG"| Data
-    Airflow -->|"요약 DAG"| Processor
+    Runtime -->|"bill-ingest"| Data
+    Runtime -->|"ai-summary"| Processor
+    Runtime -->|"실행 이력"| RunLog
 
     OpenAPI -->|"법안 데이터"| Data
 
-    Processor -->|"GPT 호출"| OpenAI
+    Processor -->|"실시간 요약"| Gemini
+    Gemini -. "quota/API/CLI 실패" .-> Codex
+    Processor -. "legacy batch fallback" .-> OpenAI
     RAG -->|"임베딩 / 생성"| OpenAI
 
     Processor -->|"요약 결과"| DB
@@ -134,29 +140,27 @@ graph LR
 법안·의원·정당·유저 도메인의 REST API를 제공합니다. OAuth2 소셜 로그인, JWT 인증, Redis 캐싱을 포함합니다.
 
 ### `services/data` — 데이터 파이프라인
-국회 의안 Open API에서 법안 데이터를 주기적으로 수집하여 DB에 적재합니다. AI 요약은 담당하지 않습니다.
+국회 의안 Open API에서 법안 데이터를 수집·가공·적재하고, 자체 `lawdigest-pipeline` 런타임으로 상태 동기화와 AI 요약 실행을 오케스트레이션합니다.
 
 ### `services/ai` — AI 서비스
 두 가지 책임을 가집니다.
-- **`processor/`**: DB에 적재된 법안을 provider-aware 요약 파이프라인으로 처리 (즉시 요약 / OpenAI·Gemini Batch API)
+- **`processor/`**: DB에 적재된 법안을 Gemini CLI 실시간 요약으로 처리하고, 장애 시 Codex CLI fallback 수행
 - **`rag/`**: Qdrant 벡터 DB와 LLM을 결합한 법안 RAG 챗봇
 
 <br>
 
 ## 데이터 파이프라인
 
-| DAG | 주기 | 역할 |
-|-----|------|------|
-| `bill_ingest_dag` | 매시간 | 국회 API → DB 법안 수집 |
-| `bill_status_sync_dag` | 매시간 | 의원·타임라인·결과·표결 동기화 |
-| `manual_bill_collect_dag` | 수동 | 기간 지정 법안 수집 |
-| `ai_batch_submit_dag` | 매시간 10분 | `provider=openai|gemini` 선택형 Batch 요약 제출 |
-| `ai_batch_ingest_dag` | 10분마다 | `provider=all|openai|gemini` 기준 배치 결과 반영 |
-| `manual_ai_summary_instant_dag` | 수동 | 단일 법안 즉시 요약 (`provider=openai|gemini`) |
-| `manual_ai_summary_repair_dag` | 수동 | 누락 요약 일괄 복구 (`provider=openai|gemini`) |
-| `db_backup_dag` | 매일 | DB 백업 |
+현재 표준 실행 경로는 Airflow가 아니라 자체 `lawdigest-pipeline` 런타임입니다.
 
-> `gemini_ai_summary_repair_dag`는 Gemini CLI fallback 경로로 남아 있고, 기본 수동 복구 경로는 `manual_ai_summary_repair_dag`입니다.
+| 명령 | 역할 |
+|------|------|
+| `bill-ingest` | 국회 API → 정제 artifact → DB 법안 수집 |
+| `bill-status-sync` | 의원·lifecycle·vote 상태 동기화 |
+| `ai-summary` | Gemini CLI 기반 실시간 요약, Codex CLI fallback |
+| `ai-batch-submit` / `ai-batch-ingest` | legacy Batch API fallback |
+
+자세한 구조와 운영 명령은 [데이터 파이프라인 아키텍처](docs/data/법안%20데이터%20파이프라인/pipeline_architecture.md)와 [런타임 런북](docs/data/법안%20데이터%20파이프라인/pipeline_restart_runbook.md)을 기준으로 합니다.
 
 <br>
 
