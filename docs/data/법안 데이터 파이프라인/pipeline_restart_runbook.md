@@ -91,6 +91,25 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
 
 이 경로는 Gemini CLI headless 실행 결과를 기존 API 배치와 같은 `BatchStructuredSummary` 스키마로 검증합니다. 응답 키는 `briefSummary`, `gptSummary`, `tags`만 허용하고, DB에는 기존 컬럼인 `brief_summary`, `gpt_summary`, `summary_tags`로 반영합니다.
 
+Gemini CLI가 quota 초과, API 장애, CLI 오류, 구조화 응답 검증 실패 등으로 실패하면 같은 row를 Codex CLI로 한 번 재시도합니다. Codex fallback 기본 모델은 `gpt-5.3-codex-spark`입니다.
+
+Fallback smoke 예시:
+
+```bash
+GEMINI_CLI_BIN=/bin/false \
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  ai-summary \
+  --mode dry_run \
+  --read-mode prod \
+  --target-mode latest \
+  --cli-provider gemini \
+  --limit 1 \
+  --batch-size 1 \
+  --output-path /tmp/lawdigest-codex-fallback-smoke.json
+```
+
+이 smoke는 Gemini 실행 파일을 의도적으로 실패시켜 Codex fallback 경로가 실제로 동작하는지 확인합니다. `dry_run`이므로 DB에는 반영하지 않습니다.
+
 ### 3.4 AI Batch 제출 (legacy fallback)
 
 ```bash
