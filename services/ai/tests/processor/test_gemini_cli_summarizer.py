@@ -56,12 +56,7 @@ def test_gemini_cli_summarizer_records_failures():
     from lawdigest_ai.processor.gemini_cli_summarizer import GeminiCliSummarizer
 
     with patch("lawdigest_ai.processor.gemini_cli_summarizer.subprocess.run") as mock_run:
-        mock_run.return_value = subprocess.CompletedProcess(
-            args=["gemini"],
-            returncode=1,
-            stdout="",
-            stderr="auth failed",
-        )
+        mock_run.return_value = subprocess.CompletedProcess(args=["gemini"], returncode=1, stdout="", stderr="auth failed")
         summarizer = GeminiCliSummarizer()
         df = pd.DataFrame(
             [
@@ -79,6 +74,51 @@ def test_gemini_cli_summarizer_records_failures():
     assert pd.isna(result.iloc[0]["brief_summary"])
     assert len(summarizer.failed_bills) == 1
     assert summarizer.failed_bills[0]["bill_id"] == "B003"
+    assert "fallback" in summarizer.failed_bills[0]["error"]
+
+
+def test_gemini_cli_summarizer_falls_back_to_codex_on_primary_failure():
+    from lawdigest_ai.processor.gemini_cli_summarizer import GeminiCliSummarizer
+
+    codex_stdout = json.dumps(
+        {
+            "briefSummary": "Codex 대체 제목",
+            "gptSummary": "Codex 대체 상세",
+            "tags": ["대체", "요약", "CLI", "장애", "복구"],
+        },
+        ensure_ascii=False,
+    )
+
+    with patch("lawdigest_ai.processor.gemini_cli_summarizer.subprocess.run") as mock_run:
+        mock_run.side_effect = [
+            subprocess.CompletedProcess(args=["gemini"], returncode=1, stdout="", stderr="quota exceeded"),
+            subprocess.CompletedProcess(args=["codex"], returncode=0, stdout=codex_stdout, stderr=""),
+        ]
+        summarizer = GeminiCliSummarizer()
+        df = pd.DataFrame(
+            [
+                {
+                    "bill_id": "B005",
+                    "bill_name": "대체법안",
+                    "summary": "원문",
+                    "brief_summary": None,
+                    "gpt_summary": None,
+                    "proposers": "박의원",
+                    "proposer_kind": "의원발의",
+                }
+            ]
+        )
+        result = summarizer.AI_structured_summarize(df)
+
+    first_command = mock_run.call_args_list[0].args[0]
+    second_command = mock_run.call_args_list[1].args[0]
+    assert first_command[0] == "gemini"
+    assert second_command[:2] == ["codex", "exec"]
+    assert "--model" in second_command
+    assert "gpt-5.3-codex-spark" in second_command
+    assert result.iloc[0]["brief_summary"] == "Codex 대체 제목"
+    assert result.iloc[0]["gpt_summary"] == "Codex 대체 상세"
+    assert summarizer.failed_bills == []
 
 
 def test_gemini_cli_summarizer_reuses_api_prompt_and_schema():
