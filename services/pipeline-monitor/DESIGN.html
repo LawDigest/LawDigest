@@ -8,16 +8,17 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block">
   <style>
     :root {
-      --surface: #ffffff;
-      --paper: #f7f7f9;
-      --paper-blue: #f5f7fd;
-      --line-soft: #ebebeb;
-      --line: #e0e0e0;
-      --muted: #6f6f6f;
+      --surface: #fcfcfa;
+      --raised: #ffffff;
+      --wash: #f5f7fd;
+      --line-soft: #ecece8;
+      --line: #dcdcd6;
+      --muted: #707070;
       --secondary: #555555;
       --strong: #262626;
       --ink: #191919;
       --blue: #96bcfa;
+      --blue-strong: #305fba;
       --alert: #e63946;
       --lime: #d7f963;
       --dark: #101012;
@@ -41,14 +42,10 @@
     body {
       margin: 0;
       min-width: 360px;
-      background:
-        linear-gradient(var(--line-soft) 1px, transparent 1px),
-        linear-gradient(90deg, var(--line-soft) 1px, transparent 1px),
-        var(--surface);
-      background-size: 48px 48px;
+      background: var(--surface);
       color: #000000;
       font-family: var(--font-sans);
-      line-height: 1.6;
+      line-height: 1.55;
       letter-spacing: 0;
     }
 
@@ -78,36 +75,37 @@
     }
 
     .page {
-      max-width: 1420px;
+      max-width: 1440px;
       margin: 0 auto;
-      padding: 24px 24px 96px;
+      padding: 22px 22px 96px;
     }
 
-    .command-hero {
-      overflow: hidden;
-      border: 1px solid #191919;
-      border-radius: 12px;
-      background-color: #191919;
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(380px, 0.7fr);
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .hero-copy {
+      display: grid;
+      align-content: space-between;
+      min-height: 520px;
+      padding: 28px;
+      border: 1px solid var(--ink);
+      border-radius: 14px;
+      background: var(--ink);
+      background-color: var(--ink);
       color: #f5f7fd;
-    }
-
-    .command-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 20px;
-      min-height: 64px;
-      padding: 16px 18px;
-      border-bottom: 1px solid #343434;
     }
 
     .brand {
       display: inline-grid;
       gap: 5px;
+      width: fit-content;
     }
 
     .brand strong {
-      color: inherit;
       font-size: 22px;
       font-weight: 900;
       line-height: 1;
@@ -119,114 +117,366 @@
       background: var(--rainbow);
     }
 
-    .command-meta {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      gap: 8px;
-    }
-
-    .command-meta span {
-      min-height: 30px;
-      padding: 6px 10px;
-      border: 1px solid #434343;
-      border-radius: 8px;
-      color: #d8dbe2;
-      background: #222222;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .hero-body {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 360px;
-      gap: 32px;
-      padding: 34px 18px 18px;
-    }
-
-    .hero-copy {
-      max-width: 820px;
-      padding: 12px 0 18px;
-    }
-
     h1 {
       max-width: 760px;
-      margin: 0 0 16px;
-      color: inherit;
-      font-size: 46px;
+      margin: 56px 0 18px;
+      font-size: 54px;
       font-weight: 900;
-      line-height: 1.08;
-      letter-spacing: -0.02em;
+      line-height: 1.02;
+      letter-spacing: -0.025em;
       text-wrap: balance;
     }
 
+    .mobile-line {
+      display: inline;
+    }
+
     .hero-copy p {
-      max-width: 760px;
+      max-width: 700px;
       margin: 0;
+      background-color: var(--ink);
       color: #d8dbe2;
-      font-size: 16px;
+      font-size: 17px;
       font-weight: 500;
       word-break: keep-all;
     }
 
-    .brief-stack {
+    .hero-notes {
       display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 8px;
+      margin-top: 42px;
     }
 
-    .brief-row {
-      display: grid;
-      grid-template-columns: 86px 1fr;
-      gap: 12px;
+    .hero-note {
       padding: 12px;
-      border: 1px solid #3a3a3a;
-      border-radius: 8px;
+      border: 1px solid #363636;
+      border-radius: 10px;
       background: #202020;
-      font-size: 13px;
     }
 
-    .brief-row b {
+    .hero-note b {
+      display: block;
+      margin-bottom: 5px;
       color: #ffffff;
+      font-size: 12px;
       font-weight: 900;
     }
 
-    .brief-row span {
-      color: #d8dbe2;
+    .hero-note span {
+      background-color: #202020;
+      color: #cfd3dc;
+      font-size: 12px;
       font-weight: 600;
+    }
+
+    .mobile-frame {
+      min-height: 520px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at 30% 0%, rgba(150, 188, 250, 0.16), transparent 30%),
+        #f1f1ed;
+    }
+
+    .phone {
+      overflow: hidden;
+      max-width: 420px;
+      height: 100%;
+      min-height: 492px;
+      margin: 0 auto;
+      border: 1px solid #cacac2;
+      border-radius: 20px;
+      background: var(--raised);
+      box-shadow: 0 18px 50px rgba(20, 20, 20, 0.12);
+    }
+
+    .ops-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 58px;
+      padding: 12px 14px;
+      background: var(--ink);
+      background-color: var(--ink);
+      color: #f5f7fd;
+    }
+
+    .ops-title {
+      display: grid;
+      gap: 2px;
+    }
+
+    .ops-title strong {
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .ops-title span {
+      background-color: var(--ink);
+      color: #cfd3dc;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .icon-button {
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 34px;
+      border: 1px solid #3b3b3b;
+      border-radius: 9px;
+      background: #242424;
+      background-color: #242424;
+      color: #f5f7fd;
+    }
+
+    .pocket {
+      padding: 14px;
+    }
+
+    .incident {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid #dfc7c7;
+      border-radius: 12px;
+      background: #fff8f8;
+    }
+
+    .incident-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .incident-copy {
+      min-width: 0;
+    }
+
+    .incident strong {
+      display: block;
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1.25;
+    }
+
+    .incident p {
+      margin: 4px 0 0;
+      color: var(--secondary);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .trace-link {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 9px;
+      border-radius: 8px;
+      background: var(--ink);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .mini-health {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      border-top: 1px solid #ead7d7;
+    }
+
+    .mini-health span {
+      padding-top: 9px;
+      border-right: 1px solid #ead7d7;
+      color: var(--secondary);
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .mini-health span:last-child {
+      border-right: 0;
+    }
+
+    .mini-health b {
+      display: block;
+      color: var(--ink);
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .filter-rail {
+      display: flex;
+      gap: 7px;
+      overflow-x: auto;
+      margin: 12px -14px 0;
+      padding: 0 14px 4px;
+      scrollbar-width: none;
+    }
+
+    .filter-rail::-webkit-scrollbar {
+      display: none;
+    }
+
+    .filter {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 11px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: var(--raised);
+      color: var(--secondary);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .filter.is-active {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: #ffffff;
+    }
+
+    .run-stack {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .run-row {
+      display: grid;
+      grid-template-columns: 9px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 62px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--raised);
+    }
+
+    .run-row.is-selected {
+      border-color: #b9c9ec;
+      background: var(--wash);
+    }
+
+    .status-bar {
+      width: 9px;
+      height: 40px;
+      border-radius: 4px;
+      background: var(--success);
+    }
+
+    .status-bar.failed {
+      background: var(--alert);
+    }
+
+    .status-bar.running {
+      background: var(--blue);
+    }
+
+    .run-main {
+      min-width: 0;
+    }
+
+    .run-main strong {
+      display: block;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 900;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .run-main span {
+      display: block;
+      overflow: hidden;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .run-side {
+      color: var(--secondary);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .phone-log {
+      margin-top: 10px;
+      overflow: hidden;
+      border-radius: 12px;
+      background: var(--dark);
+      background-color: var(--dark);
+      color: #f5f7fd;
+    }
+
+    .phone-log header {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--dark-line);
+      background-color: var(--dark);
+      color: #d8dbe2;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .phone-log pre {
+      margin: 0;
+      overflow-x: auto;
+      padding: 11px 12px 13px;
+      background-color: var(--dark);
+      color: #f5f7fd;
+      font: 400 12px / 1.55 var(--font-mono);
     }
 
     .doc-layout {
       display: grid;
-      grid-template-columns: 230px minmax(0, 1fr);
-      gap: 34px;
-      align-items: start;
-      margin-top: 34px;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 24px;
+      margin-top: 24px;
     }
 
     .side-nav {
       position: sticky;
-      top: 20px;
+      top: 16px;
+      align-self: start;
       display: grid;
-      gap: 4px;
-      padding: 12px;
+      gap: 3px;
+      padding: 10px;
       border: 1px solid var(--line);
-      border-radius: 10px;
-      background: rgba(255, 255, 255, 0.92);
+      border-radius: 12px;
+      background: rgba(252, 252, 250, 0.94);
     }
 
     .side-nav a {
       display: block;
-      padding: 8px 10px;
-      border-radius: 7px;
+      padding: 8px 9px;
+      border-radius: 8px;
       color: var(--secondary);
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 800;
     }
 
     .side-nav a:hover,
     .side-nav a:focus-visible {
       color: var(--ink);
-      background: var(--paper-blue);
+      background: var(--wash);
       outline: 2px solid var(--blue);
       outline-offset: 2px;
     }
@@ -234,60 +484,62 @@
     .content {
       min-width: 0;
       display: grid;
-      gap: 28px;
+      gap: 20px;
     }
 
     .section {
+      overflow: hidden;
       border: 1px solid var(--line);
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.96);
+      border-radius: 14px;
+      background: var(--raised);
     }
 
     .section-head {
       display: grid;
-      grid-template-columns: 240px minmax(0, 1fr);
-      gap: 24px;
-      padding: 20px;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 22px;
+      padding: 18px;
       border-bottom: 1px solid var(--line);
-      background: var(--paper);
+      background: #f4f4ef;
     }
 
     h2 {
       margin: 0;
       color: var(--ink);
-      font-size: 24px;
+      font-size: 23px;
       font-weight: 900;
-      line-height: 1.22;
+      line-height: 1.18;
       letter-spacing: -0.01em;
     }
 
     .section-head p {
       margin: 0;
       color: var(--secondary);
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 600;
       word-break: keep-all;
     }
 
     .section-body {
-      padding: 20px;
+      padding: 18px;
     }
 
-    .extract-grid {
+    .problem-grid,
+    .rule-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
     }
 
-    .extract-item {
-      min-height: 124px;
+    .note {
+      min-height: 132px;
       padding: 14px;
       border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
+      border-radius: 10px;
+      background: var(--raised);
     }
 
-    .extract-item strong {
+    .note strong {
       display: block;
       margin-bottom: 8px;
       color: var(--ink);
@@ -295,7 +547,7 @@
       font-weight: 900;
     }
 
-    .extract-item p {
+    .note p {
       margin: 0;
       color: var(--secondary);
       font-size: 13px;
@@ -303,75 +555,34 @@
       word-break: keep-all;
     }
 
-    .token-grid {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      overflow: hidden;
-    }
-
-    .token {
-      min-height: 132px;
-      border-right: 1px solid var(--line);
-      background: var(--surface);
-    }
-
-    .token:nth-child(6n) {
-      border-right: 0;
-    }
-
-    .swatch {
-      height: 72px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .token div:last-child {
-      padding: 10px;
-    }
-
-    .token strong {
-      display: block;
-      color: var(--ink);
-      font-size: 12px;
-      font-weight: 900;
-    }
-
-    .token code {
-      color: var(--secondary);
-      font-size: 11px;
-    }
-
-    .monitor-shell {
+    .desktop-shell {
       overflow: hidden;
       border: 1px solid var(--ink);
-      border-radius: 12px;
-      background: var(--surface);
+      border-radius: 14px;
+      background: var(--raised);
     }
 
-    .monitor-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .desktop-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 16px;
-      min-height: 64px;
-      padding: 14px 16px;
-      background-color: #191919;
+      align-items: center;
+      min-height: 62px;
+      padding: 13px 16px;
+      background: var(--ink);
+      background-color: var(--ink);
       color: #f5f7fd;
     }
 
-    .monitor-title {
-      display: grid;
-      gap: 2px;
-    }
-
-    .monitor-title strong {
+    .desktop-head strong {
+      display: block;
       font-size: 15px;
       font-weight: 900;
     }
 
-    .monitor-title span {
-      color: #d8dbe2;
+    .desktop-head span {
+      background-color: var(--ink);
+      color: #cfd3dc;
       font-size: 12px;
       font-weight: 700;
     }
@@ -380,9 +591,9 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      min-height: 36px;
+      min-height: 34px;
       padding: 0 12px;
-      border: 1px solid #3a3a3a;
+      border: 1px solid #3b3b3b;
       border-radius: 8px;
       background: #ffffff;
       color: var(--ink);
@@ -390,83 +601,85 @@
       font-weight: 900;
     }
 
-    .toolbar {
+    .desktop-body {
       display: grid;
-      grid-template-columns: 140px 150px 150px minmax(220px, 1fr) 120px;
-      gap: 8px;
-      padding: 10px;
-      border-bottom: 1px solid var(--line);
-      background: var(--paper);
+      grid-template-columns: minmax(0, 1.45fr) minmax(340px, 0.75fr);
+      min-height: 548px;
     }
 
-    .control {
-      display: flex;
-      align-items: center;
-      min-height: 36px;
-      padding: 0 10px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
-      color: var(--strong);
-      font-size: 13px;
-      font-weight: 800;
-    }
-
-    .control.search {
-      color: var(--muted);
-    }
-
-    .monitor-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.5fr) minmax(360px, 0.86fr);
-      min-height: 560px;
-    }
-
-    .ledger {
+    .ledger-pane {
       min-width: 0;
       border-right: 1px solid var(--line);
     }
 
-    .health {
+    .health-rail {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       border-bottom: 1px solid var(--line);
     }
 
-    .health-cell {
-      min-height: 98px;
-      padding: 14px 16px;
+    .health {
+      padding: 13px 14px;
       border-right: 1px solid var(--line);
-      background: var(--surface);
     }
 
-    .health-cell:last-child {
+    .health:last-child {
       border-right: 0;
     }
 
-    .health-cell .label {
+    .health span {
       display: block;
-      margin-bottom: 5px;
       color: var(--muted);
       font-size: 12px;
       font-weight: 900;
     }
 
-    .health-cell .value {
+    .health b {
       display: block;
+      margin-top: 4px;
       color: var(--ink);
-      font-size: 28px;
+      font-size: 22px;
       font-weight: 900;
-      line-height: 1.04;
+      line-height: 1;
       font-variant-numeric: tabular-nums;
     }
 
-    .health-cell .note {
+    .health em {
       display: block;
-      margin-top: 6px;
+      margin-top: 5px;
       color: var(--secondary);
       font-size: 12px;
+      font-style: normal;
       font-weight: 700;
+    }
+
+    .control-bar {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      background: #f4f4ef;
+    }
+
+    .control {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--raised);
+      color: var(--secondary);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .control.search {
+      min-width: 220px;
+      color: var(--muted);
     }
 
     .table-wrap {
@@ -475,22 +688,22 @@
 
     table {
       width: 100%;
-      min-width: 820px;
+      min-width: 780px;
       border-collapse: collapse;
       font-size: 13px;
     }
 
     th,
     td {
-      padding: 11px 12px;
+      padding: 10px 11px;
       border-bottom: 1px solid var(--line);
       text-align: left;
       white-space: nowrap;
     }
 
     th {
-      background: var(--surface);
       color: var(--muted);
+      background: var(--raised);
       font-size: 12px;
       font-weight: 900;
     }
@@ -501,17 +714,17 @@
     }
 
     tr.is-selected td {
-      background: var(--paper-blue);
+      background: var(--wash);
     }
 
     .badge {
       display: inline-flex;
       align-items: center;
-      min-height: 24px;
+      min-height: 23px;
       padding: 0 7px;
       border: 1px solid var(--line);
       border-radius: 6px;
-      background: var(--surface);
+      background: var(--raised);
       color: var(--secondary);
       font-size: 12px;
       font-weight: 900;
@@ -524,30 +737,30 @@
     }
 
     .badge.failed {
-      border-color: rgba(230, 57, 70, 0.4);
+      border-color: rgba(230, 57, 70, 0.42);
       color: var(--alert);
       background: rgba(230, 57, 70, 0.08);
     }
 
     .badge.running {
       border-color: rgba(150, 188, 250, 0.8);
-      color: #305fba;
+      color: var(--blue-strong);
       background: rgba(150, 188, 250, 0.18);
     }
 
     .badge.warning {
-      border-color: rgba(154, 91, 5, 0.46);
+      border-color: rgba(154, 91, 5, 0.45);
       color: var(--warning);
       background: rgba(154, 91, 5, 0.09);
     }
 
-    .trace {
+    .trace-pane {
       min-width: 0;
-      background: #fbfbfc;
+      background: #fbfbf8;
     }
 
     .trace-section {
-      padding: 16px;
+      padding: 15px;
       border-bottom: 1px solid var(--line);
     }
 
@@ -560,8 +773,8 @@
 
     .meta-grid {
       display: grid;
-      grid-template-columns: 96px minmax(0, 1fr);
-      gap: 8px 10px;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 7px 10px;
       font-size: 12px;
       font-weight: 800;
     }
@@ -577,26 +790,22 @@
 
     .steps {
       display: grid;
-      gap: 10px;
+      gap: 9px;
     }
 
     .step {
       display: grid;
-      grid-template-columns: 12px minmax(0, 1fr) auto;
-      gap: 10px;
+      grid-template-columns: 10px minmax(0, 1fr) auto;
+      gap: 9px;
       align-items: start;
     }
 
     .mark {
-      width: 10px;
-      height: 10px;
+      width: 9px;
+      height: 9px;
       margin-top: 6px;
       border-radius: 3px;
       background: var(--success);
-    }
-
-    .mark.running {
-      background: var(--blue);
     }
 
     .mark.failed {
@@ -618,20 +827,19 @@
 
     .artifact {
       display: flex;
-      align-items: center;
       justify-content: space-between;
       gap: 10px;
-      min-height: 38px;
-      padding: 8px 10px;
+      min-height: 36px;
+      padding: 8px 9px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: var(--surface);
+      background: var(--raised);
       font-size: 12px;
       font-weight: 800;
     }
 
     .artifact + .artifact {
-      margin-top: 8px;
+      margin-top: 7px;
     }
 
     .artifact code {
@@ -642,68 +850,60 @@
     }
 
     .log-panel {
-      border-top: 1px solid var(--dark-line);
-      background-color: #101012;
+      background: var(--dark);
+      background-color: var(--dark);
       color: #f5f7fd;
     }
 
-    .log-head {
+    .log-panel header {
       display: flex;
-      align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 12px 16px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--dark-line);
-    }
-
-    .log-head strong {
-      font-size: 13px;
-      font-weight: 900;
-    }
-
-    .log-head span {
-      color: #c5c9d1;
+      background-color: var(--dark);
+      color: #d8dbe2;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
     }
 
-    pre {
+    .log-panel pre {
       overflow-x: auto;
       margin: 0;
-      padding: 15px 16px 18px;
-      color: inherit;
-      font: 400 12px / 1.7 var(--font-mono);
+      padding: 14px;
+      background-color: var(--dark);
+      color: #f5f7fd;
+      font: 400 12px / 1.65 var(--font-mono);
     }
 
-    .spec-table {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      overflow: hidden;
-      background: var(--surface);
-    }
-
-    .spec-row {
+    .principles {
       display: grid;
-      grid-template-columns: 180px minmax(0, 1fr) minmax(0, 1fr);
-      gap: 12px;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--line);
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
     }
 
-    .spec-row:last-child {
-      border-bottom: 0;
+    .principle {
+      min-height: 136px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--raised);
     }
 
-    .spec-row strong {
+    .principle strong {
+      display: block;
+      margin-bottom: 8px;
       color: var(--ink);
       font-size: 14px;
       font-weight: 900;
     }
 
-    .spec-row span {
+    .principle p {
+      margin: 0;
       color: var(--secondary);
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 600;
+      word-break: keep-all;
     }
 
     .checklist {
@@ -721,8 +921,8 @@
       gap: 10px;
       padding: 12px;
       border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
+      border-radius: 10px;
+      background: var(--raised);
       color: var(--secondary);
       font-size: 14px;
       font-weight: 700;
@@ -734,7 +934,7 @@
       place-items: center;
       width: 24px;
       height: 24px;
-      border-radius: 6px;
+      border-radius: 7px;
       background: var(--ink);
       color: #ffffff;
       font-size: 12px;
@@ -742,11 +942,19 @@
     }
 
     @media (max-width: 1180px) {
-      .hero-body,
+      .hero,
       .doc-layout,
       .section-head,
-      .monitor-grid {
+      .desktop-body {
         grid-template-columns: 1fr;
+      }
+
+      .hero-copy {
+        min-height: auto;
+      }
+
+      h1 {
+        margin-top: 44px;
       }
 
       .side-nav {
@@ -755,240 +963,299 @@
         flex-wrap: wrap;
       }
 
-      .ledger {
+      .ledger-pane {
         border-right: 0;
         border-bottom: 1px solid var(--line);
       }
 
-      .token-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-
-      .toolbar {
+      .problem-grid,
+      .rule-grid,
+      .principles {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
-    @media (max-width: 760px) {
-      .page {
-        padding: 16px 14px 72px;
+    @media (max-width: 720px) {
+      html,
+      body {
+        overflow-x: hidden;
       }
 
-      .command-top,
-      .monitor-bar {
-        align-items: flex-start;
-        flex-direction: column;
+      .page {
+        padding: 14px 12px 72px;
+      }
+
+      .hero {
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .hero-copy {
+        min-width: 0;
+        max-width: 100%;
+        padding: 18px;
+        border-radius: 12px;
       }
 
       h1 {
-        font-size: 34px;
+        margin-top: 32px;
+        font-size: 32px;
       }
 
-      .brief-row,
-      .spec-row {
-        grid-template-columns: 1fr;
+      .mobile-line {
+        display: block;
       }
 
-      .extract-grid,
-      .token-grid,
-      .health,
+      .hero-copy p {
+        font-size: 14px;
+        overflow-wrap: anywhere;
+        word-break: normal;
+      }
+
+      .hero-notes,
+      .problem-grid,
+      .rule-grid,
+      .principles,
       .checklist,
-      .toolbar {
+      .health-rail {
         grid-template-columns: 1fr;
       }
 
-      .health-cell {
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
+      .mobile-frame {
+        overflow: hidden;
+        min-width: 0;
+        max-width: 100%;
+        min-height: auto;
+        padding: 8px;
+        border-radius: 18px;
       }
 
-      .health-cell:last-child {
-        border-bottom: 0;
+      .phone {
+        width: 100%;
+        max-width: 100%;
+        min-height: 0;
+      }
+
+      .mini-health {
+        grid-template-columns: repeat(4, minmax(60px, 1fr));
+        overflow-x: auto;
+      }
+
+      .incident {
+        padding: 13px;
+      }
+
+      .incident-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+      }
+
+      .incident strong {
+        font-size: 15px;
+      }
+
+      .trace-link {
+        min-height: 28px;
+        padding: 0 8px;
+      }
+
+      .section-head {
+        grid-template-columns: 1fr;
+      }
+
+      .desktop-head {
+        grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <header class="command-hero">
-      <div class="command-top">
-        <a class="brand" href="#top" aria-label="모두의입법 Pipeline Monitor">
-          <strong>모두의입법</strong>
-          <span aria-hidden="true"></span>
-        </a>
-        <div class="command-meta">
-          <span>impeccable extract</span>
-          <span>shape: command ledger</span>
-          <span>bolder: hierarchy, not effects</span>
-        </div>
-      </div>
-      <div class="hero-body" id="top">
-        <div class="hero-copy">
-          <h1>파이프라인 상태를 읽는 command ledger</h1>
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <div>
+          <a class="brand" href="#top" aria-label="모두의입법 Pipeline Monitor">
+            <strong>모두의입법</strong>
+            <span aria-hidden="true"></span>
+          </a>
+          <h1 id="page-title"><span class="mobile-line">상태 판단이</span> <span class="mobile-line">먼저 보이는</span> <span class="mobile-line">Pipeline Monitor</span></h1>
           <p>
-            브랜드 토큰은 모두의입법과 같게 둔다. 화면은 다르게 설계한다. 이 문서는 실행 테이블, trace stack, raw log를 중심으로 한 데이터 파이프라인 모니터링 UI를 정의한다. 더 강한 인상은 gradient가 아니라 검정 command surface와 ruled ledger 구조에서 나온다.
+            기존 시안은 필터와 박스가 화면을 먹어치웠다. 새 기준은 다르다. 모바일 첫 화면은 incident, filter rail, run rows 순서로 읽히고, 데스크톱은 ledger와 trace가 한 화면에서 맞물린다.
           </p>
         </div>
-        <aside class="brief-stack" aria-label="impeccable design brief">
-          <div class="brief-row">
-            <b>Extract</b>
-            <span>Pretendard, #191919, #96BCFA, #E63946, flat surfaces</span>
-          </div>
-          <div class="brief-row">
-            <b>Shape</b>
-            <span>table-first dashboard with selected run trace stack</span>
-          </div>
-          <div class="brief-row">
-            <b>Bolder</b>
-            <span>stronger contrast, ledger rhythm, restrained brand line</span>
-          </div>
-        </aside>
+        <div class="hero-notes" aria-label="재설계 기준">
+          <div class="hero-note"><b>Mobile first</b><span>필터는 rail, 상태는 incident strip</span></div>
+          <div class="hero-note"><b>Ledger rhythm</b><span>row와 rule로 실행 흐름을 만든다</span></div>
+          <div class="hero-note"><b>Minimal rainbow</b><span>브랜드 line 외에는 쓰지 않는다</span></div>
+        </div>
       </div>
-    </header>
+
+      <div class="mobile-frame" id="top" aria-label="모바일 Pocket Ops 예시">
+        <div class="phone">
+          <header class="ops-head">
+            <div class="ops-title">
+              <strong>Pipeline Monitor</strong>
+              <span>prod · updated 22:58 KST</span>
+            </div>
+            <button class="icon-button" type="button" aria-label="새로고침">
+              <span class="material-symbols-outlined">refresh</span>
+            </button>
+          </header>
+
+          <div class="pocket">
+            <section class="incident" aria-label="현재 확인할 상태">
+              <div class="incident-row">
+                <div class="incident-copy">
+                  <strong>주의 필요: ingest 실패</strong>
+                  <p>20:18 run에서 timeout. Codex fallback은 정상 완료.</p>
+                </div>
+                <span class="trace-link">trace</span>
+              </div>
+              <div class="mini-health">
+                <span><b>21:04</b>성공</span>
+                <span><b>20:18</b>실패</span>
+                <span><b>1</b>실행 중</span>
+                <span><b>1</b>fallback</span>
+              </div>
+            </section>
+
+            <div class="filter-rail" aria-label="필터">
+              <span class="filter is-active">최근 24시간</span>
+              <span class="filter">실패 우선</span>
+              <span class="filter">provider: all</span>
+              <span class="filter">summary</span>
+              <span class="filter">run id 검색</span>
+            </div>
+
+            <div class="run-stack" aria-label="최근 실행">
+              <article class="run-row is-selected">
+                <span class="status-bar"></span>
+                <div class="run-main">
+                  <strong>summary:latest · 성공</strong>
+                  <span>Gemini CLI · 5건 · JSON, MD 생성</span>
+                </div>
+                <div class="run-side">21:04<br>2m18s</div>
+              </article>
+              <article class="run-row">
+                <span class="status-bar failed"></span>
+                <div class="run-main">
+                  <strong>bill.ingest · 실패</strong>
+                  <span>Runtime · timeout · artifact 없음</span>
+                </div>
+                <div class="run-side">20:18<br>48s</div>
+              </article>
+              <article class="run-row">
+                <span class="status-bar running"></span>
+                <div class="run-main">
+                  <strong>bill.status_sync · 실행 중</strong>
+                  <span>lifecycle vote sync · 검증 중</span>
+                </div>
+                <div class="run-side">22:58<br>1m04s</div>
+              </article>
+            </div>
+
+            <section class="phone-log" aria-label="선택된 실행 로그">
+              <header><strong>selected trace</strong><span>schema validated</span></header>
+              <pre><code>run_210401
+step structured_validation ok
+artifact latest-bills-summary.json</code></pre>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
 
     <div class="doc-layout">
       <nav class="side-nav" aria-label="문서 내비게이션">
-        <a href="#extract">Extract</a>
-        <a href="#tokens">Tokens</a>
-        <a href="#shape">Shape</a>
-        <a href="#monitor">Monitor Preview</a>
-        <a href="#components">Components</a>
-        <a href="#checklist">Checklist</a>
+        <a href="#problems">진단</a>
+        <a href="#mobile">모바일 원칙</a>
+        <a href="#desktop">데스크톱 화면</a>
+        <a href="#components">컴포넌트</a>
+        <a href="#checklist">체크리스트</a>
       </nav>
 
       <main class="content">
-        <section class="section" id="extract">
+        <section class="section" id="problems">
           <div class="section-head">
-            <h2>Extract 결과</h2>
+            <h2>무엇을 고쳤나</h2>
             <p>
-              기존 웹에서 가져오는 것은 브랜드 재료다. 시민용 피드, 모바일 floating nav, 검색 진입점의 UX를 그대로 옮기지 않는다.
+              문제는 색이 아니라 제품 화면으로서의 미감과 판단 순서였다. 그래서 필터 스택, 거대한 metric block, 반복 박스 구조를 제거했다.
             </p>
           </div>
           <div class="section-body">
-            <div class="extract-grid">
-              <article class="extract-item">
-                <strong>Typography</strong>
-                <p>Pretendard 하나로 한글 UI 계층을 만든다. run id, path, JSON key는 mono로 전환한다.</p>
+            <div class="principles">
+              <article class="principle">
+                <strong>필터는 뒤로</strong>
+                <p>필터는 사용자가 상태를 본 뒤 쓰는 도구다. 모바일 첫 화면을 input 박스로 채우지 않는다.</p>
               </article>
-              <article class="extract-item">
-                <strong>Color</strong>
-                <p>중립 흰색/회색, #191919 ink, #96BCFA focus/info, #E63946 failure를 그대로 사용한다.</p>
+              <article class="principle">
+                <strong>사건이 먼저</strong>
+                <p>마지막 성공보다 현재 확인할 실패, fallback, 실행 중 상태가 먼저 보이게 한다.</p>
               </article>
-              <article class="extract-item">
-                <strong>Surface</strong>
-                <p>flat by default. 정보 패널은 shadow보다 1px ruled border와 밀도 있는 spacing으로 구분한다.</p>
-              </article>
-              <article class="extract-item">
-                <strong>Rainbow</strong>
-                <p>브랜드 hairline과 wordmark underline으로만 남긴다. 버튼, 차트, 상태에는 쓰지 않는다.</p>
-              </article>
-              <article class="extract-item">
-                <strong>Buttons</strong>
-                <p>검정 primary와 회색 secondary는 유지하되, 운영 도구에서는 radius 8px 기본값을 사용한다.</p>
-              </article>
-              <article class="extract-item">
-                <strong>States</strong>
-                <p>성공, 실패, 실행 중, fallback, 알 수 없음은 색상과 텍스트 라벨을 함께 사용한다.</p>
+              <article class="principle">
+                <strong>행으로 읽기</strong>
+                <p>실행 이력은 카드 덩어리가 아니라 compact row로 읽힌다. 시간과 provider가 같은 리듬을 갖는다.</p>
               </article>
             </div>
           </div>
         </section>
 
-        <section class="section" id="tokens">
+        <section class="section" id="mobile">
           <div class="section-head">
-            <h2>토큰</h2>
+            <h2>Mobile: Pocket Ops</h2>
             <p>
-              대비를 위해 작은 텍스트는 기존 muted보다 진한 값을 사용한다. `#999999`는 보조 메타 이상으로만 제한한다.
+              모바일은 데스크톱 테이블의 축소판이 아니다. 운영자가 이동 중에 문제 여부를 확인하는 작은 ops 화면이다.
             </p>
           </div>
           <div class="section-body">
-            <div class="token-grid" aria-label="디자인 토큰">
-              <div class="token"><div class="swatch" style="background:#191919"></div><div><strong>ink</strong><code>#191919</code></div></div>
-              <div class="token"><div class="swatch" style="background:#96bcfa"></div><div><strong>soft-blue</strong><code>#96BCFA</code></div></div>
-              <div class="token"><div class="swatch" style="background:#e63946"></div><div><strong>alert</strong><code>#E63946</code></div></div>
-              <div class="token"><div class="swatch" style="background:#f5f7fd"></div><div><strong>paper-blue</strong><code>#F5F7FD</code></div></div>
-              <div class="token"><div class="swatch" style="background:#e0e0e0"></div><div><strong>line</strong><code>#E0E0E0</code></div></div>
-              <div class="token"><div class="swatch" style="background:linear-gradient(90deg,#fbeb59,#fc56d8 31%,#10d9ef 65%,#6cf880)"></div><div><strong>brand line</strong><code>minimal</code></div></div>
+            <div class="principles">
+              <article class="principle">
+                <strong>Incident strip</strong>
+                <p>첫 화면에서 가장 중요한 상태 한 줄을 보여준다. 실패 원인과 trace 진입점이 함께 있어야 한다.</p>
+              </article>
+              <article class="principle">
+                <strong>Filter rail</strong>
+                <p>기간, 상태, provider, 검색은 34px 높이의 가로 rail로 둔다. full-width input stack은 금지한다.</p>
+              </article>
+              <article class="principle">
+                <strong>Run stack</strong>
+                <p>상태 marker, command, provider, 시간, 소요 시간이 한 row 안에서 읽히도록 한다.</p>
+              </article>
             </div>
           </div>
         </section>
 
-        <section class="section" id="shape">
+        <section class="section" id="desktop">
           <div class="section-head">
-            <h2>Shape brief</h2>
+            <h2>Desktop: Ledger + Trace</h2>
             <p>
-              물리적 장면은 밝은 작업 환경에서 배포 직후 상태를 빠르게 확인하는 운영자다. 그래서 light surface를 유지하고, command 영역만 검정으로 단단하게 잡는다.
+              데스크톱에서는 실행 목록과 선택된 run의 trace를 동시에 본다. 단순 table이 아니라 판단 흐름이 이어지는 ledger 화면이다.
             </p>
           </div>
           <div class="section-body">
-            <div class="spec-table">
-              <div class="spec-row">
-                <strong>Primary action</strong>
-                <span>이상 run을 선택한다.</span>
-                <span>오른쪽 trace stack에서 실패 단계와 raw log를 확인한다.</span>
-              </div>
-              <div class="spec-row">
-                <strong>Layout</strong>
-                <span>상단 command bar, compact toolbar, left ledger table, right trace stack.</span>
-                <span>하단 raw log panel은 필요할 때 확장한다.</span>
-              </div>
-              <div class="spec-row">
-                <strong>Visual lane</strong>
-                <span>GitHub Actions의 추적성, Linear table의 밀도, Raycast settings의 단단한 컨트롤.</span>
-                <span>브랜드성은 색과 폰트로만 연결한다.</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="section" id="monitor">
-          <div class="section-head">
-            <h2>Monitor preview</h2>
-            <p>
-              이 예시는 앱 구현의 1차 화면 방향이다. 카드 그리드가 아니라 실행 ledger와 선택 run trace를 한 화면에서 읽는다.
-            </p>
-          </div>
-          <div class="section-body">
-            <div class="monitor-shell" aria-label="Pipeline Monitor 화면 예시">
-              <header class="monitor-bar">
-                <div class="monitor-title">
+            <div class="desktop-shell" aria-label="데스크톱 ledger 화면 예시">
+              <header class="desktop-head">
+                <div>
                   <strong>Pipeline Monitor</strong>
-                  <span>prod · /var/log/lawdigest-pipeline · updated 22:47 KST</span>
+                  <span>prod · /var/log/lawdigest-pipeline · auto refresh 30s</span>
                 </div>
                 <button class="refresh" type="button"><span class="material-symbols-outlined">refresh</span>새로고침</button>
               </header>
 
-              <div class="toolbar" aria-label="필터 도구">
-                <div class="control">최근 24시간</div>
-                <div class="control">상태: 전체</div>
-                <div class="control">provider: all</div>
-                <div class="control search">run id, command, artifact path</div>
-                <div class="control">자동 30초</div>
-              </div>
+              <div class="desktop-body">
+                <div class="ledger-pane">
+                  <div class="health-rail">
+                    <div class="health"><span>마지막 성공</span><b>21:04</b><em>5건 요약 완료</em></div>
+                    <div class="health"><span>마지막 실패</span><b style="color:var(--alert)">20:18</b><em>ingest timeout</em></div>
+                    <div class="health"><span>실행 중</span><b>1</b><em>status_sync</em></div>
+                    <div class="health"><span>fallback</span><b>1</b><em>Codex CLI</em></div>
+                  </div>
 
-              <div class="monitor-grid">
-                <div class="ledger">
-                  <div class="health">
-                    <div class="health-cell">
-                      <span class="label">마지막 성공</span>
-                      <span class="value">21:04</span>
-                      <span class="note">5건 요약 완료</span>
-                    </div>
-                    <div class="health-cell">
-                      <span class="label">마지막 실패</span>
-                      <span class="value" style="color:var(--alert)">20:18</span>
-                      <span class="note">ingest timeout</span>
-                    </div>
-                    <div class="health-cell">
-                      <span class="label">실행 중</span>
-                      <span class="value">1</span>
-                      <span class="note">status_sync</span>
-                    </div>
-                    <div class="health-cell">
-                      <span class="label">fallback</span>
-                      <span class="value">1</span>
-                      <span class="note">Codex CLI</span>
-                    </div>
+                  <div class="control-bar" aria-label="필터">
+                    <span class="control">최근 24시간</span>
+                    <span class="control">상태: 전체</span>
+                    <span class="control">provider: all</span>
+                    <span class="control search">run id, command, artifact path</span>
                   </div>
 
                   <div class="table-wrap">
@@ -1036,22 +1303,12 @@
                           <td>timeout</td>
                           <td>-</td>
                         </tr>
-                        <tr>
-                          <td><span class="badge running">실행 중</span></td>
-                          <td>22:45:12</td>
-                          <td><code>bill.status_sync</code></td>
-                          <td>Runtime</td>
-                          <td>1분 04초</td>
-                          <td>검증 중</td>
-                          <td>-</td>
-                          <td>대기</td>
-                        </tr>
                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                <aside class="trace" aria-label="선택된 실행 상세">
+                <aside class="trace-pane" aria-label="선택된 실행 상세">
                   <div class="trace-section">
                     <h3>Selected run</h3>
                     <div class="meta-grid">
@@ -1061,28 +1318,14 @@
                       <span>schema</span><code>validated</code>
                     </div>
                   </div>
-
                   <div class="trace-section">
                     <h3>Step stack</h3>
                     <div class="steps">
-                      <div class="step">
-                        <span class="mark"></span>
-                        <span><strong>log read</strong><span>JSONL 이벤트 14줄 읽음</span></span>
-                        <span class="badge success">성공</span>
-                      </div>
-                      <div class="step">
-                        <span class="mark"></span>
-                        <span><strong>Gemini CLI summary</strong><span>최신 법안 5건 요약</span></span>
-                        <span class="badge success">성공</span>
-                      </div>
-                      <div class="step">
-                        <span class="mark"></span>
-                        <span><strong>structured validation</strong><span>Pydantic schema 통과</span></span>
-                        <span class="badge success">성공</span>
-                      </div>
+                      <div class="step"><span class="mark"></span><span><strong>log read</strong><span>JSONL 이벤트 14줄 읽음</span></span><span class="badge success">성공</span></div>
+                      <div class="step"><span class="mark"></span><span><strong>Gemini CLI summary</strong><span>최신 법안 5건 요약</span></span><span class="badge success">성공</span></div>
+                      <div class="step"><span class="mark"></span><span><strong>structured validation</strong><span>Pydantic schema 통과</span></span><span class="badge success">성공</span></div>
                     </div>
                   </div>
-
                   <div class="trace-section">
                     <h3>Artifacts</h3>
                     <div class="artifact"><code>latest-bills-summary.json</code><span>18 KB</span></div>
@@ -1091,11 +1334,8 @@
                 </aside>
               </div>
 
-              <div class="log-panel">
-                <div class="log-head">
-                  <strong>Raw JSONL preview</strong>
-                  <span>secrets masked · copy available</span>
-                </div>
+              <section class="log-panel" aria-label="raw jsonl preview">
+                <header><strong>Raw JSONL preview</strong><span>secrets masked · copy available</span></header>
                 <pre><code>{
   "event": "run_finished",
   "run_id": "run_20260519_210401",
@@ -1103,29 +1343,29 @@
   "result": {
     "target": 5,
     "success": 5,
-    "fallback_used": false,
-    "artifacts": ["latest-bills-summary.json", "latest-bills-summary.md"]
+    "fallback_used": false
   }
 }</code></pre>
-              </div>
+              </section>
             </div>
           </div>
         </section>
 
         <section class="section" id="components">
           <div class="section-head">
-            <h2>컴포넌트</h2>
+            <h2>컴포넌트 기준</h2>
             <p>
-              구현은 아래 컴포넌트를 먼저 잡는다. 이 순서가 곧 사용자 판단 순서다.
+              디자인 시스템은 박스 이름의 목록이 아니라, 실제 화면에서 어떤 판단 흐름을 만들지까지 포함해야 한다.
             </p>
           </div>
           <div class="section-body">
-            <div class="spec-table">
-              <div class="spec-row"><strong>CommandBar</strong><span>환경, 로그 경로, 갱신 상태를 담는 검정 command surface.</span><span>Rainbow는 wordmark underline에만 사용한다.</span></div>
-              <div class="spec-row"><strong>HealthLedger</strong><span>마지막 성공, 마지막 실패, 실행 중, fallback을 한 줄로 표시.</span><span>KPI 카드 그리드 대신 ledger row로 구성한다.</span></div>
-              <div class="spec-row"><strong>RunLedgerTable</strong><span>최근 실행 비교의 중심 컴포넌트.</span><span>선택 row는 paper-blue 배경으로만 표시한다.</span></div>
-              <div class="spec-row"><strong>TraceStack</strong><span>선택 run의 metadata, step, artifact, error를 오른쪽에서 추적.</span><span>Step marker는 작은 square로 유지한다.</span></div>
-              <div class="spec-row"><strong>LogPanel</strong><span>JSONL 원문과 traceback을 확인하는 dark panel.</span><span>Gradient top border 없이 mono와 대비로 구분한다.</span></div>
+            <div class="principles">
+              <article class="principle"><strong>OpsHeader</strong><p>검정 command surface. 환경, 로그 경로, 갱신 상태가 들어간다.</p></article>
+              <article class="principle"><strong>IncidentStrip</strong><p>모바일 첫 판단 단위. 문제와 trace 진입점을 같이 제공한다.</p></article>
+              <article class="principle"><strong>FilterRail</strong><p>상태 확인 뒤 사용하는 보조 도구. 가로 스크롤 chip rail이다.</p></article>
+              <article class="principle"><strong>RunStack</strong><p>모바일 실행 목록. row rhythm과 status marker로 읽힌다.</p></article>
+              <article class="principle"><strong>RunLedger</strong><p>데스크톱 실행 테이블. selected row와 trace panel이 연결된다.</p></article>
+              <article class="principle"><strong>LogPanel</strong><p>raw JSONL과 traceback을 확인하는 어두운 코드 표면이다.</p></article>
             </div>
           </div>
         </section>
@@ -1134,17 +1374,17 @@
           <div class="section-head">
             <h2>구현 체크리스트</h2>
             <p>
-              `bolder`의 결과는 더 강한 위계이지 더 많은 효과가 아니다. 검증 기준도 그에 맞춰 둔다.
+              이 기준은 실제 구현 때 디자인이 다시 초보자 예제처럼 무너지는 것을 막기 위한 가드레일이다.
             </p>
           </div>
           <div class="section-body">
             <ul class="checklist">
-              <li><span class="check">1</span><span>모두의입법 토큰과 Pretendard를 사용한다.</span></li>
-              <li><span class="check">2</span><span>첫 화면은 command bar, ledger table, trace stack으로 구성한다.</span></li>
-              <li><span class="check">3</span><span>레인보우는 브랜드 hairline과 wordmark underline으로 제한한다.</span></li>
-              <li><span class="check">4</span><span>모든 작은 텍스트는 WCAG AA 대비를 확인한다.</span></li>
-              <li><span class="check">5</span><span>MVP에는 실행, 재시도, 삭제, 롤백 버튼을 넣지 않는다.</span></li>
-              <li><span class="check">6</span><span>실제 집계 없는 차트와 장식용 gradient UI를 만들지 않는다.</span></li>
+              <li><span class="check">1</span><span>모바일 첫 화면에 full-width 필터 stack을 만들지 않는다.</span></li>
+              <li><span class="check">2</span><span>상태 요약은 거대 KPI 카드가 아니라 compact incident와 health rail로 처리한다.</span></li>
+              <li><span class="check">3</span><span>실행 목록은 mobile run rows와 desktop ledger table을 별도로 설계한다.</span></li>
+              <li><span class="check">4</span><span>레인보우는 상단 hairline과 wordmark underline 외에 사용하지 않는다.</span></li>
+              <li><span class="check">5</span><span>작은 텍스트는 #707070 이상 대비를 유지한다.</span></li>
+              <li><span class="check">6</span><span>MVP에는 실행, 재시도, 삭제, 롤백 버튼을 넣지 않는다.</span></li>
             </ul>
           </div>
         </section>
