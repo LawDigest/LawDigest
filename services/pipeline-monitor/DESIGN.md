@@ -2,396 +2,300 @@
 
 이 문서는 `services/pipeline-monitor` 구현 에이전트를 위한 디자인 시스템 기준서다. 사람용 시각 문서는 같은 폴더의 `DESIGN.html`을 사용한다.
 
-## 핵심 정정
+## Impeccable 적용 결과
 
-Pipeline Monitor는 모두의입법의 디자인 토큰과 폰트를 사용하지만, 기존 모두의입법 시민용 웹의 UI/UX 구조를 모방하지 않는다.
+이번 방향은 `impeccable extract`, `shape`, `bolder` 흐름을 기준으로 재정의했다.
 
-적용 기준은 다음과 같다.
+### Extract
 
-- 유지: Pretendard, `#191919` primary ink, 기존 gray scale, `#96BCFA`, `#E63946`, 흰색/회색 표면, 버튼의 단단한 질감, Material Symbols.
-- 제한적 유지: 모두의입법 로고의 레인보우 그라디언트는 브랜드 서명으로만 쓴다.
-- 변경: 화면 구조는 데이터 파이프라인 모니터링에 맞춘다. 실행 테이블, 상태 요약, 단계 타임라인, 로그 패널, 산출물 목록이 중심이다.
-- 금지: 피드/타임라인/모바일 floating nav를 그대로 가져오는 것, 레인보우 pill/gradient button/gradient chart를 남용하는 것.
+기존 모두의입법 웹에서 재사용할 재료만 추출한다.
 
-## 기존 웹에서 가져올 토큰
-
-디자인 재료는 아래 파일을 기준으로 한다.
-
-| Source | 가져올 것 | 가져오지 않을 것 |
+| Source | Extract | Do not extract |
 | --- | --- | --- |
-| `services/web/tailwind.config.js` | `primary`, `gray`, `theme`, `dark` 색상 토큰 | 시민용 페이지의 레이아웃 |
-| `services/web/styles/globals.css` | Pretendard font stack, Material Symbols, snackbar status color | feed tab 구조 |
-| `services/web/public/images/logo.svg` | 1-2px rainbow underline signature | 큰 gradient surface |
-| `services/web/components/Bill/BillList/Bill/Bill.tsx` | 평평한 white surface, shadow 최소화 | 법안 카드 정보 구조 |
-| `services/web/app/election/components/SeatSummaryCard.tsx` | white + border + compact summary language | 선거/피드형 화면 구성 |
+| `PRODUCT.md` | 시민적 신뢰, 쉬운 진입과 깊은 탐색, 중립성 | 시민용 피드 IA |
+| `DESIGN.md` | Pretendard, neutral-first palette, flat-by-default | 모바일 검색/피드 경험 |
+| `services/web/tailwind.config.js` | `#191919`, `#96BCFA`, `#E63946`, gray scale, dark tokens | 선거/법안 화면의 컴포넌트 구조 |
+| `services/web/styles/globals.css` | Pretendard stack, Material Symbols, status colors | feed tab indicator |
+| `services/web/public/images/logo.svg` | 1-2px rainbow signature | rainbow UI system |
+
+### Shape
+
+Feature summary: Pipeline Monitor는 운영자가 최근 파이프라인 실행, 실패 단계, fallback, 산출물을 한 화면에서 추적하는 read-only 운영 도구다.
+
+Primary user action: 최근 실행 테이블에서 이상 run을 선택하고, 오른쪽 trace stack에서 실패 단계와 원시 로그를 확인한다.
+
+Design direction:
+
+- Register: product
+- Color strategy: Restrained. 모두의입법 토큰을 사용하되 `#191919` command surface와 흰색 ledger surface의 강한 대비로 특색을 만든다.
+- Scene sentence: 운영자가 낮 시간대의 개발용 27-inch 모니터에서 배포 직후 파이프라인 정상 여부를 확인한다. 주변은 밝고, 화면은 빠르게 스캔되어야 한다.
+- Anchor references: Linear issue table의 밀도, GitHub Actions run detail의 추적성, Raycast preferences의 단단한 컨트롤.
+
+### Bolder
+
+"더 과감하게"는 gradient나 장식이 아니라 더 분명한 구조, 강한 정보 위계, 더 독특한 표면 조합으로 처리한다.
+
+- Dashboard를 generic KPI card grid가 아니라 `command ledger`로 만든다.
+- 화면 왼쪽은 실행 ledger table, 오른쪽은 selected run trace stack이다.
+- 상단에는 검정 command bar를 둬 모두의입법 `primary-ink`를 적극 사용한다.
+- 레인보우는 브랜드 hairline 하나로 제한한다.
+- 형태는 둥근 SaaS 카드가 아니라 1px ruled grid, 8px 이하 radius, 단단한 table row, bracket-like detail panel로 만든다.
 
 ## Product Posture
 
-Pipeline Monitor는 운영자가 파이프라인 상태를 빠르게 판단하는 도구다.
+Pipeline Monitor는 모두의입법 시민용 웹처럼 탐색적인 경험을 제공하는 화면이 아니다. 운영자가 파이프라인 상태를 판단하는 도구다.
 
-- 사용자는 터미널 대신 브라우저에서 실행 이력과 실패 원인을 확인한다.
-- 첫 화면에서 최근 상태, 실패 원인, 마지막 성공 시각, fallback 발생 여부, 산출물 위치를 확인할 수 있어야 한다.
-- 1차 버전은 read-only다. 실행, 재시도, 삭제, 롤백 버튼은 제공하지 않는다.
-- UI는 데스크톱 운영 화면을 우선하되, 모바일에서는 확인 가능한 읽기 화면으로 축약한다.
+- 데이터 소스: 자체 런타임 JSONL, artifact metadata.
+- 기본 성격: read-only.
+- 첫 화면 목표: 10초 안에 마지막 성공, 마지막 실패, 현재 실행 중, fallback, 산출물 존재 여부를 확인한다.
+- 1차 사용자: 개발자, 데이터 파이프라인 운영자, 배포 직후 smoke를 확인하는 관리자.
+- 비목표: Airflow UI 재구현, Prometheus/Grafana 대체, 시민용 서비스 화면 통합.
 
-## Brand Tokens
+## Visual System
 
-### Font
+### Tokens
 
 ```css
 --font-sans: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, 'Noto Sans KR', sans-serif;
 --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+--surface: #FFFFFF;
+--surface-ruled: #F5F7FD;
+--surface-muted: #EBEBEB;
+--line: #E0E0E0;
+--text-muted: #6F6F6F;
+--text-secondary: #555555;
+--text-strong: #262626;
+--ink: #191919;
+--soft-blue: #96BCFA;
+--alert: #E63946;
+--info-lime: #D7F963;
+--dark: #101012;
+--dark-panel: #1E1E1E;
+--dark-line: #2E2E2E;
+--success: #168A4A;
+--warning: #9A5B05;
+--brand-rainbow: linear-gradient(90deg, #FBEB59 0%, #FC56D8 31%, #10D9EF 65%, #6CF880 100%);
 ```
 
-규칙:
+대비 보정:
 
-- 한글 UI와 설명 텍스트는 Pretendard를 사용한다.
-- 실행 ID, 파일 경로, JSON key, CLI 명령은 mono를 사용한다.
-- 숫자 지표는 `font-variant-numeric: tabular-nums`를 적용한다.
-- 대형 마케팅 헤드라인을 만들지 않는다.
-
-### Color
-
-| Token | Value | Pipeline Monitor Usage |
-| --- | --- | --- |
-| `primary-3` | `#191919` | 주요 텍스트, primary button, active nav |
-| `primary-2` | `#96BCFA` | 실행 중, 정보 강조, focus ring |
-| `primary-1` | `#F5F7FD` | 아주 연한 정보 배경 |
-| `gray-0.5` | `#EBEBEB` | 앱 배경, table header |
-| `gray-1` | `#E0E0E0` | border, divider, secondary button |
-| `gray-2` | `#999999` | muted text, unknown state |
-| `gray-3` | `#555555` | secondary text |
-| `gray-4` | `#262626` | strong text |
-| `theme-alert` | `#E63946` | failed, destructive warning |
-| `theme-info` | `#D7F963` | new data, schedule due highlight |
-| `dark-b` | `#101012` | code/log panel background |
-| `dark-l` | `#2E2E2E` | code/log panel border |
-| `dark-pb` | `#1E1E1E` | dark surface |
-
-추가 상태색:
-
-- `success`: `#16A34A`
-- `warning`: `#B7791F`
-- `unknown`: `gray-2`
+- 기존 `#999999`는 본문/라벨로 쓰기에는 약하다. 작은 텍스트에는 `#6F6F6F` 이상을 사용한다.
+- `#EBEBEB`는 텍스트 색으로 쓰지 않는다. 배경과 border에만 사용한다.
+- 검정 표면 위 텍스트는 `#F5F7FD` 또는 `#EBEBEB`를 사용한다.
 
 ### Rainbow Policy
 
-레인보우 그라디언트는 모두의입법 브랜드 서명이다. Pipeline Monitor에서는 최소한으로만 사용한다.
-
 허용:
 
-- 상단 wordmark 아래 1-2px underline
-- active focus 위치를 알려주는 아주 얇은 hairline
-- 문서/브랜드 설명에서 색상 토큰 예시 1회
+- 페이지 최상단 2px brand hairline.
+- 모두의입법 wordmark 아래 1-2px underline.
+- 문서 내 token sample 한 번.
 
 금지:
 
-- gradient button
-- gradient pill
-- gradient chart
-- status color를 rainbow stop으로 매핑
-- 페이지 배경 전체 gradient
-- 코드 패널, 카드, 표 border에 반복 적용
+- gradient button.
+- gradient pill.
+- gradient chart.
+- rainbow status mapping.
+- code panel top border 반복.
+- 카드나 테이블 border 장식.
 
-권장 CSS:
+### Shape
 
-```css
---brand-rainbow: linear-gradient(90deg, #FBEB59 0%, #FC56D8 31%, #10D9EF 65%, #6CF880 100%);
-```
+- Base radius: 8px.
+- Table, code, toolbar: 6px 또는 8px.
+- Large shell: 12px까지만 허용.
+- Primary button: 모니터링 서비스에서는 pill이 아니라 8px radius를 기본으로 한다.
+- 정보 패널은 shadow 대신 1px border와 ruled background로 구분한다.
+- colored side stripe는 사용하지 않는다.
 
 ## Information Architecture
 
 ### Dashboard
 
-목적: 현재 파이프라인 상태를 10초 안에 판단한다.
+목표: 현재 상태를 빠르게 판단한다.
 
-주요 영역:
+구성:
 
-- Health strip: 마지막 성공, 마지막 실패, 현재 실행 중, fallback 발생 여부
-- Run table: 최근 실행 이력
-- Failure focus: 최근 실패 1건의 단계와 오류 요약
-- Artifact snapshot: 마지막 산출물 경로와 파일 수
+1. Command bar: environment, log source, refresh, auto refresh state.
+2. Health ledger: last success, last failure, running, fallback.
+3. Run ledger table: latest runs.
+4. Trace stack: selected run details.
+5. Raw log drawer or lower panel.
 
 ### Runs
 
-목적: 실행 이력을 비교하고 필터링한다.
+목표: 실행 이력을 필터링하고 비교한다.
 
-필터:
+필수 필터:
 
-- 기간: 최근 1시간, 24시간, 7일, 사용자 지정
-- 상태: success, failed, running, warning, unknown
-- 명령: `bill.ingest`, `bill.status_sync`, `summary:latest`, `ai.summary`
-- provider: Gemini CLI, Codex CLI, Claude CLI, API
+- Time range.
+- Status.
+- Command.
+- Provider.
+- Search: run id, command, artifact path.
 
-기본 표현은 table이다. 카드 목록은 모바일 보조 표현에만 사용한다.
+기본 표현은 table이다. 카드 목록은 모바일 보조 표현이다.
 
 ### Run Detail
 
-목적: 단일 실행의 원인과 결과를 추적한다.
+목표: 실패 원인과 산출물을 추적한다.
 
 구성:
 
-- Run metadata
-- Step timeline
-- Structured result
-- Error and traceback
-- Artifacts
-- Raw JSONL events
+- Metadata strip.
+- Step stack.
+- Result diff.
+- Artifact list.
+- Error block.
+- Raw JSONL.
 
 ### Artifacts
 
-목적: 실행 결과 파일을 찾고 미리 본다.
+목표: 산출물 위치와 내용을 확인한다.
 
 구성:
 
-- 파일명
-- 파일 형식
-- 파일 크기
-- 생성 시각
-- 관련 run id
-- preview 가능한 경우 JSON/Markdown 미리보기
+- File name.
+- Type.
+- Size.
+- Created at.
+- Related run id.
+- Preview action.
 
 ### Runtime Settings
 
-목적: 모니터링 앱이 어떤 런타임과 로그 경로를 보고 있는지 확인한다.
+목표: 모니터링 앱이 무엇을 보고 있는지 확인한다.
 
 구성:
 
-- Log directory
-- Pipeline runtime version
-- CLI paths
-- Default model
-- Refresh interval
-- Deployment target
+- Log directory.
+- Runtime version.
+- CLI paths.
+- Model defaults.
+- Refresh interval.
+- Deployment target.
 
-## Layout Model
+## Component Specifications
 
-### Desktop
+### CommandBar
 
-Pipeline Monitor는 데스크톱 운영 화면을 우선한다.
+상단의 검정 command surface다.
 
-```text
-Top brand bar
-Toolbar: time range / status filter / command filter / refresh
-Main grid:
-  Left: run table
-  Right: selected run detail, failure focus, artifacts
-Bottom or drawer: raw log panel
-```
+- Height: 64px.
+- Background: `--ink`.
+- Text: `#F5F7FD`.
+- Contains: wordmark, service name, env badge, refresh button, updated time.
+- Rainbow: wordmark underline only.
 
-규칙:
+### HealthLedger
 
-- 최대 본문 너비는 `1440px`까지 허용한다.
-- 기본 화면은 table-first다.
-- 좌측 사이드바는 필수 아님. 사용한다면 220-240px 이하의 단순 navigation만 둔다.
-- 섹션을 과도하게 카드화하지 않는다. table, detail panel, log panel처럼 역할이 있는 컨테이너만 경계선을 둔다.
-- mobile floating nav, feed content tab, 시민용 carousel 패턴을 사용하지 않는다.
+KPI card grid가 아니라 네 칸짜리 ledger row다.
 
-### Mobile
-
-모바일은 운영 확인용 보조 화면이다.
-
-- 상단에 status summary를 먼저 둔다.
-- run table은 가로 스크롤을 허용한다.
-- detail은 single column으로 쌓는다.
-- 로그 패널은 접힘 상태로 시작한다.
-- 하단 floating nav를 재사용하지 않는다. 간단한 top segmented nav나 menu를 사용한다.
-
-## Components
-
-### SystemHeader
-
-역할: 브랜드와 현재 모니터링 대상 표시.
-
-구성:
-
-- 모두의입법 wordmark
-- 1-2px rainbow underline
-- `Pipeline Monitor`
-- 환경: prod/test/dev
-- 마지막 갱신 시각
+- Border: 1px `--line`.
+- Background: `--surface`.
+- Each cell has label, value, supporting note.
+- Failure cell can use alert text, but background 전체를 빨갛게 칠하지 않는다.
 
 ### ControlToolbar
 
-역할: 운영자가 테이블을 빠르게 좁혀 본다.
+테이블 바로 위에 붙는 compact toolbar다.
 
-구성:
+- Height: 48px.
+- Controls: time range, status, command, provider, search, refresh.
+- Radius: 8px.
+- Focus ring: `--soft-blue`.
+- No gradient, no pill overload.
 
-- Time range select
-- Status segmented filter
-- Command select
-- Text search: run id, command, artifact path
-- Refresh button
+### RunLedgerTable
 
-스타일:
+핵심 탐색 컴포넌트다.
 
-- 높이 48-56px
-- border-bottom 또는 contained toolbar
-- 버튼 radius 8px 이하
-- primary action은 refresh 하나만 둔다.
+Columns:
 
-### HealthStrip
+- Status.
+- Started at.
+- Command.
+- Provider.
+- Duration.
+- Items.
+- Fallback.
+- Error.
+- Artifacts.
 
-역할: 현재 상태 요약.
+Rules:
 
-항목:
+- Default sort: started_at desc.
+- Selected row uses `--surface-ruled` background and 1px border treatment.
+- Status badge radius 6px.
+- Error summary is one line, full traceback in TraceStack.
 
-- 마지막 성공
-- 마지막 실패
-- 실행 중
-- fallback
+### TraceStack
 
-규칙:
+선택한 run의 오른쪽 detail panel이다.
 
-- 4개 이하로 유지한다.
-- 색상보다 텍스트를 우선한다.
-- 실패가 있으면 failure focus panel로 연결한다.
-
-### RunTable
-
-역할: 핵심 탐색 컴포넌트.
-
-필수 열:
-
-- Status
-- Started at
-- Command
-- Provider
-- Duration
-- Items
-- Fallback
-- Error
-- Artifacts
-
-규칙:
-
-- 기본 정렬은 started_at desc.
-- run id는 두 번째 줄 또는 detail panel에 표시한다.
-- 오류는 첫 줄만 노출하고 detail에서 전문을 보여준다.
-- status chip은 6-8px radius의 작은 badge다. pill 남용 금지.
-
-### RunDetailPanel
-
-역할: 선택한 실행의 상세 정보 확인.
-
-구성:
-
-- Metadata grid
-- Step timeline
-- Result summary
-- Artifact list
-- Error block
-
-스타일:
-
-- 화면 오른쪽 panel 또는 route page.
-- desktop에서는 sticky detail panel 가능.
-- mobile에서는 table 아래 single column.
-
-### StepTimeline
-
-역할: 어떤 단계에서 멈췄는지 확인.
-
-구성:
-
-- Step name
-- Status
-- Started at
-- Duration
-- Result count
-- Error summary
-
-스타일:
-
-- 단순 vertical list.
-- marker는 작은 square/dot 둘 중 하나만 사용한다.
-- gradient line 사용 금지.
+- Desktop: sticky right panel.
+- Mobile: table 아래 single column.
+- Sections: metadata, steps, artifacts, error, raw event.
+- Shape: bracket-like solid panel using full border, not side stripe.
+- Step marker: small square marker, not decorative gradient line.
 
 ### LogPanel
 
-역할: JSONL 원문과 traceback 확인.
+JSONL 원문 확인 영역이다.
 
-구성:
+- Background: `--dark`.
+- Border: `--dark-line`.
+- Font: mono.
+- Modes: pretty JSON, raw line.
+- Copy button required.
+- Secrets are masked.
 
-- Pretty JSON
-- Raw line view
-- Copy button
-- Masked secret indication
-
-스타일:
-
-- `dark-b` background
-- mono font
-- 가로 스크롤 허용
-- 상단에 1px border만 사용한다. rainbow top border 금지.
-
-### ArtifactList
-
-역할: 산출물 탐색.
-
-구성:
-
-- file name
-- type
-- size
-- created at
-- related run
-- preview/open action
-
-규칙:
-
-- 내부 서버 경로와 사용자 다운로드 링크를 구분한다.
-- MVP에서 삭제 버튼은 없다.
-
-## Status Language
+## State Language
 
 | Status | Label | Color |
 | --- | --- | --- |
-| `success` | 성공 | `#16A34A` |
-| `failed` | 실패 | `theme-alert` |
-| `running` | 실행 중 | `primary-2` |
-| `warning` | 경고 | `#B7791F` |
-| `fallback` | fallback | `primary-3` text + `gray-1` border |
-| `unknown` | 알 수 없음 | `gray-2` |
+| `success` | 성공 | `#168A4A` |
+| `failed` | 실패 | `#E63946` |
+| `running` | 실행 중 | `#96BCFA` |
+| `warning` | 경고 | `#9A5B05` |
+| `fallback` | fallback | `#191919` text, `#E0E0E0` border |
+| `unknown` | 알 수 없음 | `#6F6F6F` |
 
 상태 메시지 예시:
 
 - `성공 - 5건 요약, JSON 산출물 생성`
-- `실패 - Gemini CLI 응답 validation 실패`
+- `실패 - structured validation 실패`
 - `실행 중 - 2분 14초 경과`
 - `fallback - Codex CLI로 1건 재처리`
 - `알 수 없음 - 종료 이벤트 누락`
 
-## Button Rules
+## Responsive Rules
 
-- Primary: `bg-primary-3`, `text-white`, radius 8px.
-- Secondary: white or `gray-0.5`, `border-gray-1`, `text-gray-4`.
-- Destructive: `theme-alert`, 단 MVP에서는 쓰기 액션이 없으므로 기본적으로 등장하지 않는다.
-- 버튼은 pill shape을 기본값으로 쓰지 않는다. 모두의입법 기존 버튼 감각은 색과 weight로 가져오고, 모니터링 도구에서는 더 절제한다.
+| Width | Layout |
+| --- | --- |
+| `< 768px` | command bar, health ledger stack, horizontal table, detail below |
+| `768px - 1199px` | full table, detail below or collapsible |
+| `>= 1200px` | ledger table left, trace stack right |
 
-## Data Display Rules
-
-- 시간은 KST 기준으로 표시하고, 필요 시 UTC 원본을 tooltip 또는 detail에 둔다.
-- duration은 `830ms`, `2분 14초`처럼 읽기 쉬운 단위로 표시한다.
-- 숫자는 comma와 tabular nums를 사용한다.
-- 긴 path는 가운데를 줄여 표시하고 hover/detail에서 전체를 보여준다.
-- JSON은 pretty print하되 원문 raw line 접근도 제공한다.
+모바일에서 table을 카드로 완전히 바꾸지 않는다. run 간 비교를 위해 horizontal scroll을 허용한다.
 
 ## Accessibility
 
-- 상태를 색상만으로 표현하지 않는다.
-- table header에는 `th scope`를 사용한다.
-- filter control은 현재 선택 상태를 스크린 리더가 알 수 있어야 한다.
-- keyboard focus는 `primary-2` outline으로 표시한다.
-- log panel의 텍스트 대비는 충분히 높게 유지한다.
+- 모든 상태는 색상과 텍스트 라벨을 함께 제공한다.
+- `#999999` 이하 대비의 텍스트를 본문에 쓰지 않는다.
+- Table header는 `th scope`를 사용한다.
+- Keyboard focus는 명확한 outline을 제공한다.
+- LogPanel은 복사 없이도 텍스트 선택이 가능해야 한다.
 
 ## Implementation Checklist
 
-- [ ] 기존 모두의입법 색상/폰트 토큰을 복제하거나 공유한다.
-- [ ] 레인보우 그라디언트는 wordmark underline 정도로 제한한다.
-- [ ] Dashboard는 table-first layout으로 구현한다.
-- [ ] HealthStrip, ControlToolbar, RunTable, RunDetailPanel, LogPanel을 우선 구현한다.
-- [ ] status chip은 작은 badge로 만들고 pill/gradient를 남용하지 않는다.
-- [ ] MVP에는 실행/재시도/삭제 버튼을 넣지 않는다.
-- [ ] 모바일에서는 table 가로 스크롤과 접힘 log panel을 제공한다.
-- [ ] 실제 데이터 없는 차트는 만들지 않는다.
+- [ ] 기존 모두의입법 토큰을 복제하거나 공유한다.
+- [ ] `CommandBar`, `HealthLedger`, `ControlToolbar`, `RunLedgerTable`, `TraceStack`, `LogPanel`을 우선 구현한다.
+- [ ] 레인보우는 brand hairline과 wordmark underline에만 사용한다.
+- [ ] primary button은 8px radius를 기본으로 한다.
+- [ ] status badge는 6px radius, 한글 라벨, 충분한 대비를 유지한다.
+- [ ] MVP에는 실행, 재시도, 삭제, 롤백 버튼을 넣지 않는다.
+- [ ] 실제 집계 없는 차트를 만들지 않는다.
+- [ ] `impeccable detect`에서 low contrast가 나오지 않게 검증한다.

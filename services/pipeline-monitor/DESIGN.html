@@ -8,22 +8,24 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block">
   <style>
     :root {
-      --gray-05: #ebebeb;
-      --gray-1: #e0e0e0;
-      --gray-2: #999999;
-      --gray-3: #555555;
-      --gray-4: #262626;
-      --primary-1: #f5f7fd;
-      --primary-2: #96bcfa;
-      --primary-3: #191919;
-      --theme-alert: #e63946;
-      --theme-info: #d7f963;
-      --dark-b: #101012;
-      --dark-l: #2e2e2e;
-      --dark-pb: #1e1e1e;
-      --success: #16a34a;
-      --warning: #b7791f;
-      --brand-rainbow: linear-gradient(90deg, #fbeb59 0%, #fc56d8 31%, #10d9ef 65%, #6cf880 100%);
+      --surface: #ffffff;
+      --paper: #f7f7f9;
+      --paper-blue: #f5f7fd;
+      --line-soft: #ebebeb;
+      --line: #e0e0e0;
+      --muted: #6f6f6f;
+      --secondary: #555555;
+      --strong: #262626;
+      --ink: #191919;
+      --blue: #96bcfa;
+      --alert: #e63946;
+      --lime: #d7f963;
+      --dark: #101012;
+      --dark-panel: #1e1e1e;
+      --dark-line: #2e2e2e;
+      --success: #168a4a;
+      --warning: #9a5b05;
+      --rainbow: linear-gradient(90deg, #fbeb59 0%, #fc56d8 31%, #10d9ef 65%, #6cf880 100%);
       --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Noto Sans KR", sans-serif;
       --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
@@ -39,19 +41,22 @@
     body {
       margin: 0;
       min-width: 360px;
-      background: #ffffff;
+      background:
+        linear-gradient(var(--line-soft) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line-soft) 1px, transparent 1px),
+        var(--surface);
+      background-size: 48px 48px;
       color: #000000;
       font-family: var(--font-sans);
-      line-height: 1.65;
+      line-height: 1.6;
       letter-spacing: 0;
     }
 
     body::before {
       content: "";
       display: block;
-      width: 100%;
       height: 2px;
-      background: var(--brand-rainbow);
+      background: var(--rainbow);
     }
 
     a {
@@ -67,29 +72,33 @@
 
     .material-symbols-outlined {
       font-family: "Material Symbols Outlined";
-      font-weight: normal;
-      font-style: normal;
       font-size: 18px;
       line-height: 1;
-      display: inline-block;
-      white-space: nowrap;
-      font-feature-settings: "liga";
-      -webkit-font-smoothing: antialiased;
+      vertical-align: -4px;
     }
 
     .page {
-      max-width: 1360px;
+      max-width: 1420px;
       margin: 0 auto;
-      padding: 28px 24px 96px;
+      padding: 24px 24px 96px;
     }
 
-    .topbar {
+    .command-hero {
+      overflow: hidden;
+      border: 1px solid #191919;
+      border-radius: 12px;
+      background-color: #191919;
+      color: #f5f7fd;
+    }
+
+    .command-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 20px;
-      padding-bottom: 26px;
-      border-bottom: 1px solid var(--gray-1);
+      min-height: 64px;
+      padding: 16px 18px;
+      border-bottom: 1px solid #343434;
     }
 
     .brand {
@@ -98,6 +107,7 @@
     }
 
     .brand strong {
+      color: inherit;
       font-size: 22px;
       font-weight: 900;
       line-height: 1;
@@ -106,229 +116,248 @@
     .brand span {
       width: 108px;
       height: 2px;
-      background: var(--brand-rainbow);
+      background: var(--rainbow);
     }
 
-    .doc-meta {
+    .command-meta {
       display: flex;
       flex-wrap: wrap;
       justify-content: flex-end;
       gap: 8px;
     }
 
-    .doc-meta span {
-      display: inline-flex;
-      align-items: center;
+    .command-meta span {
       min-height: 30px;
-      padding: 0 10px;
-      border: 1px solid var(--gray-1);
+      padding: 6px 10px;
+      border: 1px solid #434343;
       border-radius: 8px;
-      color: var(--gray-3);
-      background: #ffffff;
+      color: #d8dbe2;
+      background: #222222;
       font-size: 12px;
       font-weight: 700;
     }
 
-    .intro {
+    .hero-body {
       display: grid;
-      grid-template-columns: minmax(0, 0.92fr) minmax(320px, 0.58fr);
-      gap: 36px;
-      padding: 42px 0 38px;
-      border-bottom: 1px solid var(--gray-1);
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 32px;
+      padding: 34px 18px 18px;
     }
 
-    .intro h1 {
+    .hero-copy {
+      max-width: 820px;
+      padding: 12px 0 18px;
+    }
+
+    h1 {
       max-width: 760px;
       margin: 0 0 16px;
-      color: var(--primary-3);
-      font-size: 42px;
+      color: inherit;
+      font-size: 46px;
       font-weight: 900;
-      line-height: 1.12;
+      line-height: 1.08;
       letter-spacing: -0.02em;
       text-wrap: balance;
     }
 
-    .intro p {
-      max-width: 780px;
+    .hero-copy p {
+      max-width: 760px;
       margin: 0;
-      color: var(--gray-3);
+      color: #d8dbe2;
       font-size: 16px;
       font-weight: 500;
       word-break: keep-all;
     }
 
-    .direction-box {
-      border: 1px solid var(--gray-1);
-      border-radius: 12px;
-      background: var(--primary-1);
+    .brief-stack {
+      display: grid;
+      gap: 8px;
     }
 
-    .direction-row {
+    .brief-row {
       display: grid;
-      grid-template-columns: 82px 1fr;
+      grid-template-columns: 86px 1fr;
       gap: 12px;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--gray-1);
+      padding: 12px;
+      border: 1px solid #3a3a3a;
+      border-radius: 8px;
+      background: #202020;
       font-size: 13px;
     }
 
-    .direction-row:last-child {
-      border-bottom: 0;
+    .brief-row b {
+      color: #ffffff;
+      font-weight: 900;
     }
 
-    .direction-key {
-      color: var(--gray-2);
-      font-weight: 800;
+    .brief-row span {
+      color: #d8dbe2;
+      font-weight: 600;
     }
 
-    .direction-value {
-      color: var(--gray-4);
-      font-weight: 700;
-    }
-
-    .layout {
+    .doc-layout {
       display: grid;
-      grid-template-columns: 220px minmax(0, 1fr);
+      grid-template-columns: 230px minmax(0, 1fr);
       gap: 34px;
       align-items: start;
+      margin-top: 34px;
     }
 
     .side-nav {
       position: sticky;
-      top: 18px;
+      top: 20px;
       display: grid;
       gap: 4px;
-      padding-top: 38px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.92);
     }
 
     .side-nav a {
       display: block;
       padding: 8px 10px;
-      border-radius: 8px;
-      color: var(--gray-3);
+      border-radius: 7px;
+      color: var(--secondary);
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 800;
     }
 
     .side-nav a:hover,
     .side-nav a:focus-visible {
-      color: var(--primary-3);
-      background: var(--gray-05);
-      outline: 2px solid var(--primary-2);
+      color: var(--ink);
+      background: var(--paper-blue);
+      outline: 2px solid var(--blue);
       outline-offset: 2px;
     }
 
-    section {
-      padding: 38px 0;
-      border-bottom: 1px solid var(--gray-1);
+    .content {
+      min-width: 0;
+      display: grid;
+      gap: 28px;
     }
 
-    section:last-child {
-      border-bottom: 0;
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.96);
     }
 
     .section-head {
       display: grid;
-      grid-template-columns: 260px minmax(0, 1fr);
-      gap: 28px;
-      margin-bottom: 22px;
+      grid-template-columns: 240px minmax(0, 1fr);
+      gap: 24px;
+      padding: 20px;
+      border-bottom: 1px solid var(--line);
+      background: var(--paper);
     }
 
     h2 {
       margin: 0;
-      color: var(--primary-3);
+      color: var(--ink);
       font-size: 24px;
       font-weight: 900;
-      line-height: 1.25;
+      line-height: 1.22;
       letter-spacing: -0.01em;
     }
 
     .section-head p {
       margin: 0;
-      color: var(--gray-3);
+      color: var(--secondary);
       font-size: 15px;
-      font-weight: 500;
+      font-weight: 600;
+      word-break: keep-all;
+    }
+
+    .section-body {
+      padding: 20px;
+    }
+
+    .extract-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .extract-item {
+      min-height: 124px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .extract-item strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .extract-item p {
+      margin: 0;
+      color: var(--secondary);
+      font-size: 13px;
+      font-weight: 600;
       word-break: keep-all;
     }
 
     .token-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
     }
 
     .token {
-      overflow: hidden;
-      border: 1px solid var(--gray-1);
-      border-radius: 10px;
-      background: #ffffff;
+      min-height: 132px;
+      border-right: 1px solid var(--line);
+      background: var(--surface);
     }
 
-    .token-swatch {
+    .token:nth-child(6n) {
+      border-right: 0;
+    }
+
+    .swatch {
       height: 72px;
-      border-bottom: 1px solid var(--gray-1);
+      border-bottom: 1px solid var(--line);
     }
 
-    .token-body {
-      padding: 11px 12px;
+    .token div:last-child {
+      padding: 10px;
     }
 
-    .token-body strong {
+    .token strong {
       display: block;
-      margin-bottom: 2px;
-      color: var(--primary-3);
-      font-size: 13px;
-    }
-
-    .token-body code {
-      color: var(--gray-3);
-      font-size: 11px;
-    }
-
-    .rules {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .rule {
-      padding: 16px;
-      border: 1px solid var(--gray-1);
-      border-radius: 10px;
-      background: #ffffff;
-    }
-
-    .rule h3 {
-      margin: 0 0 8px;
-      color: var(--primary-3);
-      font-size: 16px;
+      color: var(--ink);
+      font-size: 12px;
       font-weight: 900;
     }
 
-    .rule p {
-      margin: 0;
-      color: var(--gray-3);
-      font-size: 14px;
-      font-weight: 500;
-      word-break: keep-all;
+    .token code {
+      color: var(--secondary);
+      font-size: 11px;
     }
 
-    .monitor-preview {
+    .monitor-shell {
       overflow: hidden;
-      border: 1px solid var(--gray-1);
+      border: 1px solid var(--ink);
       border-radius: 12px;
-      background: #ffffff;
+      background: var(--surface);
     }
 
-    .monitor-top {
+    .monitor-bar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 18px;
-      min-height: 62px;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--gray-1);
-      background: #ffffff;
+      gap: 16px;
+      min-height: 64px;
+      padding: 14px 16px;
+      background-color: #191919;
+      color: #f5f7fd;
     }
 
     .monitor-title {
@@ -337,38 +366,37 @@
     }
 
     .monitor-title strong {
-      color: var(--primary-3);
       font-size: 15px;
       font-weight: 900;
     }
 
     .monitor-title span {
-      color: var(--gray-2);
+      color: #d8dbe2;
       font-size: 12px;
       font-weight: 700;
     }
 
-    .refresh-button {
+    .refresh {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      height: 36px;
+      min-height: 36px;
       padding: 0 12px;
-      border: 0;
+      border: 1px solid #3a3a3a;
       border-radius: 8px;
-      background: var(--primary-3);
-      color: #ffffff;
+      background: #ffffff;
+      color: var(--ink);
       font-size: 13px;
-      font-weight: 800;
+      font-weight: 900;
     }
 
     .toolbar {
       display: grid;
-      grid-template-columns: 150px 190px 1fr 120px;
+      grid-template-columns: 140px 150px 150px minmax(220px, 1fr) 120px;
       gap: 8px;
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--gray-1);
-      background: var(--gray-05);
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      background: var(--paper);
     }
 
     .control {
@@ -376,72 +404,69 @@
       align-items: center;
       min-height: 36px;
       padding: 0 10px;
-      border: 1px solid var(--gray-1);
+      border: 1px solid var(--line);
       border-radius: 8px;
-      background: #ffffff;
-      color: var(--gray-4);
+      background: var(--surface);
+      color: var(--strong);
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 800;
     }
 
     .control.search {
-      color: var(--gray-2);
+      color: var(--muted);
     }
 
     .monitor-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
+      grid-template-columns: minmax(0, 1.5fr) minmax(360px, 0.86fr);
       min-height: 560px;
     }
 
-    .main-pane {
+    .ledger {
       min-width: 0;
-      border-right: 1px solid var(--gray-1);
+      border-right: 1px solid var(--line);
     }
 
-    .detail-pane {
-      min-width: 0;
-      background: #fcfcfc;
-    }
-
-    .health-strip {
+    .health {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      border-bottom: 1px solid var(--gray-1);
+      border-bottom: 1px solid var(--line);
     }
 
-    .health-item {
-      padding: 16px;
-      border-right: 1px solid var(--gray-1);
+    .health-cell {
+      min-height: 98px;
+      padding: 14px 16px;
+      border-right: 1px solid var(--line);
+      background: var(--surface);
     }
 
-    .health-item:last-child {
+    .health-cell:last-child {
       border-right: 0;
     }
 
-    .health-label {
+    .health-cell .label {
       display: block;
       margin-bottom: 5px;
-      color: var(--gray-2);
+      color: var(--muted);
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 900;
     }
 
-    .health-value {
+    .health-cell .value {
       display: block;
-      color: var(--primary-3);
-      font-size: 22px;
+      color: var(--ink);
+      font-size: 28px;
       font-weight: 900;
-      line-height: 1.1;
+      line-height: 1.04;
       font-variant-numeric: tabular-nums;
     }
 
-    .health-note {
+    .health-cell .note {
       display: block;
-      margin-top: 5px;
-      color: var(--gray-3);
+      margin-top: 6px;
+      color: var(--secondary);
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .table-wrap {
@@ -450,34 +475,33 @@
 
     table {
       width: 100%;
+      min-width: 820px;
       border-collapse: collapse;
-      min-width: 780px;
       font-size: 13px;
     }
 
     th,
     td {
       padding: 11px 12px;
-      border-bottom: 1px solid var(--gray-1);
+      border-bottom: 1px solid var(--line);
       text-align: left;
-      vertical-align: middle;
       white-space: nowrap;
     }
 
     th {
-      background: #ffffff;
-      color: var(--gray-2);
+      background: var(--surface);
+      color: var(--muted);
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 900;
     }
 
     td {
-      color: var(--gray-4);
-      font-weight: 600;
+      color: var(--strong);
+      font-weight: 700;
     }
 
-    .muted {
-      color: var(--gray-2);
+    tr.is-selected td {
+      background: var(--paper-blue);
     }
 
     .badge {
@@ -485,46 +509,51 @@
       align-items: center;
       min-height: 24px;
       padding: 0 7px;
-      border: 1px solid var(--gray-1);
+      border: 1px solid var(--line);
       border-radius: 6px;
-      background: #ffffff;
-      color: var(--gray-3);
+      background: var(--surface);
+      color: var(--secondary);
       font-size: 12px;
-      font-weight: 800;
+      font-weight: 900;
     }
 
     .badge.success {
-      border-color: rgba(22, 163, 74, 0.32);
+      border-color: rgba(22, 138, 74, 0.38);
       color: var(--success);
-      background: rgba(22, 163, 74, 0.06);
+      background: rgba(22, 138, 74, 0.08);
     }
 
     .badge.failed {
-      border-color: rgba(230, 57, 70, 0.36);
-      color: var(--theme-alert);
-      background: rgba(230, 57, 70, 0.06);
+      border-color: rgba(230, 57, 70, 0.4);
+      color: var(--alert);
+      background: rgba(230, 57, 70, 0.08);
     }
 
     .badge.running {
-      border-color: rgba(150, 188, 250, 0.7);
-      color: #4776c4;
-      background: rgba(150, 188, 250, 0.14);
+      border-color: rgba(150, 188, 250, 0.8);
+      color: #305fba;
+      background: rgba(150, 188, 250, 0.18);
     }
 
     .badge.warning {
-      border-color: rgba(183, 121, 31, 0.4);
+      border-color: rgba(154, 91, 5, 0.46);
       color: var(--warning);
-      background: rgba(183, 121, 31, 0.08);
+      background: rgba(154, 91, 5, 0.09);
     }
 
-    .pane-section {
+    .trace {
+      min-width: 0;
+      background: #fbfbfc;
+    }
+
+    .trace-section {
       padding: 16px;
-      border-bottom: 1px solid var(--gray-1);
+      border-bottom: 1px solid var(--line);
     }
 
-    .pane-section h3 {
+    .trace-section h3 {
       margin: 0 0 10px;
-      color: var(--primary-3);
+      color: var(--ink);
       font-size: 15px;
       font-weight: 900;
     }
@@ -533,14 +562,16 @@
       display: grid;
       grid-template-columns: 96px minmax(0, 1fr);
       gap: 8px 10px;
-      color: var(--gray-3);
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
+    }
+
+    .meta-grid span {
+      color: var(--muted);
     }
 
     .meta-grid code {
-      color: var(--primary-3);
-      font-size: 12px;
+      color: var(--ink);
       word-break: break-all;
     }
 
@@ -556,7 +587,7 @@
       align-items: start;
     }
 
-    .dot {
+    .mark {
       width: 10px;
       height: 10px;
       margin-top: 6px;
@@ -564,30 +595,25 @@
       background: var(--success);
     }
 
-    .dot.running {
-      background: var(--primary-2);
+    .mark.running {
+      background: var(--blue);
     }
 
-    .dot.failed {
-      background: var(--theme-alert);
+    .mark.failed {
+      background: var(--alert);
     }
 
     .step strong {
       display: block;
-      color: var(--primary-3);
+      color: var(--ink);
       font-size: 13px;
       font-weight: 900;
     }
 
-    .step span {
-      color: var(--gray-3);
+    .step span span {
+      color: var(--secondary);
       font-size: 12px;
-      font-weight: 600;
-    }
-
-    .artifact-list {
-      display: grid;
-      gap: 8px;
+      font-weight: 700;
     }
 
     .artifact {
@@ -597,42 +623,46 @@
       gap: 10px;
       min-height: 38px;
       padding: 8px 10px;
-      border: 1px solid var(--gray-1);
+      border: 1px solid var(--line);
       border-radius: 8px;
-      background: #ffffff;
+      background: var(--surface);
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
+    }
+
+    .artifact + .artifact {
+      margin-top: 8px;
     }
 
     .artifact code {
       overflow: hidden;
-      color: var(--primary-3);
+      color: var(--ink);
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     .log-panel {
-      overflow: hidden;
-      border-top: 1px solid var(--dark-l);
-      background: var(--dark-b);
-      color: var(--gray-05);
+      border-top: 1px solid var(--dark-line);
+      background-color: #101012;
+      color: #f5f7fd;
     }
 
-    .log-header {
+    .log-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
       padding: 12px 16px;
-      border-bottom: 1px solid var(--dark-l);
+      border-bottom: 1px solid var(--dark-line);
     }
 
-    .log-header strong {
+    .log-head strong {
       font-size: 13px;
+      font-weight: 900;
     }
 
-    .log-header span {
-      color: var(--gray-2);
+    .log-head span {
+      color: #c5c9d1;
       font-size: 12px;
       font-weight: 700;
     }
@@ -640,42 +670,40 @@
     pre {
       overflow-x: auto;
       margin: 0;
-      padding: 14px 16px 18px;
-      color: var(--gray-05);
+      padding: 15px 16px 18px;
+      color: inherit;
       font: 400 12px / 1.7 var(--font-mono);
     }
 
-    .component-table {
-      width: 100%;
-      min-width: 0;
-      border: 1px solid var(--gray-1);
-      border-radius: 10px;
+    .spec-table {
+      border: 1px solid var(--line);
+      border-radius: 8px;
       overflow: hidden;
-      background: #ffffff;
-      display: block;
+      background: var(--surface);
     }
 
-    .component-row {
+    .spec-row {
       display: grid;
       grid-template-columns: 180px minmax(0, 1fr) minmax(0, 1fr);
       gap: 12px;
       padding: 14px 16px;
-      border-bottom: 1px solid var(--gray-1);
+      border-bottom: 1px solid var(--line);
     }
 
-    .component-row:last-child {
+    .spec-row:last-child {
       border-bottom: 0;
     }
 
-    .component-row strong {
-      color: var(--primary-3);
+    .spec-row strong {
+      color: var(--ink);
       font-size: 14px;
+      font-weight: 900;
     }
 
-    .component-row span {
-      color: var(--gray-3);
+    .spec-row span {
+      color: var(--secondary);
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
     }
 
     .checklist {
@@ -692,12 +720,12 @@
       grid-template-columns: 28px minmax(0, 1fr);
       gap: 10px;
       padding: 12px;
-      border: 1px solid var(--gray-1);
-      border-radius: 10px;
-      background: #ffffff;
-      color: var(--gray-3);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--secondary);
       font-size: 14px;
-      font-weight: 600;
+      font-weight: 700;
       word-break: keep-all;
     }
 
@@ -706,16 +734,16 @@
       place-items: center;
       width: 24px;
       height: 24px;
-      border-radius: 7px;
-      background: var(--primary-3);
+      border-radius: 6px;
+      background: var(--ink);
       color: #ffffff;
       font-size: 12px;
       font-weight: 900;
     }
 
-    @media (max-width: 1120px) {
-      .intro,
-      .layout,
+    @media (max-width: 1180px) {
+      .hero-body,
+      .doc-layout,
       .section-head,
       .monitor-grid {
         grid-template-columns: 1fr;
@@ -725,16 +753,15 @@
         position: static;
         display: flex;
         flex-wrap: wrap;
-        padding-top: 24px;
       }
 
-      .main-pane {
+      .ledger {
         border-right: 0;
-        border-bottom: 1px solid var(--gray-1);
+        border-bottom: 1px solid var(--line);
       }
 
       .token-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
       }
 
       .toolbar {
@@ -742,215 +769,225 @@
       }
     }
 
-    @media (max-width: 720px) {
+    @media (max-width: 760px) {
       .page {
-        padding: 20px 16px 72px;
+        padding: 16px 14px 72px;
       }
 
-      .topbar {
+      .command-top,
+      .monitor-bar {
         align-items: flex-start;
         flex-direction: column;
       }
 
-      .doc-meta {
-        justify-content: flex-start;
+      h1 {
+        font-size: 34px;
       }
 
-      .intro h1 {
-        font-size: 32px;
-      }
-
-      .token-grid,
-      .rules,
-      .health-strip,
-      .checklist {
+      .brief-row,
+      .spec-row {
         grid-template-columns: 1fr;
       }
 
-      .health-item {
-        border-right: 0;
-        border-bottom: 1px solid var(--gray-1);
-      }
-
-      .health-item:last-child {
-        border-bottom: 0;
-      }
-
+      .extract-grid,
+      .token-grid,
+      .health,
+      .checklist,
       .toolbar {
         grid-template-columns: 1fr;
       }
 
-      .monitor-top {
-        align-items: flex-start;
-        flex-direction: column;
+      .health-cell {
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
       }
 
-      .component-row {
-        grid-template-columns: 1fr;
+      .health-cell:last-child {
+        border-bottom: 0;
       }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <header class="topbar">
-      <a class="brand" href="#top" aria-label="모두의입법 Pipeline Monitor">
-        <strong>모두의입법</strong>
-        <span aria-hidden="true"></span>
-      </a>
-      <div class="doc-meta">
-        <span>Pipeline Monitor</span>
-        <span>Token-aligned</span>
-        <span>Rainbow minimal</span>
+    <header class="command-hero">
+      <div class="command-top">
+        <a class="brand" href="#top" aria-label="모두의입법 Pipeline Monitor">
+          <strong>모두의입법</strong>
+          <span aria-hidden="true"></span>
+        </a>
+        <div class="command-meta">
+          <span>impeccable extract</span>
+          <span>shape: command ledger</span>
+          <span>bolder: hierarchy, not effects</span>
+        </div>
+      </div>
+      <div class="hero-body" id="top">
+        <div class="hero-copy">
+          <h1>파이프라인 상태를 읽는 command ledger</h1>
+          <p>
+            브랜드 토큰은 모두의입법과 같게 둔다. 화면은 다르게 설계한다. 이 문서는 실행 테이블, trace stack, raw log를 중심으로 한 데이터 파이프라인 모니터링 UI를 정의한다. 더 강한 인상은 gradient가 아니라 검정 command surface와 ruled ledger 구조에서 나온다.
+          </p>
+        </div>
+        <aside class="brief-stack" aria-label="impeccable design brief">
+          <div class="brief-row">
+            <b>Extract</b>
+            <span>Pretendard, #191919, #96BCFA, #E63946, flat surfaces</span>
+          </div>
+          <div class="brief-row">
+            <b>Shape</b>
+            <span>table-first dashboard with selected run trace stack</span>
+          </div>
+          <div class="brief-row">
+            <b>Bolder</b>
+            <span>stronger contrast, ledger rhythm, restrained brand line</span>
+          </div>
+        </aside>
       </div>
     </header>
 
-    <main id="top">
-      <section class="intro" aria-labelledby="page-title">
-        <div>
-          <h1 id="page-title">브랜드 토큰은 같게, 모니터링 UX는 별도로</h1>
-          <p>
-            Pipeline Monitor는 모두의입법의 폰트, 컬러, 버튼 감각을 사용하지만 시민용 피드 화면을 복제하지 않는다. 이 문서는 파이프라인 운영자가 최근 실행, 실패 단계, fallback, 산출물, 원시 로그를 빠르게 확인할 수 있는 table-first 모니터링 UI를 정의한다.
-          </p>
-        </div>
-        <aside class="direction-box" aria-label="디자인 방향 요약">
-          <div class="direction-row">
-            <span class="direction-key">유지</span>
-            <span class="direction-value">Pretendard, #191919, gray scale, #96BCFA, #E63946</span>
-          </div>
-          <div class="direction-row">
-            <span class="direction-key">변경</span>
-            <span class="direction-value">피드형 UI가 아니라 실행 테이블과 로그 중심 운영 화면</span>
-          </div>
-          <div class="direction-row">
-            <span class="direction-key">제한</span>
-            <span class="direction-value">레인보우는 wordmark underline과 문서 예시에만 사용</span>
-          </div>
-        </aside>
-      </section>
+    <div class="doc-layout">
+      <nav class="side-nav" aria-label="문서 내비게이션">
+        <a href="#extract">Extract</a>
+        <a href="#tokens">Tokens</a>
+        <a href="#shape">Shape</a>
+        <a href="#monitor">Monitor Preview</a>
+        <a href="#components">Components</a>
+        <a href="#checklist">Checklist</a>
+      </nav>
 
-      <div class="layout">
-        <nav class="side-nav" aria-label="문서 내비게이션">
-          <a href="#tokens">토큰</a>
-          <a href="#rainbow">레인보우 사용</a>
-          <a href="#preview">모니터링 화면</a>
-          <a href="#components">컴포넌트</a>
-          <a href="#states">상태 언어</a>
-          <a href="#checklist">구현 체크리스트</a>
-        </nav>
-
-        <div>
-          <section id="tokens">
-            <div class="section-head">
-              <h2>브랜드 토큰</h2>
-              <p>
-                색상과 폰트는 모두의입법 웹에서 가져온다. 다만 토큰을 가져온다는 것은 기존 화면 구조까지 가져온다는 뜻이 아니다. 운영 화면에서는 정보 밀도와 오류 추적성이 우선이다.
-              </p>
+      <main class="content">
+        <section class="section" id="extract">
+          <div class="section-head">
+            <h2>Extract 결과</h2>
+            <p>
+              기존 웹에서 가져오는 것은 브랜드 재료다. 시민용 피드, 모바일 floating nav, 검색 진입점의 UX를 그대로 옮기지 않는다.
+            </p>
+          </div>
+          <div class="section-body">
+            <div class="extract-grid">
+              <article class="extract-item">
+                <strong>Typography</strong>
+                <p>Pretendard 하나로 한글 UI 계층을 만든다. run id, path, JSON key는 mono로 전환한다.</p>
+              </article>
+              <article class="extract-item">
+                <strong>Color</strong>
+                <p>중립 흰색/회색, #191919 ink, #96BCFA focus/info, #E63946 failure를 그대로 사용한다.</p>
+              </article>
+              <article class="extract-item">
+                <strong>Surface</strong>
+                <p>flat by default. 정보 패널은 shadow보다 1px ruled border와 밀도 있는 spacing으로 구분한다.</p>
+              </article>
+              <article class="extract-item">
+                <strong>Rainbow</strong>
+                <p>브랜드 hairline과 wordmark underline으로만 남긴다. 버튼, 차트, 상태에는 쓰지 않는다.</p>
+              </article>
+              <article class="extract-item">
+                <strong>Buttons</strong>
+                <p>검정 primary와 회색 secondary는 유지하되, 운영 도구에서는 radius 8px 기본값을 사용한다.</p>
+              </article>
+              <article class="extract-item">
+                <strong>States</strong>
+                <p>성공, 실패, 실행 중, fallback, 알 수 없음은 색상과 텍스트 라벨을 함께 사용한다.</p>
+              </article>
             </div>
+          </div>
+        </section>
+
+        <section class="section" id="tokens">
+          <div class="section-head">
+            <h2>토큰</h2>
+            <p>
+              대비를 위해 작은 텍스트는 기존 muted보다 진한 값을 사용한다. `#999999`는 보조 메타 이상으로만 제한한다.
+            </p>
+          </div>
+          <div class="section-body">
             <div class="token-grid" aria-label="디자인 토큰">
-              <div class="token">
-                <div class="token-swatch" style="background:#191919"></div>
-                <div class="token-body"><strong>primary-3</strong><code>#191919</code></div>
-              </div>
-              <div class="token">
-                <div class="token-swatch" style="background:#96bcfa"></div>
-                <div class="token-body"><strong>primary-2</strong><code>#96BCFA</code></div>
-              </div>
-              <div class="token">
-                <div class="token-swatch" style="background:#f5f7fd"></div>
-                <div class="token-body"><strong>primary-1</strong><code>#F5F7FD</code></div>
-              </div>
-              <div class="token">
-                <div class="token-swatch" style="background:#e63946"></div>
-                <div class="token-body"><strong>theme-alert</strong><code>#E63946</code></div>
-              </div>
-              <div class="token">
-                <div class="token-swatch" style="background:#ebebeb"></div>
-                <div class="token-body"><strong>gray-0.5</strong><code>#EBEBEB</code></div>
-              </div>
-              <div class="token">
-                <div class="token-swatch" style="background:#e0e0e0"></div>
-                <div class="token-body"><strong>gray-1</strong><code>#E0E0E0</code></div>
-              </div>
-              <div class="token">
-                <div class="token-swatch" style="background:#555555"></div>
-                <div class="token-body"><strong>gray-3</strong><code>#555555</code></div>
-              </div>
-              <div class="token">
-                <div class="token-swatch" style="background:#101012"></div>
-                <div class="token-body"><strong>dark-b</strong><code>#101012</code></div>
-              </div>
+              <div class="token"><div class="swatch" style="background:#191919"></div><div><strong>ink</strong><code>#191919</code></div></div>
+              <div class="token"><div class="swatch" style="background:#96bcfa"></div><div><strong>soft-blue</strong><code>#96BCFA</code></div></div>
+              <div class="token"><div class="swatch" style="background:#e63946"></div><div><strong>alert</strong><code>#E63946</code></div></div>
+              <div class="token"><div class="swatch" style="background:#f5f7fd"></div><div><strong>paper-blue</strong><code>#F5F7FD</code></div></div>
+              <div class="token"><div class="swatch" style="background:#e0e0e0"></div><div><strong>line</strong><code>#E0E0E0</code></div></div>
+              <div class="token"><div class="swatch" style="background:linear-gradient(90deg,#fbeb59,#fc56d8 31%,#10d9ef 65%,#6cf880)"></div><div><strong>brand line</strong><code>minimal</code></div></div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section id="rainbow">
-            <div class="section-head">
-              <h2>레인보우 사용 원칙</h2>
-              <p>
-                레인보우 그라디언트는 모두의입법의 브랜드 서명이다. 모니터링 화면에서는 눈에 띄는 장식이 아니라, 이 서비스가 모두의입법 계열이라는 최소한의 단서로만 사용한다.
-              </p>
+        <section class="section" id="shape">
+          <div class="section-head">
+            <h2>Shape brief</h2>
+            <p>
+              물리적 장면은 밝은 작업 환경에서 배포 직후 상태를 빠르게 확인하는 운영자다. 그래서 light surface를 유지하고, command 영역만 검정으로 단단하게 잡는다.
+            </p>
+          </div>
+          <div class="section-body">
+            <div class="spec-table">
+              <div class="spec-row">
+                <strong>Primary action</strong>
+                <span>이상 run을 선택한다.</span>
+                <span>오른쪽 trace stack에서 실패 단계와 raw log를 확인한다.</span>
+              </div>
+              <div class="spec-row">
+                <strong>Layout</strong>
+                <span>상단 command bar, compact toolbar, left ledger table, right trace stack.</span>
+                <span>하단 raw log panel은 필요할 때 확장한다.</span>
+              </div>
+              <div class="spec-row">
+                <strong>Visual lane</strong>
+                <span>GitHub Actions의 추적성, Linear table의 밀도, Raycast settings의 단단한 컨트롤.</span>
+                <span>브랜드성은 색과 폰트로만 연결한다.</span>
+              </div>
             </div>
-            <div class="rules">
-              <article class="rule">
-                <h3>허용</h3>
-                <p>상단 2px 라인, wordmark underline, 브랜드 토큰 설명의 단일 예시. 한 화면에 1-2회 정도만 등장한다.</p>
-              </article>
-              <article class="rule">
-                <h3>금지</h3>
-                <p>gradient button, gradient pill, gradient chart, 코드 패널 상단 반복 라인, 상태색을 rainbow stop으로 매핑하는 방식.</p>
-              </article>
-            </div>
-          </section>
+          </div>
+        </section>
 
-          <section id="preview">
-            <div class="section-head">
-              <h2>모니터링 화면 구조</h2>
-              <p>
-                1차 화면은 table-first다. 운영자는 최근 실행 이력을 비교하고, 선택한 run의 단계와 로그를 오른쪽 패널에서 바로 확인한다.
-              </p>
-            </div>
-
-            <div class="monitor-preview" aria-label="Pipeline Monitor 화면 예시">
-              <header class="monitor-top">
+        <section class="section" id="monitor">
+          <div class="section-head">
+            <h2>Monitor preview</h2>
+            <p>
+              이 예시는 앱 구현의 1차 화면 방향이다. 카드 그리드가 아니라 실행 ledger와 선택 run trace를 한 화면에서 읽는다.
+            </p>
+          </div>
+          <div class="section-body">
+            <div class="monitor-shell" aria-label="Pipeline Monitor 화면 예시">
+              <header class="monitor-bar">
                 <div class="monitor-title">
                   <strong>Pipeline Monitor</strong>
-                  <span>prod · 마지막 갱신 2026-05-19 22:31 KST</span>
+                  <span>prod · /var/log/lawdigest-pipeline · updated 22:47 KST</span>
                 </div>
-                <button class="refresh-button" type="button">
-                  <span class="material-symbols-outlined">refresh</span>
-                  새로고침
-                </button>
+                <button class="refresh" type="button"><span class="material-symbols-outlined">refresh</span>새로고침</button>
               </header>
 
               <div class="toolbar" aria-label="필터 도구">
                 <div class="control">최근 24시간</div>
                 <div class="control">상태: 전체</div>
-                <div class="control search">run id, command, artifact 검색</div>
+                <div class="control">provider: all</div>
+                <div class="control search">run id, command, artifact path</div>
                 <div class="control">자동 30초</div>
               </div>
 
               <div class="monitor-grid">
-                <div class="main-pane">
-                  <div class="health-strip">
-                    <div class="health-item">
-                      <span class="health-label">마지막 성공</span>
-                      <span class="health-value">21:04</span>
-                      <span class="health-note">5건 요약 완료</span>
+                <div class="ledger">
+                  <div class="health">
+                    <div class="health-cell">
+                      <span class="label">마지막 성공</span>
+                      <span class="value">21:04</span>
+                      <span class="note">5건 요약 완료</span>
                     </div>
-                    <div class="health-item">
-                      <span class="health-label">마지막 실패</span>
-                      <span class="health-value">20:18</span>
-                      <span class="health-note">ingest timeout</span>
+                    <div class="health-cell">
+                      <span class="label">마지막 실패</span>
+                      <span class="value" style="color:var(--alert)">20:18</span>
+                      <span class="note">ingest timeout</span>
                     </div>
-                    <div class="health-item">
-                      <span class="health-label">실행 중</span>
-                      <span class="health-value">1</span>
-                      <span class="health-note">bill.status_sync</span>
+                    <div class="health-cell">
+                      <span class="label">실행 중</span>
+                      <span class="value">1</span>
+                      <span class="note">status_sync</span>
                     </div>
-                    <div class="health-item">
-                      <span class="health-label">fallback</span>
-                      <span class="health-value">1</span>
-                      <span class="health-note">Codex CLI</span>
+                    <div class="health-cell">
+                      <span class="label">fallback</span>
+                      <span class="value">1</span>
+                      <span class="note">Codex CLI</span>
                     </div>
                   </div>
 
@@ -969,14 +1006,14 @@
                         </tr>
                       </thead>
                       <tbody>
-                        <tr>
+                        <tr class="is-selected">
                           <td><span class="badge success">성공</span></td>
                           <td>21:04:01</td>
                           <td><code>summary:latest</code></td>
                           <td>Gemini CLI</td>
                           <td>2분 18초</td>
                           <td>5건</td>
-                          <td class="muted">-</td>
+                          <td>-</td>
                           <td>JSON, MD</td>
                         </tr>
                         <tr>
@@ -997,16 +1034,16 @@
                           <td>48초</td>
                           <td>0건</td>
                           <td>timeout</td>
-                          <td class="muted">-</td>
+                          <td>-</td>
                         </tr>
                         <tr>
                           <td><span class="badge running">실행 중</span></td>
-                          <td>22:30:12</td>
+                          <td>22:45:12</td>
                           <td><code>bill.status_sync</code></td>
                           <td>Runtime</td>
                           <td>1분 04초</td>
                           <td>검증 중</td>
-                          <td class="muted">-</td>
+                          <td>-</td>
                           <td>대기</td>
                         </tr>
                       </tbody>
@@ -1014,9 +1051,9 @@
                   </div>
                 </div>
 
-                <aside class="detail-pane" aria-label="선택된 실행 상세">
-                  <div class="pane-section">
-                    <h3>선택된 run</h3>
+                <aside class="trace" aria-label="선택된 실행 상세">
+                  <div class="trace-section">
+                    <h3>Selected run</h3>
                     <div class="meta-grid">
                       <span>run_id</span><code>run_20260519_210401</code>
                       <span>command</span><code>summary:latest</code>
@@ -1025,45 +1062,37 @@
                     </div>
                   </div>
 
-                  <div class="pane-section">
-                    <h3>단계 타임라인</h3>
+                  <div class="trace-section">
+                    <h3>Step stack</h3>
                     <div class="steps">
                       <div class="step">
-                        <span class="dot"></span>
+                        <span class="mark"></span>
                         <span><strong>log read</strong><span>JSONL 이벤트 14줄 읽음</span></span>
                         <span class="badge success">성공</span>
                       </div>
                       <div class="step">
-                        <span class="dot"></span>
+                        <span class="mark"></span>
                         <span><strong>Gemini CLI summary</strong><span>최신 법안 5건 요약</span></span>
                         <span class="badge success">성공</span>
                       </div>
                       <div class="step">
-                        <span class="dot"></span>
+                        <span class="mark"></span>
                         <span><strong>structured validation</strong><span>Pydantic schema 통과</span></span>
                         <span class="badge success">성공</span>
                       </div>
                     </div>
                   </div>
 
-                  <div class="pane-section">
-                    <h3>산출물</h3>
-                    <div class="artifact-list">
-                      <div class="artifact">
-                        <code>latest-bills-summary.json</code>
-                        <span>18 KB</span>
-                      </div>
-                      <div class="artifact">
-                        <code>latest-bills-summary.md</code>
-                        <span>9 KB</span>
-                      </div>
-                    </div>
+                  <div class="trace-section">
+                    <h3>Artifacts</h3>
+                    <div class="artifact"><code>latest-bills-summary.json</code><span>18 KB</span></div>
+                    <div class="artifact"><code>latest-bills-summary.md</code><span>9 KB</span></div>
                   </div>
                 </aside>
               </div>
 
               <div class="log-panel">
-                <div class="log-header">
+                <div class="log-head">
                   <strong>Raw JSONL preview</strong>
                   <span>secrets masked · copy available</span>
                 </div>
@@ -1080,87 +1109,47 @@
 }</code></pre>
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          <section id="components">
-            <div class="section-head">
-              <h2>컴포넌트 기준</h2>
-              <p>
-                핵심 컴포넌트는 운영자가 실행 이력을 비교하고 오류를 추적하는 순서로 설계한다. 장식용 컴포넌트보다 상태, 필터, 표, 상세, 로그가 우선이다.
-              </p>
+        <section class="section" id="components">
+          <div class="section-head">
+            <h2>컴포넌트</h2>
+            <p>
+              구현은 아래 컴포넌트를 먼저 잡는다. 이 순서가 곧 사용자 판단 순서다.
+            </p>
+          </div>
+          <div class="section-body">
+            <div class="spec-table">
+              <div class="spec-row"><strong>CommandBar</strong><span>환경, 로그 경로, 갱신 상태를 담는 검정 command surface.</span><span>Rainbow는 wordmark underline에만 사용한다.</span></div>
+              <div class="spec-row"><strong>HealthLedger</strong><span>마지막 성공, 마지막 실패, 실행 중, fallback을 한 줄로 표시.</span><span>KPI 카드 그리드 대신 ledger row로 구성한다.</span></div>
+              <div class="spec-row"><strong>RunLedgerTable</strong><span>최근 실행 비교의 중심 컴포넌트.</span><span>선택 row는 paper-blue 배경으로만 표시한다.</span></div>
+              <div class="spec-row"><strong>TraceStack</strong><span>선택 run의 metadata, step, artifact, error를 오른쪽에서 추적.</span><span>Step marker는 작은 square로 유지한다.</span></div>
+              <div class="spec-row"><strong>LogPanel</strong><span>JSONL 원문과 traceback을 확인하는 dark panel.</span><span>Gradient top border 없이 mono와 대비로 구분한다.</span></div>
             </div>
-            <div class="component-table">
-              <div class="component-row">
-                <strong>SystemHeader</strong>
-                <span>브랜드와 환경, 마지막 갱신 시각 표시</span>
-                <span>wordmark 아래에만 얇은 레인보우 underline 사용</span>
-              </div>
-              <div class="component-row">
-                <strong>ControlToolbar</strong>
-                <span>기간, 상태, command, 검색, refresh 제어</span>
-                <span>48-56px 높이의 단단한 toolbar</span>
-              </div>
-              <div class="component-row">
-                <strong>HealthStrip</strong>
-                <span>마지막 성공/실패, 실행 중, fallback 요약</span>
-                <span>4개 이하 항목, 텍스트 우선</span>
-              </div>
-              <div class="component-row">
-                <strong>RunTable</strong>
-                <span>최근 실행 비교와 필터링의 중심</span>
-                <span>상태, 시작, command, provider, 오류, 산출물 열 필수</span>
-              </div>
-              <div class="component-row">
-                <strong>RunDetailPanel</strong>
-                <span>선택한 run의 metadata, step, artifacts 확인</span>
-                <span>desktop right panel, mobile single column</span>
-              </div>
-              <div class="component-row">
-                <strong>LogPanel</strong>
-                <span>JSONL 원문과 traceback 확인</span>
-                <span>dark-b 배경, mono, 가로 스크롤</span>
-              </div>
-            </div>
-          </section>
+          </div>
+        </section>
 
-          <section id="states">
-            <div class="section-head">
-              <h2>상태 언어</h2>
-              <p>
-                상태는 색상만으로 전달하지 않는다. 모든 상태는 작은 badge와 한글 라벨, 필요 시 오류 요약을 함께 제공한다.
-              </p>
-            </div>
-            <div class="rules">
-              <article class="rule">
-                <h3>성공 / 실행 중</h3>
-                <p><span class="badge success">성공</span>은 산출물 생성 여부를 함께 보여준다. <span class="badge running">실행 중</span>은 시작 시각과 경과 시간을 반드시 포함한다.</p>
-              </article>
-              <article class="rule">
-                <h3>실패 / fallback</h3>
-                <p><span class="badge failed">실패</span>는 실패 단계와 오류 첫 줄을 보여준다. <span class="badge warning">fallback</span>은 대체 provider와 원인을 표시한다.</p>
-              </article>
-            </div>
-          </section>
-
-          <section id="checklist">
-            <div class="section-head">
-              <h2>구현 체크리스트</h2>
-              <p>
-                실제 구현 단계에서는 아래 기준을 만족해야 한다. 특히 레인보우 사용량과 read-only 범위를 유지하는 것이 중요하다.
-              </p>
-            </div>
+        <section class="section" id="checklist">
+          <div class="section-head">
+            <h2>구현 체크리스트</h2>
+            <p>
+              `bolder`의 결과는 더 강한 위계이지 더 많은 효과가 아니다. 검증 기준도 그에 맞춰 둔다.
+            </p>
+          </div>
+          <div class="section-body">
             <ul class="checklist">
-              <li><span class="check">1</span><span>Pretendard, Material Symbols, 모두의입법 색상 토큰을 동일하게 적용한다.</span></li>
-              <li><span class="check">2</span><span>레인보우는 상단 브랜드 라인과 wordmark underline 정도로 제한한다.</span></li>
-              <li><span class="check">3</span><span>첫 화면은 HealthStrip, ControlToolbar, RunTable, RunDetailPanel로 구성한다.</span></li>
-              <li><span class="check">4</span><span>LogPanel은 dark-b, mono, raw/pretty view를 제공한다.</span></li>
+              <li><span class="check">1</span><span>모두의입법 토큰과 Pretendard를 사용한다.</span></li>
+              <li><span class="check">2</span><span>첫 화면은 command bar, ledger table, trace stack으로 구성한다.</span></li>
+              <li><span class="check">3</span><span>레인보우는 브랜드 hairline과 wordmark underline으로 제한한다.</span></li>
+              <li><span class="check">4</span><span>모든 작은 텍스트는 WCAG AA 대비를 확인한다.</span></li>
               <li><span class="check">5</span><span>MVP에는 실행, 재시도, 삭제, 롤백 버튼을 넣지 않는다.</span></li>
-              <li><span class="check">6</span><span>실제 집계 데이터 없는 차트와 장식용 gradient UI를 만들지 않는다.</span></li>
+              <li><span class="check">6</span><span>실제 집계 없는 차트와 장식용 gradient UI를 만들지 않는다.</span></li>
             </ul>
-          </section>
-        </div>
-      </div>
-    </main>
+          </div>
+        </section>
+      </main>
+    </div>
   </div>
 </body>
 </html>
