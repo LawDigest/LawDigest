@@ -202,6 +202,7 @@ class GeminiCliSummarizer:
                 self.approval_mode,
                 "--output-format",
                 "text",
+                "--skip-trust",
             ]
             if requested_model:
                 command.extend(["--model", requested_model])
@@ -249,9 +250,30 @@ class GeminiCliSummarizer:
     ) -> str:
         env = os.environ.copy()
         requested_model = model_name or self.model
+        temp_home: tempfile.TemporaryDirectory[str] | None = None
         if self.cli_home:
             os.makedirs(self.cli_home, exist_ok=True)
             env["HOME"] = self.cli_home
+        if self.provider == "gemini":
+            env["GEMINI_CLI_TRUST_WORKSPACE"] = "true"
+            env["TERM"] = "xterm-256color"
+            env["COLORTERM"] = "truecolor"
+            if not self.cli_home and env.get("GEMINI_API_KEY"):
+                temp_home = tempfile.TemporaryDirectory(prefix="lawdigest-gemini-home-")
+                gemini_home = Path(temp_home.name) / ".gemini"
+                gemini_home.mkdir(parents=True, exist_ok=True)
+                (gemini_home / "settings.json").write_text(
+                    json.dumps(
+                        {
+                            "security": {"auth": {"selectedType": "gemini-api-key"}},
+                            "output": {"format": "text"},
+                            "general": {"defaultApprovalMode": self.approval_mode},
+                        },
+                        ensure_ascii=False,
+                    ),
+                    encoding="utf-8",
+                )
+                env["HOME"] = temp_home.name
 
         output_file: tempfile.NamedTemporaryFile[str] | None = None
         output_path: str | None = None
@@ -299,6 +321,8 @@ class GeminiCliSummarizer:
                     Path(output_path).unlink(missing_ok=True)
                 except Exception:
                     pass
+            if temp_home is not None:
+                temp_home.cleanup()
 
     def _summarize_one(
         self, row: Dict[str, Any], model: Optional[str] = None
