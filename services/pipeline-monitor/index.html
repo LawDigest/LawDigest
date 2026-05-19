@@ -1,0 +1,1496 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>모두의입법 Pipeline Monitor</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard-dynamic-subset.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block">
+  <style>
+    :root {
+      --ink: #151515;
+      --ink-2: #1e1e1e;
+      --paper: #fbfaf7;
+      --surface: #ffffff;
+      --wash: #f7f8fa;
+      --wash-blue: #f5f8ff;
+      --line: #deded8;
+      --line-soft: #eeeeea;
+      --text: #222222;
+      --muted: #6a6a66;
+      --faint: #90908c;
+      --blue: #3a7ee8;
+      --blue-soft: #9cbfff;
+      --green: #17a45b;
+      --red: #d4313d;
+      --orange: #a95700;
+      --black: #111111;
+      --rainbow: linear-gradient(90deg, #ef4454 0%, #f2a23a 16%, #f6e85d 31%, #40c678 48%, #38a2e8 64%, #6950c8 80%, #d4429b 100%);
+      --font: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Noto Sans KR", sans-serif;
+      --mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-width: 1568px;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 35% 7%, rgba(30, 30, 30, 0.035), transparent 32%),
+        var(--paper);
+      color: var(--text);
+      font-family: var(--font);
+      letter-spacing: 0;
+    }
+
+    body {
+      overflow-x: auto;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      min-height: 100vh;
+      padding: 65px 31px 32px;
+    }
+
+    .rainbow-line {
+      position: absolute;
+      top: 19px;
+      left: 31px;
+      right: 31px;
+      height: 2px;
+      background: var(--rainbow);
+    }
+
+    .scene {
+      display: grid;
+      grid-template-columns: 1372px 322px;
+      gap: 32px;
+      align-items: start;
+      transform: scale(0.872);
+      transform-origin: top left;
+    }
+
+    .desktop-app {
+      overflow: hidden;
+      height: 920px;
+      border: 1px solid #202020;
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 20px 44px rgba(25, 25, 25, 0.16);
+      display: grid;
+      grid-template-columns: 158px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      position: relative;
+      background:
+        radial-gradient(circle at 52% 60%, rgba(255, 255, 255, 0.04), transparent 30%),
+        #121212;
+      color: #f5f5f2;
+      border-right: 1px solid #2a2a2a;
+      padding: 31px 22px 24px;
+    }
+
+    .wordmark {
+      display: inline-grid;
+      gap: 9px;
+      color: #ffffff;
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .wordmark::after {
+      content: "";
+      width: 74px;
+      height: 2px;
+      background: var(--rainbow);
+    }
+
+    .nav {
+      display: grid;
+      gap: 6px;
+      margin-top: 43px;
+    }
+
+    .nav-item {
+      display: grid;
+      grid-template-columns: 22px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 40px;
+      margin: 0 -14px;
+      padding: 0 14px;
+      border-radius: 4px;
+      color: #ececea;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .nav-item.is-active {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-item .material-symbols-outlined {
+      font-size: 18px;
+      color: #ffffff;
+    }
+
+    .nav-badge {
+      min-width: 18px;
+      height: 18px;
+      border-radius: 9px;
+      background: var(--red);
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 18px;
+      text-align: center;
+    }
+
+    .sidebar-foot {
+      position: absolute;
+      left: 28px;
+      bottom: 34px;
+      display: grid;
+      gap: 4px;
+      color: #d8d8d5;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .sidebar-foot span:first-child {
+      position: relative;
+      padding-left: 14px;
+    }
+
+    .sidebar-foot span:first-child::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 7px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #26d777;
+    }
+
+    .sidebar-foot small {
+      color: #8b8b86;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .app-main {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: 75px 51px minmax(0, 1fr);
+      background: #fbfbfa;
+    }
+
+    .command-bar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 420px;
+      align-items: center;
+      gap: 18px;
+      min-width: 0;
+      padding: 0 20px;
+      background: linear-gradient(180deg, #181818 0%, #121212 100%);
+      border-bottom: 1px solid #2b2b2b;
+      color: #f5f5f2;
+    }
+
+    .command-left,
+    .command-right,
+    .chip-row {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .command-left {
+      gap: 17px;
+    }
+
+    .command-right {
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    .field-label {
+      color: #cfcfca;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .select,
+    .chip,
+    .search,
+    .avatar,
+    .refresh-icon {
+      border: 1px solid #3b3b3b;
+      background: #1c1c1c;
+      color: #f3f3f0;
+    }
+
+    .select {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 126px;
+      height: 36px;
+      padding: 0 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .select span:first-child {
+      position: relative;
+      padding-left: 18px;
+    }
+
+    .select span:first-child::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 6px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #27d478;
+    }
+
+    .select .material-symbols-outlined {
+      font-size: 16px;
+      color: #d7d7d3;
+    }
+
+    .chip-row {
+      gap: 7px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 29px;
+      padding: 0 10px;
+      border-radius: 15px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .chip::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--blue);
+    }
+
+    .chip.codex::before {
+      background: var(--orange);
+    }
+
+    .chip.claude::before {
+      background: var(--green);
+    }
+
+    .updated {
+      color: #d6d6d1;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .refresh-icon,
+    .avatar {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+    }
+
+    .refresh-icon {
+      border: 0;
+      background: transparent;
+    }
+
+    .refresh-icon .material-symbols-outlined {
+      font-size: 18px;
+    }
+
+    .search {
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      align-items: center;
+      gap: 8px;
+      width: 236px;
+      height: 36px;
+      padding: 0 11px;
+      border-radius: 7px;
+      background: #242424;
+      color: #c9c9c5;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    .search .material-symbols-outlined {
+      color: #f4f4f1;
+      font-size: 18px;
+    }
+
+    .search span:nth-child(2) {
+      color: #a8a8a3;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .kbd {
+      padding: 2px 4px;
+      border-radius: 4px;
+      background: #3b3b3b;
+      color: #dededa;
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .avatar {
+      background: #343434;
+      border: 0;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .status-rail {
+      display: grid;
+      grid-template-columns: 178px 226px 188px 205px 190px 1fr;
+      align-items: center;
+      min-width: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .status-cell {
+      height: 51px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 20px;
+      border-right: 1px solid var(--line-soft);
+      color: #1f1f1e;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .status-cell::before,
+    .row-status::before,
+    .phone-filter::before,
+    .legend span::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .status-cell.running,
+    .row-status.running,
+    .legend .running {
+      color: var(--blue);
+    }
+
+    .status-cell.success,
+    .row-status.success,
+    .legend .success {
+      color: var(--green);
+    }
+
+    .status-cell.failed,
+    .row-status.failed,
+    .legend .failed {
+      color: var(--red);
+    }
+
+    .status-cell.warning,
+    .row-status.warning,
+    .legend .warning {
+      color: var(--orange);
+    }
+
+    .status-cell.fallback,
+    .legend .fallback {
+      color: var(--black);
+    }
+
+    .status-cell.schema {
+      color: var(--red);
+    }
+
+    .status-cell b {
+      margin-left: 5px;
+      color: #1e1e1e;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 397px;
+      min-height: 0;
+    }
+
+    .ledger {
+      min-width: 0;
+      padding: 22px 22px 18px;
+      background: #fcfcfb;
+    }
+
+    .incident {
+      height: 72px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 17px;
+      padding: 0 19px;
+      border: 1px solid #f0be84;
+      border-radius: 7px;
+      background: #fffdf9;
+      box-shadow:
+        inset 3px 0 0 var(--orange),
+        0 1px 0 rgba(255,255,255,0.9) inset;
+    }
+
+    .incident-icon {
+      display: grid;
+      place-items: center;
+      color: var(--orange);
+    }
+
+    .incident-icon .material-symbols-outlined {
+      font-size: 28px;
+      font-variation-settings: "FILL" 1;
+    }
+
+    .incident-copy {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      min-width: 0;
+      color: #30302d;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .incident-copy strong {
+      color: var(--orange);
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    .detail-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      height: 34px;
+      padding: 0 13px;
+      border: 1px solid #d2d2cc;
+      border-radius: 5px;
+      background: #ffffff;
+      color: #2d2d2a;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .detail-button .material-symbols-outlined {
+      font-size: 17px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin: 36px 0 18px;
+      color: #222220;
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .section-title span {
+      color: #666661;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .runs-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 12px;
+    }
+
+    .runs-table th {
+      padding: 0 12px 12px;
+      color: #3b3b38;
+      font-size: 11px;
+      font-weight: 900;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .runs-table td {
+      height: 49px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line-soft);
+      color: #333330;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .runs-table tr.is-selected td {
+      border-top: 1px solid var(--blue-soft);
+      border-bottom: 1px solid var(--blue-soft);
+      background: var(--wash-blue);
+    }
+
+    .runs-table tr.is-selected td:first-child {
+      border-left: 1px solid var(--blue-soft);
+      border-radius: 4px 0 0 4px;
+    }
+
+    .runs-table tr.is-selected td:last-child {
+      border-right: 1px solid var(--blue-soft);
+      border-radius: 0 4px 4px 0;
+    }
+
+    .row-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 11px;
+      font-weight: 900;
+    }
+
+    .runs-table code {
+      font-family: var(--font);
+      color: #2d2d2a;
+      font-weight: 700;
+    }
+
+    .chevron {
+      text-align: right;
+      color: #666661;
+    }
+
+    .pager {
+      height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      color: #30302e;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .page-num,
+    .per-page {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 25px;
+      min-width: 25px;
+      border: 1px solid #cfcfca;
+      border-radius: 3px;
+      background: #ffffff;
+    }
+
+    .per-page {
+      margin-left: 94px;
+      min-width: 78px;
+      gap: 6px;
+      color: #6d6d68;
+      font-size: 11px;
+    }
+
+    .trace {
+      min-width: 0;
+      border-left: 1px solid var(--line);
+      background: #fcfcfb;
+      padding: 20px 17px 18px;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+    }
+
+    .trace-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 19px;
+    }
+
+    .trace-head strong {
+      color: #20201f;
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .trace-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #888882;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .retry {
+      height: 30px;
+      padding: 0 11px;
+      border: 1px solid #d2d2cd;
+      border-radius: 4px;
+      background: #ffffff;
+      color: #3a3a37;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .trace-status {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 17px;
+      color: var(--red);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .trace-status strong {
+      color: #252522;
+      font-size: 14px;
+    }
+
+    .trace-meta {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      row-gap: 10px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+      color: #333330;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .trace-meta span:nth-child(odd) {
+      color: #6e6e69;
+      font-weight: 800;
+    }
+
+    .steps-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 17px 0 11px;
+      color: #222220;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .schema-pill {
+      display: inline-flex;
+      align-items: center;
+      height: 26px;
+      padding: 0 10px;
+      border-radius: 13px;
+      background: #ffe7e7;
+      color: var(--red);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .step-list {
+      display: grid;
+      grid-template-columns: 1fr 1px 135px;
+      min-height: 174px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .steps-left {
+      display: grid;
+      gap: 0;
+      padding-right: 15px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 34px;
+      color: #3f3f3b;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .step-dot {
+      display: grid;
+      place-items: center;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--green);
+      color: #ffffff;
+      font-size: 9px;
+      font-weight: 900;
+    }
+
+    .step-dot.error {
+      background: var(--red);
+    }
+
+    .step-dot.blank {
+      background: #c8c8c3;
+    }
+
+    .step small {
+      display: block;
+      margin-top: 2px;
+      color: #666661;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .step-time {
+      color: #62625e;
+      font-size: 10px;
+      font-family: var(--mono);
+    }
+
+    .schema-col {
+      padding-left: 14px;
+      color: var(--red);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .raw-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 18px 0 10px;
+      color: #222220;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .raw-buttons {
+      display: flex;
+      gap: 7px;
+    }
+
+    .raw-buttons button {
+      height: 26px;
+      padding: 0 9px;
+      border: 1px solid #d8d8d2;
+      border-radius: 4px;
+      background: #ffffff;
+      color: #5d5d58;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .log-box {
+      overflow: hidden;
+      border: 1px solid #111;
+      border-radius: 5px;
+      background: #111111;
+      color: #a7a7a0;
+      font-family: var(--mono);
+      font-size: 10px;
+      line-height: 1.65;
+      min-height: 257px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    .log-row {
+      display: grid;
+      grid-template-columns: 42px 1fr;
+      border-bottom: 1px solid #2a2a2a;
+    }
+
+    .log-row span:first-child {
+      color: #54544e;
+      padding: 0 11px;
+    }
+
+    .log-row span:last-child {
+      color: #b5b5ae;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .phone-shell {
+      width: 322px;
+      height: 775px;
+      margin-top: 146px;
+      padding: 10px;
+      border-radius: 36px;
+      background: #161616;
+      box-shadow: 0 21px 45px rgba(25, 25, 25, 0.26);
+    }
+
+    .phone {
+      overflow: hidden;
+      height: 100%;
+      border: 1px solid #2c2c2c;
+      border-radius: 28px;
+      background: #f8f8f5;
+      display: grid;
+      grid-template-rows: 92px minmax(0, 1fr) 76px;
+    }
+
+    .phone-top {
+      background: #111111;
+      color: #ffffff;
+      padding: 13px 13px 11px;
+    }
+
+    .phone-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 0 2px 17px;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .phone-status .material-symbols-outlined {
+      font-size: 15px;
+    }
+
+    .phone-brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .phone-brand span:first-child::after {
+      content: "";
+      display: block;
+      width: 70px;
+      height: 2px;
+      margin-top: 7px;
+      background: var(--rainbow);
+    }
+
+    .phone-body {
+      overflow: hidden;
+      padding: 13px 10px 0;
+    }
+
+    .phone-alert {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 8px;
+      min-height: 53px;
+      padding: 9px 10px;
+      border: 1px solid #efc58d;
+      border-radius: 5px;
+      background: #fffdf8;
+      box-shadow: inset 3px 0 0 var(--orange);
+      color: #2d2d2a;
+    }
+
+    .phone-alert .material-symbols-outlined {
+      color: var(--orange);
+      font-size: 23px;
+      font-variation-settings: "FILL" 1;
+    }
+
+    .phone-alert strong {
+      display: block;
+      color: var(--orange);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .phone-alert span {
+      color: #5e5e59;
+      font-size: 9px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .phone-detail {
+      height: 25px;
+      padding: 0 8px;
+      border: 1px solid #dcdcd6;
+      border-radius: 4px;
+      background: #ffffff;
+      color: #44443f;
+      font-size: 9px;
+      font-weight: 900;
+    }
+
+    .phone-filters {
+      display: flex;
+      gap: 7px;
+      margin: 13px -10px 11px;
+      padding: 0 10px;
+      overflow: hidden;
+    }
+
+    .phone-filter {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid #d8d8d2;
+      border-radius: 14px;
+      background: #ffffff;
+      color: #6a6a66;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .phone-filter.is-active {
+      background: #111111;
+      border-color: #111111;
+      color: #ffffff;
+    }
+
+    .phone-section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      color: #232320;
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .phone-section-head span {
+      color: #6c6c67;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .phone-runs {
+      display: grid;
+      gap: 8px;
+    }
+
+    .phone-run {
+      min-height: 70px;
+      padding: 10px 10px 9px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #ffffff;
+      box-shadow: inset 3px 0 0 var(--line);
+    }
+
+    .phone-run.failed {
+      border-color: #ef9da2;
+      box-shadow: inset 3px 0 0 var(--red);
+    }
+
+    .phone-run.warning {
+      border-color: #f0bf85;
+      box-shadow: inset 3px 0 0 var(--orange);
+    }
+
+    .phone-run.success {
+      border-color: #89d6ab;
+      box-shadow: inset 3px 0 0 var(--green);
+    }
+
+    .phone-run.running {
+      border-color: #9cc0f2;
+      box-shadow: inset 3px 0 0 var(--blue);
+    }
+
+    .phone-run-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .phone-run-top strong {
+      color: #1f1f1c;
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .phone-run-top span {
+      color: #6a6a66;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .phone-run em {
+      display: block;
+      margin-top: 4px;
+      color: #252522;
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 900;
+    }
+
+    .phone-run-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+      color: #74746f;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .phone-tray {
+      background: #111111;
+      color: #ffffff;
+      padding: 10px 13px 8px;
+    }
+
+    .tray-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .tray-head strong {
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .tray-head span {
+      height: 23px;
+      min-width: 38px;
+      border-radius: 12px;
+      background: #ea4350;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 23px;
+      text-align: center;
+    }
+
+    .tray-id {
+      color: #d8d8d4;
+      font-family: var(--mono);
+      font-size: 9px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .phone-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      margin-top: 10px;
+      color: #d5d5d1;
+      font-size: 9px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .phone-tabs .material-symbols-outlined {
+      display: block;
+      margin: 0 auto 2px;
+      font-size: 16px;
+    }
+
+    .caption {
+      position: absolute;
+      left: 40px;
+      bottom: 27px;
+      display: grid;
+      gap: 6px;
+      color: #686864;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .caption::after {
+      content: "";
+      width: 206px;
+      height: 2px;
+      background: var(--rainbow);
+    }
+
+    .caption small {
+      color: #686864;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .legend {
+      position: absolute;
+      right: 55px;
+      bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      color: #6c6c67;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    @media (max-width: 1510px) {
+      html,
+      body {
+        min-width: 0;
+      }
+
+      .stage {
+        padding-right: 24px;
+        padding-left: 24px;
+      }
+
+      .scene {
+        grid-template-columns: minmax(980px, 1fr);
+      }
+
+      .phone-shell {
+        display: none;
+      }
+
+      .desktop-app {
+        width: 100%;
+      }
+
+      .caption,
+      .legend {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <div class="rainbow-line" aria-hidden="true"></div>
+
+    <section class="scene" aria-label="모두의입법 Pipeline Monitor UI">
+      <div class="desktop-app">
+        <aside class="sidebar" aria-label="사이드바">
+          <a class="wordmark" href="#">모두의입법</a>
+
+          <nav class="nav" aria-label="주요 메뉴">
+            <a class="nav-item is-active" href="#"><span class="material-symbols-outlined">home</span><span>Overview</span></a>
+            <a class="nav-item" href="#"><span class="material-symbols-outlined">table_rows</span><span>Runs</span></a>
+            <a class="nav-item" href="#"><span class="material-symbols-outlined">notifications</span><span>Incidents</span><span class="nav-badge">2</span></a>
+            <a class="nav-item" href="#"><span class="material-symbols-outlined">draft</span><span>Artifacts</span></a>
+            <a class="nav-item" href="#"><span class="material-symbols-outlined">article</span><span>Logs</span></a>
+            <a class="nav-item" href="#"><span class="material-symbols-outlined">settings</span><span>Settings</span></a>
+          </nav>
+
+          <div class="sidebar-foot">
+            <span>Pipeline Monitor</span>
+            <small>v0.3.1</small>
+          </div>
+        </aside>
+
+        <div class="app-main">
+          <header class="command-bar">
+            <div class="command-left">
+              <span class="field-label">환경</span>
+              <button class="select" type="button"><span>prod</span><span class="material-symbols-outlined">expand_more</span></button>
+              <span class="field-label">Provider</span>
+              <div class="chip-row" aria-label="provider 필터">
+                <span class="chip">Gemini CLI</span>
+                <span class="chip codex">Codex CLI</span>
+                <span class="chip claude">Claude CLI</span>
+              </div>
+            </div>
+            <div class="command-right">
+              <span class="updated">업데이트 2초 전</span>
+              <button class="refresh-icon" type="button" aria-label="새로고침"><span class="material-symbols-outlined">refresh</span></button>
+              <div class="search"><span class="material-symbols-outlined">search</span><span>run id, command 검색</span><span class="kbd">⌘K</span></div>
+              <div class="avatar" aria-label="사용자">M</div>
+            </div>
+          </header>
+
+          <div class="status-rail" aria-label="상태 요약">
+            <span class="status-cell running">실행 중 <b>1</b></span>
+            <span class="status-cell success">성공 <b>152</b></span>
+            <span class="status-cell failed">실패 <b>7</b></span>
+            <span class="status-cell warning">주의 필요 <b>3</b></span>
+            <span class="status-cell fallback">Fallback <b>4</b></span>
+            <span class="status-cell schema">검증 실패 <b>2</b></span>
+          </div>
+
+          <div class="workspace">
+            <section class="ledger" aria-label="실행 이력">
+              <div class="incident">
+                <span class="incident-icon"><span class="material-symbols-outlined">warning</span></span>
+                <div class="incident-copy">
+                  <strong>주의 필요</strong>
+                  <span>bill.ingest 실패 · Codex CLI로 fallback 실행됨 · 최근 15분</span>
+                </div>
+                <button class="detail-button" type="button">상세 보기 <span class="material-symbols-outlined">chevron_right</span></button>
+              </div>
+
+              <h2 class="section-title">실행 이력 <span>최근 50건</span></h2>
+
+              <table class="runs-table" aria-label="실행 이력 테이블">
+                <colgroup>
+                  <col style="width: 104px">
+                  <col style="width: 132px">
+                  <col>
+                  <col style="width: 100px">
+                  <col style="width: 82px">
+                  <col style="width: 90px">
+                  <col style="width: 74px">
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>상태</th>
+                    <th>시작 시간</th>
+                    <th>명령 (Command)</th>
+                    <th>Provider</th>
+                    <th>소요 시간</th>
+                    <th>처리 항목</th>
+                    <th>산출물</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="is-selected">
+                    <td><span class="row-status failed">실패</span></td>
+                    <td>2026-05-19 21:04:12</td>
+                    <td><code>bill.ingest</code></td>
+                    <td>Gemini CLI</td>
+                    <td>02:18</td>
+                    <td>128</td>
+                    <td class="chevron">0 ›</td>
+                  </tr>
+                  <tr>
+                    <td><span class="row-status warning">주의 필요</span></td>
+                    <td>2026-05-19 21:04:13</td>
+                    <td><code>bill.ingest (fallback)</code></td>
+                    <td>Codex CLI</td>
+                    <td>03:42</td>
+                    <td>128</td>
+                    <td>3</td>
+                  </tr>
+                  <tr>
+                    <td><span class="row-status success">성공</span></td>
+                    <td>2026-05-19 20:58:35</td>
+                    <td><code>bill.summarize</code></td>
+                    <td>Gemini CLI</td>
+                    <td>04:11</td>
+                    <td>128</td>
+                    <td>5</td>
+                  </tr>
+                  <tr>
+                    <td><span class="row-status success">성공</span></td>
+                    <td>2026-05-19 20:58:42</td>
+                    <td><code>bill.summarize</code></td>
+                    <td>Gemini CLI</td>
+                    <td>03:59</td>
+                    <td>127</td>
+                    <td>5</td>
+                  </tr>
+                  <tr>
+                    <td><span class="row-status success">성공</span></td>
+                    <td>2026-05-19 20:55:11</td>
+                    <td><code>document.normalize</code></td>
+                    <td>Claude CLI</td>
+                    <td>01:21</td>
+                    <td>128</td>
+                    <td>3</td>
+                  </tr>
+                  <tr>
+                    <td><span class="row-status success">성공</span></td>
+                    <td>2026-05-19 20:53:07</td>
+                    <td><code>document.fetch</code></td>
+                    <td>Gemini CLI</td>
+                    <td>00:47</td>
+                    <td>128</td>
+                    <td>2</td>
+                  </tr>
+                  <tr>
+                    <td><span class="row-status success">성공</span></td>
+                    <td>2026-05-19 20:50:15</td>
+                    <td><code>schedule.daily</code></td>
+                    <td>-</td>
+                    <td>00:05</td>
+                    <td>1</td>
+                    <td>1</td>
+                  </tr>
+                  <tr>
+                    <td><span class="row-status running">실행 중</span></td>
+                    <td>2026-05-19 21:05:21</td>
+                    <td><code>bill.summarize</code></td>
+                    <td>Gemini CLI</td>
+                    <td>00:19</td>
+                    <td>--</td>
+                    <td>--</td>
+                  </tr>
+                  <tr>
+                    <td><span class="row-status success">성공</span></td>
+                    <td>2026-05-19 20:48:10</td>
+                    <td><code>bill.ingest</code></td>
+                    <td>Gemini CLI</td>
+                    <td>01:52</td>
+                    <td>127</td>
+                    <td>3</td>
+                  </tr>
+                  <tr>
+                    <td><span class="row-status success">성공</span></td>
+                    <td>2026-05-19 20:45:02</td>
+                    <td><code>document.fetch</code></td>
+                    <td>Gemini CLI</td>
+                    <td>00:49</td>
+                    <td>127</td>
+                    <td>2</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="pager" aria-label="페이지네이션">
+                <span>‹</span><span class="page-num">1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>···</span><span>10</span><span>›</span>
+                <span class="per-page">10 / 페이지 <span class="material-symbols-outlined" style="font-size:14px">expand_more</span></span>
+              </div>
+            </section>
+
+            <aside class="trace" aria-label="선택된 실행 상세">
+              <div class="trace-head">
+                <strong>선택된 실행</strong>
+                <div class="trace-actions"><span>접기</span><span>×</span></div>
+              </div>
+              <div class="trace-status"><span class="row-status failed">실패</span><strong>bill.ingest</strong><button class="retry" type="button">재시도</button></div>
+              <div class="trace-meta">
+                <span>Run ID</span><span>run_20260519_210412_9f3a1b2c</span>
+                <span>시작 시간</span><span>2026-05-19 21:04:12</span>
+                <span>종료 시간</span><span>2026-05-19 21:06:30</span>
+                <span>Provider</span><span>Gemini CLI</span>
+                <span>소요 시간</span><span>02:18</span>
+                <span>처리 항목</span><span>128건</span>
+              </div>
+
+              <div class="steps-head">
+                <span>단계 (Steps)</span>
+                <span class="schema-pill">실패 (2) ›</span>
+              </div>
+              <div class="step-list">
+                <div class="steps-left">
+                  <div class="step"><span class="step-dot">✓</span><span>스케줄 트리거<small>21:04:12</small></span><span class="step-time">120ms</span></div>
+                  <div class="step"><span class="step-dot">✓</span><span>대상 수집<small>21:04:12</small></span><span class="step-time">1.2s</span></div>
+                  <div class="step"><span class="step-dot">✓</span><span>문서 다운로드<small>21:04:14</small></span><span class="step-time">22.6s</span></div>
+                  <div class="step"><span class="step-dot error">×</span><span>AI 요약 생성<small>21:04:37</small></span><span class="step-time">1m 41s</span></div>
+                  <div class="step"><span class="step-dot blank"></span><span>DB 저장<small>-</small></span><span class="step-time">-</span></div>
+                </div>
+                <div style="background:var(--line)"></div>
+                <div class="schema-col">스키마 검증<br><br>실패 (2) ›</div>
+              </div>
+
+              <div class="raw-head">
+                <span>로그 (Raw JSONL)</span>
+                <div class="raw-buttons"><button type="button">Pretty</button><button type="button">Raw</button><button type="button">복사</button></div>
+              </div>
+              <div class="log-box" aria-label="Raw JSONL 로그">
+                <div class="log-row"><span>1421</span><span>{"ts":"2026-05-19T21:04:37.512Z","level":"info","step":"run"}</span></div>
+                <div class="log-row"><span>1422</span><span>{"ts":"2026-05-19T21:05:02.084Z","level":"error","retry":true}</span></div>
+                <div class="log-row"><span>1423</span><span>{"ts":"2026-05-19T21:06:02.005Z","level":"info","provider":"fallback"}</span></div>
+                <div class="log-row"><span>1424</span><span>{"ts":"2026-05-19T21:06:30.213Z","level":"error","schema_validation_failed"}</span></div>
+                <div class="log-row"><span>1425</span><span>{"ts":"2026-05-19T21:06:38.084Z","level":"error","field":"ai_title"}</span></div>
+                <div class="log-row"><span>1426</span><span>{"ts":"2026-05-19T21:06:40.110Z","fallback":"Codex CLI"}</span></div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+
+      <aside class="phone-shell" aria-label="모바일 Pocket Ops 미리보기">
+        <div class="phone">
+          <header class="phone-top">
+            <div class="phone-status"><span>9:41</span><span><span class="material-symbols-outlined">signal_cellular_alt</span> <span class="material-symbols-outlined">wifi</span> <span class="material-symbols-outlined">battery_full</span></span></div>
+            <div class="phone-brand"><span>모두의입법</span><span class="material-symbols-outlined">refresh</span></div>
+          </header>
+          <div class="phone-body">
+            <section class="phone-alert">
+              <span class="material-symbols-outlined">warning</span>
+              <div><strong>주의 필요</strong><span>bill.ingest 실패 · Codex CLI</span></div>
+              <button class="phone-detail" type="button">상세 보기 ›</button>
+            </section>
+            <div class="phone-filters">
+              <span class="phone-filter is-active">전체</span>
+              <span class="phone-filter">실행 중 1</span>
+              <span class="phone-filter">성공 152</span>
+              <span class="phone-filter">실패 7</span>
+              <span class="phone-filter">주의 3</span>
+            </div>
+            <div class="phone-section-head"><strong>실행 이력</strong><span>최근 20건</span></div>
+            <div class="phone-runs">
+              <article class="phone-run failed"><div class="phone-run-top"><strong>실패</strong><span>Gemini CLI</span></div><em>bill.ingest</em><div class="phone-run-bottom"><span>21:04:12 · 02:18 · 128건</span><span>0 ▫</span></div></article>
+              <article class="phone-run warning"><div class="phone-run-top"><strong>주의 필요</strong><span>Codex CLI</span></div><em>bill.ingest (fallback)</em><div class="phone-run-bottom"><span>21:04:13 · 03:42 · 128건</span><span>3 ▫</span></div></article>
+              <article class="phone-run success"><div class="phone-run-top"><strong>성공</strong><span>Gemini CLI</span></div><em>bill.summarize</em><div class="phone-run-bottom"><span>20:58:35 · 04:11 · 128건</span><span>5 ▫</span></div></article>
+              <article class="phone-run success"><div class="phone-run-top"><strong>성공</strong><span>Claude CLI</span></div><em>document.normalize</em><div class="phone-run-bottom"><span>20:55:11 · 01:21 · 128건</span><span>3 ▫</span></div></article>
+              <article class="phone-run success"><div class="phone-run-top"><strong>성공</strong><span>Gemini CLI</span></div><em>document.fetch</em><div class="phone-run-bottom"><span>20:53:07 · 00:47 · 128건</span><span>2 ▫</span></div></article>
+              <article class="phone-run running"><div class="phone-run-top"><strong>실행 중</strong><span>Gemini CLI</span></div><em>bill.summarize</em><div class="phone-run-bottom"><span>21:05:21 · 00:19 · --</span><span>-- ▫</span></div></article>
+            </div>
+          </div>
+          <footer class="phone-tray">
+            <div class="tray-head"><strong>선택된 실행</strong><span>실패</span></div>
+            <div class="tray-id">run_20260519_210412_9f3a1b2c</div>
+            <div class="phone-tabs">
+              <span><span class="material-symbols-outlined">dashboard</span>요약</span>
+              <span><span class="material-symbols-outlined">subject</span>단계</span>
+              <span><span class="material-symbols-outlined">share</span>산출물</span>
+              <span><span class="material-symbols-outlined">article</span>로그</span>
+            </div>
+          </footer>
+        </div>
+      </aside>
+    </section>
+
+    <div class="caption">
+      <span>모두의입법 Pipeline Monitor</span>
+      <small>Design System v1.0</small>
+    </div>
+
+    <div class="legend" aria-label="상태 범례">
+      <span class="success">성공</span>
+      <span class="running">실행 중</span>
+      <span class="warning">주의</span>
+      <span class="failed">실패</span>
+      <span class="fallback">Fallback</span>
+    </div>
+  </main>
+</body>
+</html>
