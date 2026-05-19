@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>모두의입법 Pipeline Monitor Design System</title>
+  <title>Pipeline Monitor Design System</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard-dynamic-subset.css">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block">
   <style>
@@ -22,14 +22,8 @@
       --dark-l: #2e2e2e;
       --dark-pb: #1e1e1e;
       --success: #16a34a;
-      --rainbow: linear-gradient(90deg, #fbeb59 0%, #fc56d8 31%, #10d9ef 65%, #6cf880 100%);
-      --rainbow-soft: linear-gradient(
-        90deg,
-        rgba(251, 235, 89, 0.15) 0%,
-        rgba(252, 86, 216, 0.15) 31%,
-        rgba(16, 217, 239, 0.15) 65%,
-        rgba(108, 248, 128, 0.15) 100%
-      );
+      --warning: #b7791f;
+      --brand-rainbow: linear-gradient(90deg, #fbeb59 0%, #fc56d8 31%, #10d9ef 65%, #6cf880 100%);
       --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Noto Sans KR", sans-serif;
       --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
@@ -45,13 +39,19 @@
     body {
       margin: 0;
       min-width: 360px;
-      background:
-        linear-gradient(180deg, rgba(245, 247, 253, 0.78), rgba(255, 255, 255, 0) 380px),
-        #ffffff;
+      background: #ffffff;
       color: #000000;
       font-family: var(--font-sans);
       line-height: 1.65;
       letter-spacing: 0;
+    }
+
+    body::before {
+      content: "";
+      display: block;
+      width: 100%;
+      height: 2px;
+      background: var(--brand-rainbow);
     }
 
     a {
@@ -59,28 +59,28 @@
       text-decoration: none;
     }
 
-    button {
-      font-family: inherit;
+    code,
+    pre,
+    .mono {
+      font-family: var(--font-mono);
     }
 
     .material-symbols-outlined {
       font-family: "Material Symbols Outlined";
       font-weight: normal;
       font-style: normal;
-      font-size: 20px;
+      font-size: 18px;
       line-height: 1;
       display: inline-block;
       white-space: nowrap;
-      direction: ltr;
       font-feature-settings: "liga";
-      -webkit-font-feature-settings: "liga";
       -webkit-font-smoothing: antialiased;
     }
 
-    .doc-shell {
-      max-width: 1180px;
+    .page {
+      max-width: 1360px;
       margin: 0 auto;
-      padding: 28px 20px 120px;
+      padding: 28px 24px 96px;
     }
 
     .topbar {
@@ -88,430 +88,163 @@
       align-items: center;
       justify-content: space-between;
       gap: 20px;
-      padding: 10px 0 26px;
-    }
-
-    .wordmark {
-      display: inline-grid;
-      gap: 5px;
-      color: #000000;
-    }
-
-    .wordmark-text {
-      font-size: 24px;
-      font-weight: 900;
-      line-height: 1;
-      letter-spacing: -0.01em;
-    }
-
-    .wordmark-line {
-      width: 118px;
-      height: 3px;
-      background: var(--rainbow);
-    }
-
-    .top-meta {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: var(--gray-3);
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .top-meta span {
-      display: inline-flex;
-      align-items: center;
-      height: 30px;
-      padding: 0 11px;
-      border: 1px solid var(--gray-1);
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.78);
-    }
-
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 380px;
-      gap: 42px;
-      align-items: end;
-      padding: 42px 0 54px;
+      padding-bottom: 26px;
       border-bottom: 1px solid var(--gray-1);
     }
 
-    .eyebrow {
-      margin: 0 0 12px;
-      color: var(--gray-2);
+    .brand {
+      display: inline-grid;
+      gap: 5px;
+    }
+
+    .brand strong {
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .brand span {
+      width: 108px;
+      height: 2px;
+      background: var(--brand-rainbow);
+    }
+
+    .doc-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .doc-meta span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 10px;
+      border: 1px solid var(--gray-1);
+      border-radius: 8px;
+      color: var(--gray-3);
+      background: #ffffff;
       font-size: 12px;
       font-weight: 700;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
     }
 
-    h1,
-    h2,
-    h3,
-    p {
-      margin-top: 0;
+    .intro {
+      display: grid;
+      grid-template-columns: minmax(0, 0.92fr) minmax(320px, 0.58fr);
+      gap: 36px;
+      padding: 42px 0 38px;
+      border-bottom: 1px solid var(--gray-1);
     }
 
-    h1 {
-      max-width: 720px;
-      margin-bottom: 18px;
+    .intro h1 {
+      max-width: 760px;
+      margin: 0 0 16px;
       color: var(--primary-3);
-      font-size: 54px;
+      font-size: 42px;
       font-weight: 900;
-      line-height: 1.06;
+      line-height: 1.12;
       letter-spacing: -0.02em;
+      text-wrap: balance;
     }
 
-    .hero-copy {
-      max-width: 700px;
-      margin-bottom: 0;
+    .intro p {
+      max-width: 780px;
+      margin: 0;
       color: var(--gray-3);
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 500;
       word-break: keep-all;
     }
 
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 26px;
+    .direction-box {
+      border: 1px solid var(--gray-1);
+      border-radius: 12px;
+      background: var(--primary-1);
     }
 
-    .button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 7px;
-      min-height: 44px;
-      padding: 0 18px;
-      border: 0;
-      border-radius: 999px;
-      font-size: 14px;
-      font-weight: 800;
-      cursor: default;
-    }
-
-    .button.primary {
-      min-width: 170px;
-      background: var(--primary-3);
-      color: #ffffff;
-    }
-
-    .button.secondary {
-      background: var(--gray-1);
-      color: var(--gray-3);
-    }
-
-    .button.rainbow {
-      position: relative;
-      background: #ffffff;
-      color: var(--primary-3);
-      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
-    }
-
-    .button.rainbow::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      padding: 2px;
-      background: var(--rainbow);
-      -webkit-mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-      mask-composite: exclude;
-      pointer-events: none;
-    }
-
-    .phone-preview {
-      position: relative;
-      overflow: hidden;
-      min-height: 560px;
-      border: 1px solid rgba(0, 0, 0, 0.12);
-      border-radius: 34px;
-      background: #ffffff;
-      box-shadow:
-        0 24px 70px rgba(0, 0, 0, 0.16),
-        inset 0 0 0 8px #f6f6f6;
-    }
-
-    .phone-screen {
-      position: absolute;
-      inset: 8px;
-      overflow: hidden;
-      border-radius: 27px;
-      background: #ffffff;
-    }
-
-    .phone-content {
-      padding: 24px 18px 92px;
-    }
-
-    .phone-title {
-      margin-bottom: 16px;
-      font-size: 26px;
-      font-weight: 900;
-      line-height: 1.1;
-    }
-
-    .content-tabs {
-      position: relative;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      margin-bottom: 16px;
-    }
-
-    .tab-indicator {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 85px;
-      height: 36px;
-      border-radius: 999px;
-      background: var(--rainbow-soft);
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.10);
-      z-index: 0;
-    }
-
-    .tab-indicator::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: 999px;
-      padding: 2px;
-      background: var(--rainbow);
-      -webkit-mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-      -webkit-mask-composite: xor;
-      mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-      mask-composite: exclude;
-    }
-
-    .content-tab {
-      position: relative;
-      z-index: 1;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      width: 85px;
-      height: 36px;
-      border-radius: 999px;
-      color: rgba(25, 25, 25, 0.4);
-      font-size: 15px;
-      font-weight: 700;
-    }
-
-    .content-tab.is-active {
-      color: var(--primary-3);
-    }
-
-    .summary-card {
+    .direction-row {
       display: grid;
+      grid-template-columns: 82px 1fr;
       gap: 12px;
-      padding: 16px;
-      border: 1px solid var(--gray-1);
-      border-radius: 16px;
-      background: #ffffff;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--gray-1);
+      font-size: 13px;
     }
 
-    .summary-label {
-      margin: 0;
+    .direction-row:last-child {
+      border-bottom: 0;
+    }
+
+    .direction-key {
       color: var(--gray-2);
-      font-size: 11px;
       font-weight: 800;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
     }
 
-    .summary-main {
-      display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      align-items: end;
-    }
-
-    .summary-main strong {
-      font-size: 28px;
-      line-height: 1;
-    }
-
-    .summary-main span {
-      color: var(--gray-3);
-      font-size: 12px;
+    .direction-value {
+      color: var(--gray-4);
       font-weight: 700;
     }
 
-    .rainbow-meter {
-      display: flex;
-      overflow: hidden;
-      width: 100%;
-      height: 9px;
-      border-radius: 999px;
-      background: var(--gray-05);
+    .layout {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 34px;
+      align-items: start;
     }
 
-    .rainbow-meter span {
+    .side-nav {
+      position: sticky;
+      top: 18px;
+      display: grid;
+      gap: 4px;
+      padding-top: 38px;
+    }
+
+    .side-nav a {
       display: block;
-      height: 100%;
-    }
-
-    .run-card {
-      display: grid;
-      gap: 11px;
-      margin-top: 16px;
-      padding: 18px 16px;
-      border-top: 1px solid var(--gray-1);
-      background: #ffffff;
-    }
-
-    .run-card h3 {
-      margin-bottom: 0;
-      font-size: 20px;
-      line-height: 1.25;
-    }
-
-    .run-card p {
-      margin-bottom: 0;
+      padding: 8px 10px;
+      border-radius: 8px;
       color: var(--gray-3);
-      font-size: 13px;
-      font-weight: 500;
+      font-size: 14px;
+      font-weight: 700;
     }
 
-    .chip-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 7px;
+    .side-nav a:hover,
+    .side-nav a:focus-visible {
+      color: var(--primary-3);
+      background: var(--gray-05);
+      outline: 2px solid var(--primary-2);
+      outline-offset: 2px;
     }
 
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      min-height: 25px;
-      padding: 0 9px;
-      border: 1px solid var(--gray-1);
-      border-radius: 999px;
-      background: #ffffff;
-      color: var(--gray-3);
-      font-size: 11px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
-    .chip.success {
-      border-color: rgba(22, 163, 74, 0.35);
-      color: var(--success);
-      background: rgba(22, 163, 74, 0.08);
-    }
-
-    .chip.failed {
-      border-color: rgba(230, 57, 70, 0.35);
-      color: var(--theme-alert);
-      background: rgba(230, 57, 70, 0.08);
-    }
-
-    .chip.running {
-      border-color: rgba(150, 188, 250, 0.6);
-      color: #4776c4;
-      background: rgba(150, 188, 250, 0.16);
-    }
-
-    .chip.fallback {
-      border-color: rgba(252, 86, 216, 0.45);
-      color: #b71c98;
-      background: rgba(252, 86, 216, 0.10);
-    }
-
-    .mobile-nav-preview {
-      position: absolute;
-      left: 20px;
-      right: 20px;
-      bottom: 18px;
-      height: 62px;
-      padding: 4px;
-      display: flex;
-      gap: 2px;
-      border: 1px solid rgba(0, 0, 0, 0.10);
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.42);
-      backdrop-filter: blur(40px) saturate(220%) contrast(106%);
-      -webkit-backdrop-filter: blur(40px) saturate(220%) contrast(106%);
-      box-shadow:
-        0 4px 32px rgba(0, 0, 0, 0.12),
-        0 1px 8px rgba(0, 0, 0, 0.06),
-        inset 0 1px 0 rgba(255, 255, 255, 0.95),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.04);
-    }
-
-    .mobile-nav-preview::before {
-      content: "";
-      position: absolute;
-      top: 4px;
-      left: 4px;
-      width: calc((100% - 8px - 6px) / 4);
-      height: calc(100% - 8px);
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.92);
-      background: rgba(255, 255, 255, 0.72);
-      box-shadow:
-        0 0 0 1px rgba(0, 0, 0, 0.10),
-        0 2px 10px rgba(0, 0, 0, 0.10),
-        inset 0 2px 0 rgba(255, 255, 255, 1);
-    }
-
-    .mobile-nav-item {
-      position: relative;
-      z-index: 1;
-      flex: 1;
-      display: grid;
-      place-items: center;
-      gap: 2px;
-      color: #3a3a3a;
-      font-size: 9px;
-      font-weight: 800;
-      text-align: center;
-    }
-
-    .mobile-nav-item.is-active {
-      color: #0088ff;
-    }
-
-    .section {
-      padding: 52px 0;
+    section {
+      padding: 38px 0;
       border-bottom: 1px solid var(--gray-1);
     }
 
-    .section-header {
+    section:last-child {
+      border-bottom: 0;
+    }
+
+    .section-head {
       display: grid;
       grid-template-columns: 260px minmax(0, 1fr);
-      gap: 34px;
-      align-items: start;
-      margin-bottom: 26px;
+      gap: 28px;
+      margin-bottom: 22px;
     }
 
     h2 {
-      margin-bottom: 8px;
+      margin: 0;
       color: var(--primary-3);
-      font-size: 28px;
-      line-height: 1.2;
+      font-size: 24px;
       font-weight: 900;
+      line-height: 1.25;
       letter-spacing: -0.01em;
     }
 
-    .section-header p {
-      margin-bottom: 0;
+    .section-head p {
+      margin: 0;
       color: var(--gray-3);
       font-size: 15px;
       font-weight: 500;
@@ -527,287 +260,378 @@
     .token {
       overflow: hidden;
       border: 1px solid var(--gray-1);
-      border-radius: 16px;
+      border-radius: 10px;
       background: #ffffff;
     }
 
-    .token-color {
-      height: 86px;
+    .token-swatch {
+      height: 72px;
       border-bottom: 1px solid var(--gray-1);
     }
 
-    .token-copy {
-      padding: 12px;
-      font-size: 12px;
+    .token-body {
+      padding: 11px 12px;
     }
 
-    .token-copy strong {
+    .token-body strong {
       display: block;
       margin-bottom: 2px;
+      color: var(--primary-3);
       font-size: 13px;
     }
 
-    .token-copy code {
+    .token-body code {
       color: var(--gray-3);
-      font-family: var(--font-mono);
       font-size: 11px;
     }
 
-    .principle-grid {
+    .rules {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
     }
 
-    .principle {
-      min-height: 190px;
-      padding: 20px;
+    .rule {
+      padding: 16px;
       border: 1px solid var(--gray-1);
-      border-radius: 18px;
+      border-radius: 10px;
       background: #ffffff;
     }
 
-    .principle h3 {
-      margin-bottom: 9px;
-      font-size: 18px;
+    .rule h3 {
+      margin: 0 0 8px;
+      color: var(--primary-3);
+      font-size: 16px;
       font-weight: 900;
     }
 
-    .principle p {
-      margin-bottom: 0;
+    .rule p {
+      margin: 0;
       color: var(--gray-3);
       font-size: 14px;
       font-weight: 500;
       word-break: keep-all;
     }
 
-    .component-map {
+    .monitor-preview {
+      overflow: hidden;
+      border: 1px solid var(--gray-1);
+      border-radius: 12px;
+      background: #ffffff;
+    }
+
+    .monitor-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      min-height: 62px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--gray-1);
+      background: #ffffff;
+    }
+
+    .monitor-title {
+      display: grid;
+      gap: 2px;
+    }
+
+    .monitor-title strong {
+      color: var(--primary-3);
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .monitor-title span {
+      color: var(--gray-2);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .refresh-button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 36px;
+      padding: 0 12px;
+      border: 0;
+      border-radius: 8px;
+      background: var(--primary-3);
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 150px 190px 1fr 120px;
+      gap: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--gray-1);
+      background: var(--gray-05);
+    }
+
+    .control {
+      display: flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 0 10px;
+      border: 1px solid var(--gray-1);
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--gray-4);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .control.search {
+      color: var(--gray-2);
+    }
+
+    .monitor-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
+      min-height: 560px;
+    }
+
+    .main-pane {
+      min-width: 0;
+      border-right: 1px solid var(--gray-1);
+    }
+
+    .detail-pane {
+      min-width: 0;
+      background: #fcfcfc;
+    }
+
+    .health-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      border-bottom: 1px solid var(--gray-1);
+    }
+
+    .health-item {
+      padding: 16px;
+      border-right: 1px solid var(--gray-1);
+    }
+
+    .health-item:last-child {
+      border-right: 0;
+    }
+
+    .health-label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--gray-2);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .health-value {
+      display: block;
+      color: var(--primary-3);
+      font-size: 22px;
+      font-weight: 900;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .health-note {
+      display: block;
+      margin-top: 5px;
+      color: var(--gray-3);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 780px;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--gray-1);
+      text-align: left;
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #ffffff;
+      color: var(--gray-2);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    td {
+      color: var(--gray-4);
+      font-weight: 600;
+    }
+
+    .muted {
+      color: var(--gray-2);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 7px;
+      border: 1px solid var(--gray-1);
+      border-radius: 6px;
+      background: #ffffff;
+      color: var(--gray-3);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .badge.success {
+      border-color: rgba(22, 163, 74, 0.32);
+      color: var(--success);
+      background: rgba(22, 163, 74, 0.06);
+    }
+
+    .badge.failed {
+      border-color: rgba(230, 57, 70, 0.36);
+      color: var(--theme-alert);
+      background: rgba(230, 57, 70, 0.06);
+    }
+
+    .badge.running {
+      border-color: rgba(150, 188, 250, 0.7);
+      color: #4776c4;
+      background: rgba(150, 188, 250, 0.14);
+    }
+
+    .badge.warning {
+      border-color: rgba(183, 121, 31, 0.4);
+      color: var(--warning);
+      background: rgba(183, 121, 31, 0.08);
+    }
+
+    .pane-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--gray-1);
+    }
+
+    .pane-section h3 {
+      margin: 0 0 10px;
+      color: var(--primary-3);
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr);
+      gap: 8px 10px;
+      color: var(--gray-3);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .meta-grid code {
+      color: var(--primary-3);
+      font-size: 12px;
+      word-break: break-all;
+    }
+
+    .steps {
       display: grid;
       gap: 10px;
     }
 
-    .map-row {
+    .step {
       display: grid;
-      grid-template-columns: 180px 1fr 1fr;
-      gap: 12px;
-      align-items: center;
-      padding: 14px 16px;
-      border: 1px solid var(--gray-1);
-      border-radius: 14px;
-      background: #ffffff;
-    }
-
-    .map-row strong {
-      font-size: 14px;
-    }
-
-    .map-row span {
-      color: var(--gray-3);
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .map-row code {
-      color: var(--gray-4);
-      font-family: var(--font-mono);
-      font-size: 12px;
-    }
-
-    .preview-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(320px, 0.78fr);
-      gap: 18px;
+      grid-template-columns: 12px minmax(0, 1fr) auto;
+      gap: 10px;
       align-items: start;
     }
 
-    .desktop-preview {
-      overflow: hidden;
-      border: 1px solid var(--gray-1);
-      border-radius: 20px;
-      background: #ffffff;
-    }
-
-    .desktop-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 16px;
-      padding: 22px;
-      border-bottom: 1px solid var(--gray-1);
-    }
-
-    .desktop-header h3 {
-      margin-bottom: 4px;
-      font-size: 24px;
-      font-weight: 900;
-    }
-
-    .desktop-header p {
-      margin-bottom: 0;
-      color: var(--gray-2);
-      font-size: 13px;
-      font-weight: 700;
-    }
-
-    .sort-tabs {
-      display: inline-grid;
-      grid-template-columns: 74px 88px;
-      padding: 2px;
-      border-radius: 999px;
-      background: #ffffff;
-    }
-
-    .sort-tabs span {
-      display: grid;
-      place-items: center;
-      height: 36px;
-      border-radius: 999px;
-      color: var(--gray-3);
-      font-size: 14px;
-      font-weight: 800;
-    }
-
-    .sort-tabs span:first-child {
-      background: var(--primary-3);
-      color: #ffffff;
-    }
-
-    .dashboard-stats {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 0;
-      border-bottom: 1px solid var(--gray-1);
-    }
-
-    .dashboard-stat {
-      padding: 22px;
-      border-right: 1px solid var(--gray-1);
-    }
-
-    .dashboard-stat:last-child {
-      border-right: 0;
-    }
-
-    .dashboard-stat .label {
-      display: block;
-      margin-bottom: 7px;
-      color: var(--gray-2);
-      font-size: 12px;
-      font-weight: 800;
-    }
-
-    .dashboard-stat .value {
-      display: block;
-      color: var(--primary-3);
-      font-size: 28px;
-      font-weight: 900;
-      line-height: 1.05;
-    }
-
-    .dashboard-stat .sub {
-      display: block;
-      margin-top: 7px;
-      color: var(--gray-3);
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .timeline {
-      padding: 22px;
-    }
-
-    .timeline-item {
-      position: relative;
-      display: grid;
-      grid-template-columns: 88px 18px minmax(0, 1fr) auto;
-      gap: 12px;
-      padding: 0 0 22px;
-    }
-
-    .timeline-item:last-child {
-      padding-bottom: 0;
-    }
-
-    .timeline-item::before {
-      content: "";
-      position: absolute;
-      top: 16px;
-      left: 96px;
-      bottom: -4px;
-      width: 1px;
-      background: var(--gray-1);
-    }
-
-    .timeline-item:last-child::before {
-      display: none;
-    }
-
-    .timeline-time {
-      color: var(--gray-2);
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .timeline-dot {
-      position: relative;
-      z-index: 1;
-      width: 18px;
-      height: 18px;
-      border: 3px solid #ffffff;
-      border-radius: 999px;
+    .dot {
+      width: 10px;
+      height: 10px;
+      margin-top: 6px;
+      border-radius: 3px;
       background: var(--success);
-      box-shadow: 0 0 0 1px var(--gray-1);
     }
 
-    .timeline-dot.fallback {
-      background: #fc56d8;
-    }
-
-    .timeline-dot.running {
+    .dot.running {
       background: var(--primary-2);
     }
 
-    .timeline-copy strong {
-      display: block;
-      margin-bottom: 2px;
-      font-size: 14px;
+    .dot.failed {
+      background: var(--theme-alert);
     }
 
-    .timeline-copy span {
+    .step strong {
+      display: block;
+      color: var(--primary-3);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .step span {
       color: var(--gray-3);
       font-size: 12px;
       font-weight: 600;
     }
 
-    .code-panel {
+    .artifact-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .artifact {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 38px;
+      padding: 8px 10px;
+      border: 1px solid var(--gray-1);
+      border-radius: 8px;
+      background: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .artifact code {
       overflow: hidden;
-      border-radius: 20px;
+      color: var(--primary-3);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .log-panel {
+      overflow: hidden;
+      border-top: 1px solid var(--dark-l);
       background: var(--dark-b);
       color: var(--gray-05);
-      box-shadow: 0 18px 54px rgba(0, 0, 0, 0.16);
     }
 
-    .code-panel::before {
-      content: "";
-      display: block;
-      height: 4px;
-      background: var(--rainbow);
-    }
-
-    .code-panel header {
+    .log-header {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: 16px 18px;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
       border-bottom: 1px solid var(--dark-l);
     }
 
-    .code-panel header strong {
-      font-size: 14px;
+    .log-header strong {
+      font-size: 13px;
     }
 
-    .code-panel header span {
+    .log-header span {
       color: var(--gray-2);
       font-size: 12px;
       font-weight: 700;
@@ -816,15 +640,48 @@
     pre {
       overflow-x: auto;
       margin: 0;
-      padding: 18px;
+      padding: 14px 16px 18px;
       color: var(--gray-05);
-      font: 400 12px / 1.75 var(--font-mono);
+      font: 400 12px / 1.7 var(--font-mono);
+    }
+
+    .component-table {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--gray-1);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #ffffff;
+      display: block;
+    }
+
+    .component-row {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr) minmax(0, 1fr);
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--gray-1);
+    }
+
+    .component-row:last-child {
+      border-bottom: 0;
+    }
+
+    .component-row strong {
+      color: var(--primary-3);
+      font-size: 14px;
+    }
+
+    .component-row span {
+      color: var(--gray-3);
+      font-size: 13px;
+      font-weight: 600;
     }
 
     .checklist {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
+      gap: 10px;
       margin: 0;
       padding: 0;
       list-style: none;
@@ -832,12 +689,11 @@
 
     .checklist li {
       display: grid;
-      grid-template-columns: 34px minmax(0, 1fr);
-      gap: 12px;
-      align-items: start;
-      padding: 16px;
+      grid-template-columns: 28px minmax(0, 1fr);
+      gap: 10px;
+      padding: 12px;
       border: 1px solid var(--gray-1);
-      border-radius: 16px;
+      border-radius: 10px;
       background: #ffffff;
       color: var(--gray-3);
       font-size: 14px;
@@ -845,39 +701,50 @@
       word-break: keep-all;
     }
 
-    .check-icon {
+    .check {
       display: grid;
       place-items: center;
-      width: 34px;
-      height: 34px;
-      border-radius: 999px;
-      background: var(--rainbow-soft);
-      color: var(--primary-3);
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      background: var(--primary-3);
+      color: #ffffff;
+      font-size: 12px;
       font-weight: 900;
     }
 
-    @media (max-width: 980px) {
-      .hero,
-      .section-header,
-      .preview-grid {
+    @media (max-width: 1120px) {
+      .intro,
+      .layout,
+      .section-head,
+      .monitor-grid {
         grid-template-columns: 1fr;
       }
 
-      .phone-preview {
-        max-width: 420px;
-        width: 100%;
-        margin: 0 auto;
+      .side-nav {
+        position: static;
+        display: flex;
+        flex-wrap: wrap;
+        padding-top: 24px;
       }
 
-      .token-grid,
-      .principle-grid {
+      .main-pane {
+        border-right: 0;
+        border-bottom: 1px solid var(--gray-1);
+      }
+
+      .token-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .toolbar {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
-    @media (max-width: 680px) {
-      .doc-shell {
-        padding: 20px 16px 110px;
+    @media (max-width: 720px) {
+      .page {
+        padding: 20px 16px 72px;
       }
 
       .topbar {
@@ -885,371 +752,414 @@
         flex-direction: column;
       }
 
-      h1 {
-        font-size: 38px;
+      .doc-meta {
+        justify-content: flex-start;
       }
 
-      .hero {
-        padding-top: 24px;
-      }
-
-      .top-meta {
-        flex-wrap: wrap;
+      .intro h1 {
+        font-size: 32px;
       }
 
       .token-grid,
-      .principle-grid,
-      .dashboard-stats,
+      .rules,
+      .health-strip,
       .checklist {
         grid-template-columns: 1fr;
       }
 
-      .dashboard-stat {
+      .health-item {
         border-right: 0;
         border-bottom: 1px solid var(--gray-1);
       }
 
-      .dashboard-stat:last-child {
+      .health-item:last-child {
         border-bottom: 0;
       }
 
-      .map-row {
+      .toolbar {
         grid-template-columns: 1fr;
       }
 
-      .desktop-header {
+      .monitor-top {
         align-items: flex-start;
         flex-direction: column;
       }
 
-      .timeline-item {
-        grid-template-columns: 72px 18px minmax(0, 1fr);
-      }
-
-      .timeline-item .chip {
-        grid-column: 3;
-        width: fit-content;
-      }
-
-      .timeline-item::before {
-        left: 80px;
+      .component-row {
+        grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
 <body>
-  <div class="doc-shell">
+  <div class="page">
     <header class="topbar">
-      <a class="wordmark" href="#top" aria-label="모두의입법 Pipeline Monitor Design System">
-        <span class="wordmark-text">모두의입법</span>
-        <span class="wordmark-line" aria-hidden="true"></span>
+      <a class="brand" href="#top" aria-label="모두의입법 Pipeline Monitor">
+        <strong>모두의입법</strong>
+        <span aria-hidden="true"></span>
       </a>
-      <div class="top-meta">
-        <span>services/pipeline-monitor</span>
-        <span>DESIGN.html</span>
-        <span>Brand-aligned</span>
+      <div class="doc-meta">
+        <span>Pipeline Monitor</span>
+        <span>Token-aligned</span>
+        <span>Rainbow minimal</span>
       </div>
     </header>
 
     <main id="top">
-      <section class="hero">
+      <section class="intro" aria-labelledby="page-title">
         <div>
-          <p class="eyebrow">Pipeline Monitor Design System</p>
-          <h1>모두의입법처럼 보이는 데이터 파이프라인 모니터링</h1>
-          <p class="hero-copy">
-            이 디자인 시스템은 별도의 어드민 콘솔을 만드는 문서가 아니다. 기존 모두의입법 웹의 레인보우 그라디언트, Pretendard 한글 타이포그래피, 둥근 탭과 버튼, 모바일 floating nav 감각을 유지하면서 기능만 파이프라인 실행 상태, 산출물, 로그 확인으로 바꾸는 기준이다.
+          <h1 id="page-title">브랜드 토큰은 같게, 모니터링 UX는 별도로</h1>
+          <p>
+            Pipeline Monitor는 모두의입법의 폰트, 컬러, 버튼 감각을 사용하지만 시민용 피드 화면을 복제하지 않는다. 이 문서는 파이프라인 운영자가 최근 실행, 실패 단계, fallback, 산출물, 원시 로그를 빠르게 확인할 수 있는 table-first 모니터링 UI를 정의한다.
           </p>
-          <div class="hero-actions" aria-label="디자인 방향 요약">
-            <span class="button primary"><span class="material-symbols-outlined">monitoring</span> 실행 피드</span>
-            <span class="button rainbow"><span class="material-symbols-outlined">auto_awesome</span> 레인보우 브랜드</span>
-            <span class="button secondary"><span class="material-symbols-outlined">data_object</span> JSONL 읽기 전용</span>
-          </div>
         </div>
-
-        <aside class="phone-preview" aria-label="모바일 화면 예시">
-          <div class="phone-screen">
-            <div class="phone-content">
-              <p class="summary-label">Pipeline Monitor</p>
-              <h2 class="phone-title">피드</h2>
-              <div class="content-tabs">
-                <span class="tab-indicator" aria-hidden="true"></span>
-                <span class="content-tab is-active"><span class="material-symbols-outlined">bolt</span> 실행</span>
-                <span class="content-tab"><span class="material-symbols-outlined">folder</span> 산출물</span>
-                <span class="content-tab"><span class="material-symbols-outlined">notifications</span> 알림</span>
-              </div>
-
-              <div class="summary-card">
-                <p class="summary-label">최근 24시간</p>
-                <div class="summary-main">
-                  <strong>37건</strong>
-                  <span>성공 35 · fallback 1 · 실패 1</span>
-                </div>
-                <div class="rainbow-meter" role="img" aria-label="파이프라인 상태 분포">
-                  <span style="width:72%; background:#16a34a"></span>
-                  <span style="width:10%; background:#96bcfa"></span>
-                  <span style="width:8%; background:#fc56d8"></span>
-                  <span style="width:10%; background:#e63946"></span>
-                </div>
-              </div>
-
-              <article class="run-card">
-                <div class="chip-row">
-                  <span class="chip success">성공</span>
-                  <span class="chip">summary:latest</span>
-                  <span class="chip fallback">Gemini</span>
-                </div>
-                <h3>최신 법안 5건 요약 완료</h3>
-                <p>gemini-3-flash-preview 응답을 Pydantic schema로 검증했고 JSON 산출물을 저장했습니다.</p>
-                <div class="chip-row">
-                  <span class="chip">2분 18초</span>
-                  <span class="chip">5건 처리</span>
-                  <span class="chip">JSON · MD</span>
-                </div>
-              </article>
-
-              <article class="run-card">
-                <div class="chip-row">
-                  <span class="chip failed">실패</span>
-                  <span class="chip">bill.ingest</span>
-                </div>
-                <h3>법안 수집 단계에서 중단</h3>
-                <p>원천 API 응답 지연으로 종료 이벤트가 누락되었습니다. 상세 화면에서 traceback을 확인합니다.</p>
-              </article>
-            </div>
-
-            <nav class="mobile-nav-preview" aria-label="모바일 내비게이션 예시">
-              <span class="mobile-nav-item is-active"><span class="material-symbols-outlined">home</span>피드</span>
-              <span class="mobile-nav-item"><span class="material-symbols-outlined">timeline</span>타임라인</span>
-              <span class="mobile-nav-item"><span class="material-symbols-outlined">folder</span>산출물</span>
-              <span class="mobile-nav-item"><span class="material-symbols-outlined">settings</span>설정</span>
-            </nav>
+        <aside class="direction-box" aria-label="디자인 방향 요약">
+          <div class="direction-row">
+            <span class="direction-key">유지</span>
+            <span class="direction-value">Pretendard, #191919, gray scale, #96BCFA, #E63946</span>
+          </div>
+          <div class="direction-row">
+            <span class="direction-key">변경</span>
+            <span class="direction-value">피드형 UI가 아니라 실행 테이블과 로그 중심 운영 화면</span>
+          </div>
+          <div class="direction-row">
+            <span class="direction-key">제한</span>
+            <span class="direction-value">레인보우는 wordmark underline과 문서 예시에만 사용</span>
           </div>
         </aside>
       </section>
 
-      <section class="section">
-        <div class="section-header">
-          <h2>핵심 원칙</h2>
-          <p>
-            Pipeline Monitor는 운영 데이터를 다루지만, 시각적으로는 모두의입법의 하위 서비스여야 한다. 브랜드 문법은 유지하고, 정보 구조만 실행 로그와 산출물 중심으로 바꾼다.
-          </p>
-        </div>
-        <div class="principle-grid">
-          <article class="principle">
-            <h3>브랜드 먼저</h3>
-            <p>검정 wordmark와 레인보우 underline은 새 서비스에서도 첫 번째 신호다. 어드민 대시보드처럼 별도 브랜드를 만들지 않는다.</p>
-          </article>
-          <article class="principle">
-            <h3>피드 문법 유지</h3>
-            <p>최근 실행은 법안 피드처럼 읽힌다. 실행 ID보다 사람이 이해할 수 있는 요약 제목을 먼저 보여주고, 상세 정보는 chip과 footer로 정리한다.</p>
-          </article>
-          <article class="principle">
-            <h3>운영 정확성</h3>
-            <p>브랜드 감각을 유지하되 실패 원인, fallback 여부, 산출물 경로는 흐리지 않는다. 예쁜 카드보다 재현 가능한 로그가 우선이다.</p>
-          </article>
-        </div>
-      </section>
+      <div class="layout">
+        <nav class="side-nav" aria-label="문서 내비게이션">
+          <a href="#tokens">토큰</a>
+          <a href="#rainbow">레인보우 사용</a>
+          <a href="#preview">모니터링 화면</a>
+          <a href="#components">컴포넌트</a>
+          <a href="#states">상태 언어</a>
+          <a href="#checklist">구현 체크리스트</a>
+        </nav>
 
-      <section class="section">
-        <div class="section-header">
-          <h2>브랜드 토큰</h2>
-          <p>
-            색상은 기존 `services/web/tailwind.config.js`와 `globals.css`에서 가져온다. 새 모니터링 앱은 이 토큰을 복제하거나 공유해야 한다.
-          </p>
-        </div>
-        <div class="token-grid" aria-label="브랜드 색상 토큰">
-          <div class="token">
-            <div class="token-color" style="background:#191919"></div>
-            <div class="token-copy"><strong>primary-3</strong><code>#191919</code></div>
-          </div>
-          <div class="token">
-            <div class="token-color" style="background:#96bcfa"></div>
-            <div class="token-copy"><strong>primary-2</strong><code>#96BCFA</code></div>
-          </div>
-          <div class="token">
-            <div class="token-color" style="background:#f5f7fd"></div>
-            <div class="token-copy"><strong>primary-1</strong><code>#F5F7FD</code></div>
-          </div>
-          <div class="token">
-            <div class="token-color" style="background:#e63946"></div>
-            <div class="token-copy"><strong>theme-alert</strong><code>#E63946</code></div>
-          </div>
-          <div class="token">
-            <div class="token-color" style="background:#262626"></div>
-            <div class="token-copy"><strong>gray-4</strong><code>#262626</code></div>
-          </div>
-          <div class="token">
-            <div class="token-color" style="background:#999999"></div>
-            <div class="token-copy"><strong>gray-2</strong><code>#999999</code></div>
-          </div>
-          <div class="token">
-            <div class="token-color" style="background:#e0e0e0"></div>
-            <div class="token-copy"><strong>gray-1</strong><code>#E0E0E0</code></div>
-          </div>
-          <div class="token">
-            <div class="token-color" style="background:linear-gradient(90deg,#fbeb59 0%,#fc56d8 31%,#10d9ef 65%,#6cf880 100%)"></div>
-            <div class="token-copy"><strong>rainbow</strong><code>logo underline</code></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="section-header">
-          <h2>기능 치환표</h2>
-          <p>
-            새 화면은 완전히 새로운 네비게이션을 만들기보다 기존 모두의입법의 개념을 데이터 운영 문맥으로 번역한다. 사용자는 낯선 어드민 UI가 아니라 익숙한 모두의입법 화면을 보게 된다.
-          </p>
-        </div>
-        <div class="component-map">
-          <div class="map-row">
-            <strong>피드</strong>
-            <span>법안/리포트 최신 목록</span>
-            <code>최근 파이프라인 실행 피드</code>
-          </div>
-          <div class="map-row">
-            <strong>시간순 / HOT</strong>
-            <span>피드 정렬 탭</span>
-            <code>최근순 / 실패 우선</code>
-          </div>
-          <div class="map-row">
-            <strong>리포트 / 법안 / 팔로잉</strong>
-            <span>content type rainbow tab</span>
-            <code>실행 / 산출물 / 알림</code>
-          </div>
-          <div class="map-row">
-            <strong>타임라인</strong>
-            <span>국회 진행 단계</span>
-            <code>run step timeline</code>
-          </div>
-          <div class="map-row">
-            <strong>원문 확인하기</strong>
-            <span>검정 rounded-full CTA</span>
-            <code>산출물 확인하기</code>
-          </div>
-        </div>
-      </section>
-
-      <section class="section">
-        <div class="section-header">
-          <h2>Desktop Preview</h2>
-          <p>
-            데스크톱 화면은 데이터를 더 넓게 보여주되, 모바일에서 시작된 모두의입법 문법을 버리지 않는다. 탭, chip, rounded summary, 검정 primary CTA가 계속 유지된다.
-          </p>
-        </div>
-        <div class="preview-grid">
-          <div class="desktop-preview">
-            <header class="desktop-header">
-              <div>
-                <p class="summary-label">Pipeline Timeline</p>
-                <h3>파이프라인 타임라인</h3>
-                <p>최근 24시간 · 마지막 갱신 21:24 KST</p>
+        <div>
+          <section id="tokens">
+            <div class="section-head">
+              <h2>브랜드 토큰</h2>
+              <p>
+                색상과 폰트는 모두의입법 웹에서 가져온다. 다만 토큰을 가져온다는 것은 기존 화면 구조까지 가져온다는 뜻이 아니다. 운영 화면에서는 정보 밀도와 오류 추적성이 우선이다.
+              </p>
+            </div>
+            <div class="token-grid" aria-label="디자인 토큰">
+              <div class="token">
+                <div class="token-swatch" style="background:#191919"></div>
+                <div class="token-body"><strong>primary-3</strong><code>#191919</code></div>
               </div>
-              <div class="sort-tabs" aria-label="정렬 탭">
-                <span>최근순</span>
-                <span>실패 우선</span>
+              <div class="token">
+                <div class="token-swatch" style="background:#96bcfa"></div>
+                <div class="token-body"><strong>primary-2</strong><code>#96BCFA</code></div>
               </div>
-            </header>
-
-            <div class="dashboard-stats">
-              <div class="dashboard-stat">
-                <span class="label">성공</span>
-                <span class="value">35</span>
-                <span class="sub">마지막 성공 21:04</span>
+              <div class="token">
+                <div class="token-swatch" style="background:#f5f7fd"></div>
+                <div class="token-body"><strong>primary-1</strong><code>#F5F7FD</code></div>
               </div>
-              <div class="dashboard-stat">
-                <span class="label">실패</span>
-                <span class="value">1</span>
-                <span class="sub">bill.ingest 종료 이벤트 누락</span>
+              <div class="token">
+                <div class="token-swatch" style="background:#e63946"></div>
+                <div class="token-body"><strong>theme-alert</strong><code>#E63946</code></div>
               </div>
-              <div class="dashboard-stat">
-                <span class="label">fallback</span>
-                <span class="value">1</span>
-                <span class="sub">Codex CLI fallback 사용</span>
+              <div class="token">
+                <div class="token-swatch" style="background:#ebebeb"></div>
+                <div class="token-body"><strong>gray-0.5</strong><code>#EBEBEB</code></div>
+              </div>
+              <div class="token">
+                <div class="token-swatch" style="background:#e0e0e0"></div>
+                <div class="token-body"><strong>gray-1</strong><code>#E0E0E0</code></div>
+              </div>
+              <div class="token">
+                <div class="token-swatch" style="background:#555555"></div>
+                <div class="token-body"><strong>gray-3</strong><code>#555555</code></div>
+              </div>
+              <div class="token">
+                <div class="token-swatch" style="background:#101012"></div>
+                <div class="token-body"><strong>dark-b</strong><code>#101012</code></div>
               </div>
             </div>
+          </section>
 
-            <div class="timeline">
-              <div class="timeline-item">
-                <span class="timeline-time">21:04:01</span>
-                <span class="timeline-dot"></span>
-                <span class="timeline-copy">
-                  <strong>Gemini CLI summary</strong>
-                  <span>gemini-3-flash-preview · 최신 법안 5건 요약</span>
-                </span>
-                <span class="chip success">성공</span>
-              </div>
-              <div class="timeline-item">
-                <span class="timeline-time">21:05:42</span>
-                <span class="timeline-dot"></span>
-                <span class="timeline-copy">
-                  <strong>structured validation</strong>
-                  <span>Pydantic schema 검증 통과</span>
-                </span>
-                <span class="chip success">성공</span>
-              </div>
-              <div class="timeline-item">
-                <span class="timeline-time">20:42:31</span>
-                <span class="timeline-dot fallback"></span>
-                <span class="timeline-copy">
-                  <strong>Codex CLI fallback</strong>
-                  <span>Gemini quota 초과 후 codex-5.3-spark 사용</span>
-                </span>
-                <span class="chip fallback">fallback</span>
-              </div>
-              <div class="timeline-item">
-                <span class="timeline-time">20:18:09</span>
-                <span class="timeline-dot running"></span>
-                <span class="timeline-copy">
-                  <strong>artifact write</strong>
-                  <span>JSON과 Markdown 결과 파일 저장</span>
-                </span>
-                <span class="chip running">실행 중</span>
-              </div>
+          <section id="rainbow">
+            <div class="section-head">
+              <h2>레인보우 사용 원칙</h2>
+              <p>
+                레인보우 그라디언트는 모두의입법의 브랜드 서명이다. 모니터링 화면에서는 눈에 띄는 장식이 아니라, 이 서비스가 모두의입법 계열이라는 최소한의 단서로만 사용한다.
+              </p>
             </div>
-          </div>
+            <div class="rules">
+              <article class="rule">
+                <h3>허용</h3>
+                <p>상단 2px 라인, wordmark underline, 브랜드 토큰 설명의 단일 예시. 한 화면에 1-2회 정도만 등장한다.</p>
+              </article>
+              <article class="rule">
+                <h3>금지</h3>
+                <p>gradient button, gradient pill, gradient chart, 코드 패널 상단 반복 라인, 상태색을 rainbow stop으로 매핑하는 방식.</p>
+              </article>
+            </div>
+          </section>
 
-          <aside class="code-panel">
-            <header>
-              <strong>JSONL Event</strong>
-              <span>read only</span>
-            </header>
-            <pre><code>{
+          <section id="preview">
+            <div class="section-head">
+              <h2>모니터링 화면 구조</h2>
+              <p>
+                1차 화면은 table-first다. 운영자는 최근 실행 이력을 비교하고, 선택한 run의 단계와 로그를 오른쪽 패널에서 바로 확인한다.
+              </p>
+            </div>
+
+            <div class="monitor-preview" aria-label="Pipeline Monitor 화면 예시">
+              <header class="monitor-top">
+                <div class="monitor-title">
+                  <strong>Pipeline Monitor</strong>
+                  <span>prod · 마지막 갱신 2026-05-19 22:31 KST</span>
+                </div>
+                <button class="refresh-button" type="button">
+                  <span class="material-symbols-outlined">refresh</span>
+                  새로고침
+                </button>
+              </header>
+
+              <div class="toolbar" aria-label="필터 도구">
+                <div class="control">최근 24시간</div>
+                <div class="control">상태: 전체</div>
+                <div class="control search">run id, command, artifact 검색</div>
+                <div class="control">자동 30초</div>
+              </div>
+
+              <div class="monitor-grid">
+                <div class="main-pane">
+                  <div class="health-strip">
+                    <div class="health-item">
+                      <span class="health-label">마지막 성공</span>
+                      <span class="health-value">21:04</span>
+                      <span class="health-note">5건 요약 완료</span>
+                    </div>
+                    <div class="health-item">
+                      <span class="health-label">마지막 실패</span>
+                      <span class="health-value">20:18</span>
+                      <span class="health-note">ingest timeout</span>
+                    </div>
+                    <div class="health-item">
+                      <span class="health-label">실행 중</span>
+                      <span class="health-value">1</span>
+                      <span class="health-note">bill.status_sync</span>
+                    </div>
+                    <div class="health-item">
+                      <span class="health-label">fallback</span>
+                      <span class="health-value">1</span>
+                      <span class="health-note">Codex CLI</span>
+                    </div>
+                  </div>
+
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th scope="col">상태</th>
+                          <th scope="col">시작</th>
+                          <th scope="col">Command</th>
+                          <th scope="col">Provider</th>
+                          <th scope="col">소요</th>
+                          <th scope="col">처리</th>
+                          <th scope="col">Error</th>
+                          <th scope="col">Artifacts</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td><span class="badge success">성공</span></td>
+                          <td>21:04:01</td>
+                          <td><code>summary:latest</code></td>
+                          <td>Gemini CLI</td>
+                          <td>2분 18초</td>
+                          <td>5건</td>
+                          <td class="muted">-</td>
+                          <td>JSON, MD</td>
+                        </tr>
+                        <tr>
+                          <td><span class="badge warning">fallback</span></td>
+                          <td>20:42:31</td>
+                          <td><code>summary:latest</code></td>
+                          <td>Codex CLI</td>
+                          <td>3분 07초</td>
+                          <td>5건</td>
+                          <td>Gemini quota</td>
+                          <td>JSON</td>
+                        </tr>
+                        <tr>
+                          <td><span class="badge failed">실패</span></td>
+                          <td>20:18:09</td>
+                          <td><code>bill.ingest</code></td>
+                          <td>Runtime</td>
+                          <td>48초</td>
+                          <td>0건</td>
+                          <td>timeout</td>
+                          <td class="muted">-</td>
+                        </tr>
+                        <tr>
+                          <td><span class="badge running">실행 중</span></td>
+                          <td>22:30:12</td>
+                          <td><code>bill.status_sync</code></td>
+                          <td>Runtime</td>
+                          <td>1분 04초</td>
+                          <td>검증 중</td>
+                          <td class="muted">-</td>
+                          <td>대기</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <aside class="detail-pane" aria-label="선택된 실행 상세">
+                  <div class="pane-section">
+                    <h3>선택된 run</h3>
+                    <div class="meta-grid">
+                      <span>run_id</span><code>run_20260519_210401</code>
+                      <span>command</span><code>summary:latest</code>
+                      <span>model</span><code>gemini-3-flash-preview</code>
+                      <span>schema</span><code>validated</code>
+                    </div>
+                  </div>
+
+                  <div class="pane-section">
+                    <h3>단계 타임라인</h3>
+                    <div class="steps">
+                      <div class="step">
+                        <span class="dot"></span>
+                        <span><strong>log read</strong><span>JSONL 이벤트 14줄 읽음</span></span>
+                        <span class="badge success">성공</span>
+                      </div>
+                      <div class="step">
+                        <span class="dot"></span>
+                        <span><strong>Gemini CLI summary</strong><span>최신 법안 5건 요약</span></span>
+                        <span class="badge success">성공</span>
+                      </div>
+                      <div class="step">
+                        <span class="dot"></span>
+                        <span><strong>structured validation</strong><span>Pydantic schema 통과</span></span>
+                        <span class="badge success">성공</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="pane-section">
+                    <h3>산출물</h3>
+                    <div class="artifact-list">
+                      <div class="artifact">
+                        <code>latest-bills-summary.json</code>
+                        <span>18 KB</span>
+                      </div>
+                      <div class="artifact">
+                        <code>latest-bills-summary.md</code>
+                        <span>9 KB</span>
+                      </div>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+
+              <div class="log-panel">
+                <div class="log-header">
+                  <strong>Raw JSONL preview</strong>
+                  <span>secrets masked · copy available</span>
+                </div>
+                <pre><code>{
+  "event": "run_finished",
   "run_id": "run_20260519_210401",
-  "command": "summary:latest",
   "status": "success",
-  "provider": "gemini",
-  "model": "gemini-3-flash-preview",
-  "validated": true,
   "result": {
     "target": 5,
     "success": 5,
-    "fallback_used": false
-  },
-  "artifacts": [
-    "latest-bills-summary.json",
-    "latest-bills-summary.md"
-  ]
+    "fallback_used": false,
+    "artifacts": ["latest-bills-summary.json", "latest-bills-summary.md"]
+  }
 }</code></pre>
-          </aside>
-        </div>
-      </section>
+              </div>
+            </div>
+          </section>
 
-      <section class="section">
-        <div class="section-header">
-          <h2>구현 체크리스트</h2>
-          <p>
-            구현 에이전트는 새로운 시각 언어를 만들지 말고, 기존 모두의입법 웹의 토큰과 컴포넌트 습관을 모니터링 기능에 재사용해야 한다.
-          </p>
+          <section id="components">
+            <div class="section-head">
+              <h2>컴포넌트 기준</h2>
+              <p>
+                핵심 컴포넌트는 운영자가 실행 이력을 비교하고 오류를 추적하는 순서로 설계한다. 장식용 컴포넌트보다 상태, 필터, 표, 상세, 로그가 우선이다.
+              </p>
+            </div>
+            <div class="component-table">
+              <div class="component-row">
+                <strong>SystemHeader</strong>
+                <span>브랜드와 환경, 마지막 갱신 시각 표시</span>
+                <span>wordmark 아래에만 얇은 레인보우 underline 사용</span>
+              </div>
+              <div class="component-row">
+                <strong>ControlToolbar</strong>
+                <span>기간, 상태, command, 검색, refresh 제어</span>
+                <span>48-56px 높이의 단단한 toolbar</span>
+              </div>
+              <div class="component-row">
+                <strong>HealthStrip</strong>
+                <span>마지막 성공/실패, 실행 중, fallback 요약</span>
+                <span>4개 이하 항목, 텍스트 우선</span>
+              </div>
+              <div class="component-row">
+                <strong>RunTable</strong>
+                <span>최근 실행 비교와 필터링의 중심</span>
+                <span>상태, 시작, command, provider, 오류, 산출물 열 필수</span>
+              </div>
+              <div class="component-row">
+                <strong>RunDetailPanel</strong>
+                <span>선택한 run의 metadata, step, artifacts 확인</span>
+                <span>desktop right panel, mobile single column</span>
+              </div>
+              <div class="component-row">
+                <strong>LogPanel</strong>
+                <span>JSONL 원문과 traceback 확인</span>
+                <span>dark-b 배경, mono, 가로 스크롤</span>
+              </div>
+            </div>
+          </section>
+
+          <section id="states">
+            <div class="section-head">
+              <h2>상태 언어</h2>
+              <p>
+                상태는 색상만으로 전달하지 않는다. 모든 상태는 작은 badge와 한글 라벨, 필요 시 오류 요약을 함께 제공한다.
+              </p>
+            </div>
+            <div class="rules">
+              <article class="rule">
+                <h3>성공 / 실행 중</h3>
+                <p><span class="badge success">성공</span>은 산출물 생성 여부를 함께 보여준다. <span class="badge running">실행 중</span>은 시작 시각과 경과 시간을 반드시 포함한다.</p>
+              </article>
+              <article class="rule">
+                <h3>실패 / fallback</h3>
+                <p><span class="badge failed">실패</span>는 실패 단계와 오류 첫 줄을 보여준다. <span class="badge warning">fallback</span>은 대체 provider와 원인을 표시한다.</p>
+              </article>
+            </div>
+          </section>
+
+          <section id="checklist">
+            <div class="section-head">
+              <h2>구현 체크리스트</h2>
+              <p>
+                실제 구현 단계에서는 아래 기준을 만족해야 한다. 특히 레인보우 사용량과 read-only 범위를 유지하는 것이 중요하다.
+              </p>
+            </div>
+            <ul class="checklist">
+              <li><span class="check">1</span><span>Pretendard, Material Symbols, 모두의입법 색상 토큰을 동일하게 적용한다.</span></li>
+              <li><span class="check">2</span><span>레인보우는 상단 브랜드 라인과 wordmark underline 정도로 제한한다.</span></li>
+              <li><span class="check">3</span><span>첫 화면은 HealthStrip, ControlToolbar, RunTable, RunDetailPanel로 구성한다.</span></li>
+              <li><span class="check">4</span><span>LogPanel은 dark-b, mono, raw/pretty view를 제공한다.</span></li>
+              <li><span class="check">5</span><span>MVP에는 실행, 재시도, 삭제, 롤백 버튼을 넣지 않는다.</span></li>
+              <li><span class="check">6</span><span>실제 집계 데이터 없는 차트와 장식용 gradient UI를 만들지 않는다.</span></li>
+            </ul>
+          </section>
         </div>
-        <ul class="checklist">
-          <li><span class="check-icon">1</span><span>Pretendard와 Material Symbols를 기존 웹과 같은 방식으로 로드한다.</span></li>
-          <li><span class="check-icon">2</span><span>레인보우 그라디언트는 active tab, underline, 코드 패널 상단 라인에 사용한다.</span></li>
-          <li><span class="check-icon">3</span><span>primary CTA는 `bg-primary-3`, `text-white`, `rounded-full` 문법을 따른다.</span></li>
-          <li><span class="check-icon">4</span><span>최근 실행 목록은 법안 피드처럼 제목, 보조 제목, chip, footer 구조로 만든다.</span></li>
-          <li><span class="check-icon">5</span><span>모바일에서는 bottom floating nav를 유지하고, 데스크톱에서는 정보 밀도만 확장한다.</span></li>
-          <li><span class="check-icon">6</span><span>MVP는 읽기 전용이다. 실행, 재시도, 삭제 버튼은 디자인에 포함하지 않는다.</span></li>
-        </ul>
-      </section>
+      </div>
     </main>
   </div>
 </body>
