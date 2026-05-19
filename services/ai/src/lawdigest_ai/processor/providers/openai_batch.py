@@ -23,7 +23,13 @@ from lawdigest_ai.processor.providers.types import (
 
 class BatchStructuredSummary(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
-    brief_summary: str = Field(alias="briefSummary")
+    brief_summary: str = Field(
+        alias="briefSummary",
+        description=(
+            "법안 핵심을 제목처럼 표현한 짧은 한국어 명사구. "
+            "'입니다', '합니다', '것입니다', '함' 같은 문장 종결 표현으로 끝내지 않는다."
+        ),
+    )
     gpt_summary: str = Field(alias="gptSummary")
     tags: List[str] = Field(alias="tags", min_length=5, max_length=5)
 
@@ -45,7 +51,9 @@ def _build_prompt_for_bill(row: Dict[str, Any]) -> str:
     return (
         "다음 법안 정보를 보고 JSON으로만 응답하세요.\n"
         "키는 briefSummary, gptSummary, tags 세 개만 포함해야 합니다.\n"
-        "briefSummary는 법안의 핵심을 한 문장으로 요약하세요.\n"
+        "briefSummary는 법안의 핵심을 뉴스 제목처럼 짧은 제목형 명사구로 작성하세요.\n"
+        "briefSummary는 완성된 설명문이나 문장으로 쓰지 말고, '입니다', '합니다', '것입니다', '함' 같은 종결 표현으로 끝내지 마세요.\n"
+        "briefSummary 예: '공공외교 협력체계 구축 방안의 기본계획 포함'\n"
         "gptSummary는 기존 양식에 맞춰 아래 규칙으로 작성하세요.\n"
         f"1) 첫 줄: \"{{opening_proposer_line}}\"\n"
         f"2) 다음 줄부터 {SUMMARY_LIST_GUIDELINE}\n"

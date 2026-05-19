@@ -97,6 +97,8 @@ def test_gemini_cli_summarizer_reuses_api_prompt_and_schema():
 
     assert "다음 법안 정보를 보고 JSON으로만 응답하세요." in prompt
     assert "키는 briefSummary, gptSummary, tags 세 개만 포함해야 합니다." in prompt
+    assert "뉴스 제목처럼 짧은 제목형 명사구" in prompt
+    assert "'입니다', '합니다', '것입니다', '함' 같은 종결 표현으로 끝내지 마세요." in prompt
     assert '"briefSummary"' in prompt
     assert '"gptSummary"' in prompt
     assert "brief_summary/gpt_summary 같은 snake_case 키를 사용하지 마세요." in prompt
