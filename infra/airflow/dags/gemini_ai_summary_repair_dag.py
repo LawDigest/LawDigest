@@ -40,6 +40,7 @@ def run_gemini_ai_summary_repair(**context):
         stop_on_error=_as_bool(params.get("stop_on_error", False)),
         read_mode=params.get("read_mode") or None,
         target_mode=params.get("target_mode") or "missing",
+        cli_provider=params.get("cli_provider") or "gemini",
     )
 
 
@@ -82,6 +83,13 @@ with DAG(
             title="대상 선택 방식",
             description="missing: 미요약 법안 조회, latest: 최신 법안 조회 후 재요약",
         ),
+        "cli_provider": Param(
+            "gemini",
+            type="string",
+            enum=["gemini", "codex", "claude"],
+            title="CLI 제공자",
+            description="Gemini CLI, Codex CLI, Claude CLI 중 요약 생성에 사용할 headless CLI 경로를 선택합니다.",
+        ),
         "output_path": Param(
             "/tmp/gemini_ai_summary_results.json",
             type="string",
@@ -96,14 +104,14 @@ with DAG(
         ),
     },
     doc_md="""
-    ## 🤖 Gemini CLI 기반 법안 AI 요약 복구 파이프라인
+    ## CLI 기반 법안 AI 요약 복구 파이프라인
 
     기존 OpenAI Batch 경로와 분리된 독립 실행용 DAG입니다.  
-    DB에서 AI 요약이 누락된 법안을 조회하고, Gemini CLI 경로로 요약을 생성한 뒤 JSON 산출물을 남기고 필요 시 DB에 반영합니다.
+    DB에서 AI 요약이 누락된 법안을 조회하고, 선택한 headless CLI 경로로 요약을 생성한 뒤 JSON 산출물을 남기고 필요 시 DB에 반영합니다.
 
     ### 🚀 주요 기능
     1. **미요약 대상 자동 조회**: `Bill` 테이블에서 `brief_summary` 또는 `gpt_summary`가 비어 있는 법안을 최대 `limit`건 조회합니다.
-    2. **Gemini CLI 요약 생성**: 조회된 법안을 `batch_size` 단위로 Gemini CLI 요약기에 전달합니다.
+    2. **CLI 요약 생성**: 조회된 법안을 `batch_size` 단위로 Gemini/Codex/Claude CLI 요약기에 전달합니다.
     3. **산출물 저장**: 성공/실패 여부와 생성된 `ai_title`, `ai_summary`, `summary_tags`를 JSON으로 저장합니다.
     4. **선택적 DB 반영**: `test` 또는 `prod` 모드에서는 성공 건을 DB에 업데이트합니다.
 
@@ -118,6 +126,7 @@ with DAG(
     - `batch_size`: 한 번에 Gemini에 보낼 법안 수
     - `read_mode`: 조회 대상 DB를 별도로 지정할 때 사용 (`test` 또는 `prod`)
     - `target_mode`: 미요약 법안 복구(`missing`) 또는 최신 법안 재요약(`latest`)
+    - `cli_provider`: `gemini`, `codex`, `claude` 중 사용할 CLI provider
     - `output_path`: 결과 JSON 저장 위치
     - `stop_on_error`: 실패 발생 시 DB 반영 중단 여부
 

@@ -135,7 +135,10 @@ def test_gemini_instant_provider_uses_response_json_schema():
 
 def test_airflow_runtime_requirements_include_instant_provider_dependencies():
     repo_root = Path(__file__).resolve().parents[4]
-    requirements = (repo_root / "infra" / "airflow" / "requirements.txt").read_text(encoding="utf-8")
+    requirements = "\n".join(
+        (repo_root / "infra" / "airflow" / filename).read_text(encoding="utf-8")
+        for filename in ("requirements.txt", "requirements-runtime.txt", "requirements-airflow.txt")
+    )
 
-    assert "pydantic-ai-slim[openai]" in requirements
+    assert "pydantic-ai-slim[google,openai]" in requirements
     assert "google-genai" in requirements

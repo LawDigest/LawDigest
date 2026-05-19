@@ -53,7 +53,7 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 | 프로덕션 DB | MySQL | 8.0.35 |
 | 데이터 처리 | Python + pandas | - |
 | AI 요약 (Batch / Instant) | OpenAI + Gemini | - |
-| Gemini CLI Fallback | Google Gemini CLI | - |
+| CLI Fallback | Google Gemini CLI / Codex CLI / Claude CLI | - |
 | 구조화 AI | PydanticAI | - |
 | 벡터 DB | Qdrant | - |
 | 모니터링 | Prometheus + Grafana | - |
@@ -108,7 +108,7 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 | `manual_ai_summary_instant_dag` | 단일 법안 즉시 요약 |
 | `manual_bill_collect_dag` | 특정 기간 법안 수동 수집 |
 
-> `gemini_ai_summary_repair_dag`는 CLI fallback용 수동 DAG로 유지됩니다.
+> `gemini_ai_summary_repair_dag`는 CLI fallback용 수동 DAG로 유지되며 `cli_provider=gemini|codex|claude`를 지원합니다.
 
 ---
 
@@ -210,7 +210,7 @@ manual_ai_summary_repair_dag
 **운영 포인트**:
 - `manual_ai_summary_instant_dag`와 `manual_ai_summary_repair_dag`는 모두 `provider`, `model` 파라미터를 지원
 - Gemini instant/repair는 CLI가 아니라 native API 경로를 사용
-- `gemini_ai_summary_repair_dag`는 별도 fallback 수단으로 유지
+- `gemini_ai_summary_repair_dag`는 별도 fallback 수단으로 유지하며 Gemini, Codex, Claude headless CLI 경로를 선택 가능
 
 ---
 

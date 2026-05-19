@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 import pandas as pd
 
 from lawdigest_ai.db import get_db_connection, update_bill_summary
-from lawdigest_ai.processor.gemini_cli_summarizer import GeminiCliSummarizer
+from lawdigest_ai.processor.gemini_cli_summarizer import build_cli_summarizer
 from lawdigest_ai.observability import trace_generation, trace_span
 
 
@@ -134,6 +134,7 @@ def run_gemini_repair_pipeline(
     stop_on_error: bool = False,
     read_mode: str | None = None,
     target_mode: str = "missing",
+    cli_provider: str = "gemini",
 ) -> Dict[str, Any]:
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
@@ -159,6 +160,7 @@ def run_gemini_repair_pipeline(
             "stop_on_error": stop_on_error,
             "read_mode": read_mode,
             "target_mode": target_mode,
+            "cli_provider": cli_provider,
         },
     ) as root_span:
         targets = fetcher(mode=mode, limit=limit, read_mode=read_mode)
@@ -168,7 +170,7 @@ def run_gemini_repair_pipeline(
                 target["brief_summary"] = None
                 target["gpt_summary"] = None
 
-        summarizer = GeminiCliSummarizer()
+        summarizer = build_cli_summarizer(cli_provider)
         items = []
         success_items = []
 
@@ -179,8 +181,8 @@ def run_gemini_repair_pipeline(
 
             with trace_generation(
                 root_span,
-                name="gemini_cli_batch_summarize",
-                model="gemini-cli",
+                name=f"{cli_provider}_cli_batch_summarize",
+                model=f"{cli_provider}-cli",
                 input={"batch_size": len(batch), "start": start},
             ) as generation:
                 batch_df = pd.DataFrame(batch)
@@ -211,6 +213,7 @@ def run_gemini_repair_pipeline(
         "stop_on_error": stop_on_error,
         "read_mode": resolved_read_mode,
         "target_mode": target_mode,
+        "cli_provider": cli_provider,
         "processed_at": datetime.now(timezone.utc).isoformat(),
         "stats": {
             "target_count": len(targets),

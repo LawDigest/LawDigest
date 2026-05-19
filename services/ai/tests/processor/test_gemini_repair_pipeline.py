@@ -39,7 +39,8 @@ def test_gemini_repair_pipeline_saves_json_in_dry_run(tmp_path):
 
     with patch("lawdigest_ai.processor.gemini_repair_pipeline.get_db_connection", return_value=_mock_connection(rows)), \
          patch("lawdigest_ai.processor.gemini_repair_pipeline.update_bill_summary") as mock_update, \
-         patch("lawdigest_ai.processor.gemini_repair_pipeline.GeminiCliSummarizer") as MockSummarizer:
+         patch("lawdigest_ai.processor.gemini_repair_pipeline.build_cli_summarizer") as mock_build:
+        MockSummarizer = mock_build
         MockSummarizer.return_value.failed_bills = []
         MockSummarizer.return_value.AI_structured_summarize.return_value = pd.DataFrame(result_rows)
 
@@ -80,7 +81,8 @@ def test_gemini_repair_pipeline_upserts_successful_items():
 
     with patch("lawdigest_ai.processor.gemini_repair_pipeline.get_db_connection", return_value=_mock_connection(rows)), \
          patch("lawdigest_ai.processor.gemini_repair_pipeline.update_bill_summary") as mock_update, \
-         patch("lawdigest_ai.processor.gemini_repair_pipeline.GeminiCliSummarizer") as MockSummarizer:
+         patch("lawdigest_ai.processor.gemini_repair_pipeline.build_cli_summarizer") as mock_build:
+        MockSummarizer = mock_build
         MockSummarizer.return_value.failed_bills = []
         MockSummarizer.return_value.AI_structured_summarize.return_value = pd.DataFrame(result_rows)
 
@@ -112,7 +114,8 @@ def test_gemini_repair_pipeline_raises_when_all_items_fail(tmp_path):
     output_path = tmp_path / "failed-gemini-repair.json"
 
     with patch("lawdigest_ai.processor.gemini_repair_pipeline.get_db_connection", return_value=_mock_connection(rows)), \
-         patch("lawdigest_ai.processor.gemini_repair_pipeline.GeminiCliSummarizer") as MockSummarizer:
+         patch("lawdigest_ai.processor.gemini_repair_pipeline.build_cli_summarizer") as mock_build:
+        MockSummarizer = mock_build
         MockSummarizer.return_value.failed_bills = [{"bill_id": "B003", "error": "timeout"}]
         MockSummarizer.return_value.AI_structured_summarize.return_value = pd.DataFrame(rows)
 
@@ -127,3 +130,42 @@ def test_gemini_repair_pipeline_raises_when_all_items_fail(tmp_path):
     saved = json.loads(Path(output_path).read_text(encoding="utf-8"))
     assert saved["stats"]["failure_count"] == 1
     assert saved["items"][0]["status"] == "failed"
+
+
+def test_gemini_repair_pipeline_accepts_cli_provider(tmp_path):
+    from lawdigest_ai.processor.gemini_repair_pipeline import run_gemini_repair_pipeline
+
+    rows = [{
+        "bill_id": "B004",
+        "bill_name": "CLI 제공자 법안",
+        "summary": "원문 요약",
+        "proposers": "이영희",
+        "proposer_kind": "의원발의",
+        "brief_summary": None,
+        "gpt_summary": None,
+        "propose_date": "2026-04-16",
+        "stage": "위원회",
+    }]
+    result_rows = [{
+        **rows[0],
+        "brief_summary": "CLI 제공자 기반 요약",
+        "gpt_summary": "1. CLI 제공자 경로를 검증한다.",
+        "summary_tags": json.dumps(["CLI", "요약", "검증", "법안", "자동화"], ensure_ascii=False),
+    }]
+    output_path = tmp_path / "codex-repair.json"
+
+    with patch("lawdigest_ai.processor.gemini_repair_pipeline.get_db_connection", return_value=_mock_connection(rows)), \
+         patch("lawdigest_ai.processor.gemini_repair_pipeline.build_cli_summarizer") as mock_build:
+        mock_build.return_value.failed_bills = []
+        mock_build.return_value.AI_structured_summarize.return_value = pd.DataFrame(result_rows)
+
+        report = run_gemini_repair_pipeline(
+            mode="dry_run",
+            limit=10,
+            batch_size=5,
+            output_path=str(output_path),
+            cli_provider="codex",
+        )
+
+    mock_build.assert_called_once_with("codex")
+    assert report["cli_provider"] == "codex"

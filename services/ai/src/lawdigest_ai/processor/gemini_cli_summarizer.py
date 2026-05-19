@@ -1,18 +1,28 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import logging
 import os
-import queue
 import subprocess
-import threading
-import time
-from typing import Any, Dict, List, Optional
+import tempfile
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional
 
 import pandas as pd
 from pydantic import BaseModel, Field, ValidationError
 
 from lawdigest_ai.config import (
+    CLAUDE_CLI_BIN,
+    CLAUDE_CLI_HOME,
+    CLAUDE_CLI_MODEL,
+    CLAUDE_CLI_TIMEOUT_SECONDS,
+    CLAUDE_CLI_WORKDIR,
+    CODEX_CLI_BIN,
+    CODEX_CLI_HOME,
+    CODEX_CLI_MODEL,
+    CODEX_CLI_TIMEOUT_SECONDS,
+    CODEX_CLI_WORKDIR,
     GEMINI_CLI_APPROVAL_MODE,
     GEMINI_CLI_BIN,
     GEMINI_CLI_HOME,
@@ -28,9 +38,53 @@ from lawdigest_ai.processor.summary_prompt_templates import (
 from lawdigest_ai.observability import trace_generation, trace_span
 
 
-ACP_PROTOCOL_VERSION = 1
-ACP_QUIET_MS = 0.3
-ACP_SETTLE_TIMEOUT_SECONDS = 5.0
+CliProviderName = Literal["gemini", "codex", "claude"]
+
+
+@dataclass(frozen=True)
+class CliProviderConfig:
+    provider: CliProviderName
+    cli_bin: str
+    model: str
+    timeout_seconds: int
+    cli_home: str | None
+    cli_workdir: str
+    approval_mode: str = "yolo"
+
+
+def _provider_config(provider: str) -> CliProviderConfig:
+    normalized = provider.strip().lower()
+    if normalized == "gemini":
+        return CliProviderConfig(
+            provider="gemini",
+            cli_bin=GEMINI_CLI_BIN,
+            model=GEMINI_CLI_MODEL,
+            timeout_seconds=GEMINI_CLI_TIMEOUT_SECONDS,
+            cli_home=GEMINI_CLI_HOME,
+            cli_workdir=GEMINI_CLI_WORKDIR,
+            approval_mode=GEMINI_CLI_APPROVAL_MODE,
+        )
+    if normalized == "codex":
+        return CliProviderConfig(
+            provider="codex",
+            cli_bin=CODEX_CLI_BIN,
+            model=CODEX_CLI_MODEL,
+            timeout_seconds=CODEX_CLI_TIMEOUT_SECONDS,
+            cli_home=CODEX_CLI_HOME,
+            cli_workdir=CODEX_CLI_WORKDIR,
+        )
+    if normalized == "claude":
+        return CliProviderConfig(
+            provider="claude",
+            cli_bin=CLAUDE_CLI_BIN,
+            model=CLAUDE_CLI_MODEL,
+            timeout_seconds=CLAUDE_CLI_TIMEOUT_SECONDS,
+            cli_home=CLAUDE_CLI_HOME,
+            cli_workdir=CLAUDE_CLI_WORKDIR,
+        )
+    raise ValueError("cli_provider는 gemini, codex, claude 중 하나여야 합니다.")
+
+
 class StructuredBillSummary(BaseModel):
     brief_summary: str = Field(description="법안 핵심을 한 문장으로 요약한 짧은 제목형 요약문")
     gpt_summary: str = Field(description=SUMMARY_GPT_FIELD_DESC)
@@ -38,16 +92,18 @@ class StructuredBillSummary(BaseModel):
 
 
 class GeminiCliSummarizer:
-    def __init__(self):
+    def __init__(self, provider: str = "gemini"):
+        config = _provider_config(provider)
         self.failed_bills: List[dict] = []
         self.logger = logging.getLogger(__name__)
-        self.cli_bin = GEMINI_CLI_BIN
-        self.model = GEMINI_CLI_MODEL
-        self.timeout_seconds = GEMINI_CLI_TIMEOUT_SECONDS
-        self.approval_mode = GEMINI_CLI_APPROVAL_MODE
-        self.cli_home = GEMINI_CLI_HOME
-        self.cli_workdir = GEMINI_CLI_WORKDIR
-        self.debug_log_path = os.getenv("GEMINI_CLI_DEBUG_LOG_PATH")
+        self.provider = config.provider
+        self.cli_bin = config.cli_bin
+        self.model = config.model
+        self.timeout_seconds = config.timeout_seconds
+        self.approval_mode = config.approval_mode
+        self.cli_home = config.cli_home
+        self.cli_workdir = config.cli_workdir
+        self.debug_log_path = os.getenv(f"{self.provider.upper()}_CLI_DEBUG_LOG_PATH")
         self.style_prompt = (
             "법률개정안 텍스트에서 달라지는 핵심 내용을 항목별로 정리하세요. "
             "각 항목은 이해하기 쉬운 공식 문체로 작성하고, 3~7개 항목을 권장합니다."
@@ -101,14 +157,6 @@ class GeminiCliSummarizer:
         return "\n".join(lines).strip()
 
     @staticmethod
-    def _as_record(value: Any) -> Optional[Dict[str, Any]]:
-        return value if isinstance(value, dict) else None
-
-    @staticmethod
-    def _as_string(value: Any, fallback: str = "") -> str:
-        return value if isinstance(value, str) else fallback
-
-    @staticmethod
     def _extract_first_json_object(text: str) -> Optional[str]:
         start = text.find("{")
         if start < 0:
@@ -151,287 +199,132 @@ class GeminiCliSummarizer:
         cleaned = self._strip_code_fences(raw_text)
         try:
             payload = json.loads(cleaned)
+            if isinstance(payload, dict) and isinstance(payload.get("response"), str):
+                payload = json.loads(payload["response"])
         except json.JSONDecodeError as exc:
             json_object = self._extract_first_json_object(cleaned)
             if not json_object:
-                raise ValueError(f"Gemini ACP 응답이 JSON이 아닙니다: {cleaned[:300]}") from exc
+                raise ValueError(f"{self.provider} CLI 응답이 JSON이 아닙니다: {cleaned[:300]}") from exc
             payload = json.loads(json_object)
+            if isinstance(payload, dict) and isinstance(payload.get("response"), str):
+                payload = json.loads(payload["response"])
         try:
             return StructuredBillSummary.model_validate(payload)
         except ValidationError as exc:
-            raise ValueError(f"Gemini ACP 구조화 응답 검증 실패: {exc}") from exc
+            raise ValueError(f"{self.provider} CLI 구조화 응답 검증 실패: {exc}") from exc
 
-    def _build_permission_outcome(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        options = params.get("options")
-        if not isinstance(options, list):
-            return {"outcome": "cancelled"}
+    def _build_headless_command(
+        self,
+        prompt: str,
+        requested_model: str,
+        output_path: str | None,
+    ) -> tuple[List[str], str | None]:
+        if self.provider == "gemini":
+            command = [
+                self.cli_bin,
+                "--prompt",
+                prompt,
+                "--approval-mode",
+                self.approval_mode,
+                "--output-format",
+                "text",
+            ]
+            if requested_model:
+                command.extend(["--model", requested_model])
+            return command, None
 
-        normalized: List[Dict[str, str]] = []
-        for option in options:
-            if not isinstance(option, dict):
-                continue
-            option_id = self._as_string(option.get("optionId"), "").strip()
-            kind = self._as_string(option.get("kind"), "").strip()
-            if option_id:
-                normalized.append({"optionId": option_id, "kind": kind})
+        if self.provider == "codex":
+            command = [
+                self.cli_bin,
+                "exec",
+                "--sandbox",
+                "read-only",
+                "--cd",
+                self.cli_workdir,
+                "--skip-git-repo-check",
+                "--ephemeral",
+                "--ignore-rules",
+            ]
+            if requested_model:
+                command.extend(["--model", requested_model])
+            if output_path:
+                command.extend(["--output-last-message", output_path])
+            command.append("-")
+            return command, prompt
 
-        preferred = ["allow_always", "allow_once"] if self.approval_mode == "yolo" else ["allow_once", "allow_always"]
-        for kind in preferred:
-            match = next((option for option in normalized if option["kind"] == kind), None)
-            if match:
-                return {"outcome": "selected", "optionId": match["optionId"]}
-        return {"outcome": "cancelled"}
+        command = [
+            self.cli_bin,
+            "--print",
+            "--output-format",
+            "text",
+            "--permission-mode",
+            "dontAsk",
+            "--no-session-persistence",
+            "--tools",
+            "",
+        ]
+        if requested_model:
+            command.extend(["--model", requested_model])
+        command.append(prompt)
+        return command, None
 
-    def _run_acp_prompt(
+    def _run_headless_prompt(
         self,
         prompt: str,
         model_name: Optional[str] = None,
     ) -> str:
         env = os.environ.copy()
         requested_model = model_name or self.model
-        if requested_model:
-            env.setdefault("GEMINI_MODEL", requested_model)
         if self.cli_home:
-            os.makedirs(os.path.join(self.cli_home, ".gemini"), exist_ok=True)
+            os.makedirs(self.cli_home, exist_ok=True)
             env["HOME"] = self.cli_home
 
-        proc = subprocess.Popen(
-            [self.cli_bin, "--acp"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=self.cli_workdir,
-            env=env,
-            bufsize=1,
-        )
-        if proc.stdin is None or proc.stdout is None or proc.stderr is None:
-            proc.kill()
-            raise RuntimeError("Gemini ACP stdio streams are unavailable")
-
-        stdout_queue: queue.Queue[Dict[str, Any]] = queue.Queue()
-        stderr_chunks: List[str] = []
-        message_chunks: List[str] = []
-        session_id = ""
-        request_seq = 0
-        last_activity_at = time.time()
-        write_lock = threading.Lock()
-
-        def send_json(payload: Dict[str, Any]) -> None:
-            line = json.dumps(payload, ensure_ascii=False)
-            with write_lock:
-                if proc.stdin is None or proc.stdin.closed:
-                    raise RuntimeError("Gemini ACP stdin is closed")
-                proc.stdin.write(line + "\n")
-                proc.stdin.flush()
-
-        def stdout_reader() -> None:
-            nonlocal session_id, last_activity_at
-            assert proc.stdout is not None
-            for raw_line in proc.stdout:
-                line = raw_line.strip()
-                if not line:
-                    continue
-                last_activity_at = time.time()
-                try:
-                    payload = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                self._append_debug_log("acp-line", line)
-
-                method = self._as_string(payload.get("method"), "").strip()
-                if method == "session/update":
-                    params = self._as_record(payload.get("params")) or {}
-                    if not session_id:
-                        session_id = self._as_string(params.get("sessionId"), "").strip()
-                    update = self._as_record(params.get("update")) or {}
-                    update_type = self._as_string(update.get("sessionUpdate"), "").strip()
-                    if update_type == "agent_message_chunk":
-                        content = self._as_record(update.get("content")) or {}
-                        if self._as_string(content.get("type"), "").strip() == "text":
-                            chunk = self._as_string(content.get("text"), "")
-                            if chunk:
-                                message_chunks.append(chunk)
-                                self._append_debug_log("message-chunk", chunk)
-                    elif method and "id" in payload:
-                        stdout_queue.put(payload)
-                    continue
-
-                if method and "id" in payload:
-                    request_id = payload.get("id")
-                    params = self._as_record(payload.get("params")) or {}
-                    if method == "session/request_permission":
-                        try:
-                            send_json({
-                                "jsonrpc": "2.0",
-                                "id": request_id,
-                                "result": self._build_permission_outcome(params),
-                            })
-                        except Exception:
-                            pass
-                        continue
-
-                    try:
-                        send_json({
-                            "jsonrpc": "2.0",
-                            "id": request_id,
-                            "error": {
-                                "code": -32601,
-                                "message": f"Unsupported Gemini ACP client method: {method}",
-                            },
-                        })
-                    except Exception:
-                        pass
-                    continue
-
-                if "id" in payload:
-                    stdout_queue.put(payload)
-
-        def stderr_reader() -> None:
-            assert proc.stderr is not None
-            for chunk in proc.stderr:
-                stderr_chunks.append(chunk)
-
-        stdout_thread = threading.Thread(target=stdout_reader, daemon=True)
-        stderr_thread = threading.Thread(target=stderr_reader, daemon=True)
-        stdout_thread.start()
-        stderr_thread.start()
-
-        def wait_for_response(request_id: str, timeout_seconds: float) -> Dict[str, Any]:
-            deadline = time.time() + timeout_seconds
-            while time.time() < deadline:
-                if proc.poll() is not None and stdout_queue.empty():
-                    break
-                try:
-                    payload = stdout_queue.get(timeout=0.1)
-                except queue.Empty:
-                    continue
-                payload_id = self._as_string(payload.get("id"), "").strip()
-                if payload_id != request_id:
-                    continue
-                error_payload = self._as_record(payload.get("error"))
-                if error_payload:
-                    message = self._as_string(error_payload.get("message"), "").strip() or json.dumps(error_payload, ensure_ascii=False)
-                    raise RuntimeError(message)
-                return self._as_record(payload.get("result")) or {}
-
-            stderr_text = "".join(stderr_chunks).strip()
-            raise RuntimeError(f"Gemini ACP 응답 대기 타임아웃: request_id={request_id} {stderr_text}".strip())
-
-        def send_request(method: str, params: Dict[str, Any], timeout_seconds: Optional[float] = None) -> Dict[str, Any]:
-            nonlocal request_seq
-            request_seq += 1
-            request_id = f"lawdigest-gemini-{request_seq}"
-            send_json({
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "method": method,
-                "params": params,
-            })
-            return wait_for_response(request_id, timeout_seconds or self.timeout_seconds)
+        output_file: tempfile.NamedTemporaryFile[str] | None = None
+        output_path: str | None = None
+        if self.provider == "codex":
+            output_file = tempfile.NamedTemporaryFile(
+                "w+",
+                encoding="utf-8",
+                prefix="lawdigest-codex-summary-",
+                suffix=".txt",
+                delete=False,
+            )
+            output_path = output_file.name
+            output_file.close()
 
         try:
-            send_request(
-                "initialize",
-                {
-                    "protocolVersion": ACP_PROTOCOL_VERSION,
-                    "clientCapabilities": {},
-                    "clientInfo": {
-                        "name": "lawdigest-ai",
-                        "version": "0.1.0",
-                    },
-                },
+            command, stdin_text = self._build_headless_command(prompt, requested_model, output_path)
+            proc = subprocess.run(
+                command,
+                input=stdin_text,
+                capture_output=True,
+                text=True,
+                cwd=self.cli_workdir,
+                env=env,
+                timeout=self.timeout_seconds,
             )
+            output_text = ""
+            if output_path:
+                try:
+                    output_text = Path(output_path).read_text(encoding="utf-8").strip()
+                except FileNotFoundError:
+                    output_text = ""
+            if not output_text:
+                output_text = (proc.stdout or "").strip()
 
-            created = send_request(
-                "session/new",
-                {
-                    "cwd": self.cli_workdir,
-                    "mcpServers": [],
-                },
-            )
-            session_id = self._as_string(created.get("sessionId"), "").strip()
-            if not session_id:
-                raise RuntimeError("Gemini ACP did not return a session id")
-
-            request_seq += 1
-            send_json(
-                {
-                    "jsonrpc": "2.0",
-                    "id": f"lawdigest-gemini-{request_seq}",
-                    "method": "session/prompt",
-                    "params": {
-                        "sessionId": session_id,
-                        "prompt": [
-                            {
-                                "type": "text",
-                                "text": prompt,
-                            }
-                        ],
-                    },
-                }
-            )
-
-            deadline = time.time() + self.timeout_seconds
-            while time.time() < deadline:
-                output = "".join(message_chunks).strip()
-                if output:
-                    try:
-                        self._extract_json_summary(output)
-                        return output
-                    except Exception:
-                        pass
-                if proc.poll() is not None:
-                    break
-                time.sleep(0.1)
-
-            stderr_text = "".join(stderr_chunks).strip()
-            partial = "".join(message_chunks).strip()
-            if partial:
-                raise RuntimeError(f"Gemini ACP 응답이 제한 시간 안에 완성되지 않았습니다. partial={partial[:500]}")
-            raise RuntimeError(f"Gemini ACP 응답 본문이 비어 있습니다. {stderr_text}".strip())
+            if proc.returncode != 0:
+                stderr_text = (proc.stderr or "").strip()
+                raise RuntimeError(f"{self.provider} CLI 실패: {stderr_text or output_text}")
+            if not output_text:
+                stderr_text = (proc.stderr or "").strip()
+                raise RuntimeError(f"{self.provider} CLI 응답 본문이 비어 있습니다. {stderr_text}".strip())
+            return output_text
         finally:
-            try:
-                if session_id and proc.stdin and not proc.stdin.closed:
-                    send_json({
-                        "jsonrpc": "2.0",
-                        "method": "session/cancel",
-                        "params": {
-                            "sessionId": session_id,
-                        },
-                    })
-            except Exception:
-                pass
-            try:
-                if proc.stdin and not proc.stdin.closed:
-                    proc.stdin.close()
-            except Exception:
-                pass
-            try:
-                proc.terminate()
-                proc.wait(timeout=3)
-            except Exception:
+            if output_path:
                 try:
-                    proc.kill()
+                    Path(output_path).unlink(missing_ok=True)
                 except Exception:
                     pass
-                try:
-                    proc.wait(timeout=3)
-                except Exception:
-                    pass
-            finally:
-                try:
-                    if proc.stdout and not proc.stdout.closed:
-                        proc.stdout.close()
-                except Exception:
-                    pass
-                try:
-                    if proc.stderr and not proc.stderr.closed:
-                        proc.stderr.close()
-                except Exception:
-                    pass
-                stdout_thread.join(timeout=1)
-                stderr_thread.join(timeout=1)
 
     def _summarize_one(
         self, row: Dict[str, Any], model: Optional[str] = None
@@ -440,10 +333,10 @@ class GeminiCliSummarizer:
         prompt = self._build_user_prompt(row)
 
         try:
-            raw_text = self._run_acp_prompt(prompt, model_name=model)
+            raw_text = self._run_headless_prompt(prompt, model_name=model)
             return self._extract_json_summary(raw_text)
         except Exception as exc:
-            self.logger.error(f"[Gemini CLI 요약 실패] bill_id={bill_id}: {exc}")
+            self.logger.error(f"[{self.provider} CLI 요약 실패] bill_id={bill_id}: {exc}")
             self.failed_bills.append({"bill_id": bill_id, "error": str(exc)})
             return None
 
@@ -470,14 +363,14 @@ class GeminiCliSummarizer:
 
         success = 0
         with trace_span(
-            "gemini_cli_structured_summarize",
-            input={"model": resolved_model, "count": len(to_process)},
+            f"{self.provider}_cli_structured_summarize",
+            input={"provider": self.provider, "model": resolved_model, "count": len(to_process)},
         ) as root_span:
             for idx, row in to_process.iterrows():
                 bill_id = row.get("bill_id")
                 with trace_generation(
                     root_span,
-                    name="gemini_cli_summarize_one",
+                    name=f"{self.provider}_cli_summarize_one",
                     model=resolved_model,
                     input={"bill_id": bill_id},
                 ) as generation:
@@ -491,5 +384,19 @@ class GeminiCliSummarizer:
                     if generation is not None:
                         generation.update(output={"bill_id": bill_id})
 
-        print(f"[Gemini CLI 구조화 요약 완료] 성공={success}, 실패={len(to_process) - success}")
+        print(f"[{self.provider} CLI 구조화 요약 완료] 성공={success}, 실패={len(to_process) - success}")
         return df_bills
+
+
+class CodexCliSummarizer(GeminiCliSummarizer):
+    def __init__(self):
+        super().__init__(provider="codex")
+
+
+class ClaudeCliSummarizer(GeminiCliSummarizer):
+    def __init__(self):
+        super().__init__(provider="claude")
+
+
+def build_cli_summarizer(provider: str = "gemini") -> GeminiCliSummarizer:
+    return GeminiCliSummarizer(provider=provider)

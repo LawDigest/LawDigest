@@ -148,7 +148,9 @@ docker exec airflow-postgres-1 psql -U airflow -d airflow -c \
   - `provider=openai|gemini`
   - `model`을 비우면 provider 기본 모델 사용
 - `gemini_ai_summary_repair_dag`
-  - Gemini CLI fallback 경로
+  - CLI fallback 경로
+  - `cli_provider=gemini|codex|claude`
+  - Gemini는 `gemini --prompt`, Codex는 `codex exec`, Claude는 `claude --print` 기반 headless 실행
   - native API provider 선택 경로와 별도 용도
 
 ### 3.2 수동 smoke 예시
@@ -168,6 +170,11 @@ docker exec airflow-airflow-webserver-1 airflow dags trigger \
 docker exec airflow-airflow-webserver-1 airflow dags trigger \
   manual_ai_summary_instant_dag \
   --conf '{"execution_mode": "dry_run", "provider": "gemini", "bill_json": "{\"bill_id\":\"TEST-1\",\"summary\":\"테스트 요약 원문\"}"}'
+
+# CLI fallback 요약 dry-run (Gemini/Codex/Claude 중 선택)
+docker exec airflow-airflow-webserver-1 airflow dags trigger \
+  gemini_ai_summary_repair_dag \
+  --conf '{"execution_mode": "dry_run", "cli_provider": "gemini", "limit": 1, "batch_size": 1}'
 ```
 
 ---
