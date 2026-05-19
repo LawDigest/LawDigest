@@ -8,6 +8,7 @@
 |------|------|
 | [법안 데이터 파이프라인 아키텍처](./법안%20데이터%20파이프라인/pipeline_architecture.md) | 자체 `lawdigest-pipeline` 런타임 기준 전체 구조 |
 | [법안 데이터 파이프라인 런북](./법안%20데이터%20파이프라인/pipeline_restart_runbook.md) | 표준 실행 명령, smoke, 스케줄 운영 기준 |
+| [자체 데이터 파이프라인 모니터링 서비스 기획서](./법안%20데이터%20파이프라인/pipeline_monitoring_service_plan.md) | 별도 도메인 운영 모니터링 웹서비스 제품/기술 기획 |
 | [상태 동기화 모니터링 쿼리](./법안%20데이터%20파이프라인/status_sync_monitoring_queries.md) | lifecycle/vote 동기화 검증 쿼리 |
 | [Gemini CLI 최신 5건 요약 결과](./법안%20데이터%20파이프라인/reports/2026-05-19-gemini-cli-latest-5-summary.md) | 실시간 요약 샘플 리포트 |
 
