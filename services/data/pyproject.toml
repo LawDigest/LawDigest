@@ -40,6 +40,9 @@ dev = [
   "jupyter",
 ]
 
+[project.scripts]
+lawdigest-pipeline = "lawdigest_data.runtime.cli:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 
