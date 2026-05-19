@@ -89,6 +89,13 @@ def test_apply_batch_results_success_and_partial_failure():
     success, failed = apply_batch_results(mock_conn, job_id=1, output_jsonl=output_jsonl)
     assert success == 1
     assert failed == 1
+    executed_sql = [call.args[0] for call in mock_cursor.execute.call_args_list]
+    bill_update_sql = next(sql for sql in executed_sql if "UPDATE Bill SET" in sql)
+    assert "summary_tags" not in bill_update_sql
+    assert any("DELETE FROM BillSummaryTag WHERE bill_id=%s" in sql for sql in executed_sql)
+    tag_insert_sql, tag_insert_params = mock_cursor.executemany.call_args.args
+    assert "INSERT INTO BillSummaryTag" in tag_insert_sql
+    assert tag_insert_params == [("B001", "a"), ("B001", "b"), ("B001", "c"), ("B001", "d"), ("B001", "e")]
 
 
 def test_openai_batch_utils_preserve_legacy_dict_contract(monkeypatch):

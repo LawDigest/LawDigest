@@ -31,6 +31,23 @@ def test_ensure_status_tables_includes_provider_scoped_job_keys():
     assert "INDEX idx_ai_batch_jobs_provider_status_created_at (provider, status, created_at)" in job_table_sql
 
 
+def test_ensure_status_tables_creates_bill_summary_tag_table():
+    conn = MagicMock()
+    cursor = MagicMock()
+    cursor.__enter__ = MagicMock(return_value=cursor)
+    cursor.__exit__ = MagicMock(return_value=False)
+    conn.cursor.return_value = cursor
+
+    ensure_status_tables(conn)
+
+    executed_sql = [call.args[0] for call in cursor.execute.call_args_list]
+    tag_table_sql = next(sql for sql in executed_sql if "CREATE TABLE IF NOT EXISTS BillSummaryTag" in sql)
+    assert "bill_id VARCHAR(255) NOT NULL" in tag_table_sql
+    assert "tag VARCHAR(100) NOT NULL" in tag_table_sql
+    assert "UNIQUE KEY uq_bill_summary_tag_bill_tag (bill_id, tag)" in tag_table_sql
+    assert "INDEX idx_bill_summary_tag_tag (tag)" in tag_table_sql
+
+
 def test_create_batch_job_with_items_writes_provider_column():
     conn = MagicMock()
     cursor = MagicMock()
@@ -615,7 +632,7 @@ def test_provider_batch_apply_results_uses_provider_parse_output_lines():
     cursor.__exit__ = MagicMock(return_value=False)
     cursor.fetchall.return_value = [{"bill_id": "B001"}]
     cursor.rowcount = 0
-    cursor.execute.side_effect = [None, 1, 1, 0, None]
+    cursor.execute.side_effect = [None, 1, 1, 0, 0, None]
     conn.cursor.return_value = cursor
 
     provider = MagicMock()
@@ -639,6 +656,12 @@ def test_provider_batch_apply_results_uses_provider_parse_output_lines():
     assert (success, failed) == (1, 0)
     provider.parse_output_lines.assert_called_once_with("{}", expected_bill_ids=["B001"])
     executed_sql = [call.args[0] for call in cursor.execute.call_args_list]
+    bill_update_sql = next(sql for sql in executed_sql if "UPDATE Bill SET" in sql)
+    assert "summary_tags" not in bill_update_sql
+    assert any("DELETE FROM BillSummaryTag WHERE bill_id=%s" in sql for sql in executed_sql)
+    tag_insert_sql, tag_insert_params = cursor.executemany.call_args.args
+    assert "INSERT INTO BillSummaryTag" in tag_insert_sql
+    assert tag_insert_params == [("B001", "a"), ("B001", "b"), ("B001", "c"), ("B001", "d"), ("B001", "e")]
     assert any(
         "success_count=success_count+%s, failed_count=failed_count+%s" in sql
         for sql in executed_sql

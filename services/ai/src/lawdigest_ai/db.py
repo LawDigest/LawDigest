@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import os
 from pathlib import Path
 from typing import Any, Dict
@@ -75,14 +76,60 @@ def update_bill_summary(
     summary_tags: str | None,
     mode: str = "test",
 ) -> None:
-    """Bill 테이블의 AI 요약 컬럼을 업데이트합니다."""
+    """Bill 테이블의 AI 요약을 업데이트하고 태그를 별도 테이블에 저장합니다."""
     conn = get_db_connection(mode=mode)
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE Bill SET brief_summary=%s, gpt_summary=%s, summary_tags=%s WHERE bill_id=%s",
-                (brief_summary, gpt_summary, summary_tags, bill_id),
+                "UPDATE Bill SET brief_summary=%s, gpt_summary=%s, modified_date=NOW() WHERE bill_id=%s",
+                (brief_summary, gpt_summary, bill_id),
             )
+            replace_bill_summary_tags(cur, bill_id, summary_tags)
         conn.commit()
     finally:
         conn.close()
+
+
+def normalize_summary_tags(summary_tags: Any) -> list[str]:
+    if summary_tags is None:
+        return []
+    if isinstance(summary_tags, str):
+        value = summary_tags.strip()
+        if not value:
+            return []
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            parsed = [value]
+    else:
+        parsed = summary_tags
+
+    if isinstance(parsed, (list, tuple, set)):
+        values = parsed
+    else:
+        values = [parsed]
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for tag in values:
+        text = str(tag).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        normalized.append(text)
+    return normalized
+
+
+def replace_bill_summary_tags(cursor: pymysql.cursors.Cursor, bill_id: str, summary_tags: Any) -> None:
+    tags = normalize_summary_tags(summary_tags)
+    cursor.execute("DELETE FROM BillSummaryTag WHERE bill_id=%s", (bill_id,))
+    if not tags:
+        return
+    cursor.executemany(
+        """
+        INSERT INTO BillSummaryTag (bill_id, tag, created_date, modified_date)
+        VALUES (%s, %s, NOW(), NOW())
+        ON DUPLICATE KEY UPDATE modified_date=NOW()
+        """,
+        [(bill_id, tag) for tag in tags],
+    )

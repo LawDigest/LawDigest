@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import time
 from typing import Any, Callable, Dict, List, Literal
@@ -8,6 +7,7 @@ from typing import Any, Callable, Dict, List, Literal
 import pymysql
 
 from lawdigest_ai.config import GEMINI_BATCH_MODEL
+from lawdigest_ai.db import replace_bill_summary_tags
 from lawdigest_ai.observability import trace_span
 from lawdigest_ai.processor.batch_utils import (
     create_batch_job_with_items,
@@ -116,12 +116,11 @@ def apply_batch_results_for_provider(
                 continue
 
             bill_updated = cursor.execute(
-                "UPDATE Bill SET brief_summary=%s, gpt_summary=%s, summary_tags=%s, modified_date=NOW() "
+                "UPDATE Bill SET brief_summary=%s, gpt_summary=%s, modified_date=NOW() "
                 "WHERE bill_id=%s",
                 (
                     result.brief_summary,
                     result.gpt_summary,
-                    json.dumps(result.tags or [], ensure_ascii=False),
                     result.bill_id,
                 ),
             )
@@ -144,6 +143,7 @@ def apply_batch_results_for_provider(
             if not affected_rows:
                 continue
 
+            replace_bill_summary_tags(cursor, result.bill_id, result.tags)
             success += 1
 
         remaining_failed = cursor.execute(

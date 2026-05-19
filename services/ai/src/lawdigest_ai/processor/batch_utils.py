@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pymysql
 
+from lawdigest_ai.db import replace_bill_summary_tags
 from lawdigest_ai.processor.providers.openai_batch import OpenAIBatchProvider
 from lawdigest_ai.processor.providers.types import BatchProviderJobState
 
@@ -99,6 +100,16 @@ def ensure_status_tables(conn: pymysql.connections.Connection) -> None:
           INDEX idx_ai_batch_items_bill (bill_id),
           INDEX idx_ai_batch_items_status (status),
           CONSTRAINT fk_ai_batch_items_job FOREIGN KEY (job_id) REFERENCES ai_batch_jobs(id) ON DELETE CASCADE
+        )""",
+        """CREATE TABLE IF NOT EXISTS BillSummaryTag (
+          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+          bill_id VARCHAR(255) NOT NULL,
+          tag VARCHAR(100) NOT NULL,
+          created_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          modified_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY uq_bill_summary_tag_bill_tag (bill_id, tag),
+          INDEX idx_bill_summary_tag_bill_id (bill_id),
+          INDEX idx_bill_summary_tag_tag (tag)
         )""",
     ]
     with conn.cursor() as cursor:
@@ -211,10 +222,11 @@ def apply_batch_results(
                 )
                 continue
             cursor.execute(
-                "UPDATE Bill SET brief_summary=%s, gpt_summary=%s, summary_tags=%s, modified_date=NOW() "
+                "UPDATE Bill SET brief_summary=%s, gpt_summary=%s, modified_date=NOW() "
                 "WHERE bill_id=%s",
-                (brief, gpt, json.dumps(tags or [], ensure_ascii=False), bill_id),
+                (brief, gpt, bill_id),
             )
+            replace_bill_summary_tags(cursor, bill_id, tags)
             cursor.execute(
                 "UPDATE ai_batch_items SET status='DONE', error_message=NULL, processed_at=NOW() "
                 "WHERE job_id=%s AND bill_id=%s",
