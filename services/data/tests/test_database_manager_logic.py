@@ -51,17 +51,10 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             # First call should be Bill upsert
             args, _ = self.cursor.executemany.call_args_list[0]
             self.assertIn("INSERT INTO Bill", args[0])
-            expected_bills = [
-                {
-                    **bills_data[0],
-                    "summary_tags": None,
-                },
-                {
-                    **bills_data[1],
-                    "summary_tags": None,
-                },
-            ]
-            self.assertEqual(args[1], expected_bills)
+            self.assertEqual(args[1], bills_data)
+            self.assertNotIn("brief_summary", args[0])
+            self.assertNotIn("gpt_summary", args[0])
+            self.assertNotIn("summary_tags", args[0])
             
             # Verify BillProposer Delete & Insert (for BILL1)
             # self.cursor.execute called for DELETE

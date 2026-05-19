@@ -205,32 +205,20 @@ class DatabaseManager:
                 - public_proposer_ids (List[str]): 공동발의자 의원 ID 목록
                 - rst_proposer_ids (List[str]): 대표발의자 의원 ID 목록
         """
-        normalized_bills = []
-        for bill in bills_data:
-            row = dict(bill)
-            tags = row.get("summary_tags")
-            if isinstance(tags, (list, tuple)):
-                row["summary_tags"] = json.dumps(list(tags), ensure_ascii=False)
-            elif tags is None:
-                row["summary_tags"] = None
-            elif isinstance(tags, str):
-                row["summary_tags"] = tags
-            else:
-                row["summary_tags"] = json.dumps(tags, ensure_ascii=False)
-            normalized_bills.append(row)
+        normalized_bills = [dict(bill) for bill in bills_data]
 
         with self.transaction() as cursor:
             # 1. Bill 테이블 Upsert
             bill_query = """
                 INSERT INTO Bill (
-                    bill_id, assembly_number, bill_name, committee, gpt_summary, propose_date, 
+                    bill_id, assembly_number, bill_name, committee, propose_date,
                     summary, stage, proposers, bill_pdf_url, viewCount, 
-                    brief_summary, summary_tags, bill_number, bill_link, bill_result, 
+                    bill_number, bill_link, bill_result,
                     proposer_kind, ingest_status, created_date, modified_date
                 ) VALUES (
-                    %(bill_id)s, %(assembly_number)s, %(bill_name)s, %(committee)s, %(gpt_summary)s, %(propose_date)s,
+                    %(bill_id)s, %(assembly_number)s, %(bill_name)s, %(committee)s, %(propose_date)s,
                     %(summary)s, %(stage)s, %(proposers)s, %(bill_pdf_url)s, 0,
-                    %(brief_summary)s, %(summary_tags)s, %(bill_number)s, %(bill_link)s, %(bill_result)s,
+                    %(bill_number)s, %(bill_link)s, %(bill_result)s,
                     %(proposer_kind)s, %(ingest_status)s, NOW(), NOW()
                 ) AS new
                 ON DUPLICATE KEY UPDATE
@@ -240,10 +228,7 @@ class DatabaseManager:
                     propose_date = new.propose_date,
                     summary = new.summary,
                     stage = new.stage,
-                    gpt_summary = new.gpt_summary,
                     bill_pdf_url = new.bill_pdf_url,
-                    brief_summary = new.brief_summary,
-                    summary_tags = new.summary_tags,
                     bill_link = new.bill_link,
                     bill_result = new.bill_result,
                     proposer_kind = new.proposer_kind,

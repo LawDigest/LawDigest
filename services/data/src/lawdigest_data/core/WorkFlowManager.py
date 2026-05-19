@@ -75,35 +75,6 @@ class WorkFlowManager:
         return [text] if text else []
 
     @staticmethod
-    def _shorten_text(value: str, max_length: int = 120) -> str:
-        compact = " ".join(value.split())
-        if len(compact) <= max_length:
-            return compact
-        return compact[: max_length - 3].rstrip() + "..."
-
-    @classmethod
-    def _derive_brief_summary(
-        cls,
-        summary: Optional[str],
-        bill_name: Optional[str],
-        existing_brief_summary: Optional[str],
-    ) -> Optional[str]:
-        if existing_brief_summary:
-            return existing_brief_summary
-
-        ignored_lines = {"제안이유", "주요내용", "제안이유 및 주요내용"}
-        if summary:
-            for raw_line in summary.splitlines():
-                line = " ".join(str(raw_line).split())
-                if not line or line in ignored_lines:
-                    continue
-                return cls._shorten_text(line)
-
-        if bill_name:
-            return cls._shorten_text(bill_name)
-        return None
-
-    @staticmethod
     def _normalize_bill_proposer_kind(proposer_kind: object) -> str:
         normalized = str(proposer_kind or "").strip()
         if not normalized:
@@ -178,26 +149,20 @@ class WorkFlowManager:
                 or self._coerce_optional_text(row.get("pdfLinkUrl"))
                 or self._coerce_optional_text(row.get("PDF_LINK_URL"))
             )
-            brief_summary = self._derive_brief_summary(
-                summary=summary,
-                bill_name=bill_name,
-                existing_brief_summary=self._coerce_optional_text(row.get("brief_summary")),
-            )
-
             rows.append(
                 {
                     "bill_id": bill_id,
                     "bill_name": bill_name,
                     "assembly_number": assembly_number,
                     "committee": self._coerce_optional_text(row.get("committee")),
-                    "gpt_summary": self._coerce_optional_text(row.get("gpt_summary")),
+                    "gpt_summary": None,
                     "propose_date": propose_date,
                     "summary": summary,
                     "stage": stage,
                     "proposers": self._coerce_optional_text(row.get("proposers")),
                     "bill_pdf_url": explicit_bill_pdf_url,
-                    "brief_summary": brief_summary,
-                    "summary_tags": row.get("summary_tags"),
+                    "brief_summary": None,
+                    "summary_tags": None,
                     "bill_number": self._safe_to_int(row.get("billNumber")),
                     "bill_link": self._coerce_optional_text(row.get("bill_link")),
                     "bill_result": self._coerce_optional_text(row.get("billResult")),
