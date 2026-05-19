@@ -9,7 +9,7 @@
 
 Lawdigest 데이터 파이프라인은 더 이상 Airflow DAG를 표준 실행 경로로 보지 않습니다.
 
-기존 Airflow DAG는 구현 참고용 legacy artifact로만 남기고, 실제 실행은 `lawdigest_data.runtime`의 `lawdigest-pipeline` CLI를 기준으로 합니다. 실행 결과는 append-only JSONL 로그로 남기며, 이후 직접 구현할 파이프라인 모니터링 사이트는 이 실행 이력을 읽는 구조로 확장합니다.
+기존 Airflow DAG는 구현 참고용 legacy artifact로만 남기고, 실제 실행은 `lawdigest_data.runtime`의 `lawdigest-pipeline` CLI를 기준으로 합니다. AI 요약 표준 경로는 배치 제출/회수가 아니라 Gemini CLI 기반 실시간 처리입니다. 실행 결과는 append-only JSONL 로그로 남기며, 이후 직접 구현할 파이프라인 모니터링 사이트는 이 실행 이력을 읽는 구조로 확장합니다.
 
 기본 실행 로그:
 
@@ -77,7 +77,21 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --age 22
 ```
 
-### 3.3 AI Batch 제출
+### 3.3 AI 실시간 요약 (표준)
+
+```bash
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  ai-summary \
+  --mode dry_run \
+  --cli-provider gemini \
+  --limit 1 \
+  --batch-size 1 \
+  --output-path /tmp/lawdigest-gemini-cli-summary.json
+```
+
+이 경로는 Gemini CLI headless 실행 결과를 기존 API 배치와 같은 `BatchStructuredSummary` 스키마로 검증합니다. 응답 키는 `briefSummary`, `gptSummary`, `tags`만 허용하고, DB에는 기존 컬럼인 `brief_summary`, `gpt_summary`, `summary_tags`로 반영합니다.
+
+### 3.4 AI Batch 제출 (legacy fallback)
 
 ```bash
 PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
@@ -87,7 +101,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --limit 5
 ```
 
-### 3.4 AI Batch 결과 회수
+### 3.5 AI Batch 결과 회수 (legacy fallback)
 
 ```bash
 PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
@@ -97,7 +111,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --max-jobs 5
 ```
 
-### 3.5 Native API 기반 결측 요약 복구
+### 3.6 Native API 기반 결측 요약 복구
 
 ```bash
 PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
@@ -109,7 +123,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --output-path /tmp/lawdigest-native-repair.json
 ```
 
-### 3.6 CLI 기반 결측 요약 복구
+### 3.7 CLI 기반 결측 요약 복구 (compatibility alias)
 
 ```bash
 PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
@@ -120,6 +134,8 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --batch-size 1 \
   --output-path /tmp/lawdigest-cli-repair.json
 ```
+
+`ai-repair-cli`는 기존 명령 호환용입니다. 신규 운영에서는 `ai-summary --cli-provider gemini`를 우선 사용합니다.
 
 사용 가능한 CLI provider:
 
@@ -134,7 +150,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
 Airflow 대신 `systemd timer` 또는 cron을 사용합니다. 우선은 수동 실행으로 검증하고, 스케줄이 필요해지면 아래 순서로 timer를 추가합니다.
 
 1. `/usr/local/bin/lawdigest-pipeline-wrapper`에 `PYTHONPATH`와 작업 디렉터리를 고정
-2. `bill-ingest`, `bill-status-sync`, `ai-batch-ingest`를 각각 별도 timer로 등록
+2. `bill-ingest`, `bill-status-sync`, `ai-summary`를 각각 별도 timer로 등록
 3. timer stdout/stderr는 journald와 `pipeline-runs.jsonl` 양쪽에서 확인
 4. 실패 알림은 모니터링 사이트 또는 별도 notifier에서 후속 구현
 

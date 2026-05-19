@@ -263,9 +263,11 @@ class PipelineRuntime:
 
         return self._run("ai.native_repair", params, execute)
 
-    def run_ai_cli_repair(
+    def _run_ai_cli_summary(
         self,
         *,
+        command: str,
+        step: str,
         mode: str = "dry_run",
         cli_provider: str = "gemini",
         limit: int = 20,
@@ -293,7 +295,7 @@ class PipelineRuntime:
             self._record_step(
                 run_id,
                 steps,
-                "repair_cli_summary",
+                step,
                 run_gemini_repair_pipeline(
                     mode=mode,
                     limit=limit,
@@ -307,4 +309,54 @@ class PipelineRuntime:
             )
             return steps
 
-        return self._run("ai.cli_repair", params, execute)
+        return self._run(command, params, execute)
+
+    def run_ai_summary(
+        self,
+        *,
+        mode: str = "dry_run",
+        cli_provider: str = "gemini",
+        limit: int = 20,
+        batch_size: int = 5,
+        output_path: str = "/tmp/gemini_ai_summary_results.json",
+        stop_on_error: bool = False,
+        read_mode: str | None = None,
+        target_mode: str = "missing",
+    ) -> Dict[str, Any]:
+        return self._run_ai_cli_summary(
+            command="ai.summary",
+            step="summarize_cli_realtime",
+            mode=mode,
+            cli_provider=cli_provider,
+            limit=limit,
+            batch_size=batch_size,
+            output_path=output_path,
+            stop_on_error=stop_on_error,
+            read_mode=read_mode,
+            target_mode=target_mode,
+        )
+
+    def run_ai_cli_repair(
+        self,
+        *,
+        mode: str = "dry_run",
+        cli_provider: str = "gemini",
+        limit: int = 20,
+        batch_size: int = 5,
+        output_path: str = "/tmp/gemini_ai_summary_results.json",
+        stop_on_error: bool = False,
+        read_mode: str | None = None,
+        target_mode: str = "missing",
+    ) -> Dict[str, Any]:
+        return self._run_ai_cli_summary(
+            command="ai.cli_repair",
+            step="repair_cli_summary",
+            mode=mode,
+            cli_provider=cli_provider,
+            limit=limit,
+            batch_size=batch_size,
+            output_path=output_path,
+            stop_on_error=stop_on_error,
+            read_mode=read_mode,
+            target_mode=target_mode,
+        )

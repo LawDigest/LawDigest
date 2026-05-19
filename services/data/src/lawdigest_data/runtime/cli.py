@@ -11,6 +11,17 @@ def _print_result(result: dict) -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
 
 
+def _add_cli_summary_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
+    parser.add_argument("--cli-provider", default="gemini", choices=["gemini", "codex", "claude"])
+    parser.add_argument("--limit", type=int, default=20)
+    parser.add_argument("--batch-size", type=int, default=5)
+    parser.add_argument("--output-path", default="/tmp/gemini_ai_summary_results.json")
+    parser.add_argument("--stop-on-error", action="store_true")
+    parser.add_argument("--read-mode", choices=["test", "prod"])
+    parser.add_argument("--target-mode", default="missing", choices=["missing", "latest"])
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Lawdigest 자체 데이터 파이프라인 런타임")
     parser.add_argument("--log-dir", default=str(DEFAULT_LOG_DIR), help="pipeline-runs.jsonl 저장 디렉터리")
@@ -48,15 +59,11 @@ def build_parser() -> argparse.ArgumentParser:
     native_repair.add_argument("--model")
     native_repair.add_argument("--output-path", default="/tmp/lawdigest_missing_summaries.json")
 
+    realtime_summary = subparsers.add_parser("ai-summary", help="Gemini CLI 기반 실시간 결측 요약")
+    _add_cli_summary_args(realtime_summary)
+
     cli_repair = subparsers.add_parser("ai-repair-cli", help="Gemini/Codex/Claude CLI 기반 결측 요약 복구")
-    cli_repair.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
-    cli_repair.add_argument("--cli-provider", default="gemini", choices=["gemini", "codex", "claude"])
-    cli_repair.add_argument("--limit", type=int, default=20)
-    cli_repair.add_argument("--batch-size", type=int, default=5)
-    cli_repair.add_argument("--output-path", default="/tmp/gemini_ai_summary_results.json")
-    cli_repair.add_argument("--stop-on-error", action="store_true")
-    cli_repair.add_argument("--read-mode", choices=["test", "prod"])
-    cli_repair.add_argument("--target-mode", default="missing", choices=["missing", "latest"])
+    _add_cli_summary_args(cli_repair)
 
     return parser
 
@@ -101,6 +108,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             batch_size=args.batch_size,
             model=args.model,
             output_path=args.output_path,
+        )
+    elif args.command == "ai-summary":
+        result = runtime.run_ai_summary(
+            mode=args.mode,
+            cli_provider=args.cli_provider,
+            limit=args.limit,
+            batch_size=args.batch_size,
+            output_path=args.output_path,
+            stop_on_error=args.stop_on_error,
+            read_mode=args.read_mode,
+            target_mode=args.target_mode,
         )
     elif args.command == "ai-repair-cli":
         result = runtime.run_ai_cli_repair(

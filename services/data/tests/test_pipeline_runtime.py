@@ -89,6 +89,36 @@ def test_ai_cli_repair_delegates_to_existing_provider_runtime(tmp_path):
     assert result["status"] == "success"
 
 
+def test_ai_summary_uses_gemini_cli_realtime_command(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    with patch(
+        "lawdigest_ai.processor.gemini_repair_pipeline.run_gemini_repair_pipeline",
+        return_value={"stats": {"success_count": 1}},
+    ) as run_repair:
+        result = PipelineRuntime(log_dir=tmp_path).run_ai_summary(
+            mode="dry_run",
+            cli_provider="gemini",
+            limit=1,
+            batch_size=1,
+            output_path="/tmp/gemini.json",
+        )
+
+    run_repair.assert_called_once_with(
+        mode="dry_run",
+        limit=1,
+        batch_size=1,
+        output_path="/tmp/gemini.json",
+        stop_on_error=False,
+        read_mode=None,
+        target_mode="missing",
+        cli_provider="gemini",
+    )
+    assert result["command"] == "ai.summary"
+    assert result["steps"][0]["step"] == "summarize_cli_realtime"
+    assert result["status"] == "success"
+
+
 def test_cli_dispatches_bill_ingest(tmp_path):
     from lawdigest_data.runtime.cli import main
 
@@ -112,4 +142,38 @@ def test_cli_dispatches_bill_ingest(tmp_path):
         start_date="2026-05-01",
         end_date="2026-05-02",
         age="22",
+    )
+
+
+def test_cli_dispatches_ai_summary(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_ai_summary.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "ai-summary",
+            "--mode",
+            "dry_run",
+            "--cli-provider",
+            "gemini",
+            "--limit",
+            "1",
+            "--batch-size",
+            "1",
+            "--output-path",
+            "/tmp/gemini.json",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_ai_summary.assert_called_once_with(
+        mode="dry_run",
+        cli_provider="gemini",
+        limit=1,
+        batch_size=1,
+        output_path="/tmp/gemini.json",
+        stop_on_error=False,
+        read_mode=None,
+        target_mode="missing",
     )

@@ -8,7 +8,7 @@
 
 ## 1. 개요
 
-Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를 수집하고, AI 요약을 생성하여 MySQL RDS에 저장하는 자동화 시스템입니다. 기존 Airflow DAG는 legacy reference로 남기되, 표준 실행 경로는 자체 `lawdigest-pipeline` CLI 런타임입니다. 수집→정제→저장→AI요약의 4단계는 기존 Python 모듈을 재사용하고, 실행 이력은 JSONL 이벤트 로그로 남깁니다.
+Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를 수집하고, AI 요약을 생성하여 MySQL RDS에 저장하는 자동화 시스템입니다. 기존 Airflow DAG는 legacy reference로 남기되, 표준 실행 경로는 자체 `lawdigest-pipeline` CLI 런타임입니다. 수집→정제→저장→Gemini CLI 실시간 요약의 4단계는 기존 Python 모듈을 재사용하고, 실행 이력은 JSONL 이벤트 로그로 남깁니다.
 
 ---
 
@@ -29,6 +29,7 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
         ├── PipelineRuntime / lawdigest-pipeline
         │       ├── bill-ingest
         │       ├── bill-status-sync
+        │       ├── ai-summary
         │       ├── ai-batch-submit
         │       ├── ai-batch-ingest
         │       ├── ai-repair-native
@@ -36,10 +37,10 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
         │
         ▼
   AI Processor
-        ├── Batch Submit (OpenAI / Gemini)
-        ├── Batch Ingest (provider-aware 결과 수신)
-        ├── Instant Summarizer (provider-aware 즉시 요약)
-        └── Manual Repair (provider-aware 결측 복구)
+        ├── Gemini CLI Realtime Summary (표준)
+        ├── Pydantic Schema Validation (briefSummary / gptSummary / tags)
+        ├── Instant Summarizer (provider-aware API fallback)
+        └── Batch Submit/Ingest (legacy fallback)
                 │
                 ▼
           Qdrant (Vector DB / RAG)
@@ -57,9 +58,10 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 | 실행 이력 | JSONL (`pipeline-runs.jsonl`) | - |
 | 프로덕션 DB | MySQL | 8.0.35 |
 | 데이터 처리 | Python + pandas | - |
-| AI 요약 (Batch / Instant) | OpenAI + Gemini | - |
-| CLI Fallback | Google Gemini CLI / Codex CLI / Claude CLI | - |
-| 구조화 AI | PydanticAI | - |
+| AI 요약 (표준) | Google Gemini CLI 실시간 실행 | - |
+| API/Batch Fallback | OpenAI + Gemini | - |
+| CLI 보조 경로 | Codex CLI / Claude CLI | - |
+| 구조화 AI | Pydantic/PydanticAI 스키마 계약 | - |
 | 벡터 DB | Qdrant | - |
 | 모니터링 | 자체 파이프라인 모니터링 사이트 (예정) | - |
 
@@ -97,10 +99,11 @@ Lawdigest 데이터 파이프라인은 국회 Open API에서 법안 데이터를
 |------|------|
 | `bill-ingest` | 국회 API → artifact → DB 수집 |
 | `bill-status-sync` | 법안 lifecycle/vote 상태 동기화 |
-| `ai-batch-submit` | 미요약 법안 → 선택한 provider의 Batch 제출 |
-| `ai-batch-ingest` | provider별 배치 결과 수신 → DB |
-| `ai-repair-native` | OpenAI/Gemini API 기반 결측 요약 복구 |
-| `ai-repair-cli` | Gemini/Codex/Claude CLI 기반 결측 요약 복구 |
+| `ai-summary` | Gemini CLI 기반 실시간 결측 요약 생성 |
+| `ai-batch-submit` | legacy: 미요약 법안 → 선택한 provider의 Batch 제출 |
+| `ai-batch-ingest` | legacy: provider별 배치 결과 수신 → DB |
+| `ai-repair-native` | fallback: OpenAI/Gemini API 기반 결측 요약 복구 |
+| `ai-repair-cli` | compatibility alias: Gemini/Codex/Claude CLI 기반 결측 요약 복구 |
 
 기본 실행 형태:
 
@@ -164,11 +167,32 @@ upsert_vote
 
 ---
 
-### 6.3 AI 배치 파이프라인
+### 6.3 AI 요약 표준 경로: Gemini CLI 실시간 처리
+
+```
+ai-summary
+  DB에서 summary는 있으나 brief_summary/gpt_summary가 없는 법안 조회
+      ↓
+  Gemini CLI headless 실행
+      ↓
+  기존 API 배치와 동일한 프롬프트 적용
+      ↓
+  BatchStructuredSummary Pydantic 스키마 검증
+      ↓
+  Bill 테이블: brief_summary, gpt_summary, summary_tags 업데이트
+```
+
+**운영 포인트**:
+- 표준 요약 명령은 `ai-summary --cli-provider gemini`
+- 응답 키는 기존 API 배치와 같은 `briefSummary`, `gptSummary`, `tags`
+- 파싱 후 DB 컬럼에는 기존 컬럼명인 `brief_summary`, `gpt_summary`, `summary_tags`로 저장
+- `tags`는 Pydantic 스키마로 정확히 5개를 검증
+
+### 6.4 AI 배치 파이프라인 (legacy fallback)
 
 ```
 ai-batch-submit
-  DB에서 brief_summary/gpt_summary IS NULL 조회 (최대 200개)
+  DB에서 brief_summary/gpt_summary IS NULL 조회
       ↓
   provider별 요청 파일 생성 (OpenAI JSONL / Gemini Batch File API)
       ↓
@@ -181,15 +205,15 @@ ai-batch-ingest
       ↓ (COMPLETED 시)
   결과 파일 다운로드 → JSONL 파싱
       ↓
-  Bill 테이블: brief_summary, gpt_summary, summary_tags 업데이트
+  Bill 테이블 업데이트
 ```
 
 **운영 포인트**:
-- `ai-batch-submit` 기본 provider는 `openai`
-- `ai-batch-ingest` 기본 provider는 `all`
+- 배치 submit/ingest는 신규 표준 경로가 아니라 legacy fallback
+- 대량 백필 비용/시간을 따로 통제해야 할 때만 사용
 - `ai_batch_jobs`는 `(provider, batch_id)` 복합 유니크 기준으로 관리
 
-### 6.4 수동 AI 요약 경로
+### 6.5 수동 AI 요약 경로
 
 ```
 ai-repair-native / instant helper
@@ -213,8 +237,9 @@ ai-repair-native
 
 **운영 포인트**:
 - native API 요약 경로는 `provider`, `model` 파라미터를 지원
-- Gemini instant/repair는 CLI가 아니라 native API 경로를 사용
-- `ai-repair-cli`는 별도 fallback 수단으로 유지하며 Gemini, Codex, Claude headless CLI 경로를 선택 가능
+- Gemini instant/repair API 경로는 fallback으로 유지
+- `ai-repair-cli`는 기존 compatibility alias이며, 신규 운영 문서에서는 `ai-summary`를 우선 사용
+- Codex/Claude CLI provider는 Gemini CLI 장애 시 보조 비교 경로로만 사용
 
 ---
 

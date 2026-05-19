@@ -7,7 +7,7 @@ from typing import Any, Dict, Optional
 
 import pandas as pd
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from lawdigest_ai.processor.providers.openai_batch import BatchStructuredSummary, _build_prompt_for_bill
 
 try:
     from pydantic_ai import Agent
@@ -18,18 +18,7 @@ except ImportError as exc:  # pragma: no cover - runtime dependency guard
     ) from exc
 
 
-class StructuredBillSummary(BaseModel):
-    brief_summary: str = Field(
-        description="법안 핵심을 한 문장으로 요약한 짧은 제목형 요약문"
-    )
-    gpt_summary: str = Field(
-        description="법안에서 달라지는 핵심 내용을 3~7개 항목으로 정리한 상세 요약문"
-    )
-    tags: list[str] = Field(
-        min_length=5,
-        max_length=5,
-        description="법안 주제를 나타내는 짧은 한국어 태그 5개",
-    )
+StructuredBillSummary = BatchStructuredSummary
 
 
 class AISummarizer:
@@ -43,11 +32,6 @@ class AISummarizer:
         self.primary_model = os.environ.get("SUMMARY_STRUCTURED_MODEL", "openai:gpt-4o-mini")
         self.fallback_model = os.environ.get("SUMMARY_STRUCTURED_FALLBACK_MODEL", "openai:gpt-4o-mini")
 
-        self.style_prompt = (
-            "법률개정안 텍스트에서 달라지는 핵심 내용을 항목별로 정리하세요. "
-            "각 항목은 이해하기 쉬운 공식 문체로 작성하고, 3~7개 항목을 권장합니다."
-        )
-
     def _build_agent(self, model_name: str) -> Agent:
         return Agent(
             model=model_name,
@@ -59,27 +43,7 @@ class AISummarizer:
         )
 
     def _build_user_prompt(self, row: Dict[str, Any]) -> str:
-        proposer_kind = str(row.get("proposer_kind") or "").strip()
-        proposer = str(row.get("proposers") or "발의자 미상")
-        title = str(row.get("bill_name") or "법안명 미상")
-        summary = str(row.get("summary") or "")
-        stage = str(row.get("stage") or "")
-        propose_date = str(row.get("proposeDate") or row.get("propose_date") or "")
-
-        intro = (
-            f"[법안명] {title}\n"
-            f"[발의주체] {proposer_kind}\n"
-            f"[발의자] {proposer}\n"
-            f"[발의일] {propose_date}\n"
-            f"[단계] {stage}\n"
-        )
-        task = (
-            f"{self.style_prompt}\n"
-            "1) brief_summary: 한 문장 제목형 요약\n"
-            "2) gpt_summary: 핵심 변경사항 상세 요약\n"
-            "3) tags: 한국어 태그 정확히 5개 (중복 금지, 각 2~12자)\n"
-        )
-        return f"{intro}\n[원문 요약]\n{summary}\n\n{task}"
+        return _build_prompt_for_bill(row)
 
     def _summarize_one(self, row: Dict[str, Any], model: Optional[str] = None) -> Optional[StructuredBillSummary]:
         model_to_use = model or self.primary_model

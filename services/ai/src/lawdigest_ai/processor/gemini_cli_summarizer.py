@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 import pandas as pd
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import ValidationError
 
 from lawdigest_ai.config import (
     CLAUDE_CLI_BIN,
@@ -30,12 +30,11 @@ from lawdigest_ai.config import (
     GEMINI_CLI_TIMEOUT_SECONDS,
     GEMINI_CLI_WORKDIR,
 )
-from lawdigest_ai.processor.summary_prompt_templates import (
-    SUMMARY_GPT_FIELD_DESC,
-    SUMMARY_LIST_GUIDELINE,
-    build_proposer_opening_line,
-)
 from lawdigest_ai.observability import trace_generation, trace_span
+from lawdigest_ai.processor.providers.openai_batch import (
+    BatchStructuredSummary,
+    _build_prompt_for_bill,
+)
 
 
 CliProviderName = Literal["gemini", "codex", "claude"]
@@ -85,10 +84,7 @@ def _provider_config(provider: str) -> CliProviderConfig:
     raise ValueError("cli_provider는 gemini, codex, claude 중 하나여야 합니다.")
 
 
-class StructuredBillSummary(BaseModel):
-    brief_summary: str = Field(description="법안 핵심을 한 문장으로 요약한 짧은 제목형 요약문")
-    gpt_summary: str = Field(description=SUMMARY_GPT_FIELD_DESC)
-    tags: list[str] = Field(min_length=5, max_length=5, description="법안 주제를 나타내는 짧은 한국어 태그 5개")
+StructuredBillSummary = BatchStructuredSummary
 
 
 class GeminiCliSummarizer:
@@ -104,45 +100,23 @@ class GeminiCliSummarizer:
         self.cli_home = config.cli_home
         self.cli_workdir = config.cli_workdir
         self.debug_log_path = os.getenv(f"{self.provider.upper()}_CLI_DEBUG_LOG_PATH")
-        self.style_prompt = (
-            "법률개정안 텍스트에서 달라지는 핵심 내용을 항목별로 정리하세요. "
-            "각 항목은 이해하기 쉬운 공식 문체로 작성하고, 3~7개 항목을 권장합니다."
-        )
 
     def _build_user_prompt(self, row: Dict[str, Any]) -> str:
-        proposer_opening = build_proposer_opening_line(
-            row.get("proposers"),
-            row.get("bill_name") or "법안명 미상",
+        api_prompt = _build_prompt_for_bill(row)
+        schema = json.dumps(
+            BatchStructuredSummary.model_json_schema(by_alias=True),
+            ensure_ascii=False,
+            sort_keys=True,
         )
-        intro = (
-            "당신은 대한민국 법안 요약 전문가입니다. 반드시 structured output 스키마에 맞춰 응답하세요.\n\n"
-            f"[법안명] {row.get('bill_name') or '법안명 미상'}\n"
-            f"[발의주체] {row.get('proposer_kind') or ''}\n"
-            f"[발의자] {row.get('proposers') or '발의자 미상'}\n"
-            f"[발의일] {row.get('proposeDate') or row.get('propose_date') or ''}\n"
-            f"[단계] {row.get('stage') or ''}\n"
+        structured_contract = (
+            "위 요청은 기존 API 기반 요약과 같은 프롬프트입니다.\n"
+            "응답은 Pydantic structured output 계약과 같은 아래 JSON Schema를 반드시 준수하세요.\n"
+            "JSON 객체 외의 설명, 마크다운, 코드펜스는 출력하지 마세요.\n"
+            "키는 briefSummary, gptSummary, tags 세 개만 허용됩니다.\n"
+            "brief_summary/gpt_summary 같은 snake_case 키를 사용하지 마세요.\n"
+            f"{schema}"
         )
-        task = (
-            f"{self.style_prompt}\n"
-            "도구를 사용하지 말고, 제공된 텍스트만 보고 응답하세요.\n"
-            "반드시 JSON 객체만 응답하세요.\n"
-            "키는 brief_summary, gpt_summary, tags 세 개만 포함하세요.\n"
-            "운영 DB에 저장된 기존 OpenAI 요약 스타일에 최대한 가깝게 작성하세요.\n"
-            "1) brief_summary: 한 문장 제목형 요약\n"
-            "- 설명문이 아니라 법안 제목처럼 작성하세요.\n"
-            "- 가능하면 '...을/를 위한 [법안명]' 또는 '... 도입 [법안명]'처럼 실제 법안명을 포함하세요.\n"
-            "- 길이는 기존 DB처럼 다소 구체적으로 쓰되, '입니다', '합니다' 같은 종결형 문장은 쓰지 마세요.\n"
-            "2) gpt_summary: 핵심 변경사항 상세 요약\n"
-            "  a. 첫 문장: 해당 법안 요약은 정확히 아래 형식으로 시작하세요.\n"
-            f"     \"{proposer_opening}\"\n"
-            f"  b. 본문: {SUMMARY_LIST_GUIDELINE} 항목 형식으로 작성하고, 형식은 '1) ...', '2) ...'를 사용하세요.\n"
-            "  c. 마지막 문단: '이 법안의 취지는 ...' 형태의 한 단락을 추가하세요.\n"
-            "- '-' bullet 형식은 사용하지 마세요.\n"
-            "- 번호 목록 사이에는 빈 줄을 넣어 기존 DB 스타일과 유사하게 작성하세요.\n"
-            "- 핵심 용어는 필요할 때만 **굵게** 표시하세요.\n"
-            "3) tags: 한국어 태그 정확히 5개 (중복 금지, 각 2~12자)\n"
-        )
-        return f"{intro}\n[원문 요약]\n{row.get('summary') or ''}\n\n{task}"
+        return f"{api_prompt}\n\n{structured_contract}"
 
     @staticmethod
     def _strip_code_fences(text: str) -> str:
@@ -209,7 +183,7 @@ class GeminiCliSummarizer:
             if isinstance(payload, dict) and isinstance(payload.get("response"), str):
                 payload = json.loads(payload["response"])
         try:
-            return StructuredBillSummary.model_validate(payload)
+            return BatchStructuredSummary.model_validate(payload)
         except ValidationError as exc:
             raise ValueError(f"{self.provider} CLI 구조화 응답 검증 실패: {exc}") from exc
 

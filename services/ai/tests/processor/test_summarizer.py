@@ -35,3 +35,19 @@ def test_summarizer_processes_unsummarized():
         result = summarizer.AI_structured_summarize(df)
     assert result.iloc[0]["brief_summary"] == "요약 제목"
     assert result.iloc[0]["gpt_summary"] == "상세 요약 내용"
+
+
+def test_pydantic_ai_summarizer_reuses_batch_prompt():
+    from lawdigest_ai.processor.summarizer import AISummarizer
+
+    summarizer = AISummarizer()
+    prompt = summarizer._build_user_prompt({
+        "bill_id": "B010",
+        "bill_name": "동일프롬프트법",
+        "summary": "원문",
+        "proposers": "김의원",
+        "proposer_kind": "의원발의",
+    })
+
+    assert "다음 법안 정보를 보고 JSON으로만 응답하세요." in prompt
+    assert "키는 briefSummary, gptSummary, tags 세 개만 포함해야 합니다." in prompt
