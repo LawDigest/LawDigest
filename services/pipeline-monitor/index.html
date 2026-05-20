@@ -623,7 +623,7 @@
       display: flex;
       align-items: baseline;
       gap: 6px;
-      margin: 32px 0 14px;
+      margin: 26px 0 14px;
       color: #222220;
       font-size: 14px;
       font-weight: 900;
@@ -633,6 +633,165 @@
       color: #666661;
       font-size: 12px;
       font-weight: 700;
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .chart-panel {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      box-shadow: var(--shadow-low);
+    }
+
+    .chart-panel.is-wide {
+      grid-column: 1 / -1;
+    }
+
+    .chart-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 38px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .chart-head h2 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 950;
+    }
+
+    .chart-head span {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .chart-body {
+      padding: 12px;
+    }
+
+    .status-chart {
+      display: grid;
+      gap: 12px;
+    }
+
+    .status-stack {
+      display: grid;
+      grid-template-columns: var(--status-columns, 1fr);
+      height: 16px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xs);
+      background: var(--color-surface-2);
+    }
+
+    .status-stack span {
+      min-width: 2px;
+      background: var(--segment-color);
+    }
+
+    .status-breakdown {
+      display: grid;
+      gap: 7px;
+    }
+
+    .status-row,
+    .provider-row,
+    .data-row,
+    .timeline-row {
+      display: grid;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .status-row {
+      grid-template-columns: 78px minmax(0, 1fr) 42px;
+      gap: 9px;
+      color: var(--color-ink-2);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .status-row strong,
+    .provider-row strong,
+    .data-row strong,
+    .timeline-row strong {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .meter {
+      height: 7px;
+      overflow: hidden;
+      border-radius: var(--radius-xs);
+      background: var(--color-line-soft);
+    }
+
+    .meter span {
+      display: block;
+      width: var(--value, 0%);
+      height: 100%;
+      background: var(--bar-color, var(--color-ink));
+    }
+
+    .timeline-chart {
+      display: grid;
+      gap: 8px;
+    }
+
+    .timeline-row {
+      grid-template-columns: 52px minmax(0, 1fr) 48px;
+      gap: 10px;
+      color: var(--color-ink-2);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .timeline-row .meter {
+      height: 10px;
+    }
+
+    .data-chart {
+      display: grid;
+      gap: 10px;
+    }
+
+    .data-row {
+      grid-template-columns: 132px minmax(0, 1fr) 48px;
+      gap: 9px;
+      color: var(--color-ink-2);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .provider-mix {
+      display: grid;
+      gap: 7px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line-soft);
+    }
+
+    .provider-row {
+      grid-template-columns: 82px minmax(0, 1fr) 34px;
+      gap: 9px;
+      color: var(--color-ink-2);
+      font-size: 11px;
+      font-weight: 800;
     }
 
     .runs-table {
@@ -1241,6 +1400,75 @@
       color: var(--orange);
     }
 
+    .phone-dashboard {
+      display: grid;
+      gap: 8px;
+      margin: 0 0 11px;
+    }
+
+    .phone-chart {
+      min-width: 0;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background:
+        linear-gradient(180deg, var(--color-surface) 0%, #f6f8fa 100%);
+      box-shadow: var(--shadow-low);
+    }
+
+    .phone-chart-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 950;
+    }
+
+    .phone-chart-head span {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .phone-status-stack {
+      display: grid;
+      grid-template-columns: var(--status-columns, 1fr);
+      height: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-xs);
+      background: var(--color-line-soft);
+    }
+
+    .phone-status-stack span {
+      min-width: 2px;
+      background: var(--segment-color);
+    }
+
+    .phone-mini-bars {
+      display: grid;
+      gap: 6px;
+    }
+
+    .phone-mini-row {
+      display: grid;
+      grid-template-columns: 90px minmax(0, 1fr) 34px;
+      align-items: center;
+      gap: 8px;
+      color: var(--color-ink-2);
+      font-size: 10px;
+      font-weight: 850;
+    }
+
+    .phone-mini-row strong {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .phone-filters {
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1708,6 +1936,21 @@
                 <button class="detail-button" type="button" data-action="focus-incident">상세 보기 <span class="material-symbols-outlined">chevron_right</span></button>
               </div>
 
+              <section class="dashboard-grid" aria-label="파이프라인 대시보드">
+                <article class="chart-panel">
+                  <div class="chart-head"><h2>동작 현황</h2><span id="opsSummary">상태 분포</span></div>
+                  <div class="chart-body" id="operationChart"></div>
+                </article>
+                <article class="chart-panel">
+                  <div class="chart-head"><h2>데이터 현황</h2><span id="dataSummary">처리량</span></div>
+                  <div class="chart-body" id="dataStatusChart"></div>
+                </article>
+                <article class="chart-panel is-wide">
+                  <div class="chart-head"><h2>작동 결과</h2><span>최근 실행 소요 시간</span></div>
+                  <div class="chart-body" id="resultTimeline"></div>
+                </article>
+              </section>
+
               <h2 class="section-title">실행 이력 <span id="runCountLabel">최근 50건</span></h2>
 
               <table class="runs-table" aria-label="실행 이력 테이블">
@@ -1897,6 +2140,7 @@
               <div class="phone-kpi"><small>실패</small><strong>1</strong></div>
               <div class="phone-kpi"><small>주의</small><strong>1</strong></div>
             </div>
+            <section class="phone-dashboard" id="phoneDashboard" aria-label="모바일 파이프라인 차트"></section>
             <div class="phone-filters" id="phoneFilters">
               <button class="phone-filter is-active" type="button" data-status="all">전체</button>
               <button class="phone-filter" type="button" data-status="running">실행 중 1</button>

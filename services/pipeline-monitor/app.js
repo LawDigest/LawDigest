@@ -211,6 +211,11 @@ const els = {
   searchInput: $("#searchInput"),
   updatedAt: $("#updatedAt"),
   incidentCopy: $("#incidentCopy"),
+  opsSummary: $("#opsSummary"),
+  operationChart: $("#operationChart"),
+  dataSummary: $("#dataSummary"),
+  dataStatusChart: $("#dataStatusChart"),
+  resultTimeline: $("#resultTimeline"),
   runCountLabel: $("#runCountLabel"),
   runsTableBody: $("#runsTableBody"),
   currentPage: $("#currentPage"),
@@ -222,6 +227,7 @@ const els = {
   logBox: $("#logBox"),
   phoneIncident: $("#phoneIncident"),
   phoneKpis: $("#phoneKpis"),
+  phoneDashboard: $("#phoneDashboard"),
   phoneFilters: $("#phoneFilters"),
   phoneRunCount: $("#phoneRunCount"),
   phoneRuns: $("#phoneRuns"),
@@ -388,6 +394,30 @@ function artifactCount(run) {
   return 0;
 }
 
+function percent(value, total) {
+  if (!total) return 0;
+  return Math.max(0, Math.min(100, Math.round((value / total) * 100)));
+}
+
+function statusColor(key) {
+  return {
+    running: "var(--blue)",
+    success: "var(--green)",
+    failed: "var(--red)",
+    warning: "var(--orange)",
+    fallback: "var(--black)",
+    schema: "var(--red)",
+  }[key] || "var(--muted)";
+}
+
+function groupBy(runs, getKey, getValue = () => 1) {
+  return runs.reduce((map, run) => {
+    const key = getKey(run) || "-";
+    map.set(key, (map.get(key) || 0) + getValue(run));
+    return map;
+  }, new Map());
+}
+
 function render() {
   const visible = getVisibleRuns();
   if (!visible.some((run) => run.run_id === state.selectedRunId)) {
@@ -396,6 +426,7 @@ function render() {
   renderProviders();
   renderStatusRail();
   renderIncident();
+  renderDashboard(visible);
   renderRuns(visible);
   renderTrace();
   renderPhone(visible);
@@ -433,6 +464,83 @@ function renderIncident() {
   const prefix = run.status === "failed" ? "주의 필요" : run.status === "running" ? "실행 중" : "확인 필요";
   const fallback = run.fallback_used ? " · fallback 사용" : "";
   els.incidentCopy.innerHTML = `<strong>${prefix}</strong><span>${escapeHtml(run.command)} · ${escapeHtml(run.provider)}${fallback} · ${formatDuration(run.duration_seconds)}</span>`;
+}
+
+function renderDashboard(runs) {
+  const chartRuns = runs.length ? runs : state.runs;
+  const summary = getSummary();
+  const total = state.runs.length || 1;
+  const statusRows = [
+    ["running", "실행 중", summary.running],
+    ["success", "성공", summary.success],
+    ["failed", "실패", summary.failed],
+    ["warning", "주의", summary.warning],
+  ];
+  const stackColumns = statusRows.map(([, , count]) => `${Math.max(count, 0.2)}fr`).join(" ");
+  els.opsSummary.textContent = `${state.runs.length} runs · ${summary.failed + summary.warning}건 확인`;
+  els.operationChart.innerHTML = `
+    <div class="status-chart">
+      <div class="status-stack" style="--status-columns: ${stackColumns}">
+        ${statusRows.map(([key, label, count]) => `<span title="${label} ${count}" style="--segment-color: ${statusColor(key)}"></span>`).join("")}
+      </div>
+      <div class="status-breakdown">
+        ${statusRows.map(([key, label, count]) => `
+          <div class="status-row">
+            <strong>${label}</strong>
+            <div class="meter"><span style="--bar-color: ${statusColor(key)}; --value: ${percent(count, total)}%"></span></div>
+            <span>${count}</span>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+
+  const timeline = chartRuns.slice(0, 10);
+  const maxDuration = Math.max(1, ...timeline.map((run) => run.duration_seconds || 0));
+  els.resultTimeline.innerHTML = `
+    <div class="timeline-chart">
+      ${timeline.map((run) => `
+        <div class="timeline-row" data-run-id="${escapeHtml(run.run_id)}">
+          <strong>${escapeHtml(formatTime(run.started_at).slice(0, 5))}</strong>
+          <div class="meter" title="${escapeHtml(run.command)} · ${escapeHtml(formatDuration(run.duration_seconds))}">
+            <span style="--bar-color: ${statusColor(statusClass(run))}; --value: ${percent(run.duration_seconds || 1, maxDuration)}%"></span>
+          </div>
+          <span>${escapeHtml(formatDuration(run.duration_seconds))}</span>
+        </div>
+      `).join("") || `<div class="empty-state">표시할 실행 결과가 없습니다.</div>`}
+    </div>
+  `;
+
+  const commandTotals = [...groupBy(state.runs, (run) => run.command, (run) => Number(run.items || 0)).entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4);
+  const maxItems = Math.max(1, ...commandTotals.map(([, value]) => value));
+  const providerTotals = [...groupBy(state.runs, (run) => run.provider).entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4);
+  const maxProvider = Math.max(1, ...providerTotals.map(([, value]) => value));
+  const totalItems = state.runs.reduce((sum, run) => sum + Number(run.items || 0), 0);
+  els.dataSummary.textContent = `${totalItems.toLocaleString("ko-KR")}건 처리`;
+  els.dataStatusChart.innerHTML = `
+    <div class="data-chart">
+      ${commandTotals.map(([command, value]) => `
+        <div class="data-row">
+          <strong>${escapeHtml(command)}</strong>
+          <div class="meter"><span style="--bar-color: var(--color-ink); --value: ${percent(value, maxItems)}%"></span></div>
+          <span>${value}</span>
+        </div>
+      `).join("") || `<div class="empty-state">처리 데이터가 없습니다.</div>`}
+    </div>
+    <div class="provider-mix">
+      ${providerTotals.map(([provider, value]) => `
+        <div class="provider-row">
+          <strong>${escapeHtml(provider)}</strong>
+          <div class="meter"><span style="--bar-color: var(--muted); --value: ${percent(value, maxProvider)}%"></span></div>
+          <span>${value}</span>
+        </div>
+      `).join("")}
+    </div>
+  `;
 }
 
 function renderRuns(runs) {
@@ -498,6 +606,37 @@ function renderPhone(runs) {
     ["실패", summary.failed],
     ["주의", summary.warning],
   ].map(([label, count]) => `<div class="phone-kpi"><small>${label}</small><strong>${count}</strong></div>`).join("");
+  const statusRows = [
+    ["running", "실행", summary.running],
+    ["success", "성공", summary.success],
+    ["failed", "실패", summary.failed],
+    ["warning", "주의", summary.warning],
+  ];
+  const stackColumns = statusRows.map(([, , count]) => `${Math.max(count, 0.2)}fr`).join(" ");
+  const commandTotals = [...groupBy(state.runs, (run) => run.command, (run) => Number(run.items || 0)).entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+  const maxItems = Math.max(1, ...commandTotals.map(([, value]) => value));
+  els.phoneDashboard.innerHTML = `
+    <article class="phone-chart">
+      <div class="phone-chart-head"><strong>동작 현황</strong><span>${state.runs.length} runs</span></div>
+      <div class="phone-status-stack" style="--status-columns: ${stackColumns}">
+        ${statusRows.map(([key, label, count]) => `<span title="${label} ${count}" style="--segment-color: ${statusColor(key)}"></span>`).join("")}
+      </div>
+    </article>
+    <article class="phone-chart">
+      <div class="phone-chart-head"><strong>데이터 현황</strong><span>처리량</span></div>
+      <div class="phone-mini-bars">
+        ${commandTotals.map(([command, value]) => `
+          <div class="phone-mini-row">
+            <strong>${escapeHtml(command)}</strong>
+            <div class="meter"><span style="--bar-color: var(--color-ink); --value: ${percent(value, maxItems)}%"></span></div>
+            <span>${value}</span>
+          </div>
+        `).join("")}
+      </div>
+    </article>
+  `;
   const filters = [
     ["all", "전체"],
     ["running", `실행 중 ${summary.running}`],
