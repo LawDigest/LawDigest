@@ -120,6 +120,7 @@ python -m lawdigest_data.runtime.cli <command> [options]
 |------|-----------|------|
 | `bill-ingest` | 국회 API 법안 수집, 정제, DB 반영 | 표준 |
 | `bill-status-sync` | 의원, lifecycle, vote 상태 동기화 | 표준 |
+| `bill-agent-report` | Codex MCP 에이전트 기반 통과 법안 종합 리포트 | 선택 심화 |
 | `ai-summary` | Gemini CLI 기반 실시간 요약 | 표준 |
 | `ai-repair-cli` | CLI 기반 결측 요약 복구 alias | 호환용 |
 | `ai-repair-native` | OpenAI/Gemini API 기반 결측 요약 복구 | fallback |
@@ -274,6 +275,21 @@ DB 반영:
 | `tags` | `Bill.summary_tags` |
 
 `briefSummary`는 기존 DB 스타일의 긴 제목형 요약으로 작성합니다. 즉, 핵심 변경 내용을 앞에 두고 마지막은 정확한 법안명으로 끝나는 형태를 표준으로 둡니다.
+
+### 4.4 통과 법안 종합 리포트: `bill-agent-report`
+
+`bill-agent-report`는 처리 결과가 `원안가결`, `수정가결`, `가결`이거나 단계가 `공포`, `본회의 의결`인 통과 법안을 대상으로 합니다. `폐기`, `철회`, `부결`, `임기만료` 결과는 기본 대상에서 제외합니다.
+
+이 경로는 일반 대량 요약이 아니라 품질 심화용입니다. Codex CLI를 headless agent로 실행하고 다음 MCP 서버를 주입해 법안별 Markdown 리포트를 생성합니다.
+
+| MCP 서버 | 역할 |
+|----------|------|
+| `open-assembly` | 법안 상세, 심사경과, 발의자, 위원회, 표결 흐름 확인 |
+| `assembly-api` | 국회 원천 API, 입법 라이프사이클, NABO/국민참여입법센터 보강 조회 |
+| `korean-law` | 현행법 및 개정 법령 맥락, 관련 조문, 법령 인용 검증 |
+| `korean-stats` | 정책 배경에 의미 있는 통계청 공식 통계와 출처 확인 |
+
+출력은 기본적으로 `/tmp/lawdigest-bill-agent-reports` 아래 `bill_id.md`와 `manifest.json`으로 저장합니다. 생성된 리포트는 이후 `briefSummary`, `gptSummary`, `tags` 품질 개선이나 별도 상세 리포트 화면의 근거 자료로 활용합니다.
 
 ---
 

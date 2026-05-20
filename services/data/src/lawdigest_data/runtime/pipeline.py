@@ -360,3 +360,44 @@ class PipelineRuntime:
             read_mode=read_mode,
             target_mode=target_mode,
         )
+
+    def run_bill_agent_report(
+        self,
+        *,
+        mode: str = "dry_run",
+        limit: int = 5,
+        output_dir: str = "/tmp/lawdigest-bill-agent-reports",
+        read_mode: str | None = None,
+        codex_model: str | None = None,
+        stop_on_error: bool = False,
+    ) -> Dict[str, Any]:
+        params = {
+            "mode": mode,
+            "limit": limit,
+            "output_dir": output_dir,
+            "read_mode": read_mode,
+            "codex_model": codex_model,
+            "stop_on_error": stop_on_error,
+            "target": "passed_bills",
+        }
+
+        def execute(run_id: str) -> List[Dict[str, Any]]:
+            from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+            steps: List[Dict[str, Any]] = []
+            self._record_step(
+                run_id,
+                steps,
+                "generate_passed_bill_reports",
+                run_agentic_bill_reports(
+                    mode=mode,
+                    limit=limit,
+                    output_dir=output_dir,
+                    read_mode=read_mode,
+                    codex_model=codex_model,
+                    stop_on_error=stop_on_error,
+                ),
+            )
+            return steps
+
+        return self._run("bill.agent_report", params, execute)

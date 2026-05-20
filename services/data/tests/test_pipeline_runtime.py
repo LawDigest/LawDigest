@@ -119,6 +119,33 @@ def test_ai_summary_uses_gemini_cli_realtime_command(tmp_path):
     assert result["status"] == "success"
 
 
+def test_bill_agent_report_delegates_to_agentic_report_runtime(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.run_agentic_bill_reports",
+        return_value={"stats": {"success_count": 1}},
+    ) as run_reports:
+        result = PipelineRuntime(log_dir=tmp_path).run_bill_agent_report(
+            mode="dry_run",
+            limit=1,
+            output_dir="/tmp/reports",
+            read_mode="prod",
+        )
+
+    run_reports.assert_called_once_with(
+        mode="dry_run",
+        limit=1,
+        output_dir="/tmp/reports",
+        read_mode="prod",
+        codex_model=None,
+        stop_on_error=False,
+    )
+    assert result["command"] == "bill.agent_report"
+    assert result["steps"][0]["step"] == "generate_passed_bill_reports"
+    assert result["status"] == "success"
+
+
 def test_cli_dispatches_bill_ingest(tmp_path):
     from lawdigest_data.runtime.cli import main
 
@@ -176,4 +203,34 @@ def test_cli_dispatches_ai_summary(tmp_path):
         stop_on_error=False,
         read_mode=None,
         target_mode="missing",
+    )
+
+
+def test_cli_dispatches_bill_agent_report(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_bill_agent_report.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "bill-agent-report",
+            "--mode",
+            "dry_run",
+            "--limit",
+            "1",
+            "--output-dir",
+            "/tmp/reports",
+            "--read-mode",
+            "prod",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_bill_agent_report.assert_called_once_with(
+        mode="dry_run",
+        limit=1,
+        output_dir="/tmp/reports",
+        read_mode="prod",
+        codex_model=None,
+        stop_on_error=False,
     )
