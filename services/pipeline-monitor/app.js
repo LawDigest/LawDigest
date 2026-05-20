@@ -282,15 +282,24 @@ function normalizeStatus(value) {
 
 async function loadRuns() {
   try {
-    const response = await fetch(`./pipeline-runs.jsonl?ts=${Date.now()}`, { cache: "no-store" });
-    if (!response.ok) throw new Error(`pipeline-runs.jsonl ${response.status}`);
-    const parsed = parseJsonl(await response.text());
-    if (!parsed.length) throw new Error("empty pipeline-runs.jsonl");
-    state.runs = parsed;
-    state.source = "pipeline-runs.jsonl";
+    const response = await fetch(`/api/runs?ts=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`/api/runs ${response.status}`);
+    const payload = await response.json();
+    if (!payload.runs?.length) throw new Error("empty /api/runs");
+    state.runs = payload.runs.map(normalizeRun);
+    state.source = payload.source_exists ? "api" : "api-empty";
   } catch {
-    state.runs = SAMPLE_RUNS;
-    state.source = "sample";
+    try {
+      const response = await fetch(`./pipeline-runs.jsonl?ts=${Date.now()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error(`pipeline-runs.jsonl ${response.status}`);
+      const parsed = parseJsonl(await response.text());
+      if (!parsed.length) throw new Error("empty pipeline-runs.jsonl");
+      state.runs = parsed;
+      state.source = "pipeline-runs.jsonl";
+    } catch {
+      state.runs = SAMPLE_RUNS;
+      state.source = "sample";
+    }
   }
   if (!state.selectedRunId || !state.runs.some((run) => run.run_id === state.selectedRunId)) {
     state.selectedRunId = getIncidentRun()?.run_id || state.runs[0]?.run_id || null;
@@ -389,7 +398,8 @@ function render() {
   renderRuns(visible);
   renderTrace();
   renderPhone(visible);
-  els.updatedAt.textContent = state.source === "pipeline-runs.jsonl" ? "JSONL · 방금 전" : "샘플 데이터 · 방금 전";
+  const sourceLabel = state.source === "api" ? "API · 방금 전" : state.source === "pipeline-runs.jsonl" ? "JSONL · 방금 전" : "샘플 데이터 · 방금 전";
+  els.updatedAt.textContent = sourceLabel;
 }
 
 function renderProviders() {
@@ -508,9 +518,21 @@ function renderPhone(runs) {
   }
 }
 
-function selectRun(runId) {
+async function selectRun(runId) {
   if (!runId) return;
   state.selectedRunId = runId;
+  if (state.source === "api") {
+    try {
+      const response = await fetch(`/api/runs/${encodeURIComponent(runId)}`, { cache: "no-store" });
+      if (response.ok) {
+        const payload = await response.json();
+        const detail = normalizeRun(payload.run);
+        state.runs = state.runs.map((run) => run.run_id === detail.run_id ? detail : run);
+      }
+    } catch {
+      // Keep the table copy if the detail endpoint is temporarily unavailable.
+    }
+  }
   render();
 }
 
