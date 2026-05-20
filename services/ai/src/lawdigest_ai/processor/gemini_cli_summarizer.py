@@ -88,12 +88,11 @@ StructuredBillSummary = BatchStructuredSummary
 
 
 class GeminiCliSummarizer:
-    def __init__(self, provider: str = "gemini", fallback_provider: str | None = "codex"):
+    def __init__(self, provider: str = "codex"):
         config = _provider_config(provider)
         self.failed_bills: List[dict] = []
         self.logger = logging.getLogger(__name__)
         self.provider = config.provider
-        self.fallback_provider = fallback_provider if self.provider == "gemini" else None
         self.cli_bin = config.cli_bin
         self.model = config.model
         self.timeout_seconds = config.timeout_seconds
@@ -344,26 +343,6 @@ class GeminiCliSummarizer:
             primary_error = str(primary_exc)
             self.logger.error(f"[{self.provider} CLI 요약 실패] bill_id={bill_id}: {primary_exc}")
 
-        if self.fallback_provider:
-            try:
-                fallback = GeminiCliSummarizer(provider=self.fallback_provider, fallback_provider=None)
-                return fallback._summarize_with_current_provider(row)
-            except Exception as fallback_exc:
-                self.logger.error(
-                    f"[{self.provider}->{self.fallback_provider} CLI fallback 실패] "
-                    f"bill_id={bill_id}: {fallback_exc}"
-                )
-                self.failed_bills.append(
-                    {
-                        "bill_id": bill_id,
-                        "error": (
-                            f"primary {self.provider} failed: {primary_error}; "
-                            f"fallback {self.fallback_provider} failed: {fallback_exc}"
-                        ),
-                    }
-                )
-                return None
-
         self.failed_bills.append({"bill_id": bill_id, "error": primary_error or "unknown CLI failure"})
         return None
 
@@ -417,13 +396,13 @@ class GeminiCliSummarizer:
 
 class CodexCliSummarizer(GeminiCliSummarizer):
     def __init__(self):
-        super().__init__(provider="codex", fallback_provider=None)
+        super().__init__(provider="codex")
 
 
 class ClaudeCliSummarizer(GeminiCliSummarizer):
     def __init__(self):
-        super().__init__(provider="claude", fallback_provider=None)
+        super().__init__(provider="claude")
 
 
-def build_cli_summarizer(provider: str = "gemini") -> GeminiCliSummarizer:
+def build_cli_summarizer(provider: str = "codex") -> GeminiCliSummarizer:
     return GeminiCliSummarizer(provider=provider)

@@ -8,8 +8,8 @@
 
 - 표준 런타임: `src/lawdigest_data/runtime/`
 - 표준 실행 로그: `/tmp/lawdigest-pipeline/pipeline-runs.jsonl`
-- 표준 AI 요약: `ai-summary --cli-provider gemini`
-- Gemini 장애 fallback: Codex CLI `gpt-5.3-codex-spark`
+- 표준 AI 요약: `ai-summary --cli-provider codex`
+- 기본 모델: Codex CLI `gpt-5.3-codex-spark`
 - Airflow/n8n: legacy reference
 
 상세 문서:
@@ -38,7 +38,7 @@ lawdigest-pipeline --help
 |------|------|
 | `bill-ingest` | 국회 Open API 법안 수집, 정제, DB 반영 |
 | `bill-status-sync` | 의원, lifecycle, vote 상태 동기화 |
-| `ai-summary` | Gemini CLI 기반 실시간 AI 요약 |
+| `ai-summary` | Codex CLI 기반 실시간 AI 요약 |
 | `ai-repair-cli` | CLI 기반 결측 요약 복구 alias |
 | `ai-repair-native` | OpenAI/Gemini API 기반 결측 요약 복구 |
 | `ai-batch-submit` | legacy Batch API 제출 |
@@ -52,10 +52,10 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --mode dry_run \
   --read-mode prod \
   --target-mode latest \
-  --cli-provider gemini \
+  --cli-provider codex \
   --limit 5 \
   --batch-size 1 \
-  --output-path /tmp/lawdigest-gemini-cli-summary.json
+  --output-path /tmp/lawdigest-codex-cli-summary.json
 ```
 
 `dry_run`은 DB를 갱신하지 않고 결과 JSON만 저장합니다.

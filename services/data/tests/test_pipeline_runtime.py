@@ -89,7 +89,7 @@ def test_ai_cli_repair_delegates_to_existing_provider_runtime(tmp_path):
     assert result["status"] == "success"
 
 
-def test_ai_summary_uses_gemini_cli_realtime_command(tmp_path):
+def test_ai_summary_uses_codex_cli_realtime_command_by_default(tmp_path):
     from lawdigest_data.runtime.pipeline import PipelineRuntime
 
     with patch(
@@ -98,21 +98,20 @@ def test_ai_summary_uses_gemini_cli_realtime_command(tmp_path):
     ) as run_repair:
         result = PipelineRuntime(log_dir=tmp_path).run_ai_summary(
             mode="dry_run",
-            cli_provider="gemini",
             limit=1,
             batch_size=1,
-            output_path="/tmp/gemini.json",
+            output_path="/tmp/codex.json",
         )
 
     run_repair.assert_called_once_with(
         mode="dry_run",
         limit=1,
         batch_size=1,
-        output_path="/tmp/gemini.json",
+        output_path="/tmp/codex.json",
         stop_on_error=False,
         read_mode=None,
         target_mode="missing",
-        cli_provider="gemini",
+        cli_provider="codex",
     )
     assert result["command"] == "ai.summary"
     assert result["steps"][0]["step"] == "summarize_cli_realtime"
@@ -156,23 +155,21 @@ def test_cli_dispatches_ai_summary(tmp_path):
             "ai-summary",
             "--mode",
             "dry_run",
-            "--cli-provider",
-            "gemini",
             "--limit",
             "1",
             "--batch-size",
             "1",
             "--output-path",
-            "/tmp/gemini.json",
+            "/tmp/codex.json",
         ])
 
     assert exit_code == 0
     Runtime.return_value.run_ai_summary.assert_called_once_with(
         mode="dry_run",
-        cli_provider="gemini",
+        cli_provider="codex",
         limit=1,
         batch_size=1,
-        output_path="/tmp/gemini.json",
+        output_path="/tmp/codex.json",
         stop_on_error=False,
         read_mode=None,
         target_mode="missing",

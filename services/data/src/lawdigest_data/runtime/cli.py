@@ -13,10 +13,10 @@ def _print_result(result: dict) -> None:
 
 def _add_cli_summary_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
-    parser.add_argument("--cli-provider", default="gemini", choices=["gemini", "codex", "claude"])
+    parser.add_argument("--cli-provider", default="codex", choices=["codex", "gemini", "claude"])
     parser.add_argument("--limit", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=5)
-    parser.add_argument("--output-path", default="/tmp/gemini_ai_summary_results.json")
+    parser.add_argument("--output-path", default="/tmp/codex_ai_summary_results.json")
     parser.add_argument("--stop-on-error", action="store_true")
     parser.add_argument("--read-mode", choices=["test", "prod"])
     parser.add_argument("--target-mode", default="missing", choices=["missing", "latest"])
@@ -59,10 +59,10 @@ def build_parser() -> argparse.ArgumentParser:
     native_repair.add_argument("--model")
     native_repair.add_argument("--output-path", default="/tmp/lawdigest_missing_summaries.json")
 
-    realtime_summary = subparsers.add_parser("ai-summary", help="Gemini CLI 기반 실시간 결측 요약")
+    realtime_summary = subparsers.add_parser("ai-summary", help="Codex CLI 기반 실시간 결측 요약")
     _add_cli_summary_args(realtime_summary)
 
-    cli_repair = subparsers.add_parser("ai-repair-cli", help="Gemini/Codex/Claude CLI 기반 결측 요약 복구")
+    cli_repair = subparsers.add_parser("ai-repair-cli", help="Codex/Gemini/Claude CLI 기반 결측 요약 복구")
     _add_cli_summary_args(cli_repair)
 
     return parser

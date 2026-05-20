@@ -31,10 +31,11 @@ def test_gemini_cli_instant_summarize_returns_summary():
         "bill_id": "B001", "brief_summary": "CLI 요약", "gpt_summary": "CLI 상세",
         "summary_tags": '["a","b","c","d","e"]'
     }])
-    with patch("lawdigest_ai.processor.instant_summarizer.GeminiCliSummarizer") as MockSummarizer:
-        instance = MockSummarizer.return_value
+    with patch("lawdigest_ai.processor.instant_summarizer.build_cli_summarizer") as build_cli_summarizer:
+        instance = build_cli_summarizer.return_value
         instance.AI_structured_summarize.return_value = mock_df
         result = summarize_single_bill_with_gemini_cli({"bill_id": "B001", "summary": "원문 내용"})
+    build_cli_summarizer.assert_called_once_with("gemini")
     assert result["brief_summary"] == "CLI 요약"
 
 

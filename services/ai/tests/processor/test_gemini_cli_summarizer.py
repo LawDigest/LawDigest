@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 
-def test_gemini_cli_summarizer_processes_unsummarized():
+def test_cli_summarizer_processes_unsummarized_with_codex_by_default():
     from lawdigest_ai.processor.gemini_cli_summarizer import GeminiCliSummarizer
 
     stdout = json.dumps(
@@ -25,7 +25,7 @@ def test_gemini_cli_summarizer_processes_unsummarized():
 
     with patch("lawdigest_ai.processor.gemini_cli_summarizer.subprocess.run") as mock_run:
         mock_run.return_value = subprocess.CompletedProcess(
-            args=["gemini"],
+            args=["codex"],
             returncode=0,
             stdout=stdout,
             stderr="",
@@ -56,7 +56,7 @@ def test_gemini_cli_summarizer_records_failures():
     from lawdigest_ai.processor.gemini_cli_summarizer import GeminiCliSummarizer
 
     with patch("lawdigest_ai.processor.gemini_cli_summarizer.subprocess.run") as mock_run:
-        mock_run.return_value = subprocess.CompletedProcess(args=["gemini"], returncode=1, stdout="", stderr="auth failed")
+        mock_run.return_value = subprocess.CompletedProcess(args=["codex"], returncode=1, stdout="", stderr="auth failed")
         summarizer = GeminiCliSummarizer()
         df = pd.DataFrame(
             [
@@ -74,26 +74,23 @@ def test_gemini_cli_summarizer_records_failures():
     assert pd.isna(result.iloc[0]["brief_summary"])
     assert len(summarizer.failed_bills) == 1
     assert summarizer.failed_bills[0]["bill_id"] == "B003"
-    assert "fallback" in summarizer.failed_bills[0]["error"]
+    assert "auth failed" in summarizer.failed_bills[0]["error"]
 
 
-def test_gemini_cli_summarizer_falls_back_to_codex_on_primary_failure():
+def test_cli_summarizer_uses_codex_command_and_model_by_default():
     from lawdigest_ai.processor.gemini_cli_summarizer import GeminiCliSummarizer
 
     codex_stdout = json.dumps(
         {
-            "briefSummary": "Codex 대체 제목",
-            "gptSummary": "Codex 대체 상세",
-            "tags": ["대체", "요약", "CLI", "장애", "복구"],
+            "briefSummary": "Codex 기본 제목",
+            "gptSummary": "Codex 기본 상세",
+            "tags": ["기본", "요약", "CLI", "법안", "정책"],
         },
         ensure_ascii=False,
     )
 
     with patch("lawdigest_ai.processor.gemini_cli_summarizer.subprocess.run") as mock_run:
-        mock_run.side_effect = [
-            subprocess.CompletedProcess(args=["gemini"], returncode=1, stdout="", stderr="quota exceeded"),
-            subprocess.CompletedProcess(args=["codex"], returncode=0, stdout=codex_stdout, stderr=""),
-        ]
+        mock_run.return_value = subprocess.CompletedProcess(args=["codex"], returncode=0, stdout=codex_stdout, stderr="")
         summarizer = GeminiCliSummarizer()
         df = pd.DataFrame(
             [
@@ -110,14 +107,12 @@ def test_gemini_cli_summarizer_falls_back_to_codex_on_primary_failure():
         )
         result = summarizer.AI_structured_summarize(df)
 
-    first_command = mock_run.call_args_list[0].args[0]
-    second_command = mock_run.call_args_list[1].args[0]
-    assert first_command[0] == "gemini"
-    assert second_command[:2] == ["codex", "exec"]
-    assert "--model" in second_command
-    assert "gpt-5.3-codex-spark" in second_command
-    assert result.iloc[0]["brief_summary"] == "Codex 대체 제목"
-    assert result.iloc[0]["gpt_summary"] == "Codex 대체 상세"
+    command = mock_run.call_args.args[0]
+    assert command[:2] == ["codex", "exec"]
+    assert "--model" in command
+    assert "gpt-5.3-codex-spark" in command
+    assert result.iloc[0]["brief_summary"] == "Codex 기본 제목"
+    assert result.iloc[0]["gpt_summary"] == "Codex 기본 상세"
     assert summarizer.failed_bills == []
 
 

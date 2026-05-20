@@ -12,8 +12,8 @@
 
 - 표준 실행 경로: `services/data/src/lawdigest_data/runtime`
 - 표준 CLI: `lawdigest-pipeline` 또는 `python -m lawdigest_data.runtime.cli`
-- 표준 AI 요약: Gemini CLI 실시간 처리
-- AI 장애 대응: Codex CLI fallback (`gpt-5.3-codex-spark`)
+- 표준 AI 요약: Codex CLI `gpt-5.3-codex-spark` 실시간 처리
+- 비교/수동 복구 경로: Gemini CLI, Claude CLI
 - 실행 이력: append-only JSONL (`pipeline-runs.jsonl`)
 - Airflow: 신규 운영 경로에서 제외, legacy reference로만 보관
 
@@ -30,8 +30,8 @@
 flowchart TB
     subgraph External["외부 데이터/모델"]
         Assembly["국회 Open API"]
+        Codex["Codex CLI<br/>gpt-5.3-codex-spark"]
         Gemini["Gemini CLI<br/>gemini-3-flash-preview"]
-        Codex["Codex CLI fallback<br/>gpt-5.3-codex-spark"]
         OpenAI["OpenAI / Gemini Batch API<br/>legacy fallback"]
     end
 
@@ -82,10 +82,10 @@ flowchart TB
     RuntimeCore -->|"ai-summary"| RepairPipeline
     RepairPipeline --> MySQL
     RepairPipeline --> Prompt
-    Prompt --> Gemini
-    Gemini --> Schema
-    Gemini -. "quota/API/CLI/schema 실패" .-> Codex
+    Prompt --> Codex
     Codex --> Schema
+    Prompt -. "명시 선택 시" .-> Gemini
+    Gemini -.-> Schema
     Schema --> SummaryCols
     SummaryCols --> MySQL
 
@@ -120,7 +120,7 @@ python -m lawdigest_data.runtime.cli <command> [options]
 |------|-----------|------|
 | `bill-ingest` | 국회 API 법안 수집, 정제, DB 반영 | 표준 |
 | `bill-status-sync` | 의원, lifecycle, vote 상태 동기화 | 표준 |
-| `ai-summary` | Gemini CLI 기반 실시간 요약 | 표준 |
+| `ai-summary` | Codex CLI 기반 실시간 요약 | 표준 |
 | `ai-repair-cli` | CLI 기반 결측 요약 복구 alias | 호환용 |
 | `ai-repair-native` | OpenAI/Gemini API 기반 결측 요약 복구 | fallback |
 | `ai-batch-submit` | OpenAI/Gemini Batch 제출 | legacy fallback |
@@ -222,23 +222,17 @@ sequenceDiagram
     participant Runtime as PipelineRuntime
     participant Repair as run_gemini_repair_pipeline
     participant DB as MySQL Bill
+    participant Codex as Codex CLI
     participant Gemini as Gemini CLI
-    participant Codex as Codex CLI fallback
     participant Schema as Pydantic schema
     participant Output as JSON output
 
-    CLI->>Runtime: ai-summary --cli-provider gemini
+    CLI->>Runtime: ai-summary --cli-provider codex
     Runtime->>Repair: summarize_cli_realtime
     Repair->>DB: 대상 조회<br/>missing 또는 latest
     loop batch_size 단위
-        Repair->>Gemini: headless prompt 실행
-        alt Gemini 성공
-            Gemini-->>Schema: JSON text
-        else Gemini quota/API/CLI/schema 실패
-            Gemini-->>Repair: error
-            Repair->>Codex: 같은 prompt로 fallback
-            Codex-->>Schema: JSON text
-        end
+        Repair->>Codex: headless prompt 실행
+        Codex-->>Schema: JSON text
         Schema-->>Repair: briefSummary / gptSummary / tags
     end
     Repair->>Output: result JSON 저장
@@ -251,8 +245,8 @@ sequenceDiagram
 
 | Provider | 기본 모델 | 역할 |
 |----------|-----------|------|
-| Gemini CLI | `gemini-3-flash-preview` | 표준 실시간 요약 |
-| Codex CLI | `gpt-5.3-codex-spark` | Gemini 실패 시 fallback |
+| Codex CLI | `gpt-5.3-codex-spark` | 표준 실시간 요약 |
+| Gemini CLI | `gemini-3-flash-preview` | 명시 선택 시 비교/수동 복구 |
 | Claude CLI | 환경변수 지정 | 수동 비교/복구용 보조 경로 |
 
 구조화 출력 계약:
@@ -344,8 +338,8 @@ Airflow 관련 파일은 legacy reference입니다.
 
 1. 신규 기능은 `lawdigest_data.runtime`에 추가합니다.
 2. Airflow DAG는 참고용으로만 읽고, 새 운영 경로로 되살리지 않습니다.
-3. 표준 요약은 `ai-summary --cli-provider gemini`입니다.
-4. Gemini 실패는 row 단위로 Codex CLI fallback을 사용합니다.
+3. 표준 요약은 `ai-summary --cli-provider codex`입니다.
+4. Gemini/Claude는 명시 선택한 비교 또는 수동 복구 경로로만 사용합니다.
 5. 모든 실행은 `pipeline-runs.jsonl`과 산출물 JSON으로 검증합니다.
 6. 모니터링 사이트는 우선 JSONL 로그를 읽고, 필요 시 DB 테이블로 확장합니다.
 

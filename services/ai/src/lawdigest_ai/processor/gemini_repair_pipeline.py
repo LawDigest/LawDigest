@@ -12,7 +12,7 @@ from lawdigest_ai.processor.gemini_cli_summarizer import build_cli_summarizer
 from lawdigest_ai.observability import trace_generation, trace_span
 
 
-DEFAULT_OUTPUT_PATH = "/tmp/gemini_ai_summary_results.json"
+DEFAULT_OUTPUT_PATH = "/tmp/codex_ai_summary_results.json"
 
 
 def _write_json_output(payload: Dict[str, Any], output_path: str) -> None:
@@ -97,7 +97,7 @@ def _normalize_item(row: Dict[str, Any], failure_map: Dict[str, str]) -> Dict[st
     error = failure_map.get(str(bill_id))
 
     if not error and (not ai_title or not ai_summary):
-        error = "Gemini 요약 결과에 필수 필드가 비어 있습니다."
+        error = "CLI 요약 결과에 필수 필드가 비어 있습니다."
 
     return {
         "bill_id": bill_id,
@@ -134,7 +134,7 @@ def run_gemini_repair_pipeline(
     stop_on_error: bool = False,
     read_mode: str | None = None,
     target_mode: str = "missing",
-    cli_provider: str = "gemini",
+    cli_provider: str = "codex",
 ) -> Dict[str, Any]:
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
@@ -144,15 +144,15 @@ def run_gemini_repair_pipeline(
         raise ValueError("target_mode는 missing 또는 latest 여야 합니다.")
 
     resolved_read_mode = _resolve_read_mode(mode, read_mode)
-    print(f"[gemini-repair] Current Mode: {mode}")
+    print(f"[cli-summary] Current Mode: {mode}")
     print(
-        f"[gemini-repair] limit={limit}, batch_size={batch_size}, "
+        f"[cli-summary] provider={cli_provider}, limit={limit}, batch_size={batch_size}, "
         f"stop_on_error={stop_on_error}, read_mode={resolved_read_mode}, target_mode={target_mode}"
     )
 
     fetcher = _fetch_missing_bills if target_mode == "missing" else _fetch_latest_bills
     with trace_span(
-        "gemini_repair_pipeline",
+        "cli_summary_pipeline",
         input={
             "mode": mode,
             "limit": limit,
@@ -201,7 +201,7 @@ def run_gemini_repair_pipeline(
                         success_items.append(item)
 
                 if stop_on_error and failure_map:
-                    print("[gemini-repair] stop_on_error=True, batch failure detected.")
+                    print("[cli-summary] stop_on_error=True, batch failure detected.")
                     if generation is not None:
                         generation.update(status_message="batch failed and stop_on_error enabled")
                     break
@@ -229,16 +229,16 @@ def run_gemini_repair_pipeline(
     _write_json_output(report, output_path)
 
     if report["stats"]["target_count"] > 0 and report["stats"]["success_count"] == 0:
-        raise RuntimeError(f"Gemini 요약이 모두 실패했습니다. 산출물: {output_path}")
+        raise RuntimeError(f"CLI 요약이 모두 실패했습니다. 산출물: {output_path}")
 
     if stop_on_error and report["stats"]["failure_count"] > 0:
-        raise RuntimeError(f"Gemini 요약 실패가 발생해 실행을 중단했습니다. 산출물: {output_path}")
+        raise RuntimeError(f"CLI 요약 실패가 발생해 실행을 중단했습니다. 산출물: {output_path}")
 
     if mode != "dry_run":
         report["stats"]["db_upserted_count"] = _upsert_successful_items(success_items, mode)
 
     print(
-        "[gemini-repair] completed "
+        "[cli-summary] completed "
         f"targets={report['stats']['target_count']} "
         f"success={report['stats']['success_count']} "
         f"failure={report['stats']['failure_count']} "

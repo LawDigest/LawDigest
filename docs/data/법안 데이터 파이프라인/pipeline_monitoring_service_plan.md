@@ -9,14 +9,14 @@
 
 ## 1. 배경
 
-Lawdigest 데이터 파이프라인은 Airflow 중심 운영에서 자체 `lawdigest-pipeline` 런타임으로 전환되었습니다. 현재 실행 이력은 `pipeline-runs.jsonl`에 append-only 이벤트로 남고, 표준 AI 요약 경로는 Gemini CLI 실시간 처리와 Codex CLI fallback입니다.
+Lawdigest 데이터 파이프라인은 Airflow 중심 운영에서 자체 `lawdigest-pipeline` 런타임으로 전환되었습니다. 현재 실행 이력은 `pipeline-runs.jsonl`에 append-only 이벤트로 남고, 표준 AI 요약 경로는 Codex CLI `gpt-5.3-codex-spark` 실시간 처리입니다.
 
 운영자가 파이프라인 상태를 확인하려면 지금은 터미널에서 JSONL 로그와 산출물 JSON을 직접 열어봐야 합니다. 이 방식은 초기 검증에는 충분하지만, 반복 운영에서는 다음 정보가 빠르게 보이지 않습니다.
 
 - 최근 어떤 파이프라인이 실행됐는지
 - 어떤 명령이 실패했는지
 - 실패 원인과 traceback이 무엇인지
-- AI 요약 성공률과 fallback 상태가 어떤지
+- AI 요약 성공률과 provider 상태가 어떤지
 - 산출물 JSON이 어디에 저장됐는지
 - 스케줄러나 수동 실행 이후 실제 처리량이 어땠는지
 

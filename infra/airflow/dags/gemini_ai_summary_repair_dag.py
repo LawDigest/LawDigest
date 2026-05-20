@@ -36,11 +36,11 @@ def run_gemini_ai_summary_repair(**context):
         mode=mode,
         limit=int(params.get("limit") or 20),
         batch_size=int(params.get("batch_size") or 5),
-        output_path=params.get("output_path") or "/tmp/gemini_ai_summary_results.json",
+        output_path=params.get("output_path") or "/tmp/codex_ai_summary_results.json",
         stop_on_error=_as_bool(params.get("stop_on_error", False)),
         read_mode=params.get("read_mode") or None,
         target_mode=params.get("target_mode") or "missing",
-        cli_provider=params.get("cli_provider") or "gemini",
+        cli_provider=params.get("cli_provider") or "codex",
     )
 
 
@@ -49,7 +49,7 @@ with DAG(
     schedule=None,
     start_date=pendulum.datetime(2024, 1, 1, tz="Asia/Seoul"),
     catchup=False,
-    tags=["lawdigest", "ai-summary", "gemini", "repair"],
+    tags=["lawdigest", "ai-summary", "codex", "repair"],
     params={
         "execution_mode": Param(
             "dry_run",
@@ -67,8 +67,8 @@ with DAG(
         "batch_size": Param(
             5,
             type="integer",
-            title="Gemini 처리 묶음 크기",
-            description="한 번에 Gemini 요약기로 넘길 최대 법안 수",
+            title="CLI 처리 묶음 크기",
+            description="한 번에 CLI 요약기로 넘길 최대 법안 수",
         ),
         "read_mode": Param(
             "",
@@ -84,14 +84,14 @@ with DAG(
             description="missing: 미요약 법안 조회, latest: 최신 법안 조회 후 재요약",
         ),
         "cli_provider": Param(
-            "gemini",
+            "codex",
             type="string",
-            enum=["gemini", "codex", "claude"],
+            enum=["codex", "gemini", "claude"],
             title="CLI 제공자",
-            description="Gemini CLI, Codex CLI, Claude CLI 중 요약 생성에 사용할 headless CLI 경로를 선택합니다.",
+            description="Codex CLI, Gemini CLI, Claude CLI 중 요약 생성에 사용할 headless CLI 경로를 선택합니다.",
         ),
         "output_path": Param(
-            "/tmp/gemini_ai_summary_results.json",
+            "/tmp/codex_ai_summary_results.json",
             type="string",
             title="산출물 JSON 경로",
             description="요약 결과와 실패 내역을 저장할 JSON 파일 경로",
@@ -111,7 +111,7 @@ with DAG(
 
     ### 🚀 주요 기능
     1. **미요약 대상 자동 조회**: `Bill` 테이블에서 `brief_summary` 또는 `gpt_summary`가 비어 있는 법안을 최대 `limit`건 조회합니다.
-    2. **CLI 요약 생성**: 조회된 법안을 `batch_size` 단위로 Gemini/Codex/Claude CLI 요약기에 전달합니다.
+    2. **CLI 요약 생성**: 조회된 법안을 `batch_size` 단위로 Codex/Gemini/Claude CLI 요약기에 전달합니다.
     3. **산출물 저장**: 성공/실패 여부와 생성된 `ai_title`, `ai_summary`, `summary_tags`를 JSON으로 저장합니다.
     4. **선택적 DB 반영**: `test` 또는 `prod` 모드에서는 성공 건을 DB에 업데이트합니다.
 
@@ -123,7 +123,7 @@ with DAG(
     ### 📅 파라미터 가이드
     - `execution_mode`: 실행 환경 선택
     - `limit`: 이번 실행에서 처리할 최대 법안 수
-    - `batch_size`: 한 번에 Gemini에 보낼 법안 수
+    - `batch_size`: 한 번에 CLI provider에 보낼 법안 수
     - `read_mode`: 조회 대상 DB를 별도로 지정할 때 사용 (`test` 또는 `prod`)
     - `target_mode`: 미요약 법안 복구(`missing`) 또는 최신 법안 재요약(`latest`)
     - `cli_provider`: `gemini`, `codex`, `claude` 중 사용할 CLI provider
