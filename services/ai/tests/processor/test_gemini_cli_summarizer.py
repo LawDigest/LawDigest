@@ -132,9 +132,12 @@ def test_gemini_cli_summarizer_reuses_api_prompt_and_schema():
 
     assert "다음 법안 정보를 보고 JSON으로만 응답하세요." in prompt
     assert "키는 briefSummary, gptSummary, tags 세 개만 포함해야 합니다." in prompt
-    assert "기존 DB 스타일의 긴 제목형 요약" in prompt
+    assert "기존 DB 스타일의 제목형 요약" in prompt
+    assert "전체 60~95자를 권장하고 최대 105자를 넘기지 않도록 압축" in prompt
     assert "[핵심 변경 목적/수단]을/를 위한 [정확한 bill_name]" in prompt
     assert "입력 payload의 bill_name과 같은 법안명으로 끝나야 합니다." in prompt
+    assert "마크다운 번호 목록" in prompt
+    assert "1. **지원 근거:**" in prompt
     assert (
         "해양폐기물관리위원회 위원에 지방자치단체 협의체 추천 인사를 포함하기 위한 "
         "해양폐기물 및 해양오염퇴적물 관리법 일부개정법률안"

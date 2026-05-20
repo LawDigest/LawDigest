@@ -26,12 +26,19 @@ class BatchStructuredSummary(BaseModel):
     brief_summary: str = Field(
         alias="briefSummary",
         description=(
-            "기존 DB 스타일의 긴 제목형 한국어 요약. 핵심 변경 목적이나 수단을 먼저 쓰고 "
+            "기존 DB 스타일의 제목형 한국어 요약. 전체 60~95자를 권장하고 최대 105자를 넘기지 않도록 압축한다. "
+            "핵심 변경 목적이나 수단을 먼저 쓰고 "
             "'을/를 위한' 뒤에 정확한 법안명을 붙여 끝낸다. "
             "'입니다', '합니다', '것입니다', '함' 같은 문장 종결 표현으로 끝내지 않는다."
         ),
     )
-    gpt_summary: str = Field(alias="gptSummary")
+    gpt_summary: str = Field(
+        alias="gptSummary",
+        description=(
+            "본문 요약. 발의자 시작 문장 뒤에 마크다운 번호 목록을 사용하고, "
+            "각 항목은 '1. **요약:** 설명' 형식으로 쓴다."
+        ),
+    )
     tags: List[str] = Field(alias="tags", min_length=5, max_length=5)
 
 
@@ -52,7 +59,8 @@ def _build_prompt_for_bill(row: Dict[str, Any]) -> str:
     return (
         "다음 법안 정보를 보고 JSON으로만 응답하세요.\n"
         "키는 briefSummary, gptSummary, tags 세 개만 포함해야 합니다.\n"
-        "briefSummary는 기존 DB 스타일의 긴 제목형 요약으로 작성하세요.\n"
+        "briefSummary는 기존 DB 스타일의 제목형 요약으로 작성하세요.\n"
+        "briefSummary는 전체 60~95자를 권장하고 최대 105자를 넘기지 않도록 압축하세요. bill_name이 길수록 앞부분 수식어를 줄이세요.\n"
         "briefSummary 형식은 가능한 한 '[핵심 변경 목적/수단]을/를 위한 [정확한 bill_name]' 구조를 따르세요.\n"
         "briefSummary는 반드시 입력 payload의 bill_name과 같은 법안명으로 끝나야 합니다.\n"
         "briefSummary는 완성된 설명문이나 문장으로 쓰지 말고, '입니다', '합니다', '것입니다', '함' 같은 종결 표현으로 끝내지 마세요.\n"
@@ -61,7 +69,9 @@ def _build_prompt_for_bill(row: Dict[str, Any]) -> str:
         "gptSummary는 기존 양식에 맞춰 아래 규칙으로 작성하세요.\n"
         f"1) 첫 줄: \"{{opening_proposer_line}}\"\n"
         f"2) 다음 줄부터 {SUMMARY_LIST_GUIDELINE}\n"
-        "3) 마지막에 한 단락으로 '이 법안의 취지는 ...' 형태의 종결 문단을 추가\n"
+        "   예: '1. **지원 근거:** 중소기업과 소상공인이 보호조치를 이행할 수 있도록 법적 근거를 마련합니다.'\n"
+        "3) 목록은 마크다운 문법을 적극적으로 사용하되, JSON 문자열 안에 그대로 담기도록 작성\n"
+        "4) 마지막에 한 단락으로 '이 법안의 취지는 ...' 형태의 종결 문단을 추가\n"
         "각 항목은 한 문장으로 핵심만 기술하고, 전체는 JSON 문자열에 그대로 담겨도 무방하게 작성하세요.\n"
         "tags는 중복 없는 한국어 태그 정확히 5개입니다.\n\n"
         f"{json.dumps(payload, ensure_ascii=False)}"
