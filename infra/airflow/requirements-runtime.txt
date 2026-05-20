@@ -4,7 +4,7 @@
 
 # pydantic-ai-slim currently requires opentelemetry-api>=1.28.0, while
 # Airflow 3.1.8 constraints pin opentelemetry-api==1.27.0.
-pydantic-ai-slim[google,openai]>=0.7.0
+pydantic-ai-slim[google,openai]>=0.7.0,<1.0.0
 
 # Keep the OpenTelemetry family aligned after pydantic-ai/langfuse upgrades it.
 opentelemetry-api==1.41.1

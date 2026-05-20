@@ -6,6 +6,6 @@
 - `src/lawdigest_ai_summarizer/`: 구조화 요약 구현
 
 ## 의존성
-- `pydantic-ai-slim[openai]`
+- `pydantic-ai-slim[google,openai]>=0.7.0,<1.0.0`
 - `pandas`
 - `python-dotenv`

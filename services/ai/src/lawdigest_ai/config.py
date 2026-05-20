@@ -3,13 +3,20 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
+
+def _is_truthy_env(name: str) -> bool:
+    return os.getenv(name, "").lower() in {"1", "true", "yes", "on"}
+
+
+def _should_load_dotenv() -> bool:
+    return not _is_truthy_env("LAWDIGEST_AI_SKIP_DOTENV")
+
+
 _AIRFLOW_DOTENV_PATH = os.getenv("AIRFLOW_DOTENV_PATH")
 _DEFAULT_AIRFLOW_DOTENV_PATH = Path(__file__).resolve().parents[4] / "services" / "data" / ".env"
-load_dotenv(
-    dotenv_path=_AIRFLOW_DOTENV_PATH
-    if _AIRFLOW_DOTENV_PATH
-    else str(_DEFAULT_AIRFLOW_DOTENV_PATH),
-)
+_ENV_DOTENV_PATH = _AIRFLOW_DOTENV_PATH if _AIRFLOW_DOTENV_PATH else str(_DEFAULT_AIRFLOW_DOTENV_PATH)
+if _should_load_dotenv():
+    load_dotenv(dotenv_path=_ENV_DOTENV_PATH)
 
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")

@@ -14,7 +14,7 @@ try:
 except ImportError as exc:  # pragma: no cover - runtime dependency guard
     raise ImportError(
         "pydantic-ai가 설치되어야 합니다. requirements.txt의 "
-        "'pydantic-ai-slim[openai]'를 설치하세요."
+        "'pydantic-ai-slim[google,openai]>=0.7.0,<1.0.0'를 설치하세요."
     ) from exc
 
 

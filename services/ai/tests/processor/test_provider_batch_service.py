@@ -42,7 +42,7 @@ def test_ensure_status_tables_creates_bill_summary_tag_table():
 
     executed_sql = [call.args[0] for call in cursor.execute.call_args_list]
     tag_table_sql = next(sql for sql in executed_sql if "CREATE TABLE IF NOT EXISTS BillSummaryTag" in sql)
-    assert "bill_id VARCHAR(255) NOT NULL" in tag_table_sql
+    assert "bill_id VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL" in tag_table_sql
     assert "tag VARCHAR(100) NOT NULL" in tag_table_sql
     assert "UNIQUE KEY uq_bill_summary_tag_bill_tag (bill_id, tag)" in tag_table_sql
     assert "INDEX idx_bill_summary_tag_tag (tag)" in tag_table_sql

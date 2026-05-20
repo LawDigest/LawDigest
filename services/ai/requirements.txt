@@ -1,5 +1,5 @@
 pandas
 python-dotenv
 pydantic
-pydantic-ai-slim[openai]
+pydantic-ai-slim[google,openai]>=0.7.0,<1.0.0
 langfuse>=2.57.0

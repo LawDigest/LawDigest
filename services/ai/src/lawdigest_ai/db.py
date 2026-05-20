@@ -11,12 +11,23 @@ _DEFAULT_AIRFLOW_DOTENV_PATH = str(
     Path(__file__).resolve().parents[4] / "services" / "data" / ".env",
 )
 _ENV_DOTENV_PATH = _AIRFLOW_DOTENV_PATH or _DEFAULT_AIRFLOW_DOTENV_PATH
-load_dotenv(dotenv_path=_ENV_DOTENV_PATH)
+
+
+def _is_truthy_env(name: str) -> bool:
+    return os.getenv(name, "").lower() in {"1", "true", "yes", "on"}
+
+
+def _should_load_dotenv() -> bool:
+    return not _is_truthy_env("LAWDIGEST_AI_SKIP_DOTENV")
+
+
+if _should_load_dotenv():
+    load_dotenv(dotenv_path=_ENV_DOTENV_PATH)
 
 
 def _get_db_config(prefix: str = "") -> Dict[str, Any]:
     """공통 DB 설정 조회 함수. prefix로 TEST_ 등 구분."""
-    file_env = dotenv_values(_ENV_DOTENV_PATH)
+    file_env = {} if not _should_load_dotenv() else dotenv_values(_ENV_DOTENV_PATH)
 
     def _get(key: str) -> str | None:
         return os.getenv(key) or file_env.get(key)

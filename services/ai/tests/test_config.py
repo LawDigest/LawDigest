@@ -1,4 +1,30 @@
 import pytest
+import sys
+
+
+@pytest.fixture(autouse=True)
+def isolate_config_env(monkeypatch):
+    monkeypatch.setenv("LAWDIGEST_AI_SKIP_DOTENV", "1")
+    for key in (
+        "OPENAI_API_KEY",
+        "APIKEY_OPENAI",
+        "GEMINI_API_KEY",
+        "APIKEY_GEMINI",
+        "DB_HOST",
+        "DB_PORT",
+        "DB_USER",
+        "DB_PASSWORD",
+        "DB_NAME",
+        "TEST_DB_HOST",
+        "TEST_DB_PORT",
+        "TEST_DB_USER",
+        "TEST_DB_PASSWORD",
+        "TEST_DB_NAME",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    yield
+    sys.modules.pop("lawdigest_ai.config", None)
+    sys.modules.pop("lawdigest_ai.db", None)
 
 
 def test_config_loads_openai_key(monkeypatch):
