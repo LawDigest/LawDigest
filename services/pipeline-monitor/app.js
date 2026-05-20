@@ -221,6 +221,7 @@ const els = {
   schemaColumn: $("#schemaColumn"),
   logBox: $("#logBox"),
   phoneIncident: $("#phoneIncident"),
+  phoneKpis: $("#phoneKpis"),
   phoneFilters: $("#phoneFilters"),
   phoneRunCount: $("#phoneRunCount"),
   phoneRuns: $("#phoneRuns"),
@@ -491,6 +492,12 @@ function renderLogs(run) {
 
 function renderPhone(runs) {
   const summary = getSummary();
+  els.phoneKpis.innerHTML = [
+    ["실행", summary.running],
+    ["성공", summary.success],
+    ["실패", summary.failed],
+    ["주의", summary.warning],
+  ].map(([label, count]) => `<div class="phone-kpi"><small>${label}</small><strong>${count}</strong></div>`).join("");
   const filters = [
     ["all", "전체"],
     ["running", `실행 중 ${summary.running}`],
