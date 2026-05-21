@@ -1869,6 +1869,428 @@
         margin-top: 12px;
       }
     }
+
+    /* Hallmark redesign v2 · P5 H5 E4 S5 R4 V5
+       Audience=pipeline operators · Use=read operation/result/data state at a glance · Tone=technical austere.
+       This layer replaces the mockup-style shell with one responsive dashboard surface. */
+    .stage {
+      padding: 0;
+      background: var(--color-paper);
+    }
+
+    .rainbow-line {
+      position: fixed;
+      z-index: 5;
+      height: 2px;
+    }
+
+    .scene {
+      min-height: 100vh;
+    }
+
+    .desktop-app {
+      width: 100%;
+      height: 100vh;
+      min-height: 0;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      grid-template-columns: 184px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      background: var(--color-surface);
+      color: var(--color-ink);
+      border-right: 1px solid var(--line);
+      padding: 24px 16px;
+    }
+
+    .wordmark {
+      color: var(--color-ink);
+    }
+
+    .nav {
+      margin-top: 36px;
+    }
+
+    .nav-item {
+      min-height: 34px;
+      color: var(--color-muted);
+      font-size: 12px;
+    }
+
+    .nav-item .material-symbols-outlined {
+      color: currentColor;
+      font-size: 17px;
+    }
+
+    .nav-item.is-active {
+      background: var(--color-ink);
+      color: var(--color-surface);
+      box-shadow: none;
+    }
+
+    .nav-item:hover {
+      background: var(--color-surface-2);
+      color: var(--color-ink);
+    }
+
+    .nav-item.is-active:hover {
+      background: var(--color-ink);
+      color: var(--color-surface);
+    }
+
+    .sidebar-foot {
+      color: var(--color-muted);
+    }
+
+    .sidebar-foot span:first-child::before {
+      background: var(--green);
+    }
+
+    .app-main {
+      grid-template-rows: 58px 64px minmax(0, 1fr);
+      background: var(--color-paper);
+    }
+
+    .command-bar {
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 520px);
+      padding: 0 22px;
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--line);
+      color: var(--color-ink);
+    }
+
+    .field-label,
+    .updated {
+      color: var(--color-muted);
+    }
+
+    .select,
+    .chip,
+    .search,
+    .avatar,
+    .refresh-icon {
+      border-color: var(--line);
+      background: var(--color-surface);
+      color: var(--color-ink);
+    }
+
+    .chip.is-active {
+      border-color: var(--color-ink);
+      background: var(--color-ink);
+      color: var(--color-surface);
+    }
+
+    .search {
+      background: var(--color-surface-2);
+      box-shadow: none;
+    }
+
+    .search input {
+      color: var(--color-ink);
+    }
+
+    .search .material-symbols-outlined {
+      color: var(--color-muted);
+    }
+
+    .kbd {
+      background: var(--color-surface);
+      color: var(--color-muted);
+      border: 1px solid var(--line);
+    }
+
+    .avatar {
+      background: var(--color-ink);
+      color: var(--color-surface);
+    }
+
+    .status-rail {
+      background: var(--color-surface);
+      border-bottom: 1px solid var(--line);
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .status-cell {
+      height: 64px;
+      padding: 0 16px;
+      border-right: 1px solid var(--line-soft);
+      background: transparent;
+    }
+
+    .status-cell.is-active {
+      background: var(--color-surface-2);
+      box-shadow: inset 0 -2px 0 currentColor;
+    }
+
+    .workspace {
+      grid-template-columns: minmax(0, 1fr) 368px;
+      min-height: 0;
+    }
+
+    .ledger {
+      padding: 18px 22px 26px;
+      background: var(--color-paper);
+    }
+
+    .dashboard-grid {
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: 10px;
+      margin-top: 0;
+    }
+
+    .chart-panel,
+    .runs-table,
+    .incident {
+      border-color: var(--line);
+      border-radius: var(--radius-xs);
+      box-shadow: none;
+      background: var(--color-surface);
+    }
+
+    .chart-head {
+      min-height: 36px;
+      padding: 0 11px;
+      background: var(--color-surface);
+    }
+
+    .chart-body {
+      padding: 11px;
+    }
+
+    .incident {
+      min-height: 52px;
+      grid-template-columns: 26px minmax(0, 1fr) auto;
+      margin-top: 10px;
+      padding: 8px 11px;
+      border-top: 2px solid var(--orange);
+      background: var(--color-surface);
+    }
+
+    .incident-icon .material-symbols-outlined {
+      font-size: 22px;
+    }
+
+    .incident-copy {
+      gap: 12px;
+      font-size: 12px;
+    }
+
+    .incident-copy strong {
+      font-size: 13px;
+    }
+
+    .detail-button {
+      height: 30px;
+      border-radius: var(--radius-xs);
+    }
+
+    .section-title {
+      margin-top: 22px;
+    }
+
+    .trace {
+      background: var(--color-surface-2);
+      border-left: 1px solid var(--line);
+    }
+
+    .phone-shell {
+      display: none !important;
+    }
+
+    @media (max-width: 1180px) {
+      .desktop-app {
+        grid-template-columns: 64px minmax(0, 1fr);
+      }
+
+      .command-bar {
+        min-height: 88px;
+      }
+
+      .workspace {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    @media (max-width: 720px) {
+      html,
+      body {
+        background: var(--color-paper);
+      }
+
+      .stage {
+        background: var(--color-paper);
+      }
+
+      .desktop-app {
+        display: grid;
+        height: 100dvh;
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .sidebar,
+      .trace,
+      .avatar,
+      .kbd,
+      .field-label {
+        display: none;
+      }
+
+      .app-main {
+        grid-template-rows: auto auto minmax(0, 1fr);
+      }
+
+      .command-bar {
+        min-height: 166px;
+        grid-template-columns: minmax(0, 1fr);
+        align-content: start;
+        gap: 10px;
+        padding: 14px 12px 12px;
+      }
+
+      .command-bar::before {
+        content: "모두의입법 Pipeline Monitor";
+        display: block;
+        min-width: 0;
+        color: var(--color-ink);
+        font-size: 15px;
+        font-weight: 950;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .command-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .select {
+        flex: 0 0 92px;
+        width: 92px;
+        height: 32px;
+      }
+
+      .chip-row {
+        display: flex;
+        gap: 5px;
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .chip-row::-webkit-scrollbar {
+        display: none;
+      }
+
+      .chip {
+        flex: 0 0 auto;
+        justify-content: center;
+        height: 30px;
+        padding: 0 9px;
+        font-size: 10px;
+        border-radius: var(--radius-xs);
+      }
+
+      .command-right {
+        display: grid;
+        grid-template-columns: auto 30px;
+        gap: 8px;
+      }
+
+      .search {
+        grid-column: 1 / -1;
+        width: 100%;
+      }
+
+      .status-rail {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .status-cell {
+        height: 56px;
+        padding: 0 10px;
+        font-size: 10px;
+      }
+
+      .status-cell b {
+        font-size: 20px;
+      }
+
+      .workspace {
+        grid-template-columns: minmax(0, 1fr);
+        overflow: hidden;
+      }
+
+      .ledger {
+        padding: 12px 10px 18px;
+      }
+
+      .dashboard-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .chart-panel.is-wide {
+        grid-column: auto;
+      }
+
+      .data-row,
+      .timeline-row {
+        grid-template-columns: 72px minmax(0, 1fr) 40px;
+      }
+
+      .provider-row {
+        grid-template-columns: 72px minmax(0, 1fr) 30px;
+      }
+
+      .incident {
+        grid-template-columns: 24px minmax(0, 1fr);
+      }
+
+      .detail-button {
+        display: none;
+      }
+
+      .runs-table colgroup,
+      .runs-table thead,
+      .pager {
+        display: none;
+      }
+
+      .runs-table,
+      .runs-table tbody,
+      .runs-table tr,
+      .runs-table td {
+        display: block;
+        width: 100%;
+      }
+
+      .runs-table {
+        border: 0;
+        background: transparent;
+      }
+
+      .runs-table tr {
+        margin-bottom: 7px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-xs);
+        background: var(--color-surface);
+      }
+
+      .runs-table td {
+        height: auto;
+        padding: 7px 10px;
+        border-bottom: 0;
+      }
+
+      .runs-table td:nth-child(n+5) {
+        display: inline-block;
+        width: auto;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1927,15 +2349,6 @@
 
           <div class="workspace">
             <section class="ledger" aria-label="실행 이력">
-              <div class="incident">
-                <span class="incident-icon"><span class="material-symbols-outlined">warning</span></span>
-                <div class="incident-copy" id="incidentCopy">
-                  <strong>주의 필요</strong>
-                  <span>bill.ingest 실패 · Codex CLI로 fallback 실행됨 · 최근 15분</span>
-                </div>
-                <button class="detail-button" type="button" data-action="focus-incident">상세 보기 <span class="material-symbols-outlined">chevron_right</span></button>
-              </div>
-
               <section class="dashboard-grid" aria-label="파이프라인 대시보드">
                 <article class="chart-panel">
                   <div class="chart-head"><h2>동작 현황</h2><span id="opsSummary">상태 분포</span></div>
@@ -1950,6 +2363,15 @@
                   <div class="chart-body" id="resultTimeline"></div>
                 </article>
               </section>
+
+              <div class="incident">
+                <span class="incident-icon"><span class="material-symbols-outlined">warning</span></span>
+                <div class="incident-copy" id="incidentCopy">
+                  <strong>주의 필요</strong>
+                  <span>bill.ingest 실패 · Codex CLI로 fallback 실행됨 · 최근 15분</span>
+                </div>
+                <button class="detail-button" type="button" data-action="focus-incident">상세 보기 <span class="material-symbols-outlined">chevron_right</span></button>
+              </div>
 
               <h2 class="section-title">실행 이력 <span id="runCountLabel">최근 50건</span></h2>
 
