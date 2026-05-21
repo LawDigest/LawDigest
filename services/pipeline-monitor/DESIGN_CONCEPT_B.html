@@ -1,0 +1,947 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lawdigest Pipeline Monitor · Concept B</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard-dynamic-subset.css">
+  <style>
+    /* Hallmark · pre-emit critique: P5 H5 E5 S5 R5 V5
+       Concept B: Clean Civic Data Dashboard.
+       Audience=pipeline operators and civic data editors; use=understand live pipeline flow, data quality, and outcomes; tone=calm civic intelligence. */
+    :root {
+      --font-ui: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      --font-data: "SFMono-Regular", "Fira Code", "Cascadia Code", Consolas, monospace;
+
+      --color-page: #eef6f8;
+      --color-page-2: #f8fbfb;
+      --color-panel: #ffffff;
+      --color-panel-soft: #f4faf9;
+      --color-ink: #102327;
+      --color-ink-2: #24434a;
+      --color-muted: #62787f;
+      --color-faint: #93a9af;
+      --color-line: #d8e7e9;
+      --color-line-strong: #bed4d9;
+      --color-blue: #2f6fe4;
+      --color-blue-soft: #e7efff;
+      --color-teal: #00a9a5;
+      --color-teal-soft: #ddf7f4;
+      --color-green: #168a57;
+      --color-green-soft: #e3f6ec;
+      --color-amber: #b96b12;
+      --color-amber-soft: #fff2d9;
+      --color-red: #c83d52;
+      --color-red-soft: #ffe8ee;
+      --color-violet: #7457d8;
+      --color-violet-soft: #f0edff;
+      --color-rainbow-a: #ef4454;
+      --color-rainbow-b: #f2a23a;
+      --color-rainbow-c: #f6e85d;
+      --color-rainbow-d: #40c678;
+      --color-rainbow-e: #38a2e8;
+      --color-rainbow-f: #6950c8;
+      --color-rainbow-g: #d4429b;
+      --gradient-brand: linear-gradient(90deg, var(--color-rainbow-a), var(--color-rainbow-b), var(--color-rainbow-c), var(--color-rainbow-d), var(--color-rainbow-e), var(--color-rainbow-f), var(--color-rainbow-g));
+      --color-sky-glow-blue: rgba(56, 162, 232, 0.18);
+      --color-sky-glow-green: rgba(64, 198, 120, 0.16);
+      --color-shadow-panel: rgba(44, 93, 103, 0.13);
+      --color-shadow-soft: rgba(44, 93, 103, 0.09);
+      --color-border-glass: rgba(190, 212, 217, 0.72);
+      --color-white-glass-64: rgba(255, 255, 255, 0.64);
+      --color-white-glass-72: rgba(255, 255, 255, 0.72);
+      --color-white-glass-75: rgba(255, 255, 255, 0.75);
+      --color-white-glass-78: rgba(255, 255, 255, 0.78);
+      --color-white-glass-82: rgba(255, 255, 255, 0.82);
+      --color-amber-glass: rgba(255, 242, 217, 0.9);
+      --gradient-sky: radial-gradient(circle at 12% 16%, var(--color-sky-glow-blue), transparent 34%), radial-gradient(circle at 84% 8%, var(--color-sky-glow-green), transparent 32%), linear-gradient(135deg, var(--color-page-2), var(--color-page));
+      --gradient-incident: linear-gradient(135deg, var(--color-amber-glass), var(--color-white-glass-78));
+      --shadow-panel: 0 24px 70px var(--color-shadow-panel);
+      --shadow-soft: 0 10px 30px var(--color-shadow-soft);
+      --shadow-inset: 0 1px 0 var(--color-white-glass-75) inset;
+      --radius-1: 12px;
+      --radius-2: 18px;
+      --radius-3: 26px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      overflow-x: clip;
+      background: var(--gradient-sky);
+      color: var(--color-ink);
+      font-family: var(--font-ui);
+      letter-spacing: 0;
+    }
+
+    body {
+      min-height: 100vh;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    svg {
+      display: block;
+      max-width: 100%;
+    }
+
+    .page {
+      display: grid;
+      grid-template-columns: 244px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 26px 18px;
+      border-right: 1px solid var(--color-border-glass);
+      background: var(--color-white-glass-64);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand {
+      display: grid;
+      gap: 10px;
+      padding: 0 8px 24px;
+    }
+
+    .brand strong {
+      font-size: 18px;
+      line-height: 1;
+      font-weight: 950;
+    }
+
+    .brand small {
+      color: var(--color-muted);
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .brand-line {
+      width: 82px;
+      height: 3px;
+      border-radius: 999px;
+      background: var(--gradient-brand);
+    }
+
+    .nav {
+      display: grid;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .nav a {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+      min-height: 40px;
+      padding: 0 10px;
+      border-radius: 10px;
+      color: var(--color-muted);
+      font-size: 13px;
+      font-weight: 820;
+      text-decoration: none;
+    }
+
+    .nav a::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.48;
+    }
+
+    .nav a.is-active {
+      background: var(--color-teal-soft);
+      color: var(--color-ink);
+    }
+
+    .sidebar-card {
+      display: grid;
+      gap: 10px;
+      margin-top: 28px;
+      padding: 14px;
+      border: 1px solid var(--color-line);
+      border-radius: var(--radius-1);
+      background: var(--color-white-glass-72);
+    }
+
+    .sidebar-card span {
+      color: var(--color-muted);
+      font-size: 11px;
+      font-weight: 820;
+    }
+
+    .sidebar-card strong {
+      font-family: var(--font-data);
+      font-size: 13px;
+    }
+
+    .main {
+      min-width: 0;
+      padding: 22px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .title-block {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .title-block h1 {
+      margin: 0;
+      color: var(--color-ink);
+      font-size: clamp(27px, 3.1vw, 46px);
+      line-height: 0.98;
+      letter-spacing: 0;
+      font-weight: 950;
+      overflow-wrap: anywhere;
+    }
+
+    .title-block p {
+      max-width: 760px;
+      margin: 0;
+      color: var(--color-muted);
+      font-size: 14px;
+      line-height: 1.55;
+      font-weight: 720;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .pill,
+    .top-actions button,
+    .search {
+      min-height: 38px;
+      border: 1px solid var(--color-line);
+      border-radius: 999px;
+      background: var(--color-white-glass-72);
+      color: var(--color-ink);
+      box-shadow: var(--shadow-inset);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 13px;
+      color: var(--color-muted);
+      font-size: 12px;
+      font-weight: 840;
+      white-space: nowrap;
+    }
+
+    .pill::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--color-green);
+    }
+
+    .top-actions button {
+      padding: 0 14px;
+      font-size: 12px;
+      font-weight: 860;
+      cursor: pointer;
+    }
+
+    .dashboard {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
+      gap: 18px;
+    }
+
+    .panel {
+      min-width: 0;
+      border: 1px solid var(--color-line);
+      border-radius: var(--radius-2);
+      background: var(--color-white-glass-82);
+      box-shadow: var(--shadow-soft);
+      overflow: hidden;
+    }
+
+    .panel.feature {
+      box-shadow: var(--shadow-panel);
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 17px 18px 14px;
+      border-bottom: 1px solid var(--color-line);
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      color: var(--color-ink);
+      font-size: 16px;
+      font-weight: 930;
+    }
+
+    .panel-head span {
+      color: var(--color-muted);
+      font-family: var(--font-data);
+      font-size: 11px;
+      font-weight: 760;
+      white-space: nowrap;
+    }
+
+    .flow-card {
+      padding: 18px;
+    }
+
+    .flow-map {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .flow-step {
+      position: relative;
+      display: grid;
+      align-content: space-between;
+      min-height: 148px;
+      padding: 15px;
+      border: 1px solid var(--color-line);
+      border-radius: var(--radius-2);
+      background: var(--color-panel);
+    }
+
+    .flow-step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -13px;
+      width: 14px;
+      height: 2px;
+      background: var(--color-line-strong);
+    }
+
+    .flow-step strong {
+      display: block;
+      color: var(--color-ink);
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .flow-step small {
+      color: var(--color-muted);
+      font-size: 11px;
+      font-weight: 760;
+    }
+
+    .flow-value {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .flow-value b {
+      font-family: var(--font-data);
+      font-size: 24px;
+      line-height: 0.95;
+    }
+
+    .flow-value span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 860;
+    }
+
+    .ok { background: var(--color-green-soft); color: var(--color-green); }
+    .run { background: var(--color-blue-soft); color: var(--color-blue); }
+    .warn { background: var(--color-amber-soft); color: var(--color-amber); }
+    .fail { background: var(--color-red-soft); color: var(--color-red); }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .metric {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+      padding: 16px;
+      border: 1px solid var(--color-line);
+      border-radius: var(--radius-2);
+      background: var(--color-white-glass-78);
+    }
+
+    .metric span {
+      color: var(--color-muted);
+      font-size: 12px;
+      font-weight: 790;
+    }
+
+    .metric strong {
+      font-family: var(--font-data);
+      font-size: clamp(26px, 2.6vw, 38px);
+      line-height: 0.96;
+    }
+
+    .metric-bar {
+      overflow: hidden;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--color-line);
+    }
+
+    .metric-bar i {
+      display: block;
+      width: var(--value);
+      height: 100%;
+      border-radius: inherit;
+      background: var(--tone);
+    }
+
+    .chart-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .area-chart {
+      padding: 16px 18px 18px;
+    }
+
+    .chart-svg {
+      width: 100%;
+      height: 250px;
+    }
+
+    .chart-grid-line {
+      stroke: var(--color-line);
+    }
+
+    .chart-primary {
+      stroke: var(--color-teal);
+    }
+
+    .chart-pressure {
+      stroke: var(--color-red);
+    }
+
+    .chart-labels {
+      fill: var(--color-ink);
+      font-family: var(--font-data);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+      color: var(--color-muted);
+      font-size: 11px;
+      font-weight: 760;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legend span::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: var(--tone);
+    }
+
+    .quality-list {
+      display: grid;
+      gap: 12px;
+      padding: 18px;
+    }
+
+    .quality-row {
+      display: grid;
+      grid-template-columns: 104px minmax(0, 1fr) 42px;
+      align-items: center;
+      gap: 12px;
+      color: var(--color-ink-2);
+      font-size: 12px;
+      font-weight: 840;
+    }
+
+    .quality-meter {
+      overflow: hidden;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--color-line);
+    }
+
+    .quality-meter i {
+      display: block;
+      width: var(--value);
+      height: 100%;
+      border-radius: inherit;
+      background: var(--tone);
+    }
+
+    .right-column {
+      display: grid;
+      gap: 18px;
+      align-content: start;
+    }
+
+    .status-orbit {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      gap: 20px;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .donut {
+      width: 190px;
+      height: 190px;
+      margin: auto;
+    }
+
+    .donut-track {
+      stroke: var(--color-line);
+    }
+
+    .donut-success {
+      stroke: var(--color-green);
+    }
+
+    .donut-running {
+      stroke: var(--color-blue);
+    }
+
+    .donut-fail {
+      stroke: var(--color-red);
+    }
+
+    .donut-value {
+      fill: var(--color-ink);
+      font-family: var(--font-ui);
+      font-size: 34px;
+      font-weight: 950;
+    }
+
+    .donut-label {
+      fill: var(--color-muted);
+      font-family: var(--font-ui);
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .status-breakdown {
+      display: grid;
+      gap: 12px;
+    }
+
+    .status-item {
+      display: grid;
+      grid-template-columns: 80px minmax(0, 1fr) 26px;
+      gap: 10px;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 820;
+    }
+
+    .status-line {
+      overflow: hidden;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--color-line);
+    }
+
+    .status-line i {
+      display: block;
+      width: var(--value);
+      height: 100%;
+      background: var(--tone);
+    }
+
+    .incident {
+      display: grid;
+      gap: 16px;
+      padding: 18px;
+      background: var(--gradient-incident);
+    }
+
+    .incident-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .incident-title strong {
+      color: var(--color-amber);
+      font-size: 16px;
+      font-weight: 930;
+    }
+
+    .incident-title span {
+      padding: 5px 9px;
+      border-radius: 999px;
+      background: var(--color-panel);
+      color: var(--color-amber);
+      font-size: 11px;
+      font-weight: 850;
+    }
+
+    .incident code {
+      font-family: var(--font-data);
+      color: var(--color-ink);
+      font-size: 13px;
+      font-weight: 760;
+      white-space: normal;
+    }
+
+    .run-table {
+      display: grid;
+      padding: 8px 18px 18px;
+    }
+
+    .run-row {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr) 72px 48px;
+      gap: 12px;
+      align-items: center;
+      min-height: 42px;
+      border-bottom: 1px solid var(--color-line);
+      color: var(--color-ink-2);
+      font-family: var(--font-data);
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .run-row strong {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .run-row span:nth-child(3) {
+      font-family: var(--font-ui);
+      font-weight: 840;
+    }
+
+    @media (max-width: 1240px) {
+      .page {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        height: auto;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        padding: 16px 18px;
+      }
+
+      .nav,
+      .sidebar-card {
+        display: none;
+      }
+
+      .dashboard,
+      .chart-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .main {
+        padding: 14px;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr;
+      }
+
+      .top-actions {
+        flex-wrap: wrap;
+      }
+
+      .flow-map,
+      .metrics {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .flow-step:not(:last-child)::after {
+        display: none;
+      }
+
+      .status-orbit {
+        grid-template-columns: 1fr;
+      }
+
+      .donut {
+        width: 164px;
+        height: 164px;
+      }
+
+      .quality-row,
+      .status-item {
+        grid-template-columns: 72px minmax(0, 1fr) 32px;
+      }
+
+      .run-row {
+        grid-template-columns: 46px minmax(0, 1fr) 60px;
+      }
+
+      .run-row span:last-child {
+        display: none;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .flow-map,
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .title-block h1 {
+        font-size: 30px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+      <div class="brand">
+        <strong>모두의입법</strong>
+        <small>Pipeline Monitor</small>
+        <div class="brand-line"></div>
+      </div>
+      <nav class="nav" aria-label="대시보드 메뉴">
+        <a class="is-active" href="#">Overview</a>
+        <a href="#">Pipeline Flow</a>
+        <a href="#">Data Quality</a>
+        <a href="#">Artifacts</a>
+        <a href="#">Incidents</a>
+      </nav>
+      <div class="sidebar-card">
+        <span>current runtime</span>
+        <strong>prod · 30s refresh</strong>
+        <span>Gemini CLI primary<br>Codex CLI fallback</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="title-block">
+          <h1>Clean Civic Data Dashboard</h1>
+          <p>법안 수집부터 요약 검증까지, 파이프라인의 흐름과 데이터 품질을 한눈에 보는 밝은 공공 데이터 관측 화면.</p>
+        </div>
+        <div class="top-actions">
+          <span class="pill">API connected</span>
+          <button type="button">prod</button>
+          <button type="button">refresh</button>
+        </div>
+      </header>
+
+      <section class="dashboard" aria-label="B 시안 대시보드">
+        <div>
+          <section class="panel feature">
+            <div class="panel-head">
+              <h2>Pipeline Flow</h2>
+              <span>schedule → publish</span>
+            </div>
+            <div class="flow-card">
+              <div class="flow-map">
+                <article class="flow-step">
+                  <div><strong>Schedule</strong><small>daily trigger</small></div>
+                  <div class="flow-value"><b>1</b><span class="ok">ok</span></div>
+                </article>
+                <article class="flow-step">
+                  <div><strong>Fetch</strong><small>document source</small></div>
+                  <div class="flow-value"><b>255</b><span class="ok">ok</span></div>
+                </article>
+                <article class="flow-step">
+                  <div><strong>Normalize</strong><small>text cleanup</small></div>
+                  <div class="flow-value"><b>128</b><span class="ok">ok</span></div>
+                </article>
+                <article class="flow-step">
+                  <div><strong>Summarize</strong><small>Gemini CLI</small></div>
+                  <div class="flow-value"><b>255</b><span class="run">live</span></div>
+                </article>
+                <article class="flow-step">
+                  <div><strong>Validate</strong><small>Pydantic schema</small></div>
+                  <div class="flow-value"><b>2</b><span class="fail">fail</span></div>
+                </article>
+                <article class="flow-step">
+                  <div><strong>Publish</strong><small>artifact set</small></div>
+                  <div class="flow-value"><b>3</b><span class="warn">hold</span></div>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <section class="metrics" aria-label="주요 지표">
+            <article class="metric">
+              <span>오늘 처리 데이터</span>
+              <strong>1,022</strong>
+              <div class="metric-bar"><i style="--value:82%; --tone:var(--color-teal)"></i></div>
+            </article>
+            <article class="metric">
+              <span>성공 실행</span>
+              <strong>7</strong>
+              <div class="metric-bar"><i style="--value:70%; --tone:var(--color-green)"></i></div>
+            </article>
+            <article class="metric">
+              <span>스키마 실패</span>
+              <strong>2</strong>
+              <div class="metric-bar"><i style="--value:18%; --tone:var(--color-red)"></i></div>
+            </article>
+            <article class="metric">
+              <span>Fallback 사용</span>
+              <strong>1</strong>
+              <div class="metric-bar"><i style="--value:10%; --tone:var(--color-amber)"></i></div>
+            </article>
+          </section>
+
+          <div class="chart-grid">
+            <section class="panel area-chart">
+              <div class="panel-head" style="padding-inline:0; padding-top:0">
+                <h2>Processing Trend</h2>
+                <span>recent runs</span>
+              </div>
+              <svg class="chart-svg" viewBox="0 0 620 250" role="img" aria-label="최근 실행 처리량 추세">
+                <defs>
+                  <linearGradient id="areaFill" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stop-color="var(--color-teal)" stop-opacity="0.28"></stop>
+                    <stop offset="100%" stop-color="var(--color-teal)" stop-opacity="0.02"></stop>
+                  </linearGradient>
+                </defs>
+                <g class="chart-grid-line" stroke-width="1">
+                  <line x1="32" y1="42" x2="588" y2="42"></line>
+                  <line x1="32" y1="92" x2="588" y2="92"></line>
+                  <line x1="32" y1="142" x2="588" y2="142"></line>
+                  <line x1="32" y1="192" x2="588" y2="192"></line>
+                </g>
+                <path d="M32 198 L96 158 L160 122 L224 130 L288 86 L352 92 L416 72 L480 118 L544 80 L588 68 L588 226 L32 226 Z" fill="url(#areaFill)"></path>
+                <path class="chart-primary" d="M32 198 L96 158 L160 122 L224 130 L288 86 L352 92 L416 72 L480 118 L544 80 L588 68" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path class="chart-pressure" d="M32 210 L96 202 L160 194 L224 198 L288 180 L352 188 L416 170 L480 190 L544 178 L588 182" fill="none" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 8"></path>
+                <g class="chart-labels">
+                  <text x="32" y="242">20:45</text>
+                  <text x="278" y="242">20:58</text>
+                  <text x="540" y="242">21:05</text>
+                </g>
+              </svg>
+              <div class="legend">
+                <span style="--tone:var(--color-teal)">processed items</span>
+                <span style="--tone:var(--color-red)">schema pressure</span>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <h2>Data Quality</h2>
+                <span>schema fields</span>
+              </div>
+              <div class="quality-list">
+                <div class="quality-row"><span>ai_title</span><div class="quality-meter"><i style="--value:24%; --tone:var(--color-red)"></i></div><b>2</b></div>
+                <div class="quality-row"><span>summary</span><div class="quality-meter"><i style="--value:0%; --tone:var(--color-green)"></i></div><b>0</b></div>
+                <div class="quality-row"><span>tags</span><div class="quality-meter"><i style="--value:0%; --tone:var(--color-green)"></i></div><b>0</b></div>
+                <div class="quality-row"><span>artifact</span><div class="quality-meter"><i style="--value:60%; --tone:var(--color-teal)"></i></div><b>3</b></div>
+                <div class="quality-row"><span>fallback</span><div class="quality-meter"><i style="--value:10%; --tone:var(--color-amber)"></i></div><b>1</b></div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <aside class="right-column" aria-label="상태와 실행 상세">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Operation State</h2>
+              <span>10 runs</span>
+            </div>
+            <div class="status-orbit">
+              <svg class="donut" viewBox="0 0 180 180" aria-label="상태 분포">
+                <circle class="donut-track" cx="90" cy="90" r="70" fill="none" stroke-width="18"></circle>
+                <circle class="donut-success" cx="90" cy="90" r="70" fill="none" stroke-width="18" stroke-dasharray="307 440" stroke-dashoffset="-18" stroke-linecap="round"></circle>
+                <circle class="donut-running" cx="90" cy="90" r="70" fill="none" stroke-width="18" stroke-dasharray="44 440" stroke-dashoffset="-330" stroke-linecap="round"></circle>
+                <circle class="donut-fail" cx="90" cy="90" r="70" fill="none" stroke-width="18" stroke-dasharray="44 440" stroke-dashoffset="-380" stroke-linecap="round"></circle>
+                <text class="donut-value" x="90" y="84" text-anchor="middle">7</text>
+                <text class="donut-label" x="90" y="108" text-anchor="middle">success</text>
+              </svg>
+              <div class="status-breakdown">
+                <div class="status-item"><span>성공</span><div class="status-line"><i style="--value:70%; --tone:var(--color-green)"></i></div><b>7</b></div>
+                <div class="status-item"><span>실행</span><div class="status-line"><i style="--value:10%; --tone:var(--color-blue)"></i></div><b>1</b></div>
+                <div class="status-item"><span>실패</span><div class="status-line"><i style="--value:10%; --tone:var(--color-red)"></i></div><b>1</b></div>
+                <div class="status-item"><span>주의</span><div class="status-line"><i style="--value:10%; --tone:var(--color-amber)"></i></div><b>1</b></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel incident">
+            <div class="incident-title">
+              <strong>확인 필요</strong>
+              <span>fallback active</span>
+            </div>
+            <code>bill.ingest fallback · Codex CLI · schema pass · artifacts 3</code>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Recent Runs</h2>
+              <span>ordered by time</span>
+            </div>
+            <div class="run-table">
+              <div class="run-row"><span>21:05</span><strong>bill.summarize</strong><span class="run">running</span><span>00:19</span></div>
+              <div class="run-row"><span>21:04</span><strong>bill.ingest fallback</strong><span class="warn">warning</span><span>03:42</span></div>
+              <div class="run-row"><span>21:04</span><strong>bill.ingest</strong><span class="fail">failed</span><span>02:18</span></div>
+              <div class="run-row"><span>20:58</span><strong>bill.summarize</strong><span class="ok">success</span><span>04:11</span></div>
+              <div class="run-row"><span>20:55</span><strong>document.normalize</strong><span class="ok">success</span><span>01:21</span></div>
+              <div class="run-row"><span>20:53</span><strong>document.fetch</strong><span class="ok">success</span><span>00:47</span></div>
+            </div>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
