@@ -1,239 +1,142 @@
-const STATUS_META = {
-  success: { label: "성공", className: "success" },
-  failed: { label: "실패", className: "failed" },
-  running: { label: "실행 중", className: "running" },
-  warning: { label: "주의 필요", className: "warning" },
-  fallback: { label: "Fallback", className: "fallback" },
-  schema: { label: "검증 실패", className: "schema" },
+const SERVICE_SNAPSHOT = {
+  totalBills: 36039,
+  sourceSummary: 36038,
+  aiSummary: 36038,
+  missingAiSummary: 0,
+  latestProposeDate: "2026-05-18",
+  updatedAt: "20:50 KST",
 };
 
-const SAMPLE_RUNS = [
+const STAGES = [
+  { name: "법안 수집", status: "확인 필요", tone: "warning" },
+  { name: "원천 summary", status: "정상", tone: "success" },
+  { name: "AI 요약 생성", status: "대상 없음", tone: "neutral" },
+  { name: "Batch 제출", status: "대기 없음", tone: "neutral" },
+  { name: "결과 회수", status: "관제 원천 미연결", tone: "warning" },
+  { name: "서비스 노출", status: "정상", tone: "success" },
+];
+
+const BATCH_ROWS = [
   {
-    run_id: "run_20260520_210412_9f3a1b2c",
-    command: "bill.ingest",
-    status: "failed",
-    provider: "Gemini CLI",
-    started_at: "2026-05-20T21:04:12+09:00",
-    finished_at: "2026-05-20T21:06:30+09:00",
-    duration_seconds: 138,
-    items: 128,
-    artifacts: [],
-    error: "schema_validation_failed",
-    fallback_used: false,
-    schema_failures: 2,
-    steps: [
-      { name: "스케줄 트리거", status: "success", started_at: "2026-05-20T21:04:12+09:00", duration: "120ms" },
-      { name: "대상 수집", status: "success", started_at: "2026-05-20T21:04:12+09:00", duration: "1.2s" },
-      { name: "문서 다운로드", status: "success", started_at: "2026-05-20T21:04:14+09:00", duration: "22.6s" },
-      { name: "AI 요약 생성", status: "failed", started_at: "2026-05-20T21:04:37+09:00", duration: "1m 41s" },
-      { name: "DB 저장", status: "pending", started_at: null, duration: "-" },
+    id: "prod-summary-coverage",
+    target: "운영 Bill 요약 필드",
+    state: "반영 정상",
+    tone: "success",
+    progress: "36,038 / 36,038",
+    source: "lawDB Bill",
+    signal: "미요약 0",
+    next: "신선도 확인",
+    facts: [
+      ["total bills", "36,039"],
+      ["source summary present", "36,038"],
+      ["AI summary present", "36,038"],
+      ["missing AI summary", "0"],
+      ["latest propose_date", "2026-05-18"],
     ],
-    logs: [
-      { ts: "2026-05-20T21:04:37.512+09:00", level: "info", step: "run", msg: "gemini cli request started" },
-      { ts: "2026-05-20T21:05:02.084+09:00", level: "error", error: "empty response", retry: true },
-      { ts: "2026-05-20T21:06:02.005+09:00", level: "info", provider: "fallback", target: "Codex CLI" },
-      { ts: "2026-05-20T21:06:30.213+09:00", level: "error", error: "schema_validation_failed", fields: ["ai_title", "status"] },
-      { ts: "2026-05-20T21:06:38.084+09:00", level: "error", field: "ai_title", reason: "sentence ending" },
-      { ts: "2026-05-20T21:06:40.110+09:00", fallback: "Codex CLI", next_action: "queued" },
+    note: "요약 실패 대응보다 최신 수집 기준일 확인이 우선입니다.",
+    providerNote: "최근 dry-run: Codex CLI 3/3 성공, Gemini CLI 5/5 성공",
+  },
+  {
+    id: "prod-batch-monitor",
+    target: "ai_batch_jobs/items",
+    state: "관제 미연결",
+    tone: "warning",
+    progress: "테이블 없음",
+    source: "lawDB",
+    signal: "migration 필요",
+    next: "상태 테이블 확인",
+    facts: [
+      ["table", "ai_batch_jobs"],
+      ["prod status", "missing"],
+      ["impact", "batch 상태 추적 불가"],
+      ["safe publish", "요약 필드는 정상"],
     ],
+    note: "서비스 노출은 가능하지만 batch 제출/회수 상태를 운영 DB에서 직접 추적할 수 없습니다.",
+    providerNote: "테스트 DB에는 Gemini batch 5/5 완료 기록이 있습니다.",
   },
   {
-    run_id: "run_20260520_210413_fallback",
-    command: "bill.ingest (fallback)",
-    status: "warning",
-    provider: "Codex CLI",
-    started_at: "2026-05-20T21:04:13+09:00",
-    finished_at: "2026-05-20T21:07:55+09:00",
-    duration_seconds: 222,
-    items: 128,
-    artifacts: ["artifacts/bill-ingest-fallback.json", "artifacts/bill-ingest-fallback.md", "logs/codex-fallback.jsonl"],
-    error: null,
-    fallback_used: true,
-    schema_failures: 0,
-    steps: [
-      { name: "Fallback queue", status: "success", started_at: "2026-05-20T21:04:13+09:00", duration: "90ms" },
-      { name: "Codex CLI 실행", status: "success", started_at: "2026-05-20T21:04:14+09:00", duration: "2m 54s" },
-      { name: "산출물 저장", status: "success", started_at: "2026-05-20T21:07:45+09:00", duration: "10s" },
+    id: "test-gemini-batch-001",
+    target: "테스트 배치",
+    state: "완료",
+    tone: "success",
+    progress: "5 / 5 DONE",
+    source: "Gemini batch",
+    signal: "실패 0",
+    next: "운영 적용 여부 판단",
+    facts: [
+      ["provider", "gemini"],
+      ["status", "COMPLETED"],
+      ["success", "5"],
+      ["failed", "0"],
     ],
-    logs: [
-      { ts: "2026-05-20T21:04:13.203+09:00", level: "warn", fallback: "Codex CLI", reason: "Gemini CLI failed" },
-      { ts: "2026-05-20T21:07:55.503+09:00", level: "info", status: "completed", artifacts: 3 },
+    note: "테스트 batch 경로는 정상 동작했으나 운영 상태 테이블 연결 여부는 별도 확인이 필요합니다.",
+    providerNote: "model: gemini-3-flash-preview",
+  },
+  {
+    id: "cli-summary-smoke",
+    target: "최근 수동 요약 검증",
+    state: "성공",
+    tone: "success",
+    progress: "3 / 3 dry-run",
+    source: "Codex CLI",
+    signal: "DB 미반영",
+    next: "샘플 품질 확인",
+    facts: [
+      ["command", "ai.summary"],
+      ["mode", "dry_run"],
+      ["success", "3"],
+      ["failure", "0"],
     ],
+    note: "수동 검증은 성공했지만 dry-run이므로 서비스 DB 반영은 별도 실행이 필요합니다.",
+    providerNote: "cli_provider: codex",
   },
   {
-    run_id: "run_20260520_205835_summary",
-    command: "bill.summarize",
-    status: "success",
-    provider: "Gemini CLI",
-    started_at: "2026-05-20T20:58:35+09:00",
-    finished_at: "2026-05-20T21:02:46+09:00",
-    duration_seconds: 251,
-    items: 128,
-    artifacts: ["output/latest-bills-summary.json", "output/latest-bills-summary.md", "logs/gemini-summary.jsonl"],
-    error: null,
-    fallback_used: false,
-    schema_failures: 0,
-    steps: [
-      { name: "최신 법안 조회", status: "success", started_at: "2026-05-20T20:58:35+09:00", duration: "1.8s" },
-      { name: "Gemini CLI 요약", status: "success", started_at: "2026-05-20T20:58:39+09:00", duration: "3m 41s" },
-      { name: "Pydantic 검증", status: "success", started_at: "2026-05-20T21:02:28+09:00", duration: "1.3s" },
+    id: "bill-ingest-hourly",
+    target: "법안 수집 DAG",
+    state: "스케줄됨",
+    tone: "neutral",
+    progress: "매시 00분",
+    source: "국회 API",
+    signal: "최신일 2026-05-18",
+    next: "수집 공백 확인",
+    facts: [
+      ["dag", "bill_ingest_dag"],
+      ["schedule", "0 * * * *"],
+      ["latest propose_date", "2026-05-18"],
+      ["service priority", "freshness"],
     ],
-    logs: [
-      { ts: "2026-05-20T21:02:46.120+09:00", level: "info", status: "success", target: 5 },
-    ],
-  },
-  {
-    run_id: "run_20260520_205842_summary",
-    command: "bill.summarize",
-    status: "success",
-    provider: "Gemini CLI",
-    started_at: "2026-05-20T20:58:42+09:00",
-    finished_at: "2026-05-20T21:02:41+09:00",
-    duration_seconds: 239,
-    items: 127,
-    artifacts: ["output/bill-summary-205842.json", "output/bill-summary-205842.md"],
-    fallback_used: false,
-    schema_failures: 0,
-    steps: [{ name: "요약 생성", status: "success", started_at: "2026-05-20T20:58:42+09:00", duration: "3m 59s" }],
-    logs: [{ ts: "2026-05-20T21:02:41.021+09:00", level: "info", status: "success" }],
-  },
-  {
-    run_id: "run_20260520_205511_normalize",
-    command: "document.normalize",
-    status: "success",
-    provider: "Claude CLI",
-    started_at: "2026-05-20T20:55:11+09:00",
-    finished_at: "2026-05-20T20:56:32+09:00",
-    duration_seconds: 81,
-    items: 128,
-    artifacts: ["artifacts/document-normalize.json", "logs/claude-normalize.jsonl", "reports/normalize.md"],
-    fallback_used: false,
-    schema_failures: 0,
-    steps: [{ name: "문서 정규화", status: "success", started_at: "2026-05-20T20:55:11+09:00", duration: "1m 21s" }],
-    logs: [{ ts: "2026-05-20T20:56:32.001+09:00", level: "info", status: "success" }],
-  },
-  {
-    run_id: "run_20260520_205307_fetch",
-    command: "document.fetch",
-    status: "success",
-    provider: "Gemini CLI",
-    started_at: "2026-05-20T20:53:07+09:00",
-    finished_at: "2026-05-20T20:53:54+09:00",
-    duration_seconds: 47,
-    items: 128,
-    artifacts: ["artifacts/document-fetch.json", "logs/document-fetch.jsonl"],
-    fallback_used: false,
-    schema_failures: 0,
-    steps: [{ name: "문서 다운로드", status: "success", started_at: "2026-05-20T20:53:07+09:00", duration: "47s" }],
-    logs: [{ ts: "2026-05-20T20:53:54.301+09:00", level: "info", status: "success" }],
-  },
-  {
-    run_id: "run_20260520_205015_schedule",
-    command: "schedule.daily",
-    status: "success",
-    provider: "-",
-    started_at: "2026-05-20T20:50:15+09:00",
-    finished_at: "2026-05-20T20:50:20+09:00",
-    duration_seconds: 5,
-    items: 1,
-    artifacts: ["logs/schedule-daily.jsonl"],
-    fallback_used: false,
-    schema_failures: 0,
-    steps: [{ name: "스케줄 등록", status: "success", started_at: "2026-05-20T20:50:15+09:00", duration: "5s" }],
-    logs: [{ ts: "2026-05-20T20:50:20.001+09:00", level: "info", status: "success" }],
-  },
-  {
-    run_id: "run_20260520_210521_running",
-    command: "bill.summarize",
-    status: "running",
-    provider: "Gemini CLI",
-    started_at: "2026-05-20T21:05:21+09:00",
-    finished_at: null,
-    duration_seconds: 19,
-    items: null,
-    artifacts: [],
-    fallback_used: false,
-    schema_failures: 0,
-    steps: [
-      { name: "최신 법안 조회", status: "success", started_at: "2026-05-20T21:05:21+09:00", duration: "1.4s" },
-      { name: "Gemini CLI 요약", status: "running", started_at: "2026-05-20T21:05:23+09:00", duration: "진행 중" },
-    ],
-    logs: [{ ts: "2026-05-20T21:05:40.320+09:00", level: "info", status: "running" }],
-  },
-  {
-    run_id: "run_20260520_204810_ingest",
-    command: "bill.ingest",
-    status: "success",
-    provider: "Gemini CLI",
-    started_at: "2026-05-20T20:48:10+09:00",
-    finished_at: "2026-05-20T20:50:02+09:00",
-    duration_seconds: 112,
-    items: 127,
-    artifacts: ["artifacts/bill-ingest.json", "logs/bill-ingest.jsonl", "reports/ingest.md"],
-    fallback_used: false,
-    schema_failures: 0,
-    steps: [{ name: "법안 수집", status: "success", started_at: "2026-05-20T20:48:10+09:00", duration: "1m 52s" }],
-    logs: [{ ts: "2026-05-20T20:50:02.100+09:00", level: "info", status: "success" }],
-  },
-  {
-    run_id: "run_20260520_204502_fetch",
-    command: "document.fetch",
-    status: "success",
-    provider: "Gemini CLI",
-    started_at: "2026-05-20T20:45:02+09:00",
-    finished_at: "2026-05-20T20:45:51+09:00",
-    duration_seconds: 49,
-    items: 127,
-    artifacts: ["artifacts/document-fetch-204502.json", "logs/document-fetch-204502.jsonl"],
-    fallback_used: false,
-    schema_failures: 0,
-    steps: [{ name: "문서 다운로드", status: "success", started_at: "2026-05-20T20:45:02+09:00", duration: "49s" }],
-    logs: [{ ts: "2026-05-20T20:45:51.019+09:00", level: "info", status: "success" }],
+    note: "요약 커버리지는 정상입니다. 다음 운영 판단은 최신 법안 수집 기준일입니다.",
+    providerNote: "AI provider와 무관한 수집 단계입니다.",
   },
 ];
 
-const state = {
-  runs: [],
-  selectedRunId: null,
-  provider: "all",
-  status: "all",
-  query: "",
-  logMode: "pretty",
-  source: "sample",
-};
-
 const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 const els = {
-  providerButtons: () => $$("[data-provider]"),
-  statusRail: $("#statusRail"),
+  metricGrid: $("#metricGrid"),
+  chartGrid: $("#chartGrid"),
+  stageStrip: $("#stageStrip"),
+  batchRows: $("#batchRows"),
+  mobileBatchRows: $("#mobileBatchRows"),
+  batchCountLabel: $("#batchCountLabel"),
+  detailPanel: $("#detailPanel"),
+  evidenceLines: $("#evidenceLines"),
+  runSourceLabel: $("#runSourceLabel"),
   searchInput: $("#searchInput"),
-  updatedAt: $("#updatedAt"),
-  incidentCopy: $("#incidentCopy"),
-  opsSummary: $("#opsSummary"),
-  operationChart: $("#operationChart"),
-  dataSummary: $("#dataSummary"),
-  dataStatusChart: $("#dataStatusChart"),
-  resultTimeline: $("#resultTimeline"),
-  runCountLabel: $("#runCountLabel"),
-  runsTableBody: $("#runsTableBody"),
-  currentPage: $("#currentPage"),
-  traceStatus: $("#traceStatus"),
-  traceMeta: $("#traceMeta"),
-  schemaPill: $("#schemaPill"),
-  stepsList: $("#stepsList"),
-  schemaColumn: $("#schemaColumn"),
-  logBox: $("#logBox"),
-  phoneIncident: $("#phoneIncident"),
-  phoneKpis: $("#phoneKpis"),
-  phoneDashboard: $("#phoneDashboard"),
-  phoneFilters: $("#phoneFilters"),
-  phoneRunCount: $("#phoneRunCount"),
-  phoneRuns: $("#phoneRuns"),
-  trayHead: $("#trayHead"),
-  trayId: $("#trayId"),
+  sidebarSearchInput: $("#sidebarSearchInput"),
+  sidebarUpdatedAt: $("#sidebarUpdatedAt"),
 };
+
+const state = {
+  selectedId: "prod-summary-coverage",
+  query: "",
+  runSource: "pipeline-runs.jsonl",
+  runEvidence: [],
+};
+
+function apiUrl(path) {
+  return new URL(path, window.location.href).toString();
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -243,499 +146,222 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-function parseJsonl(text) {
-  const trimmed = text.trim();
-  if (!trimmed) return [];
-  if (trimmed.startsWith("[")) return JSON.parse(trimmed).map(normalizeRun);
-  return trimmed
-    .split(/\r?\n/)
-    .filter(Boolean)
-    .map((line) => normalizeRun(JSON.parse(line)))
-    .filter(Boolean);
+function number(value) {
+  return Number(value).toLocaleString("ko-KR");
 }
 
-function normalizeRun(raw) {
-  if (!raw) return null;
-  const result = raw.result || {};
-  const runId = raw.run_id || raw.id || result.run_id;
-  const command = raw.command || result.command || raw.step || raw.event || "pipeline.run";
-  const status = normalizeStatus(raw.status || result.status || raw.level);
-  return {
-    run_id: runId || `run_${Math.random().toString(36).slice(2, 10)}`,
-    command,
-    status,
-    provider: raw.provider || result.provider || "-",
-    started_at: raw.started_at || raw.start_time || raw.ts || result.started_at || new Date().toISOString(),
-    finished_at: raw.finished_at || raw.end_time || result.finished_at || null,
-    duration_seconds: Number(raw.duration_seconds ?? result.duration_seconds ?? 0),
-    items: raw.items ?? raw.count ?? result.items ?? result.success ?? null,
-    artifacts: raw.artifacts || result.artifacts || [],
-    error: raw.error || result.error || null,
-    fallback_used: Boolean(raw.fallback_used || result.fallback_used || raw.fallback),
-    schema_failures: Number(raw.schema_failures ?? result.schema_failures ?? 0),
-    steps: raw.steps || result.steps || [],
-    logs: raw.logs || [raw],
-  };
+function toneClass(tone) {
+  if (tone === "success") return "success";
+  if (tone === "warning") return "warning";
+  return "neutral";
 }
 
-function normalizeStatus(value) {
-  const status = String(value || "").toLowerCase();
-  if (["success", "succeeded", "ok", "info"].includes(status)) return "success";
-  if (["failed", "failure", "error"].includes(status)) return "failed";
-  if (["running", "in_progress", "pending"].includes(status)) return "running";
-  if (["warning", "warn", "fallback"].includes(status)) return "warning";
-  return status || "unknown";
-}
-
-async function loadRuns() {
-  try {
-    const response = await fetch(`/api/runs?ts=${Date.now()}`, { cache: "no-store" });
-    if (!response.ok) throw new Error(`/api/runs ${response.status}`);
-    const payload = await response.json();
-    if (!payload.runs?.length) throw new Error("empty /api/runs");
-    state.runs = payload.runs.map(normalizeRun);
-    state.source = payload.source_exists ? "api" : "api-empty";
-  } catch {
-    try {
-      const response = await fetch(`./pipeline-runs.jsonl?ts=${Date.now()}`, { cache: "no-store" });
-      if (!response.ok) throw new Error(`pipeline-runs.jsonl ${response.status}`);
-      const parsed = parseJsonl(await response.text());
-      if (!parsed.length) throw new Error("empty pipeline-runs.jsonl");
-      state.runs = parsed;
-      state.source = "pipeline-runs.jsonl";
-    } catch {
-      state.runs = SAMPLE_RUNS;
-      state.source = "sample";
-    }
-  }
-  if (!state.selectedRunId || !state.runs.some((run) => run.run_id === state.selectedRunId)) {
-    state.selectedRunId = getIncidentRun()?.run_id || state.runs[0]?.run_id || null;
-  }
-  render();
-}
-
-function getSummary() {
-  return {
-    running: state.runs.filter((run) => run.status === "running").length,
-    success: state.runs.filter((run) => run.status === "success").length,
-    failed: state.runs.filter((run) => run.status === "failed").length,
-    warning: state.runs.filter((run) => run.status === "warning").length,
-    fallback: state.runs.filter((run) => run.fallback_used).length,
-    schema: state.runs.reduce((sum, run) => sum + (run.schema_failures || 0), 0),
-  };
-}
-
-function getIncidentRun() {
-  return state.runs.find((run) => run.status === "failed" || run.schema_failures > 0 || run.fallback_used)
-    || state.runs.find((run) => run.status === "running")
-    || state.runs[0];
-}
-
-function getVisibleRuns() {
+function getFilteredRows() {
   const query = state.query.trim().toLowerCase();
-  return state.runs.filter((run) => {
-    if (state.provider !== "all" && run.provider !== state.provider) return false;
-    if (state.status !== "all") {
-      if (state.status === "fallback" && !run.fallback_used) return false;
-      else if (state.status === "schema" && !run.schema_failures) return false;
-      else if (!["fallback", "schema"].includes(state.status) && run.status !== state.status) return false;
-    }
-    if (!query) return true;
-    const haystack = [
-      run.run_id,
-      run.command,
-      run.provider,
-      run.error,
-      ...(Array.isArray(run.artifacts) ? run.artifacts : Object.values(run.artifacts || {})),
-    ].join(" ").toLowerCase();
-    return haystack.includes(query);
-  });
+  if (!query) return BATCH_ROWS;
+  return BATCH_ROWS.filter((row) => (
+    [
+      row.id,
+      row.target,
+      row.state,
+      row.progress,
+      row.source,
+      row.signal,
+      row.next,
+      row.note,
+      row.providerNote,
+    ].join(" ").toLowerCase().includes(query)
+  ));
 }
 
-function formatDateTime(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const dd = String(date.getDate()).padStart(2, "0");
-  const hh = String(date.getHours()).padStart(2, "0");
-  const mi = String(date.getMinutes()).padStart(2, "0");
-  const ss = String(date.getSeconds()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
-}
-
-function formatTime(value) {
-  const full = formatDateTime(value);
-  return full.includes(" ") ? full.split(" ")[1] : full;
-}
-
-function formatDuration(seconds) {
-  if (!seconds && seconds !== 0) return "--";
-  if (seconds < 60) return `00:${String(seconds).padStart(2, "0")}`;
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
-}
-
-function statusLabel(run) {
-  if (run.fallback_used && run.status !== "failed") return STATUS_META.warning.label;
-  return STATUS_META[run.status]?.label || "알 수 없음";
-}
-
-function statusClass(run) {
-  if (run.fallback_used && run.status !== "failed") return "warning";
-  return STATUS_META[run.status]?.className || "fallback";
-}
-
-function artifactCount(run) {
-  if (Array.isArray(run.artifacts)) return run.artifacts.length;
-  if (run.artifacts && typeof run.artifacts === "object") return Object.keys(run.artifacts).length;
-  return 0;
-}
-
-function percent(value, total) {
-  if (!total) return 0;
-  return Math.max(0, Math.min(100, Math.round((value / total) * 100)));
-}
-
-function statusColor(key) {
-  return {
-    running: "var(--blue)",
-    success: "var(--green)",
-    failed: "var(--red)",
-    warning: "var(--orange)",
-    fallback: "var(--black)",
-    schema: "var(--red)",
-  }[key] || "var(--muted)";
-}
-
-function groupBy(runs, getKey, getValue = () => 1) {
-  return runs.reduce((map, run) => {
-    const key = getKey(run) || "-";
-    map.set(key, (map.get(key) || 0) + getValue(run));
-    return map;
-  }, new Map());
-}
-
-function render() {
-  const visible = getVisibleRuns();
-  if (!visible.some((run) => run.run_id === state.selectedRunId)) {
-    state.selectedRunId = visible[0]?.run_id || state.runs[0]?.run_id || null;
-  }
-  renderProviders();
-  renderStatusRail();
-  renderIncident();
-  renderDashboard(visible);
-  renderRuns(visible);
-  renderTrace();
-  renderPhone(visible);
-  const sourceLabel = state.source === "api" ? "API · 방금 전" : state.source === "pipeline-runs.jsonl" ? "JSONL · 방금 전" : "샘플 데이터 · 방금 전";
-  els.updatedAt.textContent = sourceLabel;
-}
-
-function renderProviders() {
-  els.providerButtons().forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.provider === state.provider);
-  });
-}
-
-function renderStatusRail() {
-  const summary = getSummary();
-  const cells = [
-    ["running", "실행 중", summary.running],
-    ["success", "성공", summary.success],
-    ["failed", "실패", summary.failed],
-    ["warning", "주의 필요", summary.warning],
-    ["fallback", "Fallback", summary.fallback],
-    ["schema", "검증 실패", summary.schema],
+function renderMetrics() {
+  const coverage = `${number(SERVICE_SNAPSHOT.aiSummary)} / ${number(SERVICE_SNAPSHOT.sourceSummary)}`;
+  const metrics = [
+    ["AI 요약 커버리지", coverage],
+    ["미요약", `${number(SERVICE_SNAPSHOT.missingAiSummary)}건`],
+    ["최신 발의일", SERVICE_SNAPSHOT.latestProposeDate],
+    ["원천 summary", `${number(SERVICE_SNAPSHOT.sourceSummary)} / ${number(SERVICE_SNAPSHOT.totalBills)}`],
   ];
-  els.statusRail.innerHTML = cells.map(([key, label, count]) => (
-    `<button class="status-cell ${key} ${state.status === key ? "is-active" : ""}" type="button" data-status="${key}">${label} <b>${count}</b></button>`
+  els.metricGrid.innerHTML = metrics.map(([label, value]) => (
+    `<div class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`
   )).join("");
 }
 
-function renderIncident() {
-  const run = getIncidentRun();
-  if (!run) {
-    els.incidentCopy.innerHTML = "<strong>정상</strong><span>표시할 실행 이력이 없습니다.</span>";
-    return;
-  }
-  const prefix = run.status === "failed" ? "주의 필요" : run.status === "running" ? "실행 중" : "확인 필요";
-  const fallback = run.fallback_used ? " · fallback 사용" : "";
-  els.incidentCopy.innerHTML = `<strong>${prefix}</strong><span>${escapeHtml(run.command)} · ${escapeHtml(run.provider)}${fallback} · ${formatDuration(run.duration_seconds)}</span>`;
-}
-
-function renderDashboard(runs) {
-  const chartRuns = runs.length ? runs : state.runs;
-  const summary = getSummary();
-  const total = state.runs.length || 1;
-  const statusRows = [
-    ["running", "실행 중", summary.running],
-    ["success", "성공", summary.success],
-    ["failed", "실패", summary.failed],
-    ["warning", "주의", summary.warning],
-  ];
-  const stackColumns = statusRows.map(([, , count]) => `${Math.max(count, 0.2)}fr`).join(" ");
-  els.opsSummary.textContent = `${state.runs.length} runs · ${summary.failed + summary.warning}건 확인`;
-  els.operationChart.innerHTML = `
-    <div class="status-chart">
-      <div class="status-stack" style="--status-columns: ${stackColumns}">
-        ${statusRows.map(([key, label, count]) => `<span title="${label} ${count}" style="--segment-color: ${statusColor(key)}"></span>`).join("")}
-      </div>
-      <div class="status-breakdown">
-        ${statusRows.map(([key, label, count]) => `
-          <div class="status-row">
-            <strong>${label}</strong>
-            <div class="meter"><span style="--bar-color: ${statusColor(key)}; --value: ${percent(count, total)}%"></span></div>
-            <span>${count}</span>
-          </div>
-        `).join("")}
-      </div>
-    </div>
-  `;
-
-  const timeline = chartRuns.slice(0, 10);
-  const maxDuration = Math.max(1, ...timeline.map((run) => run.duration_seconds || 0));
-  els.resultTimeline.innerHTML = `
-    <div class="timeline-chart">
-      ${timeline.map((run) => `
-        <div class="timeline-row" data-run-id="${escapeHtml(run.run_id)}">
-          <strong>${escapeHtml(formatTime(run.started_at).slice(0, 5))}</strong>
-          <div class="meter" title="${escapeHtml(run.command)} · ${escapeHtml(formatDuration(run.duration_seconds))}">
-            <span style="--bar-color: ${statusColor(statusClass(run))}; --value: ${percent(run.duration_seconds || 1, maxDuration)}%"></span>
-          </div>
-          <span>${escapeHtml(formatDuration(run.duration_seconds))}</span>
-        </div>
-      `).join("") || `<div class="empty-state">표시할 실행 결과가 없습니다.</div>`}
-    </div>
-  `;
-
-  const commandTotals = [...groupBy(state.runs, (run) => run.command, (run) => Number(run.items || 0)).entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4);
-  const maxItems = Math.max(1, ...commandTotals.map(([, value]) => value));
-  const providerTotals = [...groupBy(state.runs, (run) => run.provider).entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 4);
-  const maxProvider = Math.max(1, ...providerTotals.map(([, value]) => value));
-  const totalItems = state.runs.reduce((sum, run) => sum + Number(run.items || 0), 0);
-  els.dataSummary.textContent = `${totalItems.toLocaleString("ko-KR")}건 처리`;
-  els.dataStatusChart.innerHTML = `
-    <div class="data-chart">
-      ${commandTotals.map(([command, value]) => `
-        <div class="data-row">
-          <strong>${escapeHtml(command)}</strong>
-          <div class="meter"><span style="--bar-color: var(--color-ink); --value: ${percent(value, maxItems)}%"></span></div>
-          <span>${value}</span>
-        </div>
-      `).join("") || `<div class="empty-state">처리 데이터가 없습니다.</div>`}
-    </div>
-    <div class="provider-mix">
-      ${providerTotals.map(([provider, value]) => `
-        <div class="provider-row">
-          <strong>${escapeHtml(provider)}</strong>
-          <div class="meter"><span style="--bar-color: var(--muted); --value: ${percent(value, maxProvider)}%"></span></div>
-          <span>${value}</span>
-        </div>
-      `).join("")}
-    </div>
-  `;
-}
-
-function renderRuns(runs) {
-  els.runCountLabel.textContent = `${runs.length}건 표시`;
-  if (!runs.length) {
-    els.runsTableBody.innerHTML = `<tr><td colspan="7"><div class="empty-state">조건에 맞는 실행 이력이 없습니다.</div></td></tr>`;
-    return;
-  }
-  els.runsTableBody.innerHTML = runs.slice(0, 10).map((run) => {
-    const selected = run.run_id === state.selectedRunId ? " class=\"is-selected\"" : "";
-    return `
-      <tr${selected} data-run-id="${escapeHtml(run.run_id)}">
-        <td><span class="row-status ${statusClass(run)}">${statusLabel(run)}</span></td>
-        <td title="${escapeHtml(formatDateTime(run.started_at))}">${escapeHtml(formatDateTime(run.started_at))}</td>
-        <td><code>${escapeHtml(run.command)}</code></td>
-        <td>${escapeHtml(run.provider)}</td>
-        <td>${escapeHtml(formatDuration(run.duration_seconds))}</td>
-        <td>${run.items ?? "--"}</td>
-        <td class="chevron">${artifactCount(run)} ›</td>
-      </tr>
-    `;
-  }).join("");
-  els.currentPage.textContent = "1";
-}
-
-function renderTrace() {
-  const run = state.runs.find((item) => item.run_id === state.selectedRunId) || state.runs[0];
-  if (!run) return;
-  els.traceStatus.innerHTML = `<span class="row-status ${statusClass(run)}">${statusLabel(run)}</span><strong>${escapeHtml(run.command)}</strong><button class="retry" type="button" data-action="readonly">재시도</button>`;
-  els.traceMeta.innerHTML = `
-    <span>Run ID</span><span>${escapeHtml(run.run_id)}</span>
-    <span>시작 시간</span><span>${escapeHtml(formatDateTime(run.started_at))}</span>
-    <span>종료 시간</span><span>${escapeHtml(formatDateTime(run.finished_at))}</span>
-    <span>Provider</span><span>${escapeHtml(run.provider)}</span>
-    <span>소요 시간</span><span>${escapeHtml(formatDuration(run.duration_seconds))}</span>
-    <span>처리 항목</span><span>${run.items ?? "--"}건</span>
-  `;
-  const failures = run.schema_failures || (run.status === "failed" ? 1 : 0);
-  els.schemaPill.textContent = failures ? `실패 (${failures}) ›` : "통과";
-  els.schemaColumn.innerHTML = failures ? `스키마 검증<br><br>실패 (${failures}) ›` : "스키마 검증<br><br>통과";
-  els.stepsList.innerHTML = (run.steps || []).map((step) => {
-    const dot = step.status === "failed" ? "error" : step.status === "pending" ? "blank" : "";
-    const mark = step.status === "failed" ? "×" : step.status === "pending" ? "" : "✓";
-    return `<div class="step"><span class="step-dot ${dot}">${mark}</span><span>${escapeHtml(step.name)}<small>${escapeHtml(step.started_at ? formatTime(step.started_at) : "-")}</small></span><span class="step-time">${escapeHtml(step.duration || "-")}</span></div>`;
-  }).join("") || `<div class="empty-state">단계 로그가 없습니다.</div>`;
-  renderLogs(run);
-}
-
-function renderLogs(run) {
-  const logs = run.logs?.length ? run.logs : [{ ts: new Date().toISOString(), level: "info", run_id: run.run_id }];
-  els.logBox.innerHTML = logs.map((entry, index) => {
-    const line = 1421 + index;
-    const value = state.logMode === "pretty" ? JSON.stringify(entry, null, 0) : JSON.stringify(entry);
-    return `<div class="log-row"><span>${line}</span><span>${escapeHtml(value)}</span></div>`;
-  }).join("");
-}
-
-function renderPhone(runs) {
-  const summary = getSummary();
-  els.phoneKpis.innerHTML = [
-    ["실행", summary.running],
-    ["성공", summary.success],
-    ["실패", summary.failed],
-    ["주의", summary.warning],
-  ].map(([label, count]) => `<div class="phone-kpi"><small>${label}</small><strong>${count}</strong></div>`).join("");
-  const statusRows = [
-    ["running", "실행", summary.running],
-    ["success", "성공", summary.success],
-    ["failed", "실패", summary.failed],
-    ["warning", "주의", summary.warning],
-  ];
-  const stackColumns = statusRows.map(([, , count]) => `${Math.max(count, 0.2)}fr`).join(" ");
-  const commandTotals = [...groupBy(state.runs, (run) => run.command, (run) => Number(run.items || 0)).entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3);
-  const maxItems = Math.max(1, ...commandTotals.map(([, value]) => value));
-  els.phoneDashboard.innerHTML = `
-    <article class="phone-chart">
-      <div class="phone-chart-head"><strong>동작 현황</strong><span>${state.runs.length} runs</span></div>
-      <div class="phone-status-stack" style="--status-columns: ${stackColumns}">
-        ${statusRows.map(([key, label, count]) => `<span title="${label} ${count}" style="--segment-color: ${statusColor(key)}"></span>`).join("")}
-      </div>
+function renderCharts() {
+  els.chartGrid.innerHTML = `
+    <article class="panel">
+      <div class="panel-head"><h3>요약 커버리지</h3><span>100%</span></div>
+      <div class="progress-shell"><div class="progress-fill" style="--value: 100%"></div></div>
+      <div class="chart-note"><span>${number(SERVICE_SNAPSHOT.aiSummary)} ready</span><span>${number(SERVICE_SNAPSHOT.missingAiSummary)} missing</span></div>
     </article>
-    <article class="phone-chart">
-      <div class="phone-chart-head"><strong>데이터 현황</strong><span>처리량</span></div>
-      <div class="phone-mini-bars">
-        ${commandTotals.map(([command, value]) => `
-          <div class="phone-mini-row">
-            <strong>${escapeHtml(command)}</strong>
-            <div class="meter"><span style="--bar-color: var(--color-ink); --value: ${percent(value, maxItems)}%"></span></div>
-            <span>${value}</span>
-          </div>
-        `).join("")}
+    <article class="panel">
+      <div class="panel-head"><h3>최신성</h3><span>05-18 → 05-23</span></div>
+      <div class="freshness-line" aria-hidden="true">
+        <span class="freshness-point" style="left: 0%"></span>
+        <span class="freshness-point now" style="left: 100%"></span>
+      </div>
+      <div class="chart-note"><span>latest 05-18</span><span>확인 필요</span></div>
+    </article>
+    <article class="panel">
+      <div class="panel-head"><h3>Batch 상태</h3><span>3 signals</span></div>
+      <div class="segment-list">
+        <div class="segment-row"><span>요약 대상 없음</span><strong>0</strong></div>
+        <div class="segment-row warning"><span>관제 미연결</span><strong>prod</strong></div>
+        <div class="segment-row neutral"><span>테스트 완료</span><strong>5/5</strong></div>
       </div>
     </article>
   `;
-  const filters = [
-    ["all", "전체"],
-    ["running", `실행 중 ${summary.running}`],
-    ["success", `성공 ${summary.success}`],
-    ["failed", `실패 ${summary.failed}`],
-    ["warning", `주의 ${summary.warning}`],
-  ];
-  els.phoneFilters.innerHTML = filters.map(([key, label]) => `<button class="phone-filter ${state.status === key ? "is-active" : ""}" type="button" data-status="${key}">${label}</button>`).join("");
-  const incident = getIncidentRun();
-  if (incident) {
-    els.phoneIncident.innerHTML = `<strong>${incident.status === "failed" ? "주의 필요" : statusLabel(incident)}</strong><span>${escapeHtml(incident.command)} · ${escapeHtml(incident.provider)}</span>`;
+}
+
+function renderStages() {
+  els.stageStrip.innerHTML = STAGES.map((stage) => (
+    `<article class="stage-cell ${toneClass(stage.tone)}"><span>${escapeHtml(stage.name)}</span><strong>${escapeHtml(stage.status)}</strong></article>`
+  )).join("");
+}
+
+function renderRows() {
+  const rows = getFilteredRows();
+  if (!rows.some((row) => row.id === state.selectedId)) {
+    state.selectedId = rows[0]?.id || BATCH_ROWS[0].id;
   }
-  els.phoneRunCount.textContent = `${runs.length}건`;
-  els.phoneRuns.innerHTML = runs.slice(0, 6).map((run) => `
-    <article class="phone-run ${statusClass(run)}" data-run-id="${escapeHtml(run.run_id)}">
-      <div class="phone-run-top"><strong>${statusLabel(run)}</strong><span>${escapeHtml(run.provider)}</span></div>
-      <em>${escapeHtml(run.command)}</em>
-      <div class="phone-run-bottom"><span>${escapeHtml(formatTime(run.started_at))} · ${escapeHtml(formatDuration(run.duration_seconds))} · ${run.items ?? "--"}건</span><span>${artifactCount(run)} ▫</span></div>
-    </article>
+  els.batchCountLabel.textContent = `${rows.length}개 기준`;
+  els.batchRows.innerHTML = rows.map((row) => `
+    <tr class="${row.id === state.selectedId ? "is-selected" : ""}" data-row-id="${escapeHtml(row.id)}">
+      <td><code>${escapeHtml(row.id)}</code></td>
+      <td>${escapeHtml(row.target)}</td>
+      <td><span class="state-pill ${toneClass(row.tone)}">${escapeHtml(row.state)}</span></td>
+      <td>${escapeHtml(row.progress)}</td>
+      <td>${escapeHtml(row.source)}</td>
+      <td>${escapeHtml(row.signal)}</td>
+      <td>${escapeHtml(row.next)}</td>
+    </tr>
   `).join("");
-  const selected = state.runs.find((run) => run.run_id === state.selectedRunId);
-  if (selected) {
-    els.trayHead.innerHTML = `<strong>선택된 실행</strong><span>${statusLabel(selected)}</span>`;
-    els.trayId.textContent = selected.run_id;
-  }
+
+  els.mobileBatchRows.innerHTML = rows.map((row) => `
+    <button class="mobile-batch ${row.id === state.selectedId ? "is-selected" : ""}" type="button" data-row-id="${escapeHtml(row.id)}">
+      <header><code>${escapeHtml(row.id)}</code><span class="state-pill ${toneClass(row.tone)}">${escapeHtml(row.state)}</span></header>
+      <p>${escapeHtml(row.target)} · ${escapeHtml(row.progress)}</p>
+      <p>${escapeHtml(row.signal)} · ${escapeHtml(row.next)}</p>
+    </button>
+  `).join("");
 }
 
-async function selectRun(runId) {
-  if (!runId) return;
-  state.selectedRunId = runId;
-  if (state.source === "api") {
-    try {
-      const response = await fetch(`/api/runs/${encodeURIComponent(runId)}`, { cache: "no-store" });
-      if (response.ok) {
-        const payload = await response.json();
-        const detail = normalizeRun(payload.run);
-        state.runs = state.runs.map((run) => run.run_id === detail.run_id ? detail : run);
-      }
-    } catch {
-      // Keep the table copy if the detail endpoint is temporarily unavailable.
+function renderDetail() {
+  const row = BATCH_ROWS.find((item) => item.id === state.selectedId) || BATCH_ROWS[0];
+  const status = row.tone === "success" && row.id === "prod-summary-coverage"
+    ? "서비스 노출 가능 · 요약 필드 정상"
+    : `${row.state} · ${row.next}`;
+  els.detailPanel.innerHTML = `
+    <h2>선택 기준 상세</h2>
+    <div class="detail-status ${toneClass(row.tone)}">${escapeHtml(status)}</div>
+    <ul class="fact-list">
+      ${row.facts.map(([label, value]) => `<li><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></li>`).join("")}
+    </ul>
+    <p class="decision-note">${escapeHtml(row.note)}</p>
+    <div class="dryrun-box"><strong>실행 보조 정보</strong><span>${escapeHtml(row.providerNote)}</span></div>
+  `;
+}
+
+function renderEvidence() {
+  const baseLines = [
+    "prod.bill_summary_coverage missing_ai_summary=0",
+    "prod.ai_batch_jobs table_missing",
+    "test.gemini_batch status=COMPLETED success=5 failed=0",
+    "runtime.ai.summary codex dry_run success=3 failure=0",
+  ];
+  const lines = [...baseLines, ...state.runEvidence].slice(0, 8);
+  els.runSourceLabel.textContent = state.runSource;
+  els.evidenceLines.innerHTML = lines.map((line, index) => (
+    `<div class="evidence-line"><span>${String(index + 1).padStart(2, "0")}</span><code>${escapeHtml(line)}</code></div>`
+  )).join("");
+}
+
+function render() {
+  renderMetrics();
+  renderCharts();
+  renderStages();
+  renderRows();
+  renderDetail();
+  renderEvidence();
+  els.sidebarUpdatedAt.textContent = `updated ${SERVICE_SNAPSHOT.updatedAt}`;
+}
+
+async function loadRuntimeEvidence() {
+  try {
+    const health = await fetch(apiUrl(`api/health?ts=${Date.now()}`), { cache: "no-store" });
+    if (health.ok) {
+      const payload = await health.json();
+      state.runSource = payload.source_exists ? "api · pipeline-runs.jsonl" : "api · source missing";
+      state.runEvidence = [
+        `pipeline_monitor health ok runs=${payload.runs ?? 0} skipped=${payload.skipped ?? 0}`,
+      ];
     }
+    const runs = await fetch(apiUrl(`api/runs?ts=${Date.now()}`), { cache: "no-store" });
+    if (runs.ok) {
+      const payload = await runs.json();
+      const summary = payload.summary || {};
+      state.runEvidence.push(
+        `runtime.runs success=${summary.success ?? 0} failed=${summary.failed ?? 0} running=${summary.running ?? 0}`,
+      );
+    }
+  } catch {
+    state.runSource = "static snapshot";
+    state.runEvidence = ["pipeline_monitor runtime evidence unavailable"];
   }
-  render();
+  renderEvidence();
+}
+
+function selectRow(id) {
+  if (!id) return;
+  state.selectedId = id;
+  renderRows();
+  renderDetail();
+}
+
+function updateQuery(value) {
+  state.query = value || "";
+  renderRows();
+  renderDetail();
 }
 
 document.addEventListener("click", (event) => {
-  const provider = event.target.closest("[data-provider]");
-  if (provider) {
-    state.provider = provider.dataset.provider;
-    render();
-    return;
-  }
-  const status = event.target.closest("[data-status]");
-  if (status) {
-    state.status = state.status === status.dataset.status ? "all" : status.dataset.status;
-    render();
-    return;
-  }
-  const row = event.target.closest("[data-run-id]");
+  const row = event.target.closest("[data-row-id]");
   if (row) {
-    selectRun(row.dataset.runId);
-    return;
-  }
-  const logMode = event.target.closest("[data-log-mode]");
-  if (logMode) {
-    state.logMode = logMode.dataset.logMode;
-    $$("[data-log-mode]").forEach((button) => button.classList.toggle("is-active", button === logMode));
-    renderTrace();
+    selectRow(row.dataset.rowId);
     return;
   }
   const action = event.target.closest("[data-action]")?.dataset.action;
-  if (action === "refresh") loadRuns();
-  if (action === "focus-incident") selectRun(getIncidentRun()?.run_id);
-  if (action === "clear-selection") selectRun(getVisibleRuns()[0]?.run_id || state.runs[0]?.run_id);
-  if (action === "copy-log") copyCurrentLog();
-  if (action === "readonly") window.alert("현재 버전은 read-only 모니터링입니다. 재시도 실행은 아직 연결하지 않았습니다.");
+  if (action === "refresh") {
+    loadRuntimeEvidence();
+  }
+  if (action === "focus-freshness") {
+    selectRow("bill-ingest-hourly");
+  }
 });
 
-els.searchInput.addEventListener("input", (event) => {
-  state.query = event.target.value;
-  render();
+[els.searchInput, els.sidebarSearchInput].forEach((input) => {
+  input?.addEventListener("input", (event) => {
+    updateQuery(event.target.value);
+    if (event.target === els.searchInput && els.sidebarSearchInput) {
+      els.sidebarSearchInput.value = event.target.value;
+    }
+    if (event.target === els.sidebarSearchInput && els.searchInput) {
+      els.searchInput.value = event.target.value;
+    }
+  });
 });
 
 document.addEventListener("keydown", (event) => {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();
-    els.searchInput.focus();
+    els.searchInput?.focus();
   }
-  if (event.key === "Escape" && document.activeElement === els.searchInput) {
-    els.searchInput.value = "";
-    state.query = "";
-    render();
+  if (event.key === "Escape") {
+    if (els.searchInput) els.searchInput.value = "";
+    if (els.sidebarSearchInput) els.sidebarSearchInput.value = "";
+    updateQuery("");
   }
 });
 
-function copyCurrentLog() {
-  const run = state.runs.find((item) => item.run_id === state.selectedRunId);
-  const value = (run?.logs || []).map((entry) => JSON.stringify(entry)).join("\n");
-  navigator.clipboard?.writeText(value);
-}
-
-loadRuns();
+render();
+loadRuntimeEvidence();
