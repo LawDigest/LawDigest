@@ -1,0 +1,476 @@
+[
+  {
+    "version": "1.0",
+    "status": "needs_review",
+    "billId": "PRC_A2B5A1Y0Y2W7Y1F3G5E6F2D4B1C8K1",
+    "billName": "공공외교법 일부개정법률안",
+    "generatedAt": "2026-06-09T00:00:00+09:00",
+    "audience": "general_public",
+    "tone": "neutral_explanatory",
+    "qualityGate": {
+      "requiredEvidenceSatisfied": false,
+      "notes": [
+        "기존 dry-run 요약을 기준으로 만든 화면 계약 검증용 샘플입니다.",
+        "제품 반영 전 열린국회 의안 상세와 국가법령정보센터 현행 조문 조회가 필요합니다."
+      ]
+    },
+    "evidence": [
+      {
+        "id": "fixture_summary",
+        "source": "manual_fixture",
+        "tool": "docs/data/법안 데이터 파이프라인/reports/2026-05-19-gemini-cli-latest-5-summary.md",
+        "status": "available",
+        "retrievedAt": "2026-05-19T20:36:46+09:00",
+        "fields": ["bill_id", "bill_name", "gpt_summary", "tags"],
+        "note": "Gemini CLI dry-run 리포트"
+      },
+      {
+        "id": "assembly_detail",
+        "source": "open_assembly",
+        "tool": "bill_detail",
+        "status": "missing",
+        "url": "https://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_A2B5A1Y0Y2W7Y1F3G5E6F2D4B1C8K1",
+        "retrievedAt": "2026-06-09T00:00:00+09:00",
+        "fields": ["RSN", "DETAIL_CONTENT", "COMMITTEE", "PROC_RESULT_CD"]
+      },
+      {
+        "id": "law_text",
+        "source": "national_law_center",
+        "tool": "get_law_text",
+        "status": "missing",
+        "retrievedAt": "2026-06-09T00:00:00+09:00",
+        "fields": ["공공외교법"]
+      }
+    ],
+    "blocks": [
+      {
+        "id": "summary",
+        "type": "summary_callout",
+        "title": "핵심",
+        "body": "공공외교 기본계획에 지방자치단체와 민간의 협력체계 구축 방안을 넣도록 하는 법안입니다.",
+        "tone": "info",
+        "evidenceRefs": ["fixture_summary"]
+      },
+      {
+        "id": "changes",
+        "type": "change_points",
+        "title": "달라지는 점",
+        "items": [
+          {
+            "label": "계획 항목",
+            "text": "공공외교 기본계획에 협력체계 구축 방안을 포함하도록 합니다."
+          },
+          {
+            "label": "협력 대상",
+            "text": "지방자치단체와 민간의 참여를 계획 수립 단계에서 더 분명히 다룹니다."
+          }
+        ],
+        "evidenceRefs": ["fixture_summary"]
+      },
+      {
+        "id": "impact",
+        "type": "impact_list",
+        "title": "영향",
+        "items": [
+          {
+            "target": "외교부",
+            "effect": "5년 단위 기본계획에 협력체계 항목을 반영해야 할 수 있습니다."
+          },
+          {
+            "target": "지방자치단체·민간",
+            "effect": "공공외교 사업에서 협력 주체로 다뤄질 여지가 커집니다."
+          }
+        ],
+        "evidenceRefs": ["fixture_summary"]
+      },
+      {
+        "id": "laws",
+        "type": "law_links",
+        "title": "관련 법령",
+        "items": [
+          {
+            "name": "공공외교법",
+            "relation": "개정 대상",
+            "url": "https://www.law.go.kr/법령/공공외교법"
+          }
+        ],
+        "evidenceRefs": ["law_text"]
+      },
+      {
+        "id": "notes",
+        "type": "source_notes",
+        "title": "검수 필요",
+        "notes": [
+          "의안 상세의 제안이유와 현행 공공외교법 조문을 조회한 뒤 before_after 블록을 추가해야 합니다."
+        ],
+        "evidenceRefs": ["assembly_detail", "law_text"]
+      }
+    ]
+  },
+  {
+    "version": "1.0",
+    "status": "needs_review",
+    "billId": "PRC_B2C5A1Y2Z0X1Y1T8U5S7T0R1S0Q9Y3",
+    "billName": "상법 일부개정법률안",
+    "generatedAt": "2026-06-09T00:00:00+09:00",
+    "audience": "general_public",
+    "tone": "neutral_explanatory",
+    "qualityGate": {
+      "requiredEvidenceSatisfied": false,
+      "notes": [
+        "복수의결권 제도 설명은 법제처 조문과 별도 용어 검증이 필요합니다."
+      ]
+    },
+    "evidence": [
+      {
+        "id": "fixture_summary",
+        "source": "manual_fixture",
+        "tool": "docs/data/법안 데이터 파이프라인/reports/2026-05-19-gemini-cli-latest-5-summary.md",
+        "status": "available",
+        "retrievedAt": "2026-05-19T20:36:46+09:00",
+        "fields": ["bill_id", "bill_name", "gpt_summary", "tags"]
+      },
+      {
+        "id": "assembly_detail",
+        "source": "open_assembly",
+        "tool": "bill_detail",
+        "status": "missing",
+        "url": "https://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_B2C5A1Y2Z0X1Y1T8U5S7T0R1S0Q9Y3",
+        "retrievedAt": "2026-06-09T00:00:00+09:00",
+        "fields": ["RSN", "DETAIL_CONTENT", "COMMITTEE", "PROC_RESULT_CD"]
+      },
+      {
+        "id": "law_text",
+        "source": "national_law_center",
+        "tool": "get_law_text",
+        "status": "missing",
+        "retrievedAt": "2026-06-09T00:00:00+09:00",
+        "fields": ["상법"]
+      }
+    ],
+    "blocks": [
+      {
+        "id": "summary",
+        "type": "summary_callout",
+        "title": "핵심",
+        "body": "중요 기술을 보유한 기업에 복수의결권주식 제도를 도입하는 내용입니다.",
+        "tone": "neutral",
+        "evidenceRefs": ["fixture_summary"]
+      },
+      {
+        "id": "changes",
+        "type": "change_points",
+        "title": "달라지는 점",
+        "items": [
+          {
+            "label": "대상 기업",
+            "text": "국가전략기술, 국가핵심기술, 방위산업기술 보유 기업을 대상으로 봅니다."
+          },
+          {
+            "label": "주식 제도",
+            "text": "일부 주식에 더 많은 의결권을 인정하는 장치를 마련하려는 내용입니다."
+          },
+          {
+            "label": "정책 목적",
+            "text": "경영권 방어와 기술 유출 방지를 제도 취지로 제시합니다."
+          }
+        ],
+        "evidenceRefs": ["fixture_summary"]
+      },
+      {
+        "id": "terms",
+        "type": "term_glossary",
+        "title": "용어",
+        "terms": [
+          {
+            "term": "복수의결권주식",
+            "plainText": "한 주에 하나보다 많은 의결권을 붙이는 주식입니다."
+          },
+          {
+            "term": "적대적 인수·합병",
+            "plainText": "대상 회사 경영진의 동의 없이 지배권을 얻으려는 인수 시도입니다."
+          }
+        ],
+        "evidenceRefs": ["fixture_summary", "law_text"]
+      },
+      {
+        "id": "impact",
+        "type": "impact_list",
+        "title": "영향",
+        "items": [
+          {
+            "target": "중요 기술 기업",
+            "effect": "경영권 방어 수단을 확보할 수 있다는 방향으로 설계됩니다."
+          },
+          {
+            "target": "투자자",
+            "effect": "주식별 의결권 차이가 생길 수 있어 지배구조 확인이 중요해집니다."
+          }
+        ],
+        "evidenceRefs": ["fixture_summary"]
+      }
+    ]
+  },
+  {
+    "version": "1.0",
+    "status": "needs_review",
+    "billId": "PRC_B2C5K1L2J0K3I1I0G2P9P3O6O2M8N3",
+    "billName": "남녀고용평등과 일·가정 양립 지원에 관한 법률 일부개정법률안",
+    "generatedAt": "2026-06-09T00:00:00+09:00",
+    "audience": "general_public",
+    "tone": "neutral_explanatory",
+    "qualityGate": {
+      "requiredEvidenceSatisfied": false,
+      "notes": [
+        "30일 통보와 간주 규정은 의안 원문에서 조문 단위로 확인해야 합니다."
+      ]
+    },
+    "evidence": [
+      {
+        "id": "fixture_summary",
+        "source": "manual_fixture",
+        "tool": "docs/data/법안 데이터 파이프라인/reports/2026-05-19-gemini-cli-latest-5-summary.md",
+        "status": "available",
+        "retrievedAt": "2026-05-19T20:36:46+09:00",
+        "fields": ["bill_id", "bill_name", "gpt_summary", "tags"]
+      },
+      {
+        "id": "assembly_detail",
+        "source": "open_assembly",
+        "tool": "bill_detail",
+        "status": "missing",
+        "url": "https://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_B2C5K1L2J0K3I1I0G2P9P3O6O2M8N3",
+        "retrievedAt": "2026-06-09T00:00:00+09:00",
+        "fields": ["RSN", "DETAIL_CONTENT", "COMMITTEE", "PROC_RESULT_CD"]
+      },
+      {
+        "id": "law_text",
+        "source": "national_law_center",
+        "tool": "get_law_text",
+        "status": "missing",
+        "retrievedAt": "2026-06-09T00:00:00+09:00",
+        "fields": ["남녀고용평등과 일·가정 양립 지원에 관한 법률"]
+      }
+    ],
+    "blocks": [
+      {
+        "id": "summary",
+        "type": "summary_callout",
+        "title": "핵심",
+        "body": "육아기 근로시간 단축 신청에 대한 사업주의 처리 의무를 더 분명히 하는 법안입니다.",
+        "tone": "info",
+        "evidenceRefs": ["fixture_summary"]
+      },
+      {
+        "id": "before_after",
+        "type": "before_after",
+        "title": "전후 비교",
+        "before": "사업주가 신청을 어떻게 처리해야 하는지 불명확하다는 문제가 제기됩니다.",
+        "after": "신청일로부터 30일 안에 서면 통보하고, 통보가 없으면 허용한 것으로 보도록 합니다.",
+        "evidenceRefs": ["fixture_summary", "law_text"]
+      },
+      {
+        "id": "impact",
+        "type": "impact_list",
+        "title": "영향",
+        "items": [
+          {
+            "target": "육아기 근로자",
+            "effect": "신청 결과를 확인할 수 있는 기한이 분명해질 수 있습니다."
+          },
+          {
+            "target": "사업주",
+            "effect": "기간 내 서면 통보 의무를 지켜야 할 수 있습니다."
+          }
+        ],
+        "evidenceRefs": ["fixture_summary"]
+      }
+    ]
+  },
+  {
+    "version": "1.0",
+    "status": "needs_review",
+    "billId": "PRC_C2A5B1Z2A0V3W1U4U1T2R3S3A0A6Y4",
+    "billName": "농어업인 삶의 질 향상 및 농어촌지역 개발촉진에 관한 특별법 일부개정법률안",
+    "generatedAt": "2026-06-09T00:00:00+09:00",
+    "audience": "general_public",
+    "tone": "neutral_explanatory",
+    "qualityGate": {
+      "requiredEvidenceSatisfied": false,
+      "notes": [
+        "위원회 구성 조항과 지방자치법상 협의체 근거를 함께 확인해야 합니다."
+      ]
+    },
+    "evidence": [
+      {
+        "id": "fixture_summary",
+        "source": "manual_fixture",
+        "tool": "docs/data/법안 데이터 파이프라인/reports/2026-05-19-gemini-cli-latest-5-summary.md",
+        "status": "available",
+        "retrievedAt": "2026-05-19T20:36:46+09:00",
+        "fields": ["bill_id", "bill_name", "gpt_summary", "tags"]
+      },
+      {
+        "id": "assembly_detail",
+        "source": "open_assembly",
+        "tool": "bill_detail",
+        "status": "missing",
+        "url": "https://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_C2A5B1Z2A0V3W1U4U1T2R3S3A0A6Y4",
+        "retrievedAt": "2026-06-09T00:00:00+09:00",
+        "fields": ["RSN", "DETAIL_CONTENT", "COMMITTEE", "PROC_RESULT_CD"]
+      },
+      {
+        "id": "law_text",
+        "source": "national_law_center",
+        "tool": "get_law_text",
+        "status": "missing",
+        "retrievedAt": "2026-06-09T00:00:00+09:00",
+        "fields": ["농어업인 삶의 질 향상 및 농어촌지역 개발촉진에 관한 특별법", "지방자치법"]
+      }
+    ],
+    "blocks": [
+      {
+        "id": "summary",
+        "type": "summary_callout",
+        "title": "핵심",
+        "body": "농어촌 지역개발 관련 위원회에 지방자치단체 협의체 추천 인사를 포함하려는 법안입니다.",
+        "tone": "info",
+        "evidenceRefs": ["fixture_summary"]
+      },
+      {
+        "id": "changes",
+        "type": "change_points",
+        "title": "달라지는 점",
+        "items": [
+          {
+            "label": "위원 구성",
+            "text": "지방자치단체 협의체가 추천하는 전문가를 위원으로 위촉할 수 있도록 합니다."
+          },
+          {
+            "label": "정책 반영",
+            "text": "지역 현장의 의견을 농어촌 개발 정책에 반영하려는 방향입니다."
+          }
+        ],
+        "evidenceRefs": ["fixture_summary"]
+      },
+      {
+        "id": "laws",
+        "type": "law_links",
+        "title": "함께 볼 법",
+        "items": [
+          {
+            "name": "농어업인 삶의 질 향상 및 농어촌지역 개발촉진에 관한 특별법",
+            "relation": "개정 대상"
+          },
+          {
+            "name": "지방자치법",
+            "relation": "협의체 근거"
+          }
+        ],
+        "evidenceRefs": ["law_text"]
+      }
+    ]
+  },
+  {
+    "version": "1.0",
+    "status": "needs_review",
+    "billId": "PRC_D2D5L1M2K0L3J1J4H1I8Q5O7P0N0O3",
+    "billName": "해양폐기물 및 해양오염퇴적물 관리법 일부개정법률안",
+    "generatedAt": "2026-06-09T00:00:00+09:00",
+    "audience": "general_public",
+    "tone": "neutral_explanatory",
+    "qualityGate": {
+      "requiredEvidenceSatisfied": false,
+      "notes": [
+        "해양폐기물관리위원회 구성 조항과 지방자치단체 협의체 근거 조회가 필요합니다."
+      ]
+    },
+    "evidence": [
+      {
+        "id": "fixture_summary",
+        "source": "manual_fixture",
+        "tool": "docs/data/법안 데이터 파이프라인/reports/2026-05-19-gemini-cli-latest-5-summary.md",
+        "status": "available",
+        "retrievedAt": "2026-05-19T20:36:46+09:00",
+        "fields": ["bill_id", "bill_name", "gpt_summary", "tags"]
+      },
+      {
+        "id": "assembly_detail",
+        "source": "open_assembly",
+        "tool": "bill_detail",
+        "status": "missing",
+        "url": "https://likms.assembly.go.kr/bill/billDetail.do?billId=PRC_D2D5L1M2K0L3J1J4H1I8Q5O7P0N0O3",
+        "retrievedAt": "2026-06-09T00:00:00+09:00",
+        "fields": ["RSN", "DETAIL_CONTENT", "COMMITTEE", "PROC_RESULT_CD"]
+      },
+      {
+        "id": "law_text",
+        "source": "national_law_center",
+        "tool": "get_law_text",
+        "status": "missing",
+        "retrievedAt": "2026-06-09T00:00:00+09:00",
+        "fields": ["해양폐기물 및 해양오염퇴적물 관리법", "지방자치법"]
+      }
+    ],
+    "blocks": [
+      {
+        "id": "summary",
+        "type": "summary_callout",
+        "title": "핵심",
+        "body": "해양폐기물관리위원회에 지방자치단체 협의체 추천 인사를 포함하려는 법안입니다.",
+        "tone": "info",
+        "evidenceRefs": ["fixture_summary"]
+      },
+      {
+        "id": "impact",
+        "type": "impact_list",
+        "title": "영향",
+        "items": [
+          {
+            "target": "지방자치단체",
+            "effect": "해양폐기물 정책 논의에 지역 의견을 전달할 통로가 생길 수 있습니다."
+          },
+          {
+            "target": "해양 환경 정책",
+            "effect": "지역별 처리 여건을 위원회 논의에 반영하려는 구조입니다."
+          }
+        ],
+        "evidenceRefs": ["fixture_summary"]
+      },
+      {
+        "id": "process",
+        "type": "process_timeline",
+        "title": "절차",
+        "steps": [
+          {
+            "label": "발의",
+            "status": "done"
+          },
+          {
+            "label": "위원회 심사",
+            "status": "unknown"
+          },
+          {
+            "label": "본회의",
+            "status": "unknown"
+          },
+          {
+            "label": "공포",
+            "status": "pending"
+          }
+        ],
+        "evidenceRefs": ["fixture_summary", "assembly_detail"]
+      },
+      {
+        "id": "notes",
+        "type": "source_notes",
+        "title": "검수 필요",
+        "notes": [
+          "표결 전 법안이면 vote_chart 블록은 만들지 않습니다.",
+          "위원회 심사 단계는 열린국회 심사정보 조회 후 확정해야 합니다."
+        ],
+        "evidenceRefs": ["assembly_detail"]
+      }
+    ]
+  }
+]
