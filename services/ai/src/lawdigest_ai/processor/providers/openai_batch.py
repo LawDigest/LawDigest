@@ -55,7 +55,7 @@ def _build_prompt_for_bill(row: Dict[str, Any]) -> str:
         "briefSummary는 정확한 bill_name을 포함하되 전체를 짧은 제목형 명사구로 작성하세요.\n"
         "briefSummary는 짧은 핵심 문구와 정확한 bill_name만 조합하세요.\n"
         "briefSummary는 완성된 설명문이나 문장으로 쓰지 말고, '입니다', '합니다', '것입니다', '함' 같은 종결 표현으로 끝내지 마세요.\n"
-        "briefSummary 예: '공공외교 협력체계 구축 공공외교법 일부개정법률안'\n"
+        "briefSummary 예: '공공외교 협력체계 구축을 위한 공공외교법 일부개정법률안'\n"
         "briefSummary 예: '수사·기소 범위 일치 고위공직자범죄수사처법 일부개정법률안'\n"
         "gptSummary는 기존 양식에 맞춰 아래 규칙으로 작성하세요.\n"
         f"1) 첫 줄: \"{opening_proposer_line}\"\n"

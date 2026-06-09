@@ -139,7 +139,7 @@ def test_gemini_cli_summarizer_reuses_api_prompt_and_schema():
     assert "키는 briefSummary, gptSummary, tags 세 개만 포함해야 합니다." in prompt
     assert "briefSummary는 정확한 bill_name을 포함하되 전체를 짧은 제목형 명사구로 작성하세요." in prompt
     assert "briefSummary는 짧은 핵심 문구와 정확한 bill_name만 조합하세요." in prompt
-    assert "briefSummary 예: '공공외교 협력체계 구축 공공외교법 일부개정법률안'" in prompt
+    assert "briefSummary 예: '공공외교 협력체계 구축을 위한 공공외교법 일부개정법률안'" in prompt
     assert "1. **핵심 항목명**: 설명" in prompt
     assert "중요한 제도명, 수치, 대상, 변경 내용은 **굵게** 표시하세요." in prompt
     assert "김의원 등 1명에 의해 발의된 ‘동일프롬프트법’ 법안의 주요 내용은 다음과 같습니다:" in prompt
