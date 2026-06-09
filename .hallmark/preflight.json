@@ -1,0 +1,40 @@
+{
+  "scannedAt": "2026-06-09T00:00:00+09:00",
+  "framework": {
+    "name": "Next.js",
+    "evidence": "services/web/package.json"
+  },
+  "fontStack": {
+    "primary": "Pretendard",
+    "evidence": [
+      "services/web/app/layout.tsx",
+      "services/web/styles/globals.css",
+      "design/branding.html"
+    ]
+  },
+  "palette": {
+    "base": ["#FFFFFF", "#191919", "#EBEBEB", "#999999", "#555555", "#262626"],
+    "accent": ["#D7F963", "#E63946"],
+    "signature": "rainbow line from design/branding.html",
+    "evidence": [
+      "services/web/tailwind.config.js",
+      "services/web/styles/globals.css",
+      "design/branding.html"
+    ]
+  },
+  "motion": {
+    "stance": "subtle",
+    "evidence": "services/web/tailwind.config.js keyframes and framer-motion dependency"
+  },
+  "preserve": [
+    "Pretendard typography",
+    "white/black civic product tone",
+    "thin borders and compact card radius",
+    "theme.info lime accent",
+    "rainbow signature only as small brand marker"
+  ],
+  "introduced": [
+    "bill visual report mockup route",
+    "fixed JSON block visual mapping"
+  ]
+}
