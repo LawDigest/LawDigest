@@ -385,19 +385,23 @@ class PipelineRuntime:
             from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
 
             steps: List[Dict[str, Any]] = []
+            report = run_agentic_bill_reports(
+                mode=mode,
+                limit=limit,
+                output_dir=output_dir,
+                read_mode=read_mode,
+                codex_model=codex_model,
+                stop_on_error=stop_on_error,
+            )
             self._record_step(
                 run_id,
                 steps,
                 "generate_passed_bill_reports",
-                run_agentic_bill_reports(
-                    mode=mode,
-                    limit=limit,
-                    output_dir=output_dir,
-                    read_mode=read_mode,
-                    codex_model=codex_model,
-                    stop_on_error=stop_on_error,
-                ),
+                report,
             )
+            stats = report.get("stats", {})
+            if stats.get("target_count", 0) > 0 and stats.get("success_count", 0) == 0:
+                raise RuntimeError("모든 법안 리포트 생성에 실패했습니다.")
             return steps
 
         return self._run("bill.agent_report", params, execute)

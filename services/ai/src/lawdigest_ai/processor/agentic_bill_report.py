@@ -99,7 +99,7 @@ def _fetch_passed_bills(mode: str, limit: int, read_mode: str | None = None) -> 
     db_mode = _resolve_read_mode(mode, read_mode)
     result_filters = " OR ".join(["bill_result LIKE %s" for _ in PASSED_RESULT_TERMS])
     stage_filters = " OR ".join(["stage LIKE %s" for _ in PASSED_STAGE_TERMS])
-    excluded_filters = " AND ".join([f"COALESCE(bill_result, '') NOT LIKE %s" for _ in EXCLUDED_RESULT_TERMS])
+    excluded_filters = " AND ".join(["COALESCE(bill_result, '') NOT LIKE %s" for _ in EXCLUDED_RESULT_TERMS])
     query = f"""
     SELECT
         bill_id,
@@ -147,7 +147,9 @@ class CodexBillReportAgent:
     workdir: str = DEFAULT_AGENT_WORKDIR
 
     def _mcp_server_config_args(self) -> list[str]:
-        assembly_key = os.getenv("ASSEMBLY_API_KEY") or "sample"
+        assembly_key = os.getenv("ASSEMBLY_API_KEY")
+        if not assembly_key:
+            raise RuntimeError("ASSEMBLY_API_KEY 환경변수가 필요합니다.")
         law_oc = os.getenv("LAW_OC", "")
         kosis_key = os.getenv("KOSIS_API_KEY", "")
         config: dict[str, dict[str, Any]] = {

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
@@ -144,6 +143,28 @@ def test_bill_agent_report_delegates_to_agentic_report_runtime(tmp_path):
     assert result["command"] == "bill.agent_report"
     assert result["steps"][0]["step"] == "generate_passed_bill_reports"
     assert result["status"] == "success"
+
+
+def test_bill_agent_report_fails_when_all_agent_reports_fail(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.run_agentic_bill_reports",
+        return_value={
+            "stats": {
+                "target_count": 1,
+                "processed_count": 1,
+                "success_count": 0,
+                "failure_count": 1,
+            }
+        },
+    ):
+        try:
+            PipelineRuntime(log_dir=tmp_path).run_bill_agent_report(mode="dry_run", limit=1)
+        except RuntimeError as exc:
+            assert "모든 법안 리포트 생성에 실패" in str(exc)
+        else:
+            raise AssertionError("모든 리포트가 실패했는데 파이프라인이 성공하면 안 됩니다.")
 
 
 def test_cli_dispatches_bill_ingest(tmp_path):
