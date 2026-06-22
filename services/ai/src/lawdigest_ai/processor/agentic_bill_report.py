@@ -127,30 +127,69 @@ def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
         "bill_pdf_url": bill.get("bill_pdf_url"),
     }
     return (
-        "당신은 Lawdigest의 국회 법률개정안 리서치 에이전트입니다.\n"
-        "아래 입력은 이미 통과된 법안 후보입니다. 단, 실제 처리 결과와 통과 경로는 반드시 도구로 다시 확인하세요.\n\n"
-        "목표: MCP 도구를 능동적으로 사용해 해당 법안에 대한 종합적인 한국어 리포트를 작성하세요.\n"
-        "반드시 사용할 MCP 서버와 역할:\n"
-        "- open-assembly: 법안 상세, 심사경과, 발의자, 위원회, 표결, 본회의/위원회 흐름 확인\n"
-        "- assembly-api: 국회 원천 API 보완 조회, 입법 라이프사이클, NABO/국민참여입법센터 관련 자료 탐색\n"
-        "- korean-law: 현행법 및 개정 법령 맥락, 관련 조문, 법령 인용 검증, 시점 비교\n"
-        "- korean-stats: 통계청 공식 통계가 정책 배경 설명에 의미 있는 경우만 수치와 출처 확인\n\n"
-        "리포트에는 다음 섹션을 포함하세요:\n"
-        "1. 핵심 결론\n"
-        "2. 법안의 통과 경로\n"
-        "3. 개정 전후 법제 맥락\n"
-        "4. 정책 배경과 통계 근거\n"
-        "5. 이해관계자와 집행 영향\n"
-        "6. 쟁점, 한계, 후속 모니터링 포인트\n"
-        "7. Lawdigest 요약 개선 제안\n"
-        "8. 사용한 MCP 도구와 출처\n\n"
+        "당신은 Lawdigest의 법안 리포트 작성자입니다.\n"
+        "아래 입력은 이미 통과된 법안 후보입니다. MCP 도구를 능동적으로 사용해 사실관계를 확인하되, 출력은 내부 조사 로그가 아니라 "
+        "사용자에게 보여줄 최종 법안 리포트여야 합니다.\n\n"
+        "조사 원칙:\n"
+        "- open-assembly와 assembly-api로 법안명, 의안번호, 처리결과, 법안의 통과 경로, 위원회, 표결 정보를 확인하세요.\n"
+        "- korean-law로 현행법 및 개정 법령 맥락, 관련 조문, 법령 인용 검증, 시점 비교를 확인하세요.\n"
+        "- korean-stats는 정책 배경 설명에 직접 도움이 되는 공식 통계가 있을 때만 사용하세요.\n"
+        "- 도구 결과가 입력과 다르면 도구 결과를 우선하되, 불확실한 내용은 단정하지 마세요.\n\n"
+        "출력 형식:\n"
+        "# 법안명\n"
+        "## 쉬운 요약\n"
+        "- 법안이 무엇을 바꾸는지 3~5문장으로 설명하세요. 토스 앱처럼 짧고 쉽게 쓰되 내용을 덜어내지 마세요.\n"
+        "- 본회의 표결수, 현재 심사 단계, 공포일 같은 상태값은 프론트엔드 데이터가 따로 보여주므로 요약 본문에 쓰지 마세요.\n"
+        "## 주요 내용\n"
+        "- 여러 제도가 함께 바뀌는 법안이면 4~6개 항목을 쓰세요.\n"
+        "- 각 항목은 반드시 `항목 제목: 쉬운 설명` 형식으로 쓰세요.\n"
+        "- `핵심:` 또는 `설명:` 같은 메타 라벨을 그대로 출력하지 마세요.\n"
+        "## 왜 나왔나\n"
+        "- 제안 이유와 정책 배경을 사용자 관점에서 설명하세요.\n"
+        "## 무엇이 달라지나\n"
+        "- 현행법과 달라지는 점을 구체적으로 쓰세요. 어려운 법률용어는 첫 등장 때 짧게 풀어 설명하세요.\n"
+        "## 누구에게 영향이 있나\n"
+        "- 영향을 받는 사람과 기관을 나누어 설명하세요.\n"
+        "## 봐야 할 점\n"
+        "- 시행 전 확인할 쟁점, 집행상 한계, 후속 모니터링 포인트를 적으세요.\n"
+        "## 확인한 근거\n"
+        "- 국회, 법제처, 통계청 등 기관명과 확인한 문서·항목만 짧게 적으세요.\n"
+        "- MCP 서버명, 도구명, 함수명, 호출 결과명은 쓰지 마세요.\n\n"
         "작성 규칙:\n"
-        "- 도구 조회 없이 추정으로 단정하지 마세요.\n"
-        "- 통계청 공식 통계가 관련성이 낮으면 '관련 공식 통계 근거는 제한적'이라고 쓰고 억지로 숫자를 만들지 마세요.\n"
-        "- 법령명, 의안번호, 처리결과, 날짜, 위원회명은 도구 결과와 입력이 다르면 도구 결과를 우선하세요.\n"
+        "- 내부 조사 과정, MCP 도구 호출 목록, 실패 로그, 리서치 메모를 본문에 쓰지 마세요.\n"
+        "- 운영자용 개선 제안 섹션을 만들지 마세요.\n"
+        "- 통계청 공식 통계가 관련성이 낮으면 숫자를 억지로 만들지 말고, 필요한 경우 한 문장으로만 한계를 밝히세요.\n"
+        "- 동어반복, 과장, 번역투를 피하고 짧은 문장을 우선하세요.\n"
         "- 최종 출력은 Markdown만 작성하세요.\n\n"
         f"입력 법안 payload:\n{json.dumps(payload, ensure_ascii=False, indent=2, default=str)}"
     )
+
+
+def _validate_report_body(report_body: str) -> None:
+    body = report_body.strip()
+    if not body:
+        raise RuntimeError("Codex agent report body is empty.")
+
+    required_headings = ("## 쉬운 요약", "## 주요 내용")
+    missing_headings = [heading for heading in required_headings if heading not in body]
+    if missing_headings:
+        raise RuntimeError("생성 리포트에 필수 섹션이 없습니다: " + ", ".join(missing_headings))
+
+    forbidden_patterns = (
+        "Lawdigest 요약 개선 제안",
+        "사용한 MCP 도구",
+        "MCP 도구",
+        "mcp__",
+        "`get_",
+        "`search_",
+        "`legal_",
+        "`query_",
+        "내부 조사",
+        "리서치 메모",
+    )
+    leaked_patterns = [pattern for pattern in forbidden_patterns if pattern in body]
+    if leaked_patterns:
+        raise RuntimeError("생성 리포트에 내부 조사 표현이 남아 있습니다: " + ", ".join(leaked_patterns))
 
 
 def _fetch_passed_bills(mode: str, limit: int, read_mode: str | None = None) -> List[Dict[str, Any]]:
@@ -300,8 +339,9 @@ class CodexBillReportAgent:
             raise RuntimeError(error)
         if not report_path.exists() and stdout_text:
             report_path.write_text(stdout_text, encoding="utf-8")
-        if not report_path.exists() or not report_path.read_text(encoding="utf-8").strip():
+        if not report_path.exists():
             raise RuntimeError("Codex agent report body is empty.")
+        _validate_report_body(report_path.read_text(encoding="utf-8"))
 
         return {
             "bill_id": bill.get("bill_id"),

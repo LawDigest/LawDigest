@@ -31,6 +31,54 @@ def test_agentic_report_prompt_requires_active_mcp_research():
     assert "통계청 공식 통계" in prompt
 
 
+def test_agentic_report_prompt_targets_user_facing_report():
+    from lawdigest_ai.processor.agentic_bill_report import build_bill_report_prompt
+
+    prompt = build_bill_report_prompt(
+        {
+            "bill_id": "PRC_TEST",
+            "bill_number": "2206772",
+            "bill_name": "테스트법 일부개정법률안",
+            "summary": "테스트 요약",
+            "bill_result": "원안가결",
+            "stage": "공포",
+        }
+    )
+
+    assert "사용자에게 보여줄 최종 법안 리포트" in prompt
+    assert "쉬운 요약" in prompt
+    assert "항목 제목: 쉬운 설명" in prompt
+    assert "Lawdigest 요약 개선 제안" not in prompt
+    assert "사용한 MCP 도구와 출처" not in prompt
+    assert "내부 조사 로그" in prompt
+    assert "MCP 서버명, 도구명, 함수명" in prompt
+    assert "현재 심사 단계" in prompt
+
+
+def test_agentic_report_validation_rejects_internal_tool_leaks():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+사용자에게 보여줄 요약입니다.
+
+## 주요 내용
+- 권한 정비: 필요한 설명입니다.
+
+## 확인한 근거
+- open-assembly `get_bill_detail`
+"""
+
+    try:
+        _validate_report_body(report_body)
+    except RuntimeError as exc:
+        assert "내부 조사 표현" in str(exc)
+    else:
+        raise AssertionError("내부 도구명이 섞인 리포트는 성공하면 안 됩니다.")
+
+
 def test_codex_agent_command_includes_four_mcp_servers(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
 
@@ -123,7 +171,7 @@ def test_run_agentic_bill_reports_writes_markdown_artifacts(tmp_path, monkeypatc
         mock_run.return_value = subprocess.CompletedProcess(
             args=["codex"],
             returncode=0,
-            stdout="# 리포트\n본문",
+            stdout="# 테스트법 일부개정법률안\n\n## 쉬운 요약\n본문\n\n## 주요 내용\n- 권한 정비: 설명\n",
             stderr="",
         )
         result = run_agentic_bill_reports(
@@ -137,4 +185,4 @@ def test_run_agentic_bill_reports_writes_markdown_artifacts(tmp_path, monkeypatc
     assert result["items"][0]["status"] == "success"
     report_path = Path(result["items"][0]["report_path"])
     assert report_path.exists()
-    assert "리포트" in report_path.read_text(encoding="utf-8")
+    assert "쉬운 요약" in report_path.read_text(encoding="utf-8")
