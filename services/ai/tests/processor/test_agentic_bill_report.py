@@ -667,6 +667,12 @@ def test_codex_agent_command_includes_four_mcp_servers(tmp_path, monkeypatch):
     assert "open-assembly-mcp@latest" in joined
 
 
+def test_codex_agent_uses_gpt_54_mini_by_default():
+    from lawdigest_ai.processor.agentic_bill_report import DEFAULT_CODEX_MODEL
+
+    assert DEFAULT_CODEX_MODEL == "gpt-5.4-mini"
+
+
 def test_codex_agent_requires_assembly_api_key(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
 
