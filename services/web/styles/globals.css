@@ -93,14 +93,29 @@ html {
   display: inline;
   padding: 0.05em 0.28em 0.08em;
   color: inherit;
-  background: linear-gradient(100deg, rgba(255, 177, 93, 0.36), rgba(255, 146, 67, 0.28));
+  background-image: linear-gradient(
+    102deg,
+    transparent 0,
+    transparent 0.16em,
+    rgba(255, 177, 93, 0.36) 0.16em,
+    rgba(255, 146, 67, 0.28) calc(100% - 0.16em),
+    transparent calc(100% - 0.16em),
+    transparent 100%
+  );
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
-  clip-path: polygon(0.22em 0, 100% 0, calc(100% - 0.22em) 100%, 0 100%);
 }
 
 .dark .lawdigest-summary-mark {
-  background: linear-gradient(100deg, rgba(255, 177, 93, 0.3), rgba(255, 146, 67, 0.22));
+  background-image: linear-gradient(
+    102deg,
+    transparent 0,
+    transparent 0.16em,
+    rgba(255, 177, 93, 0.3) 0.16em,
+    rgba(255, 146, 67, 0.22) calc(100% - 0.16em),
+    transparent calc(100% - 0.16em),
+    transparent 100%
+  );
 }
 
 /* ── 피드 콘텐츠 타입 탭 ── */
