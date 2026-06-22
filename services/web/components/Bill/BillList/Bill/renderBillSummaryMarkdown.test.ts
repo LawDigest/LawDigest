@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getFeedSummaryMarkdown, renderBillSummaryMarkdown } from './renderBillSummaryMarkdown';
+import {
+  getFeedSummaryMarkdown,
+  getSummaryVisibilityClassNames,
+  renderBillSummaryMarkdown,
+} from './renderBillSummaryMarkdown';
 
 describe('renderBillSummaryMarkdown', () => {
   it('마크다운 단락명을 제목 태그로 렌더링한다', () => {
@@ -54,5 +58,25 @@ describe('getFeedSummaryMarkdown', () => {
     const markdown = '기존 한 줄 요약';
 
     expect(getFeedSummaryMarkdown(markdown)).toBe(markdown);
+  });
+});
+
+describe('getSummaryVisibilityClassNames', () => {
+  it('피드 접힘 상태에서는 본문을 줄이고 더 보기 버튼을 보인다', () => {
+    expect(getSummaryVisibilityClassNames({ detail: false, expanded: false })).toEqual({
+      moreButtonClassName: 'text-gray-2 dark:text-gray-3',
+      summaryClassName: 'line-clamp-[8]',
+    });
+  });
+
+  it('피드 펼침 상태와 상세 화면에서는 더 보기 버튼을 숨긴다', () => {
+    expect(getSummaryVisibilityClassNames({ detail: false, expanded: true })).toEqual({
+      moreButtonClassName: 'hidden',
+      summaryClassName: '',
+    });
+    expect(getSummaryVisibilityClassNames({ detail: true, expanded: false })).toEqual({
+      moreButtonClassName: 'hidden',
+      summaryClassName: '',
+    });
   });
 });

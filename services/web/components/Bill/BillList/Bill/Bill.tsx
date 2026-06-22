@@ -1,5 +1,6 @@
 'use client';
 
+import type { KeyboardEvent } from 'react';
 import { useState, useCallback, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import {
@@ -30,7 +31,11 @@ import { useSetRecoilState } from 'recoil';
 import { snackbarState } from '@/store';
 import { ProposerList } from '@/app/bill/[id]/components';
 import GPTSummary from '../../GPTSummary';
-import { getFeedSummaryMarkdown, renderBillSummaryMarkdown } from './renderBillSummaryMarkdown';
+import {
+  getFeedSummaryMarkdown,
+  getSummaryVisibilityClassNames,
+  renderBillSummaryMarkdown,
+} from './renderBillSummaryMarkdown';
 
 export default function Bill({
   bill_info_dto: {
@@ -55,12 +60,31 @@ export default function Bill({
   const [likeCount, setLikeCount] = useState(bill_like_count);
   const [isLoaded, setIsLoaded] = useState(false);
   const mutateBookmark = usePatchBookmark(bill_id);
+  const [toggleMore, setToggleMore] = useState(false);
   const isRepresentativeSolo = representative_proposer_dto_list.length === 1;
   const partyName = isRepresentativeSolo ? representative_proposer_dto_list[0].party_name : '다수';
   const setSnackbar = useSetRecoilState(snackbarState);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const displayedSummary = gpt_summary && !detail ? getFeedSummaryMarkdown(gpt_summary) : gpt_summary || summary;
+  const { moreButtonClassName, summaryClassName } = getSummaryVisibilityClassNames({
+    detail: Boolean(detail),
+    expanded: toggleMore,
+  });
+
+  const onClickToggleMore = useCallback(() => {
+    setToggleMore(!toggleMore);
+  }, [toggleMore]);
+
+  const onKeyDownToggleMore = useCallback(
+    (event: KeyboardEvent<HTMLDivElement | HTMLSpanElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onClickToggleMore();
+      }
+    },
+    [onClickToggleMore],
+  );
 
   const onClickScrab = useCallback(() => {
     const accessToken = getCookie(ACCESS_TOKEN);
@@ -136,7 +160,23 @@ export default function Bill({
           <div className={!detail ? 'hidden md:block md:w-[270px]' : ''} />
           <div className={!detail ? 'md:w-[440px] lg:w-[490px]' : ''}>
             <CardBody className={`p-0 leading-normal whitespace-pre-wrap ${detail ? '' : 'text-sm md:text-base'}`}>
-              <div id={bill_id}>{displayedSummary}</div>
+              <div
+                className={summaryClassName}
+                onClick={onClickToggleMore}
+                onKeyDown={onKeyDownToggleMore}
+                role="button"
+                tabIndex={0}
+                id={bill_id}>
+                {displayedSummary}
+              </div>
+              <span
+                className={moreButtonClassName}
+                onClick={onClickToggleMore}
+                onKeyDown={onKeyDownToggleMore}
+                role="button"
+                tabIndex={0}>
+                더 보기
+              </span>
             </CardBody>
 
             {!detail && (

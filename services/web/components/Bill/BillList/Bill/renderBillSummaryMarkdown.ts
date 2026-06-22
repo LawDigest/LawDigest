@@ -48,6 +48,11 @@ export const getFeedSummaryMarkdown = (markdown: string) => {
   return result.foundFeedSection ? result.feedLines.join('\n').trim() : markdown;
 };
 
+export const getSummaryVisibilityClassNames = ({ detail, expanded }: { detail: boolean; expanded: boolean }) => ({
+  moreButtonClassName: detail || expanded ? 'hidden' : 'text-gray-2 dark:text-gray-3',
+  summaryClassName: detail || expanded ? '' : 'line-clamp-[8]',
+});
+
 export const renderBillSummaryMarkdown = (markdown: string) =>
   markdown
     .split('\n')
