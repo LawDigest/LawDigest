@@ -56,22 +56,46 @@ export const getSummaryVisibilityClassNames = ({ detail, expanded }: { detail: b
   summaryClassName: detail || expanded ? '' : 'line-clamp-[8]',
 });
 
-export const renderBillSummaryMarkdown = (markdown: string) =>
-  markdown
-    .split('\n')
-    .map((line) => {
+const closeList = (html: string[], inList: boolean) => (inList ? [...html, '</ul>'] : html);
+
+export const renderBillSummaryMarkdown = (markdown: string) => {
+  const result = markdown.split('\n').reduce(
+    (state, line) => {
+      if (line.startsWith('- ')) {
+        return {
+          html: [
+            ...state.html,
+            ...(state.inList ? [] : ['<ul class="lawdigest-summary-list">']),
+            `<li>${renderInlineMarkdown(line.slice(2))}</li>`,
+          ],
+          inList: true,
+        };
+      }
+
+      const html = closeList(state.html, state.inList);
+
       if (line.startsWith('### ')) {
-        return `<h3 class="mt-4 mb-2 text-base font-semibold">${renderInlineMarkdown(line.slice(4))}</h3>`;
+        return {
+          html: [...html, `<h3 class="mt-4 mb-2 text-base font-semibold">${renderInlineMarkdown(line.slice(4))}</h3>`],
+          inList: false,
+        };
       }
 
       if (line.startsWith('## ')) {
-        return `<h2 class="mt-5 mb-2 text-lg font-semibold">${renderInlineMarkdown(line.slice(3))}</h2>`;
+        return {
+          html: [...html, `<h2 class="mt-5 mb-2 text-lg font-semibold">${renderInlineMarkdown(line.slice(3))}</h2>`],
+          inList: false,
+        };
       }
 
       if (line.trim() === '') {
-        return '';
+        return { html, inList: false };
       }
 
-      return `<p>${renderInlineMarkdown(line)}</p>`;
-    })
-    .join('');
+      return { html: [...html, `<p>${renderInlineMarkdown(line)}</p>`], inList: false };
+    },
+    { html: [] as string[], inList: false },
+  );
+
+  return closeList(result.html, result.inList).join('');
+};

@@ -118,6 +118,30 @@ html {
   );
 }
 
+.lawdigest-summary-list {
+  display: grid;
+  gap: 0.52em;
+  margin: 0.45em 0 1.05em;
+  padding-left: 1.08em;
+  list-style: none;
+}
+
+.lawdigest-summary-list li {
+  position: relative;
+  padding-left: 0.72em;
+}
+
+.lawdigest-summary-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.72em;
+  width: 0.3em;
+  height: 0.3em;
+  border-radius: 999px;
+  background: rgba(255, 146, 67, 0.72);
+}
+
 /* ── 피드 콘텐츠 타입 탭 ── */
 
 /* 슬라이딩 인디케이터 */

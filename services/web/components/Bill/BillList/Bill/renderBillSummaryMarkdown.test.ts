@@ -11,6 +11,8 @@ describe('renderBillSummaryMarkdown', () => {
 
     expect(html).toContain('<h2');
     expect(html).toContain('쉬운 요약');
+    expect(html).toContain('<ul class="lawdigest-summary-list">');
+    expect(html).toContain('<li><strong>핵심</strong> 설명</li>');
     expect(html).toContain('<h3');
     expect(html).toContain('1) 변화');
     expect(html).toContain('<strong>핵심</strong>');
