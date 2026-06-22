@@ -61,6 +61,9 @@ def test_agentic_report_prompt_targets_user_facing_report():
     assert "내부 조사 로그" in prompt
     assert "MCP 서버명, 도구명, 함수명" in prompt
     assert "현재 심사 단계" in prompt
+    assert "아직 법으로 확정된 건 아니고" not in prompt
+    assert "법안의 처리 상태를 요약 첫 문장으로 앞세우지 마세요" in prompt
+    assert "하기 위한 법률 개정안이에요" in prompt
     assert "청문 규정" in prompt
     assert "괄호로 끼워 넣지 마세요" in prompt
     assert "어려운 법률·행정 용어가 있을 때만" in prompt
