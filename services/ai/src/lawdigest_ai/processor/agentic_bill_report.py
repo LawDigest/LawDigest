@@ -195,6 +195,12 @@ def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
         "- 운영자용 개선 제안 섹션을 만들지 마세요.\n"
         "- 통계청 공식 통계가 관련성이 낮으면 숫자를 억지로 만들지 말고, 필요한 경우 한 문장으로만 한계를 밝히세요.\n"
         "- 동어반복, 과장, 번역투를 피하고 짧은 문장을 우선하세요.\n"
+        "- 문체는 토스 앱처럼 자연스러운 `-요` 체로 쓰세요.\n"
+        "- `합니다`, `됩니다`, `입니다`, `바뀝니다` 같은 `-니다` 체 종결을 쓰지 마세요.\n"
+        "- `줄어드어요`처럼 어색한 변환을 쓰지 말고 `줄어들어요`처럼 자연스럽게 쓰세요.\n"
+        "- 독자가 바로 봐야 할 **중요 단어**에는 Markdown 볼드체를 적용하세요.\n"
+        "- 결론이나 행동 변화처럼 중요한 한 문장에는 `<mark>중요 문장</mark>` 형식으로 하이라이트를 적용하세요.\n"
+        "- 볼드체와 하이라이트는 과하게 쓰지 말고, 리포트 전체에서 꼭 필요한 곳에만 쓰세요.\n"
         "- 최종 출력은 Markdown만 작성하세요.\n\n"
         f"{legal_term_context}\n\n"
         f"입력 법안 payload:\n{json.dumps(payload, ensure_ascii=False, indent=2, default=str)}"
@@ -294,6 +300,21 @@ def _validate_report_body(report_body: str) -> None:
     ]
     if sentence_style_headings:
         raise RuntimeError("생성 리포트의 변화 제목은 짧은 명사형 제목이어야 합니다: " + ", ".join(sentence_style_headings))
+
+    if not re.search(r"\*\*[^*\n][^*\n]*\*\*", body):
+        raise RuntimeError("생성 리포트에 중요 단어 볼드체가 없습니다.")
+
+    if not re.search(r"<mark>[^<>\n]+</mark>", body):
+        raise RuntimeError("생성 리포트에 중요 문장 하이라이트가 없습니다.")
+
+    remaining_formal_endings = sorted(set(re.findall(r"[가-힣]+니다\.", body)))
+    if remaining_formal_endings:
+        raise RuntimeError("생성 리포트에 토스식 -요 체가 아닌 격식체 종결이 남아 있습니다: " + ", ".join(remaining_formal_endings))
+
+    awkward_yo_tone = ("줄어드어요",)
+    awkward_matches = [phrase for phrase in awkward_yo_tone if phrase in body]
+    if awkward_matches:
+        raise RuntimeError("생성 리포트에 어색한 -요 체가 남아 있습니다: " + ", ".join(awkward_matches))
 
 
 def _fetch_passed_bills(mode: str, limit: int, read_mode: str | None = None) -> List[Dict[str, Any]]:

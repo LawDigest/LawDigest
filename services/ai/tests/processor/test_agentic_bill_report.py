@@ -78,6 +78,10 @@ def test_agentic_report_prompt_targets_user_facing_report():
     assert "짧은 명사형 항목명" in prompt
     assert "허위개발정보 유포를 금지하는 조문 신설" in prompt
     assert "인터넷 표시·광고의 필수정보와 부당한 표시를 제한" in prompt
+    assert "**중요 단어**" in prompt
+    assert "<mark>중요 문장</mark>" in prompt
+    assert "토스 앱처럼 자연스러운 `-요` 체" in prompt
+    assert "`합니다`, `됩니다`, `입니다`" in prompt
     assert "법률·행정용어 풀이 사전" in prompt
     assert "법제처 법령용어 API" in prompt
     assert "target=lstrmAI" in prompt
@@ -91,10 +95,10 @@ def test_agentic_report_validation_rejects_internal_tool_leaks():
 # 테스트법 일부개정법률안
 
 ## 쉬운 요약
-사용자에게 보여줄 요약입니다.
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 거래 전 정보 확인이 쉬워지는 점이에요.</mark>
 
 ## 주요 내용
-- 권한 정비: 필요한 설명입니다.
+- **권한 정비**: 필요한 설명이에요.
 
 ## 확인한 근거
 - open-assembly `get_bill_detail`
@@ -115,10 +119,10 @@ def test_agentic_report_validation_rejects_generic_term_label():
 # 테스트법 일부개정법률안
 
 ## 쉬운 요약
-사용자에게 보여줄 요약입니다.
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 거래 전 정보 확인이 쉬워지는 점이에요.</mark>
 
 ## 주요 내용
-- 권한 정비: 필요한 설명입니다.
+- **권한 정비**: 필요한 설명이에요.
 
 ## 무엇이 달라지나
 - 기존 법의 제23조는 청문 요건만 두고 있었습니다.
@@ -141,10 +145,10 @@ def test_agentic_report_validation_rejects_original_summary_label():
 # 테스트법 일부개정법률안
 
 ## 쉬운 요약
-사용자에게 보여줄 요약입니다.
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 거래 전 정보 확인이 쉬워지는 점이에요.</mark>
 
 ## 주요 내용
-- 권한 정비: 필요한 설명입니다.
+- **권한 정비**: 필요한 설명이에요.
 
 ## 무엇이 달라지나
 - 원문 요약: 기존 조문에 새 규정이 추가됩니다.
@@ -269,16 +273,16 @@ def test_agentic_report_validation_ignores_source_section_legal_terms():
 # 테스트법 일부개정법률안
 
 ## 쉬운 요약
-사용자에게 보여줄 요약입니다.
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 거래 전 정보 확인이 쉬워지는 점이에요.</mark>
 
 ## 주요 내용
-- 권한 정비: 필요한 설명입니다.
+- **권한 정비**: 필요한 설명이에요.
 
 ## 무엇이 달라지나
 
 ### 1) 허위정보 유포 금지 조문 신설
 
-제23조의2를 새로 둬 허위정보 유포를 금지합니다.
+제23조의2를 새로 둬 **허위정보 유포**를 금지해요.
 
 - 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.
 
@@ -321,28 +325,144 @@ def test_agentic_report_validation_accepts_numbered_change_heading_format():
 # 테스트법 일부개정법률안
 
 ## 쉬운 요약
-사용자에게 보여줄 요약입니다.
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 거래 전 정보 확인이 쉬워지는 점이에요.</mark>
 
 ## 주요 내용
-- 권한 정비: 필요한 설명입니다.
+- **권한 정비**: 필요한 설명이에요.
 
 ## 무엇이 달라지나
 
 ### 1) 허위개발정보 유포를 금지하는 조문 신설
 
-허위 개발정보 등으로 부동산 거래를 유인하는 행위를 직접 금지하는 조문이 추가됩니다.
+허위 개발정보 등으로 부동산 거래를 유인하는 행위를 직접 금지하는 조문이 추가돼요.
 
-- 확인되지 않은 자극적 정보가 그대로 퍼져 피해를 주는 구조가 줄어듭니다.
+- 확인되지 않은 자극적 정보가 그대로 퍼져 피해를 주는 구조가 줄어들어요.
 
 ### 2) 신고내용조사 위탁 범위 확대
 
-제25조의3에 제3항을 추가해 신고내용조사 관련 권한 위임·위탁 근거를 넓힙니다.
+제25조의3에 제3항을 추가해 신고내용조사 관련 권한 위임·위탁 근거를 넓혀요.
 
 - 위임·위탁: 행정기관이 가진 권한이나 업무 일부를 다른 기관이 맡아 처리하게 하는 방식이에요.
 - 지방정부가 신고자료 검증을 더 빠르게 처리할 수 있어요.
 """
 
     _validate_report_body(report_body)
+
+
+def test_agentic_report_validation_rejects_missing_visual_emphasis():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+사용자에게 보여줄 요약이에요.
+
+## 주요 내용
+- 권한 정비: 필요한 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 허위정보 유포 금지 조문 신설
+
+제23조의2를 새로 둬 허위정보 유포를 금지해요.
+
+- 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.
+"""
+
+    try:
+        _validate_report_body(report_body)
+    except RuntimeError as exc:
+        assert "볼드체" in str(exc)
+    else:
+        raise AssertionError("중요 단어 볼드체가 없는 리포트는 성공하면 안 됩니다.")
+
+
+def test_agentic_report_validation_rejects_missing_highlight():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+**사용자**에게 보여줄 요약이에요.
+
+## 주요 내용
+- **권한 정비**: 필요한 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 허위정보 유포 금지 조문 신설
+
+제23조의2를 새로 둬 **허위정보 유포**를 금지해요.
+
+- 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.
+"""
+
+    try:
+        _validate_report_body(report_body)
+    except RuntimeError as exc:
+        assert "하이라이트" in str(exc)
+    else:
+        raise AssertionError("중요 문장 하이라이트가 없는 리포트는 성공하면 안 됩니다.")
+
+
+def test_agentic_report_validation_rejects_formal_tone():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 거래 전 정보 확인이 쉬워지는 점이에요.</mark>
+
+## 주요 내용
+- **권한 정비**: 필요한 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 허위정보 유포 금지 조문 신설
+
+제23조의2를 새로 둬 **허위정보 유포**를 금지합니다.
+
+- 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.
+"""
+
+    try:
+        _validate_report_body(report_body)
+    except RuntimeError as exc:
+        assert "-요 체" in str(exc)
+    else:
+        raise AssertionError("격식체 종결이 남은 리포트는 성공하면 안 됩니다.")
+
+
+def test_agentic_report_validation_rejects_awkward_yo_tone():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 거래 전 정보 확인이 쉬워지는 점이에요.</mark>
+
+## 주요 내용
+- **권한 정비**: 필요한 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 허위정보 유포 금지 조문 신설
+
+제23조의2를 새로 둬 **허위정보 유포**를 금지해요.
+
+- 피해 가능성이 줄어드어요.
+"""
+
+    try:
+        _validate_report_body(report_body)
+    except RuntimeError as exc:
+        assert "어색한 -요 체" in str(exc)
+    else:
+        raise AssertionError("어색한 -요 체가 남은 리포트는 성공하면 안 됩니다.")
 
 
 def test_agentic_report_validation_rejects_sentence_style_change_headings():
@@ -542,11 +662,11 @@ def test_run_agentic_bill_reports_writes_markdown_artifacts(tmp_path, monkeypatc
             returncode=0,
             stdout=(
                 "# 테스트법 일부개정법률안\n\n"
-                "## 쉬운 요약\n본문\n\n"
-                "## 주요 내용\n- 권한 정비: 설명\n\n"
+                "## 쉬운 요약\n**본문**이에요. <mark>핵심 변화는 거래 전 정보 확인이에요.</mark>\n\n"
+                "## 주요 내용\n- **권한 정비**: 설명이에요.\n\n"
                 "## 무엇이 달라지나\n\n"
                 "### 1) 허위정보 유포 금지 조문 신설\n\n"
-                "제23조의2를 새로 둬 허위정보 유포를 금지합니다.\n\n"
+                "제23조의2를 새로 둬 **허위정보 유포**를 금지해요.\n\n"
                 "- 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.\n"
             ),
             stderr="",
