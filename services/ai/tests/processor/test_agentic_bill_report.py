@@ -65,7 +65,9 @@ def test_agentic_report_prompt_targets_user_facing_report():
     assert "과태료`가 나오면" in prompt
     assert "자연스러운 해요체" in prompt
     assert "처분을 받기 전에 당사자가 설명하고 반론할 수 있는 절차에요" in prompt
-    assert "쉽게 말하면," in prompt
+    assert "쉬운 풀이 불릿" in prompt
+    assert "반복하지 마세요" in prompt
+    assert "고정 접두어 없이" in prompt
 
 
 def test_agentic_report_validation_rejects_internal_tool_leaks():
@@ -158,7 +160,7 @@ def test_agentic_report_validation_requires_term_explanation_bullets():
 
 ## 무엇이 달라지나
 - 기존 법의 제23조는 청문 규정이었으나 새 조항이 추가됩니다.
-- 쉽게 말해, 사후 처분 중심에서 예방 단계 관리로 바뀝니다.
+  - 사용자 입장에서는, 사후 처분 중심에서 예방 단계 관리로 바뀝니다.
 """
 
     try:
@@ -184,7 +186,7 @@ def test_agentic_report_validation_requires_hearing_term_explanation():
 ## 무엇이 달라지나
 - 기존 제23조는 청문 절차를 두는 조항이었지만, 새 규정이 추가됩니다.
   - 허위정보: 사실과 다르게 거래 조건을 제시한 내용입니다.
-  - 쉽게 말하면, 거래 전 정보 유통 단계도 관리한다는 뜻입니다.
+  - 사용자 입장에서는, 거래 전 정보 유통 단계도 관리한다는 뜻입니다.
 """
 
     try:
@@ -210,7 +212,7 @@ def test_agentic_report_validation_requires_markdown_bullets_for_explanations():
 ## 무엇이 달라지나
 기존 제28조는 과태료 부과 근거를 둡니다.
 과태료: 행정질서 위반에 대한 금전 제재입니다.
-쉽게 말하면, 규칙을 어기면 비용 부담이 생깁니다.
+사용자 입장에서는, 규칙을 어기면 비용 부담이 생깁니다.
 """
 
     try:
@@ -219,6 +221,59 @@ def test_agentic_report_validation_requires_markdown_bullets_for_explanations():
         assert "Markdown 불릿" in str(exc)
     else:
         raise AssertionError("설명 문장이 불릿이 아닌 리포트는 성공하면 안 됩니다.")
+
+
+def test_agentic_report_validation_ignores_source_section_legal_terms():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+사용자에게 보여줄 요약입니다.
+
+## 주요 내용
+- 권한 정비: 필요한 설명입니다.
+
+## 무엇이 달라지나
+- 제23조의2를 새로 둬 허위정보 유포를 금지합니다.
+  - 허위정보: 거래를 유리하게 만들기 위해 사실과 다르게 퍼뜨린 내용입니다.
+  - 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.
+
+## 확인한 근거
+- 법제처: 제23조(청문), 제25조의3(권한 등의 위임 및 위탁), 제28조(과태료)
+"""
+
+    _validate_report_body(report_body)
+
+
+def test_agentic_report_validation_rejects_repeated_easy_explanation_starter():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+사용자에게 보여줄 요약입니다.
+
+## 주요 내용
+- 권한 정비: 필요한 설명입니다.
+
+## 무엇이 달라지나
+- 기존 제28조는 과태료 부과 근거를 둡니다.
+  - 과태료: 행정질서 위반에 대한 금전 제재입니다.
+  - 쉽게 말하면, 규칙을 어기면 비용 부담이 생깁니다.
+- 기존 제25조의3은 위임·위탁 범위를 조정합니다.
+  - 위임·위탁: 행정 권한이나 업무 일부를 다른 기관에 맡기는 방식입니다.
+  - 쉽게 말하면, 처리할 수 있는 기관이 늘어납니다.
+"""
+
+    try:
+        _validate_report_body(report_body)
+    except RuntimeError as exc:
+        assert "반복" in str(exc)
+    else:
+        raise AssertionError("같은 쉬운 풀이 접두어가 반복된 리포트는 성공하면 안 됩니다.")
 
 
 def test_codex_agent_command_includes_four_mcp_servers(tmp_path, monkeypatch):
