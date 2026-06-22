@@ -53,6 +53,8 @@ def test_agentic_report_prompt_targets_user_facing_report():
     assert "내부 조사 로그" in prompt
     assert "MCP 서버명, 도구명, 함수명" in prompt
     assert "현재 심사 단계" in prompt
+    assert "청문 규정" in prompt
+    assert "쉽게 말하면" in prompt
 
 
 def test_agentic_report_validation_rejects_internal_tool_leaks():
