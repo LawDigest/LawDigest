@@ -487,7 +487,7 @@ def _fetch_bill_report_targets(
     FROM Bill
     WHERE
         {where_clause}
-    ORDER BY propose_date DESC
+    ORDER BY propose_date DESC, bill_id DESC
     LIMIT %s
     """
     params.append(limit)

@@ -1099,3 +1099,4 @@ def test_fetch_bill_report_targets_uses_null_summary_tags_when_column_absent():
 
     executed_query = cur.execute.call_args.args[0]
     assert "NULL AS summary_tags" in executed_query
+    assert "ORDER BY propose_date DESC, bill_id DESC" in executed_query
