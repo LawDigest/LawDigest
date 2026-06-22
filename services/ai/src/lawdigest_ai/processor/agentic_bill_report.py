@@ -18,6 +18,69 @@ DEFAULT_AGENT_WORKDIR = os.getenv("BILL_AGENT_CODEX_WORKDIR", "/tmp")
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
 PASSED_STAGE_TERMS = ("공포", "본회의 의결")
 EXCLUDED_RESULT_TERMS = ("폐기", "철회", "부결", "임기만료")
+MCP_APPROVED_TOOLS = {
+    "korean-stats": (
+        "search_statistics",
+        "get_statistics_list",
+        "get_statistics_data",
+        "compare_statistics",
+        "analyze_time_series",
+        "get_table_info",
+        "quick_stats",
+        "quick_trend",
+        "quick_rank",
+        "explain_statistic",
+        "fetch_kosis_excel",
+        "chain_region_brief",
+        "chain_compare_regions",
+        "chain_policy_indicator",
+    ),
+    "korean-law": (
+        "search_law",
+        "get_law_text",
+        "get_annexes",
+        "legal_research",
+        "legal_analysis",
+        "discover_tools",
+        "execute_tool",
+        "search_decisions",
+        "get_decision_text",
+    ),
+    "open-assembly": (
+        "search_bills",
+        "get_bill_detail",
+        "get_member_info",
+        "get_vote_results",
+        "get_bill_review",
+        "get_bill_proposers",
+        "get_member_votes",
+        "get_committee_members",
+        "get_pending_bills",
+        "get_plenary_agenda",
+        "get_bill_committee_review",
+        "get_bill_summary",
+        "analyze_legislator",
+        "get_party_cohesion",
+        "search_nars_reports",
+        "search_petitions",
+        "get_schedule",
+        "search_hearings",
+        "discover_apis",
+        "query_assembly",
+    ),
+    "assembly-api": (
+        "assembly_member",
+        "assembly_bill",
+        "assembly_session",
+        "assembly_org",
+        "discover_apis",
+        "query_assembly",
+        "bill_detail",
+        "committee_detail",
+        "petition_detail",
+        "research_data",
+    ),
+}
 
 
 def _toml_string(value: str) -> str:
@@ -186,12 +249,21 @@ class CodexBillReportAgent:
             args.extend(["-c", f"{prefix}.args={_toml_array(server['args'])}"])
             if server.get("env"):
                 args.extend(["-c", f"{prefix}.env={_toml_inline_table(server['env'])}"])
+            for tool_name in MCP_APPROVED_TOOLS.get(server_name, ()):
+                args.extend(["-c", f"{prefix}.tools.{tool_name}.approval_mode={_toml_string('approve')}"])
         return args
 
     def build_command(self, *, prompt: str, output_path: str) -> tuple[list[str], str]:
         command = [
             self.cli_bin,
             "exec",
+            "--ignore-user-config",
+            "--disable",
+            "plugins",
+            "--disable",
+            "apps",
+            "--disable",
+            "memories",
             "--sandbox",
             "read-only",
             "--cd",

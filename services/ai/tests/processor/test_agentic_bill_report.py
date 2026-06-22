@@ -46,6 +46,11 @@ def test_codex_agent_command_includes_four_mcp_servers(tmp_path, monkeypatch):
 
     joined = " ".join(command)
     assert command[:2] == ["codex", "exec"]
+    assert "--ignore-user-config" in command
+    assert command.count("--disable") == 3
+    assert "plugins" in command
+    assert "apps" in command
+    assert "memories" in command
     assert "--sandbox" in command
     assert "read-only" in command
     assert "--output-last-message" in command
@@ -54,6 +59,10 @@ def test_codex_agent_command_includes_four_mcp_servers(tmp_path, monkeypatch):
     assert "mcp_servers.korean-law.command" in joined
     assert "mcp_servers.assembly-api.command" in joined
     assert "mcp_servers.open-assembly.command" in joined
+    assert "mcp_servers.korean-law.tools.search_law.approval_mode" in joined
+    assert "mcp_servers.korean-stats.tools.search_statistics.approval_mode" in joined
+    assert "mcp_servers.open-assembly.tools.search_bills.approval_mode" in joined
+    assert "mcp_servers.assembly-api.tools.discover_apis.approval_mode" in joined
     assert "korean-law-mcp@latest" in joined
     assert "assembly-api-mcp@latest" in joined
     assert "open-assembly-mcp@latest" in joined
