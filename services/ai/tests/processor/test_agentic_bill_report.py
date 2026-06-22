@@ -47,6 +47,9 @@ def test_agentic_report_prompt_targets_user_facing_report():
 
     assert "사용자에게 보여줄 최종 법안 리포트" in prompt
     assert "쉬운 요약" in prompt
+    assert "쉬운 말로 충분히 설명하는 것" in prompt
+    assert "5개 불릿" in prompt
+    assert "복합 개정안은 최종 리포트가 8,000자 안팎" in prompt
     assert "**항목 제목**: 쉬운 설명" in prompt
     assert "**부당한 표시·광고 제한**: 허위·과장 등 소비자를 오도할 수 있는 표현을 규제해요." in prompt
     assert "Lawdigest 요약 개선 제안" not in prompt
@@ -75,6 +78,8 @@ def test_agentic_report_prompt_targets_user_facing_report():
     assert "고정 접두어 없이" in prompt
     assert "### 1) 제목" in prompt
     assert "제목, 원문 요약 문단, 설명/풀이 불릿" in prompt
+    assert "원문 요약 문단은 2문장" in prompt
+    assert "각 변화 묶음마다 2~3개 불릿" in prompt
     assert "불릿만으로 변화 묶음을 시작하지 마세요" in prompt
     assert "짧은 명사형 항목명" in prompt
     assert "허위개발정보 유포를 금지하는 조문 신설" in prompt
@@ -85,6 +90,7 @@ def test_agentic_report_prompt_targets_user_facing_report():
     assert "<mark>중요 문장</mark>" in prompt
     assert "토스 앱처럼 자연스러운 `-요` 체" in prompt
     assert "`합니다`, `됩니다`, `입니다`" in prompt
+    assert "짧게 쓴다는 이유로 근거, 영향, 예외를 덜어내지 마세요" in prompt
     assert "법률·행정용어 풀이 사전" in prompt
     assert "법제처 법령용어 API" in prompt
     assert "target=lstrmAI" in prompt
@@ -347,6 +353,38 @@ def test_agentic_report_validation_accepts_numbered_change_heading_format():
 
 - 위임·위탁: 행정기관이 가진 권한이나 업무 일부를 다른 기관이 맡아 처리하게 하는 방식이에요.
 - 지방정부가 신고자료 검증을 더 빠르게 처리할 수 있어요.
+"""
+
+    _validate_report_body(report_body)
+
+
+def test_agentic_report_validation_accepts_bolded_legal_term_labels():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 거래 전 정보 확인이 쉬워지는 점이에요.</mark>
+
+## 주요 내용
+- **권한 정비**: 필요한 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 신고내용조사 위탁 범위 확대
+
+제25조의3에 제3항을 추가해 신고내용조사 관련 권한 위임·위탁 근거를 넓혀요.
+
+- **위임·위탁**: 행정기관이 가진 권한이나 업무 일부를 다른 기관이 맡아 처리하게 하는 방식이에요.
+- 지방정부가 신고자료 검증을 더 빠르게 처리할 수 있어요.
+
+### 2) 위반 시 금전 제재 강화
+
+허위정보와 부당광고를 어기면 과태료 부과 대상이 더 분명해져요.
+
+- **과태료**: 행정질서 위반에 부과하는 금전 제재에요.
+- 반복 위반을 더 빠르게 제재할 수 있어요.
 """
 
     _validate_report_body(report_body)
