@@ -159,6 +159,9 @@ def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
         "## 무엇이 달라지나\n"
         "- 현행법과 달라지는 점을 구체적으로 쓰되, 각 변화 묶음은 반드시 제목, 원문 요약 문단, 설명/풀이 불릿 순서로 쓰세요.\n"
         "- 각 변화 묶음은 반드시 `### 1) 제목`, `### 2) 제목`처럼 번호 헤딩으로 시작하세요.\n"
+        "- 제목은 설명문이 아니라 짧은 명사형 항목명으로 쓰세요.\n"
+        "- 예를 들어 `허위개발정보 유포를 금지하는 조문을 새로 둔다`가 아니라 `허위개발정보 유포를 금지하는 조문 신설`로 쓰세요.\n"
+        "- `인터넷 표시·광고의 필수정보와 부당한 표시를 제한한다`가 아니라 `인터넷 표시·광고의 필수정보와 부당한 표시를 제한`으로 쓰세요.\n"
         "- 번호 헤딩 다음에는 불릿이 아닌 일반 문단으로 원문 조문 변화의 요약을 1문단 쓰세요.\n"
         "- 그 아래에 필요한 설명/풀이를 Markdown 불릿(`- ...`)으로 붙이세요.\n"
         "- 불릿만으로 변화 묶음을 시작하지 마세요.\n"
@@ -176,7 +179,7 @@ def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
         "- 쉬운 풀이 불릿은 사용자에게 말하듯 자연스러운 해요체로 쓰되, `쉽게 말하면,` 같은 고정 접두어를 반복하지 마세요.\n"
         "- 쉬운 풀이 불릿은 고정 접두어 없이 바로 풀어 써도 됩니다. 문장 시작은 항목의 내용에 맞게 자연스럽게 바꾸세요.\n"
         "- 예:\n"
-        "  ### 1) 온라인 유통질서 규율 조항군을 새로 둔다\n\n"
+        "  ### 1) 온라인 유통질서 규율 조항군 신설\n\n"
         "  기존 조문 체계에서 제23조는 주로 허가 취소 절차의 청문 규정이었으나, 제안안은 이를 온라인 유통질서 규율 조항군으로 넓힙니다.\n\n"
         "  - 청문 규정: 여기서 `청문`은 처분을 받기 전에 당사자가 설명하고 반론할 수 있는 절차에요.\n"
         "  - 사용자 입장에서는, 문제가 터진 뒤에 벌을 주는 데서 그치지 않고 거래 전에 정보가 맞는지 더 일찍 걸러내겠다는 뜻이에요.\n"
@@ -283,6 +286,14 @@ def _validate_report_body(report_body: str) -> None:
 
     if changes_body.strip() and not re.search(r"(?m)^### 1\)\s+\S", changes_body):
         raise RuntimeError("생성 리포트의 변화 설명은 번호 헤딩 형식이어야 합니다.")
+
+    sentence_style_headings = [
+        heading
+        for heading in re.findall(r"(?m)^###\s+\d+\)\s+(.+)$", changes_body)
+        if re.search(r"(한다|둔다|넓힌다|바꾼다|늘린다|줄인다)$", heading.strip())
+    ]
+    if sentence_style_headings:
+        raise RuntimeError("생성 리포트의 변화 제목은 짧은 명사형 제목이어야 합니다: " + ", ".join(sentence_style_headings))
 
 
 def _fetch_passed_bills(mode: str, limit: int, read_mode: str | None = None) -> List[Dict[str, Any]]:
