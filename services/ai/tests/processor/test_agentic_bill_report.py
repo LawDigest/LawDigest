@@ -2,7 +2,7 @@ import json
 import subprocess
 import threading
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 def test_agentic_report_prompt_requires_active_mcp_research():
@@ -978,3 +978,102 @@ def test_run_agentic_bill_reports_runs_codex_sessions_in_parallel(tmp_path, monk
     assert result["concurrency"] == 2
     assert result["stats"]["success_count"] == 2
     assert [item["bill_id"] for item in result["items"]] == ["PRC_PARALLEL_1", "PRC_PARALLEL_2"]
+
+
+def test_agentic_report_builds_db_summary_payload_from_markdown():
+    from lawdigest_ai.processor.agentic_bill_report import _build_db_summary_payload
+
+    bill = {
+        "bill_id": "PRC_DB",
+        "bill_name": "개인정보 보호법 일부개정법률안",
+        "brief_summary": "기존 한 줄 요약",
+        "summary_tags": '["기존태그"]',
+    }
+    report_body = """
+# 개인정보 보호법 일부개정법률안
+
+## 쉬운 요약
+- 중소기업과 소상공인이 개인정보를 더 안전하게 다룰 수 있도록 정부가 도와주는 길을 새로 만들어요.
+- 실제 지원 업무는 전문기관이 맡을 수 있게 길을 열어요.
+
+## 무엇이 달라지나
+### 1) 지원 대상의 명확화
+안 제29조의2를 새로 두어 지원 대상을 더 분명히 잡아요.
+
+## 확인한 근거
+- 국회 의안정보시스템
+""".strip()
+
+    payload = _build_db_summary_payload(bill=bill, report_body=report_body)
+
+    assert payload["brief_summary"] == "기존 한 줄 요약"
+    assert payload["summary_tags"] == '["기존태그"]'
+    assert "쉬운 요약" in payload["gpt_summary"]
+    assert "1) 지원 대상의 명확화" in payload["gpt_summary"]
+    assert "## 쉬운 요약" not in payload["gpt_summary"]
+    assert "# 개인정보 보호법 일부개정법률안" not in payload["gpt_summary"]
+    assert "확인한 근거" not in payload["gpt_summary"]
+
+
+def test_run_agentic_bill_reports_upserts_successful_items(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent, run_agentic_bill_reports
+
+    monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
+    target = {
+        "bill_id": "PRC_DB_UPSERT",
+        "bill_name": "업서트 테스트법 일부개정법률안",
+        "brief_summary": "기존 제목",
+        "summary_tags": '["기존태그"]',
+    }
+    report_path = tmp_path / "PRC_DB_UPSERT.md"
+    report_path.write_text(
+        "# 업서트 테스트법 일부개정법률안\n\n"
+        "## 쉬운 요약\n- 지원 근거를 분명히 해요.\n\n"
+        "## 주요 내용\n- **지원 근거**: 설명이에요.\n",
+        encoding="utf-8",
+    )
+
+    def write_report(self, *, bill, output_path):
+        return {
+            "bill_id": bill["bill_id"],
+            "bill_name": bill["bill_name"],
+            "report_path": str(report_path),
+            "status": "success",
+        }
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=[target],
+    ), patch.object(CodexBillReportAgent, "write_report", write_report), patch(
+        "lawdigest_ai.processor.agentic_bill_report.update_bill_summary"
+    ) as mock_update:
+        result = run_agentic_bill_reports(
+            mode="test",
+            limit=1,
+            output_dir=str(tmp_path),
+        )
+
+    assert result["stats"]["db_upserted_count"] == 1
+    mock_update.assert_called_once()
+    assert mock_update.call_args.kwargs["brief_summary"] == "기존 제목"
+    assert "쉬운 요약" in mock_update.call_args.kwargs["gpt_summary"]
+
+
+def test_fetch_bill_report_targets_uses_null_summary_tags_when_column_absent():
+    from lawdigest_ai.processor.agentic_bill_report import _fetch_bill_report_targets
+
+    conn = MagicMock()
+    cur = conn.cursor.return_value.__enter__.return_value
+    cur.fetchall.return_value = []
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.get_db_connection",
+        return_value=conn,
+    ), patch(
+        "lawdigest_ai.processor.agentic_bill_report.get_bill_table_columns",
+        return_value={"bill_id", "brief_summary", "summary"},
+    ):
+        _fetch_bill_report_targets(mode="dry_run", limit=1, read_mode="prod", target="all")
+
+    executed_query = cur.execute.call_args.args[0]
+    assert "NULL AS summary_tags" in executed_query

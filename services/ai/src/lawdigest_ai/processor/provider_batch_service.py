@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import time
 from typing import Any, Callable, Dict, List, Literal
@@ -10,6 +9,8 @@ import pymysql
 from lawdigest_ai.config import GEMINI_BATCH_MODEL
 from lawdigest_ai.observability import trace_span
 from lawdigest_ai.processor.batch_utils import (
+    bill_table_has_column,
+    build_bill_summary_update,
     create_batch_job_with_items,
     ensure_status_tables,
     fetch_jobs_for_polling,
@@ -99,6 +100,7 @@ def apply_batch_results_for_provider(
 
     success = failed = 0
     with conn.cursor() as cursor:
+        include_summary_tags = bill_table_has_column(cursor, "summary_tags")
         for result in parsed_results:
             if not result.bill_id:
                 failed += 1
@@ -115,16 +117,14 @@ def apply_batch_results_for_provider(
                     failed += 1
                 continue
 
-            bill_updated = cursor.execute(
-                "UPDATE Bill SET brief_summary=%s, gpt_summary=%s, summary_tags=%s, modified_date=NOW() "
-                "WHERE bill_id=%s",
-                (
-                    result.brief_summary,
-                    result.gpt_summary,
-                    json.dumps(result.tags or [], ensure_ascii=False),
-                    result.bill_id,
-                ),
+            update_sql, update_params = build_bill_summary_update(
+                brief_summary=result.brief_summary,
+                gpt_summary=result.gpt_summary,
+                summary_tags=result.tags,
+                bill_id=result.bill_id,
+                include_summary_tags=include_summary_tags,
             )
+            bill_updated = cursor.execute(update_sql, update_params)
             if not bill_updated:
                 failed_update = cursor.execute(
                     "UPDATE ai_batch_items SET status='FAILED', retry_count=retry_count+1, "

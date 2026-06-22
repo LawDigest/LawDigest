@@ -2,6 +2,7 @@ import json
 from unittest.mock import MagicMock
 
 from lawdigest_ai.processor.batch_utils import (
+    build_bill_summary_update,
     build_batch_request_rows,
     parse_output_jsonl_line,
     apply_batch_results,
@@ -62,6 +63,19 @@ def test_parse_output_jsonl_line_surfaces_top_level_openai_error():
     assert gpt is None
     assert tags is None
     assert err == "row failed before response"
+
+
+def test_build_bill_summary_update_omits_summary_tags_when_column_absent():
+    sql, params = build_bill_summary_update(
+        brief_summary="요약",
+        gpt_summary="상세",
+        summary_tags=["태그"],
+        bill_id="B001",
+        include_summary_tags=False,
+    )
+
+    assert "summary_tags" not in sql
+    assert params == ("요약", "상세", "B001")
 
 
 def test_apply_batch_results_success_and_partial_failure():

@@ -49,6 +49,29 @@ def parse_output_jsonl_line(
     return result.bill_id, result.brief_summary, result.gpt_summary, result.tags, result.error
 
 
+def bill_table_has_column(cursor: pymysql.cursors.Cursor, column_name: str) -> bool:
+    cursor.execute("SHOW COLUMNS FROM Bill LIKE %s", (column_name,))
+    return bool(cursor.fetchall())
+
+
+def build_bill_summary_update(
+    *,
+    brief_summary: str | None,
+    gpt_summary: str | None,
+    summary_tags: list[str] | None,
+    bill_id: str,
+    include_summary_tags: bool,
+) -> tuple[str, tuple[Any, ...]]:
+    set_clauses = ["brief_summary=%s", "gpt_summary=%s"]
+    params: list[Any] = [brief_summary, gpt_summary]
+    if include_summary_tags:
+        set_clauses.append("summary_tags=%s")
+        params.append(json.dumps(summary_tags or [], ensure_ascii=False))
+    set_clauses.append("modified_date=NOW()")
+    params.append(bill_id)
+    return f"UPDATE Bill SET {', '.join(set_clauses)} WHERE bill_id=%s", tuple(params)
+
+
 def _job_state_to_legacy_dict(state: BatchProviderJobState) -> Dict[str, Any]:
     return {
         "id": state.batch_id,
@@ -197,6 +220,7 @@ def apply_batch_results(
 ) -> Tuple[int, int]:
     success = failed = 0
     with conn.cursor() as cursor:
+        include_summary_tags = bill_table_has_column(cursor, "summary_tags")
         for line in [l for l in output_jsonl.splitlines() if l.strip()]:  # noqa: E741
             bill_id, brief, gpt, tags, err = parse_output_jsonl_line(line)
             if not bill_id:
@@ -210,11 +234,14 @@ def apply_batch_results(
                     (err, job_id, bill_id),
                 )
                 continue
-            cursor.execute(
-                "UPDATE Bill SET brief_summary=%s, gpt_summary=%s, summary_tags=%s, modified_date=NOW() "
-                "WHERE bill_id=%s",
-                (brief, gpt, json.dumps(tags or [], ensure_ascii=False), bill_id),
+            update_sql, update_params = build_bill_summary_update(
+                brief_summary=brief,
+                gpt_summary=gpt,
+                summary_tags=tags,
+                bill_id=bill_id,
+                include_summary_tags=include_summary_tags,
             )
+            cursor.execute(update_sql, update_params)
             cursor.execute(
                 "UPDATE ai_batch_items SET status='DONE', error_message=NULL, processed_at=NOW() "
                 "WHERE job_id=%s AND bill_id=%s",

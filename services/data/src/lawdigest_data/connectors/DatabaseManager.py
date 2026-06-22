@@ -126,6 +126,11 @@ class DatabaseManager:
             cursor.executemany(query, params_list)
 
 
+    def _bill_table_has_column(self, cursor: pymysql.cursors.Cursor, column_name: str) -> bool:
+        cursor.execute("SHOW COLUMNS FROM Bill LIKE %s", (column_name,))
+        return bool(cursor.fetchall())
+
+
     def get_latest_propose_date(self) -> Optional[str]:
         """
         RDS 데이터베이스에서 가장 최근의 법안 발의 날짜를 가져옵니다.
@@ -220,35 +225,81 @@ class DatabaseManager:
             normalized_bills.append(row)
 
         with self.transaction() as cursor:
+            include_summary_tags = self._bill_table_has_column(cursor, "summary_tags")
+            insert_columns = [
+                "bill_id",
+                "assembly_number",
+                "bill_name",
+                "committee",
+                "gpt_summary",
+                "propose_date",
+                "summary",
+                "stage",
+                "proposers",
+                "bill_pdf_url",
+                "viewCount",
+                "brief_summary",
+                "bill_number",
+                "bill_link",
+                "bill_result",
+                "proposer_kind",
+                "ingest_status",
+                "created_date",
+                "modified_date",
+            ]
+            value_columns = [
+                "%(bill_id)s",
+                "%(assembly_number)s",
+                "%(bill_name)s",
+                "%(committee)s",
+                "%(gpt_summary)s",
+                "%(propose_date)s",
+                "%(summary)s",
+                "%(stage)s",
+                "%(proposers)s",
+                "%(bill_pdf_url)s",
+                "0",
+                "%(brief_summary)s",
+                "%(bill_number)s",
+                "%(bill_link)s",
+                "%(bill_result)s",
+                "%(proposer_kind)s",
+                "%(ingest_status)s",
+                "NOW()",
+                "NOW()",
+            ]
+            update_columns = [
+                "assembly_number = new.assembly_number",
+                "bill_name = new.bill_name",
+                "committee = new.committee",
+                "propose_date = new.propose_date",
+                "summary = new.summary",
+                "stage = new.stage",
+                "gpt_summary = new.gpt_summary",
+                "bill_pdf_url = new.bill_pdf_url",
+                "brief_summary = new.brief_summary",
+                "bill_link = new.bill_link",
+                "bill_result = new.bill_result",
+                "proposer_kind = new.proposer_kind",
+                "ingest_status = new.ingest_status",
+                "modified_date = NOW()",
+            ]
+            if include_summary_tags:
+                insert_index = insert_columns.index("bill_number")
+                insert_columns.insert(insert_index, "summary_tags")
+                value_columns.insert(insert_index, "%(summary_tags)s")
+                update_index = update_columns.index("bill_link = new.bill_link")
+                update_columns.insert(update_index, "summary_tags = new.summary_tags")
+
             # 1. Bill 테이블 Upsert
-            bill_query = """
+            bill_query = f"""
                 INSERT INTO Bill (
-                    bill_id, assembly_number, bill_name, committee, gpt_summary, propose_date, 
-                    summary, stage, proposers, bill_pdf_url, viewCount, 
-                    brief_summary, summary_tags, bill_number, bill_link, bill_result, 
-                    proposer_kind, ingest_status, created_date, modified_date
+                    {", ".join(insert_columns)}
                 ) VALUES (
-                    %(bill_id)s, %(assembly_number)s, %(bill_name)s, %(committee)s, %(gpt_summary)s, %(propose_date)s,
-                    %(summary)s, %(stage)s, %(proposers)s, %(bill_pdf_url)s, 0,
-                    %(brief_summary)s, %(summary_tags)s, %(bill_number)s, %(bill_link)s, %(bill_result)s,
-                    %(proposer_kind)s, %(ingest_status)s, NOW(), NOW()
+                    {", ".join(value_columns)}
                 ) AS new
                 ON DUPLICATE KEY UPDATE
-                    assembly_number = new.assembly_number,
-                    bill_name = new.bill_name,
-                    committee = new.committee,
-                    propose_date = new.propose_date,
-                    summary = new.summary,
-                    stage = new.stage,
-                    gpt_summary = new.gpt_summary,
-                    bill_pdf_url = new.bill_pdf_url,
-                    brief_summary = new.brief_summary,
-                    summary_tags = new.summary_tags,
-                    bill_link = new.bill_link,
-                    bill_result = new.bill_result,
-                    proposer_kind = new.proposer_kind,
-                    ingest_status = new.ingest_status,
-                    modified_date = NOW()
+                    {", ".join(update_columns)}
             """
             
             # bills_data에서 Bill 테이블용 데이터만 추출하여 실행할 수도 있지만,

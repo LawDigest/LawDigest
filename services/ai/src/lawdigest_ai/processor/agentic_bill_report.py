@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
+from lawdigest_ai.db import get_bill_table_columns, get_db_connection, update_bill_summary
 from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
 
 DEFAULT_OUTPUT_DIR = "/tmp/lawdigest-bill-agent-reports"
@@ -282,6 +283,47 @@ def _markdown_section_body(body: str, heading: str) -> str:
     return body[section_start:next_heading]
 
 
+def _strip_markdown_for_summary(text: str) -> str:
+    normalized = text.replace("<mark>", "").replace("</mark>", "")
+    normalized = normalized.replace("**", "").replace("`", "")
+    normalized = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", normalized)
+    return normalized.strip()
+
+
+def _build_db_summary_payload(bill: Dict[str, Any], report_body: str) -> Dict[str, Any]:
+    body = report_body.strip()
+    body = re.sub(r"^# .+\n+", "", body, count=1)
+    evidence_heading = body.find("\n## 확인한 근거")
+    if evidence_heading != -1:
+        body = body[:evidence_heading].rstrip()
+
+    formatted_lines: list[str] = []
+    for line in body.splitlines():
+        if line.startswith("## "):
+            formatted_lines.append(line[3:])
+            continue
+        if line.startswith("### "):
+            formatted_lines.append(line[4:])
+            continue
+        formatted_lines.append(line)
+    gpt_summary = "\n".join(formatted_lines).strip()
+
+    brief_summary = bill.get("brief_summary")
+    if not brief_summary:
+        easy_summary = _markdown_section_body(report_body, "## 쉬운 요약")
+        for line in easy_summary.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("- "):
+                brief_summary = _strip_markdown_for_summary(stripped[2:])
+                break
+
+    return {
+        "brief_summary": brief_summary,
+        "gpt_summary": gpt_summary,
+        "summary_tags": bill.get("summary_tags"),
+    }
+
+
 def _validate_report_body(report_body: str) -> None:
     body = report_body.strip()
     if not body:
@@ -409,14 +451,13 @@ def _fetch_bill_report_targets(
     read_mode: str | None = None,
     target: str = "passed",
 ) -> List[Dict[str, Any]]:
-    from lawdigest_ai.db import get_db_connection
-
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
     if target not in {"passed", "all"}:
         raise ValueError("target은 passed 또는 all이어야 합니다.")
 
     db_mode = _resolve_read_mode(mode, read_mode)
+    bill_columns = get_bill_table_columns(mode=db_mode)
     filters = ["summary IS NOT NULL", "summary != ''"]
     params: list[Any] = []
     if target == "passed":
@@ -428,12 +469,15 @@ def _fetch_bill_report_targets(
         params.extend([f"%{term}%" for term in PASSED_STAGE_TERMS])
         params.extend([f"%{term}%" for term in EXCLUDED_RESULT_TERMS])
     where_clause = "\n        AND ".join(filters)
+    summary_tags_select = "summary_tags" if "summary_tags" in bill_columns else "NULL AS summary_tags"
     query = f"""
     SELECT
         bill_id,
         bill_number,
         bill_name,
         summary,
+        brief_summary,
+        {summary_tags_select},
         proposers,
         proposer_kind,
         propose_date,
@@ -668,6 +712,30 @@ def run_agentic_bill_reports(
             if isinstance(value, int):
                 usage_totals[key] = usage_totals.get(key, 0) + value
 
+    db_upserted_count = 0
+    if mode != "dry_run":
+        for item in completed_items:
+            if item.get("status") != "success":
+                continue
+            bill = next((target_bill for target_bill in targets if target_bill.get("bill_id") == item.get("bill_id")), None)
+            if not bill:
+                continue
+            report_path = item.get("report_path")
+            if not report_path:
+                continue
+            payload = _build_db_summary_payload(
+                bill=bill,
+                report_body=Path(str(report_path)).read_text(encoding="utf-8"),
+            )
+            update_bill_summary(
+                bill_id=str(item["bill_id"]),
+                brief_summary=payload.get("brief_summary"),
+                gpt_summary=payload.get("gpt_summary"),
+                summary_tags=payload.get("summary_tags"),
+                mode=_db_mode_for_execution(mode),
+            )
+            db_upserted_count += 1
+
     report = {
         "execution_mode": mode,
         "read_mode": _resolve_read_mode(mode, read_mode),
@@ -687,6 +755,7 @@ def run_agentic_bill_reports(
             "total_duration_seconds": total_duration_seconds,
             "token_usage_available_count": sum(1 for item in completed_items if item.get("token_usage_available")),
             "usage_totals": usage_totals,
+            "db_upserted_count": db_upserted_count,
         },
         "items": completed_items,
     }
