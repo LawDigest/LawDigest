@@ -68,6 +68,25 @@ def get_db_connection(mode: str = "test") -> pymysql.connections.Connection:
     )
 
 
+def get_bill_table_columns(mode: str = "test") -> set[str]:
+    """Bill 테이블의 실제 컬럼 목록을 반환합니다."""
+    cfg = get_prod_db_config() if mode == "prod" else get_test_db_config()
+    conn = get_db_connection(mode=mode)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT COLUMN_NAME
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'Bill'
+                """,
+                (cfg["database"],),
+            )
+            return {str(row["COLUMN_NAME"]) for row in cur.fetchall()}
+    finally:
+        conn.close()
+
+
 def update_bill_summary(
     bill_id: str,
     brief_summary: str | None,
@@ -76,12 +95,19 @@ def update_bill_summary(
     mode: str = "test",
 ) -> None:
     """Bill 테이블의 AI 요약 컬럼을 업데이트합니다."""
+    bill_columns = get_bill_table_columns(mode=mode)
     conn = get_db_connection(mode=mode)
     try:
+        set_clauses = ["brief_summary=%s", "gpt_summary=%s"]
+        params: list[Any] = [brief_summary, gpt_summary]
+        if "summary_tags" in bill_columns:
+            set_clauses.append("summary_tags=%s")
+            params.append(summary_tags)
+        params.append(bill_id)
         with conn.cursor() as cur:
             cur.execute(
-                "UPDATE Bill SET brief_summary=%s, gpt_summary=%s, summary_tags=%s WHERE bill_id=%s",
-                (brief_summary, gpt_summary, summary_tags, bill_id),
+                f"UPDATE Bill SET {', '.join(set_clauses)} WHERE bill_id=%s",
+                tuple(params),
             )
         conn.commit()
     finally:

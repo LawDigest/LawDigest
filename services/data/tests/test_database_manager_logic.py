@@ -32,7 +32,11 @@ class TestDatabaseManagerLogic(unittest.TestCase):
         ]
         
         # Mock transaction to yield our mock cursor
-        with patch.object(self.db_manager, 'transaction') as mock_transaction:
+        with patch.object(self.db_manager, 'transaction') as mock_transaction, patch.object(
+            self.db_manager,
+            "_bill_table_has_column",
+            return_value=True,
+        ):
             mock_transaction.return_value.__enter__.return_value = self.cursor
             
             # Setup mock behavior for _link_proposers SELECT
@@ -88,6 +92,29 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             rp_insert_args = executemany_calls[2]
             self.assertIn("INSERT INTO RepresentativeProposer", rp_insert_args[0][0])
             self.assertEqual(len(rp_insert_args[0][1]), 1) # 1 proposer
+
+    def test_insert_bill_info_omits_summary_tags_when_column_absent(self):
+        bills_data = [
+            {
+                "bill_id": "BILL1",
+                "bill_name": "Test Bill 1",
+                "summary_tags": '["태그"]',
+                "public_proposer_ids": [],
+                "rst_proposer_ids": [],
+            }
+        ]
+
+        with patch.object(self.db_manager, "transaction") as mock_transaction, patch.object(
+            self.db_manager,
+            "_bill_table_has_column",
+            return_value=False,
+        ):
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+
+            self.db_manager.insert_bill_info(bills_data)
+
+            bill_query = self.cursor.executemany.call_args_list[0].args[0]
+            self.assertNotIn("summary_tags", bill_query)
 
     def test_update_bill_stage(self):
         """Test update_bill_stage filters duplicates and batches updates"""

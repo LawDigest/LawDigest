@@ -65,6 +65,20 @@ def build_parser() -> argparse.ArgumentParser:
     cli_repair = subparsers.add_parser("ai-repair-cli", help="Gemini/Codex/Claude CLI 기반 결측 요약 복구")
     _add_cli_summary_args(cli_repair)
 
+    agent_report = subparsers.add_parser("bill-agent-report", help="Codex MCP 에이전트 기반 법안 종합 리포트")
+    agent_report.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
+    agent_report.add_argument("--limit", type=int, default=5)
+    agent_report.add_argument("--output-dir", default="/tmp/lawdigest-bill-agent-reports")
+    agent_report.add_argument("--read-mode", choices=["test", "prod"])
+    agent_report.add_argument("--codex-model")
+    agent_report.add_argument("--target", default="passed", choices=["passed", "all"])
+    agent_report.add_argument("--concurrency", type=int, default=1)
+    agent_report.add_argument("--weekly-usage-before", type=float)
+    agent_report.add_argument("--weekly-usage-after", type=float)
+    agent_report.add_argument("--five-hour-usage-before", type=float)
+    agent_report.add_argument("--five-hour-usage-after", type=float)
+    agent_report.add_argument("--stop-on-error", action="store_true")
+
     return parser
 
 
@@ -130,6 +144,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             stop_on_error=args.stop_on_error,
             read_mode=args.read_mode,
             target_mode=args.target_mode,
+        )
+    elif args.command == "bill-agent-report":
+        result = runtime.run_bill_agent_report(
+            mode=args.mode,
+            limit=args.limit,
+            output_dir=args.output_dir,
+            read_mode=args.read_mode,
+            codex_model=args.codex_model,
+            stop_on_error=args.stop_on_error,
+            target=args.target,
+            concurrency=args.concurrency,
+            weekly_usage_before=args.weekly_usage_before,
+            weekly_usage_after=args.weekly_usage_after,
+            five_hour_usage_before=args.five_hour_usage_before,
+            five_hour_usage_after=args.five_hour_usage_after,
         )
     else:
         parser.error(f"unsupported command: {args.command}")

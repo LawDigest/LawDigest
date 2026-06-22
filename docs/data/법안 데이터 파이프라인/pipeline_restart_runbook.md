@@ -110,7 +110,27 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
 
 이 smoke는 Gemini 실행 파일을 의도적으로 실패시켜 Codex fallback 경로가 실제로 동작하는지 확인합니다. `dry_run`이므로 DB에는 반영하지 않습니다.
 
-### 3.4 AI Batch 제출 (legacy fallback)
+### 3.4 통과 법안 Codex MCP 리포트
+
+```bash
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  bill-agent-report \
+  --mode dry_run \
+  --read-mode prod \
+  --limit 1 \
+  --output-dir /tmp/lawdigest-bill-agent-reports
+```
+
+이 경로는 일반 결측 요약 백필이 아니라 통과된 법안의 심화 리포트 작성용입니다. Codex 에이전트가 `open-assembly`, `assembly-api`, `korean-law`, `korean-stats` MCP 서버를 능동적으로 사용해 법안 통과 경로, 법령 맥락, 정책 배경 통계, 이해관계자 영향, 후속 모니터링 포인트를 Markdown으로 작성합니다.
+
+실행 전 환경변수:
+
+- `ASSEMBLY_API_KEY`: 열린국회정보 API 키. 없으면 `sample` 키로 시도하지만 실운영 리포트에는 정식 키를 사용합니다.
+- `LAW_OC`: 국가법령정보센터 Open API 인증키.
+- `KOSIS_API_KEY`: 통계청 KOSIS OpenAPI 키. 원격 `korean-stats` MCP는 별도 키 없이 동작할 수 있지만 로컬/정식 조회 품질을 위해 설정을 권장합니다.
+- `BILL_AGENT_CODEX_MODEL`: Codex 모델 override. 기본값은 `gpt-5.3-codex-spark`입니다.
+
+### 3.5 AI Batch 제출 (legacy fallback)
 
 ```bash
 PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
@@ -120,7 +140,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --limit 5
 ```
 
-### 3.5 AI Batch 결과 회수 (legacy fallback)
+### 3.6 AI Batch 결과 회수 (legacy fallback)
 
 ```bash
 PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
@@ -130,7 +150,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --max-jobs 5
 ```
 
-### 3.6 Native API 기반 결측 요약 복구
+### 3.7 Native API 기반 결측 요약 복구
 
 ```bash
 PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
@@ -142,7 +162,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --output-path /tmp/lawdigest-native-repair.json
 ```
 
-### 3.7 CLI 기반 결측 요약 복구 (compatibility alias)
+### 3.8 CLI 기반 결측 요약 복구 (compatibility alias)
 
 ```bash
 PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \

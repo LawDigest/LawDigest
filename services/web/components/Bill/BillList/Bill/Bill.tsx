@@ -1,5 +1,6 @@
 'use client';
 
+import type { KeyboardEvent } from 'react';
 import { useState, useCallback, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import {
@@ -30,6 +31,7 @@ import { useSetRecoilState } from 'recoil';
 import { snackbarState } from '@/store';
 import { ProposerList } from '@/app/bill/[id]/components';
 import GPTSummary from '../../GPTSummary';
+import { renderBillSummaryMarkdown } from './renderBillSummaryMarkdown';
 
 export default function Bill({
   bill_info_dto: {
@@ -60,10 +62,22 @@ export default function Bill({
   const setSnackbar = useSetRecoilState(snackbarState);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const summaryClassName = detail || toggleMore ? '' : 'line-clamp-[8]';
+  const moreButtonClassName = detail || toggleMore ? 'hidden' : 'text-gray-2 dark:text-gray-3';
 
   const onClickToggleMore = useCallback(() => {
     setToggleMore(!toggleMore);
   }, [toggleMore]);
+
+  const onKeyDownToggleMore = useCallback(
+    (event: KeyboardEvent<HTMLDivElement | HTMLSpanElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onClickToggleMore();
+      }
+    },
+    [onClickToggleMore],
+  );
 
   const onClickScrab = useCallback(() => {
     const accessToken = getCookie(ACCESS_TOKEN);
@@ -96,12 +110,7 @@ export default function Bill({
       const summaryElement = document.getElementById(bill_id);
 
       if (summaryElement !== null && summaryElement?.innerHTML !== null) {
-        const markedGptSummary = gpt_summary
-          .split('**')
-          .map((value, index) => (index % 2 === 0 ? value : `<strong>${value}</strong>`))
-          .join('');
-
-        summaryElement.innerHTML = markedGptSummary;
+        summaryElement.innerHTML = renderBillSummaryMarkdown(gpt_summary);
       }
     }
   }, [isLoaded]);
@@ -144,16 +153,22 @@ export default function Bill({
           <div className={!detail ? 'hidden md:block md:w-[270px]' : ''} />
           <div className={!detail ? 'md:w-[440px] lg:w-[490px]' : ''}>
             <CardBody className={`p-0 leading-normal whitespace-pre-wrap ${detail ? '' : 'text-sm md:text-base'}`}>
-              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions, no-nested-ternary */}
-              <p className={detail ? '' : toggleMore ? '' : 'line-clamp-[8]'} onClick={onClickToggleMore} id={bill_id}>
+              <div
+                className={summaryClassName}
+                onClick={onClickToggleMore}
+                onKeyDown={onKeyDownToggleMore}
+                role="button"
+                tabIndex={0}
+                id={bill_id}>
                 {gpt_summary && gpt_summary}
                 {!gpt_summary && summary}
-              </p>
-              {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions,  */}
+              </div>
               <span
-                // eslint-disable-next-line no-nested-ternary
-                className={detail ? 'hidden' : toggleMore ? 'hidden' : 'text-gray-2 dark:text-gray-3'}
-                onClick={onClickToggleMore}>
+                className={moreButtonClassName}
+                onClick={onClickToggleMore}
+                onKeyDown={onKeyDownToggleMore}
+                role="button"
+                tabIndex={0}>
                 더 보기
               </span>
             </CardBody>

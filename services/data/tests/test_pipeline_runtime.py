@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
@@ -119,6 +118,118 @@ def test_ai_summary_uses_gemini_cli_realtime_command(tmp_path):
     assert result["status"] == "success"
 
 
+def test_bill_agent_report_delegates_to_agentic_report_runtime(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.run_agentic_bill_reports",
+        return_value={"stats": {"success_count": 1}},
+    ) as run_reports:
+        result = PipelineRuntime(log_dir=tmp_path).run_bill_agent_report(
+            mode="dry_run",
+            limit=1,
+            output_dir="/tmp/reports",
+            read_mode="prod",
+        )
+
+    run_reports.assert_called_once_with(
+        mode="dry_run",
+        limit=1,
+        output_dir="/tmp/reports",
+        read_mode="prod",
+        codex_model=None,
+        stop_on_error=False,
+        target="passed",
+        concurrency=1,
+    )
+    assert result["command"] == "bill.agent_report"
+    assert result["steps"][0]["step"] == "generate_passed_bill_reports"
+    assert result["status"] == "success"
+
+
+def test_bill_agent_report_can_target_all_bills(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.run_agentic_bill_reports",
+        return_value={"stats": {"success_count": 1}},
+    ) as run_reports:
+        result = PipelineRuntime(log_dir=tmp_path).run_bill_agent_report(
+            mode="dry_run",
+            limit=1,
+            output_dir="/tmp/reports",
+            read_mode="prod",
+            target="all",
+        )
+
+    run_reports.assert_called_once_with(
+        mode="dry_run",
+        limit=1,
+        output_dir="/tmp/reports",
+        read_mode="prod",
+        codex_model=None,
+        stop_on_error=False,
+        target="all",
+        concurrency=1,
+    )
+    assert result["steps"][0]["step"] == "generate_all_bill_reports"
+
+
+def test_bill_agent_report_forwards_usage_meter_snapshot(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.run_agentic_bill_reports",
+        return_value={"stats": {"success_count": 1}},
+    ) as run_reports:
+        PipelineRuntime(log_dir=tmp_path).run_bill_agent_report(
+            mode="dry_run",
+            limit=1,
+            output_dir="/tmp/reports",
+            weekly_usage_before=41.2,
+            weekly_usage_after=40.7,
+            five_hour_usage_before=8.0,
+            five_hour_usage_after=9.5,
+        )
+
+    run_reports.assert_called_once_with(
+        mode="dry_run",
+        limit=1,
+        output_dir="/tmp/reports",
+        read_mode=None,
+        codex_model=None,
+        stop_on_error=False,
+        target="passed",
+        concurrency=1,
+        usage_meter={
+            "weekly": {"before_percent": 41.2, "after_percent": 40.7},
+            "five_hour": {"before_percent": 8.0, "after_percent": 9.5},
+        },
+    )
+
+
+def test_bill_agent_report_fails_when_all_agent_reports_fail(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.run_agentic_bill_reports",
+        return_value={
+            "stats": {
+                "target_count": 1,
+                "processed_count": 1,
+                "success_count": 0,
+                "failure_count": 1,
+            }
+        },
+    ):
+        try:
+            PipelineRuntime(log_dir=tmp_path).run_bill_agent_report(mode="dry_run", limit=1)
+        except RuntimeError as exc:
+            assert "모든 법안 리포트 생성에 실패" in str(exc)
+        else:
+            raise AssertionError("모든 리포트가 실패했는데 파이프라인이 성공하면 안 됩니다.")
+
+
 def test_cli_dispatches_bill_ingest(tmp_path):
     from lawdigest_data.runtime.cli import main
 
@@ -176,4 +287,152 @@ def test_cli_dispatches_ai_summary(tmp_path):
         stop_on_error=False,
         read_mode=None,
         target_mode="missing",
+    )
+
+
+def test_cli_dispatches_bill_agent_report(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_bill_agent_report.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "bill-agent-report",
+            "--mode",
+            "dry_run",
+            "--limit",
+            "1",
+            "--output-dir",
+            "/tmp/reports",
+            "--read-mode",
+            "prod",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_bill_agent_report.assert_called_once_with(
+        mode="dry_run",
+        limit=1,
+        output_dir="/tmp/reports",
+        read_mode="prod",
+        codex_model=None,
+        stop_on_error=False,
+        target="passed",
+        concurrency=1,
+        weekly_usage_before=None,
+        weekly_usage_after=None,
+        five_hour_usage_before=None,
+        five_hour_usage_after=None,
+    )
+
+
+def test_cli_dispatches_bill_agent_report_target_all(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_bill_agent_report.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "bill-agent-report",
+            "--mode",
+            "dry_run",
+            "--limit",
+            "1",
+            "--output-dir",
+            "/tmp/reports",
+            "--read-mode",
+            "prod",
+            "--target",
+            "all",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_bill_agent_report.assert_called_once_with(
+        mode="dry_run",
+        limit=1,
+        output_dir="/tmp/reports",
+        read_mode="prod",
+        codex_model=None,
+        stop_on_error=False,
+        target="all",
+        concurrency=1,
+        weekly_usage_before=None,
+        weekly_usage_after=None,
+        five_hour_usage_before=None,
+        five_hour_usage_after=None,
+    )
+
+
+def test_cli_dispatches_bill_agent_report_usage_meter(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_bill_agent_report.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "bill-agent-report",
+            "--mode",
+            "dry_run",
+            "--limit",
+            "1",
+            "--weekly-usage-before",
+            "41.2",
+            "--weekly-usage-after",
+            "40.7",
+            "--five-hour-usage-before",
+            "8",
+            "--five-hour-usage-after",
+            "9.5",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_bill_agent_report.assert_called_once_with(
+        mode="dry_run",
+        limit=1,
+        output_dir="/tmp/lawdigest-bill-agent-reports",
+        read_mode=None,
+        codex_model=None,
+        stop_on_error=False,
+        target="passed",
+        concurrency=1,
+        weekly_usage_before=41.2,
+        weekly_usage_after=40.7,
+        five_hour_usage_before=8.0,
+        five_hour_usage_after=9.5,
+    )
+
+
+def test_cli_dispatches_bill_agent_report_concurrency(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_bill_agent_report.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "bill-agent-report",
+            "--mode",
+            "dry_run",
+            "--limit",
+            "2",
+            "--concurrency",
+            "3",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_bill_agent_report.assert_called_once_with(
+        mode="dry_run",
+        limit=2,
+        output_dir="/tmp/lawdigest-bill-agent-reports",
+        read_mode=None,
+        codex_model=None,
+        stop_on_error=False,
+        target="passed",
+        concurrency=3,
+        weekly_usage_before=None,
+        weekly_usage_after=None,
+        five_hour_usage_before=None,
+        five_hour_usage_after=None,
     )
