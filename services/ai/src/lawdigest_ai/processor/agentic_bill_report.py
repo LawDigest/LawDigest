@@ -147,9 +147,19 @@ def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
         "## 왜 나왔나\n"
         "- 제안 이유와 정책 배경을 사용자 관점에서 설명하세요.\n"
         "## 무엇이 달라지나\n"
-        "- 현행법과 달라지는 점을 구체적으로 쓰세요.\n"
-        "- 청문 규정, 과태료, 위임·위탁, 조문 체계처럼 일반 사용자가 모를 법한 법률·행정 용어는 첫 등장 때 짧게 풀어 설명하세요.\n"
-        "- 조문 변화 설명 뒤에는 `쉽게 말하면, ...` 문장을 붙여 사용자가 무엇이 달라지는지 한 번 더 이해할 수 있게 쓰세요.\n"
+        "- 현행법과 달라지는 점을 구체적으로 쓰되, 각 변화 묶음의 첫 문장은 원문 조문 변화의 요약에 가깝게 쓰세요.\n"
+        "- 청문 규정, 과태료, 위임·위탁, 조문 체계처럼 일반 사용자가 모를 법한 법률·행정 용어는 괄호로 끼워 넣지 마세요.\n"
+        "- 각 변화 묶음은 반드시 `조문 변화를 요약한 문장`, `- 실제 용어명으로 시작하는 설명 불릿`, `- 쉽게 말하면,` 불릿을 붙이는 3줄 패턴으로 쓰세요.\n"
+        "- 첫 문장에 `원문 요약:` 같은 메타 라벨을 붙이지 말고 바로 조문 변화 문장을 쓰세요.\n"
+        "- 용어 설명 불릿은 `용어 설명:`이나 `법령 체계:` 같은 메타 라벨을 쓰지 말고, 반드시 실제 용어명으로 시작하세요. 예: `청문 규정:`, `과태료:`, `위임·위탁:`\n"
+        "- 원문 요약 문장에 `청문`이 나오면 바로 아래에 반드시 `청문 규정:` 또는 `청문 절차:` 설명 불릿을 붙이세요.\n"
+        "- 원문 요약 문장에 `위임·위탁`이 나오면 바로 아래에 반드시 `위임·위탁:` 설명 불릿을 붙이세요.\n"
+        "- 원문 요약 문장에 `과태료`가 나오면 바로 아래에 반드시 `과태료:` 설명 불릿을 붙이세요.\n"
+        "- 설명 불릿과 `쉽게 말하면,` 불릿은 사용자에게 말하듯 자연스러운 해요체로 쓰세요.\n"
+        "- 예:\n"
+        "  - 기존 조문 체계에서 제23조는 주로 허가 취소 절차의 청문 규정이었으나, 제안안은 이를 온라인 유통질서 규율 조항군으로 넓힙니다.\n"
+        "    - 청문 규정: 여기서 `청문`은 처분을 받기 전에 당사자가 설명하고 반론할 수 있는 절차에요.\n"
+        "    - 쉽게 말하면, 이번 개정은 “정보 유통 단계의 규율”을 추가해, 기존의 사후 처분 중심에서 예방 단계 관리로 넘어가는 구조라고 볼 수 있어요.\n"
         "## 누구에게 영향이 있나\n"
         "- 영향을 받는 사람과 기관을 나누어 설명하세요.\n"
         "## 봐야 할 점\n"
@@ -181,6 +191,9 @@ def _validate_report_body(report_body: str) -> None:
         "Lawdigest 요약 개선 제안",
         "사용한 MCP 도구",
         "MCP 도구",
+        "원문 요약:",
+        "용어 설명:",
+        "법령 체계:",
         "mcp__",
         "`get_",
         "`search_",
@@ -192,6 +205,29 @@ def _validate_report_body(report_body: str) -> None:
     leaked_patterns = [pattern for pattern in forbidden_patterns if pattern in body]
     if leaked_patterns:
         raise RuntimeError("생성 리포트에 내부 조사 표현이 남아 있습니다: " + ", ".join(leaked_patterns))
+
+    explanation_terms = ("청문 규정", "과태료", "위임·위탁")
+    missing_explanations = [term for term in explanation_terms if term in body and f"{term}:" not in body]
+    if missing_explanations:
+        raise RuntimeError("생성 리포트에 용어 설명 불릿이 없습니다: " + ", ".join(missing_explanations))
+
+    if "청문" in body and all(label not in body for label in ("청문 규정:", "청문 절차:", "청문:")):
+        raise RuntimeError("생성 리포트에 청문 용어 설명 불릿이 없습니다.")
+
+    if "쉽게 말해," in body:
+        raise RuntimeError("생성 리포트의 쉬운 풀이 불릿은 '쉽게 말하면,'으로 시작해야 합니다.")
+
+    if "쉽게 말하면," in body and "\n- 쉽게 말하면," not in body and "\n  - 쉽게 말하면," not in body:
+        raise RuntimeError("생성 리포트의 쉬운 풀이 문장은 Markdown 불릿이어야 합니다.")
+
+    term_labels = ("청문 규정:", "청문 절차:", "청문:", "과태료:", "위임·위탁:")
+    unbulleted_labels = [
+        label
+        for label in term_labels
+        if label in body and f"\n- {label}" not in body and f"\n  - {label}" not in body
+    ]
+    if unbulleted_labels:
+        raise RuntimeError("생성 리포트의 용어 설명 문장은 Markdown 불릿이어야 합니다: " + ", ".join(unbulleted_labels))
 
 
 def _fetch_passed_bills(mode: str, limit: int, read_mode: str | None = None) -> List[Dict[str, Any]]:
