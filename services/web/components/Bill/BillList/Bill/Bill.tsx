@@ -1,6 +1,5 @@
 'use client';
 
-import type { KeyboardEvent } from 'react';
 import { useState, useCallback, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import {
@@ -31,7 +30,7 @@ import { useSetRecoilState } from 'recoil';
 import { snackbarState } from '@/store';
 import { ProposerList } from '@/app/bill/[id]/components';
 import GPTSummary from '../../GPTSummary';
-import { renderBillSummaryMarkdown } from './renderBillSummaryMarkdown';
+import { getFeedSummaryMarkdown, renderBillSummaryMarkdown } from './renderBillSummaryMarkdown';
 
 export default function Bill({
   bill_info_dto: {
@@ -56,28 +55,12 @@ export default function Bill({
   const [likeCount, setLikeCount] = useState(bill_like_count);
   const [isLoaded, setIsLoaded] = useState(false);
   const mutateBookmark = usePatchBookmark(bill_id);
-  const [toggleMore, setToggleMore] = useState(false);
   const isRepresentativeSolo = representative_proposer_dto_list.length === 1;
   const partyName = isRepresentativeSolo ? representative_proposer_dto_list[0].party_name : '다수';
   const setSnackbar = useSetRecoilState(snackbarState);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-  const summaryClassName = detail || toggleMore ? '' : 'line-clamp-[8]';
-  const moreButtonClassName = detail || toggleMore ? 'hidden' : 'text-gray-2 dark:text-gray-3';
-
-  const onClickToggleMore = useCallback(() => {
-    setToggleMore(!toggleMore);
-  }, [toggleMore]);
-
-  const onKeyDownToggleMore = useCallback(
-    (event: KeyboardEvent<HTMLDivElement | HTMLSpanElement>) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        onClickToggleMore();
-      }
-    },
-    [onClickToggleMore],
-  );
+  const displayedSummary = gpt_summary && !detail ? getFeedSummaryMarkdown(gpt_summary) : gpt_summary || summary;
 
   const onClickScrab = useCallback(() => {
     const accessToken = getCookie(ACCESS_TOKEN);
@@ -110,10 +93,10 @@ export default function Bill({
       const summaryElement = document.getElementById(bill_id);
 
       if (summaryElement !== null && summaryElement?.innerHTML !== null) {
-        summaryElement.innerHTML = renderBillSummaryMarkdown(gpt_summary);
+        summaryElement.innerHTML = renderBillSummaryMarkdown(displayedSummary);
       }
     }
-  }, [isLoaded]);
+  }, [bill_id, displayedSummary, isLoaded]);
 
   return (
     <section className={`flex flex-col  ${detail ? 'md:flex-row items-start' : 'md:mx-5'}`}>
@@ -153,24 +136,7 @@ export default function Bill({
           <div className={!detail ? 'hidden md:block md:w-[270px]' : ''} />
           <div className={!detail ? 'md:w-[440px] lg:w-[490px]' : ''}>
             <CardBody className={`p-0 leading-normal whitespace-pre-wrap ${detail ? '' : 'text-sm md:text-base'}`}>
-              <div
-                className={summaryClassName}
-                onClick={onClickToggleMore}
-                onKeyDown={onKeyDownToggleMore}
-                role="button"
-                tabIndex={0}
-                id={bill_id}>
-                {gpt_summary && gpt_summary}
-                {!gpt_summary && summary}
-              </div>
-              <span
-                className={moreButtonClassName}
-                onClick={onClickToggleMore}
-                onKeyDown={onKeyDownToggleMore}
-                role="button"
-                tabIndex={0}>
-                더 보기
-              </span>
+              <div id={bill_id}>{displayedSummary}</div>
             </CardBody>
 
             {!detail && (
