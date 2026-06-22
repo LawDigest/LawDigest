@@ -57,9 +57,12 @@ def test_agentic_report_prompt_targets_user_facing_report():
     assert "괄호로 끼워 넣지 마세요" in prompt
     assert "어려운 법률·행정 용어가 있을 때만" in prompt
     assert "허위정보, 필수정보, 표시·광고처럼 뜻이 바로 드러나는 말" in prompt
+    assert "제23조(청문)" in prompt
     assert "원문 요약:" in prompt
     assert "용어 설명:" in prompt
     assert "법령 체계:" in prompt
+    assert "쉬운 풀이:" in prompt
+    assert "Markdown 불릿" in prompt
     assert "실제 용어명으로 시작" in prompt
     assert "청문`이 나오면" in prompt
     assert "위임·위탁`이 나오면" in prompt
@@ -69,6 +72,10 @@ def test_agentic_report_prompt_targets_user_facing_report():
     assert "쉬운 풀이 불릿" in prompt
     assert "반복하지 마세요" in prompt
     assert "고정 접두어 없이" in prompt
+    assert "법률·행정용어 풀이 사전" in prompt
+    assert "법제처 법령용어 API" in prompt
+    assert "target=lstrmAI" in prompt
+    assert "설명하지 않을 용어" in prompt
 
 
 def test_agentic_report_validation_rejects_internal_tool_leaks():
@@ -145,6 +152,31 @@ def test_agentic_report_validation_rejects_original_summary_label():
         assert "내부 조사 표현" in str(exc)
     else:
         raise AssertionError("원문 요약 메타 라벨이 섞인 리포트는 성공하면 안 됩니다.")
+
+
+def test_agentic_report_validation_rejects_easy_explanation_label():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+사용자에게 보여줄 요약입니다.
+
+## 주요 내용
+- 권한 정비: 필요한 설명입니다.
+
+## 무엇이 달라지나
+- 기존 조문에 새 규정이 추가됩니다.
+  쉬운 풀이: 사용자가 거래 전에 정보를 더 확인할 수 있게 됩니다.
+"""
+
+    try:
+        _validate_report_body(report_body)
+    except RuntimeError as exc:
+        assert "내부 조사 표현" in str(exc)
+    else:
+        raise AssertionError("쉬운 풀이 메타 라벨이 섞인 리포트는 성공하면 안 됩니다.")
 
 
 def test_agentic_report_validation_requires_term_explanation_bullets():
@@ -273,6 +305,22 @@ def test_agentic_report_validation_rejects_unnecessary_obvious_term_explanations
         raise AssertionError("뜻이 바로 드러나는 말까지 설명한 리포트는 성공하면 안 됩니다.")
 
 
+def test_legal_term_glossary_context_uses_law_open_api_references():
+    from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
+
+    context = build_legal_term_glossary_context("청문 규정과 과태료, 허위정보 유포를 설명합니다.")
+
+    assert "법률·행정용어 풀이 사전" in context
+    assert "법제처 법령용어 API" in context
+    assert "lawSearch.do?target=lstrmAI" in context
+    assert "lawService.do?target=lstrmRlt" in context
+    assert "lawService.do?target=dlytrmRlt" in context
+    assert "청문 규정: 처분을 받기 전에" in context
+    assert "과태료: 행정질서 위반" in context
+    assert "허위정보" in context
+    assert "설명하지 않을 용어" in context
+
+
 def test_agentic_report_validation_rejects_repeated_easy_explanation_starter():
     from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
 
@@ -331,6 +379,9 @@ def test_codex_agent_command_includes_four_mcp_servers(tmp_path, monkeypatch):
     assert "mcp_servers.assembly-api.command" in joined
     assert "mcp_servers.open-assembly.command" in joined
     assert "mcp_servers.korean-law.tools.search_law.approval_mode" in joined
+    assert "mcp_servers.korean-law.tools.get_legal_term_kb.approval_mode" in joined
+    assert "mcp_servers.korean-law.tools.get_legal_to_daily.approval_mode" in joined
+    assert "mcp_servers.korean-law.tools.get_daily_to_legal.approval_mode" in joined
     assert "mcp_servers.korean-stats.tools.search_statistics.approval_mode" in joined
     assert "mcp_servers.open-assembly.tools.search_bills.approval_mode" in joined
     assert "mcp_servers.assembly-api.tools.discover_apis.approval_mode" in joined
