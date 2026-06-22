@@ -4,6 +4,7 @@ import json
 import os
 import re
 import subprocess
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -91,6 +92,12 @@ MCP_APPROVED_TOOLS = {
 }
 
 
+class BillReportGenerationError(RuntimeError):
+    def __init__(self, message: str, *, details: dict[str, Any]):
+        super().__init__(message)
+        self.details = details
+
+
 def _toml_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=False)
 
@@ -108,6 +115,33 @@ def _toml_inline_table(values: dict[str, str]) -> str:
 def _slugify_bill_id(value: Any) -> str:
     slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(value or "bill").strip())
     return slug.strip("_") or "bill"
+
+
+def _parse_codex_json_metadata(stdout_text: str) -> dict[str, Any]:
+    thread_id: str | None = None
+    usage: dict[str, Any] | None = None
+    event_count = 0
+    for line in stdout_text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        event_count += 1
+        if event.get("type") == "thread.started":
+            thread_id = event.get("thread_id")
+        if event.get("type") == "turn.completed" and isinstance(event.get("usage"), dict):
+            usage = event["usage"]
+    return {
+        "codex_thread_id": thread_id,
+        "codex_event_count": event_count,
+        "token_usage_available": usage is not None,
+        "usage": usage,
+    }
 
 
 def _db_mode_for_execution(mode: str) -> str:
@@ -138,7 +172,8 @@ def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
     legal_term_context = build_legal_term_glossary_context(payload_text)
     return (
         "당신은 Lawdigest의 법안 리포트 작성자입니다.\n"
-        "아래 입력은 이미 통과된 법안 후보입니다. MCP 도구를 능동적으로 사용해 사실관계를 확인하되, 출력은 내부 조사 로그가 아니라 "
+        "아래 입력은 Lawdigest가 보유한 법안 후보입니다. MCP 도구를 능동적으로 사용해 사실관계를 확인하고, "
+        "통과 여부와 현재 상태는 실제 처리결과에 맞게 설명하되, 출력은 내부 조사 로그가 아니라 "
         "사용자에게 보여줄 최종 법안 리포트여야 합니다.\n\n"
         "조사 원칙:\n"
         "- open-assembly와 assembly-api로 법안명, 의안번호, 처리결과, 법안의 통과 경로, 위원회, 표결 정보를 확인하세요.\n"
@@ -345,16 +380,31 @@ def _validate_report_body(report_body: str) -> None:
         raise RuntimeError("생성 리포트에 어색한 -요 체가 남아 있습니다: " + ", ".join(awkward_matches))
 
 
-def _fetch_passed_bills(mode: str, limit: int, read_mode: str | None = None) -> List[Dict[str, Any]]:
+def _fetch_bill_report_targets(
+    mode: str,
+    limit: int,
+    read_mode: str | None = None,
+    target: str = "passed",
+) -> List[Dict[str, Any]]:
     from lawdigest_ai.db import get_db_connection
 
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
+    if target not in {"passed", "all"}:
+        raise ValueError("target은 passed 또는 all이어야 합니다.")
 
     db_mode = _resolve_read_mode(mode, read_mode)
-    result_filters = " OR ".join(["bill_result LIKE %s" for _ in PASSED_RESULT_TERMS])
-    stage_filters = " OR ".join(["stage LIKE %s" for _ in PASSED_STAGE_TERMS])
-    excluded_filters = " AND ".join(["COALESCE(bill_result, '') NOT LIKE %s" for _ in EXCLUDED_RESULT_TERMS])
+    filters = ["summary IS NOT NULL", "summary != ''"]
+    params: list[Any] = []
+    if target == "passed":
+        result_filters = " OR ".join(["bill_result LIKE %s" for _ in PASSED_RESULT_TERMS])
+        stage_filters = " OR ".join(["stage LIKE %s" for _ in PASSED_STAGE_TERMS])
+        excluded_filters = " AND ".join(["COALESCE(bill_result, '') NOT LIKE %s" for _ in EXCLUDED_RESULT_TERMS])
+        filters.extend([f"({result_filters} OR {stage_filters})", excluded_filters])
+        params.extend([f"%{term}%" for term in PASSED_RESULT_TERMS])
+        params.extend([f"%{term}%" for term in PASSED_STAGE_TERMS])
+        params.extend([f"%{term}%" for term in EXCLUDED_RESULT_TERMS])
+    where_clause = "\n        AND ".join(filters)
     query = f"""
     SELECT
         bill_id,
@@ -371,19 +421,11 @@ def _fetch_passed_bills(mode: str, limit: int, read_mode: str | None = None) -> 
         bill_pdf_url
     FROM Bill
     WHERE
-        summary IS NOT NULL
-        AND summary != ''
-        AND ({result_filters} OR {stage_filters})
-        AND {excluded_filters}
+        {where_clause}
     ORDER BY propose_date DESC
     LIMIT %s
     """
-    params: list[Any] = (
-        [f"%{term}%" for term in PASSED_RESULT_TERMS]
-        + [f"%{term}%" for term in PASSED_STAGE_TERMS]
-        + [f"%{term}%" for term in EXCLUDED_RESULT_TERMS]
-        + [limit]
-    )
+    params.append(limit)
 
     conn = get_db_connection(mode=db_mode)
     try:
@@ -392,6 +434,10 @@ def _fetch_passed_bills(mode: str, limit: int, read_mode: str | None = None) -> 
             return list(cur.fetchall())
     finally:
         conn.close()
+
+
+def _fetch_passed_bills(mode: str, limit: int, read_mode: str | None = None) -> List[Dict[str, Any]]:
+    return _fetch_bill_report_targets(mode=mode, limit=limit, read_mode=read_mode, target="passed")
 
 
 @dataclass(frozen=True)
@@ -463,6 +509,7 @@ class CodexBillReportAgent:
             "--skip-git-repo-check",
             "--ephemeral",
             "--ignore-rules",
+            "--json",
             "--model",
             self.model,
             "--output-last-message",
@@ -477,6 +524,8 @@ class CodexBillReportAgent:
         command, stdin_text = self.build_command(prompt=prompt, output_path=output_path)
         report_path = Path(output_path)
         report_path.parent.mkdir(parents=True, exist_ok=True)
+        started_at = datetime.now(timezone.utc)
+        started_perf = time.perf_counter()
 
         proc = subprocess.run(
             command,
@@ -486,20 +535,36 @@ class CodexBillReportAgent:
             cwd=self.workdir,
             timeout=self.timeout_seconds,
         )
+        finished_at = datetime.now(timezone.utc)
+        duration_seconds = round(time.perf_counter() - started_perf, 3)
         stdout_text = (proc.stdout or "").strip()
-        if proc.returncode != 0:
-            error = (proc.stderr or stdout_text or "Codex agent failed").strip()
-            raise RuntimeError(error)
-        if not report_path.exists() and stdout_text:
-            report_path.write_text(stdout_text, encoding="utf-8")
-        if not report_path.exists():
-            raise RuntimeError("Codex agent report body is empty.")
-        _validate_report_body(report_path.read_text(encoding="utf-8"))
-
-        return {
+        metadata = _parse_codex_json_metadata(stdout_text)
+        details = {
             "bill_id": bill.get("bill_id"),
             "bill_name": bill.get("bill_name"),
             "report_path": str(report_path),
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
+            "duration_seconds": duration_seconds,
+            "exit_code": proc.returncode,
+            **metadata,
+        }
+        if proc.returncode != 0:
+            error = (proc.stderr or stdout_text or "Codex agent failed").strip()
+            raise BillReportGenerationError(error, details=details)
+        if not report_path.exists() and stdout_text:
+            report_path.write_text(stdout_text, encoding="utf-8")
+        if not report_path.exists():
+            raise BillReportGenerationError("Codex agent report body is empty.", details=details)
+        output_bytes = report_path.stat().st_size
+        details["output_bytes"] = output_bytes
+        try:
+            _validate_report_body(report_path.read_text(encoding="utf-8"))
+        except RuntimeError as exc:
+            raise BillReportGenerationError(str(exc), details=details) from exc
+
+        return {
+            **details,
             "status": "success",
         }
 
@@ -512,25 +577,39 @@ def run_agentic_bill_reports(
     read_mode: str | None = None,
     codex_model: str | None = None,
     stop_on_error: bool = False,
+    target: str = "passed",
 ) -> Dict[str, Any]:
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
+    if target not in {"passed", "all"}:
+        raise ValueError("target은 passed 또는 all이어야 합니다.")
 
-    targets = _fetch_passed_bills(mode=mode, limit=limit, read_mode=read_mode)
+    targets = _fetch_bill_report_targets(mode=mode, limit=limit, read_mode=read_mode, target=target)
     output_root = Path(output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
     agent = CodexBillReportAgent(model=codex_model or DEFAULT_CODEX_MODEL)
     items: list[dict[str, Any]] = []
+    started_at = datetime.now(timezone.utc)
+    started_perf = time.perf_counter()
 
-    for target in targets:
-        bill_id = target.get("bill_id")
+    for bill in targets:
+        bill_id = bill.get("bill_id")
         report_path = output_root / f"{_slugify_bill_id(bill_id)}.md"
         try:
-            items.append(agent.write_report(bill=target, output_path=str(report_path)))
+            items.append(agent.write_report(bill=bill, output_path=str(report_path)))
+        except BillReportGenerationError as exc:
+            failed = {
+                **exc.details,
+                "status": "failed",
+                "error": str(exc),
+            }
+            items.append(failed)
+            if stop_on_error:
+                raise
         except Exception as exc:
             failed = {
                 "bill_id": bill_id,
-                "bill_name": target.get("bill_name"),
+                "bill_name": bill.get("bill_name"),
                 "report_path": str(report_path),
                 "status": "failed",
                 "error": str(exc),
@@ -539,19 +618,35 @@ def run_agentic_bill_reports(
             if stop_on_error:
                 raise
 
+    finished_at = datetime.now(timezone.utc)
+    total_duration_seconds = round(time.perf_counter() - started_perf, 3)
+    usage_totals: dict[str, int] = {}
+    for item in items:
+        usage = item.get("usage")
+        if not isinstance(usage, dict):
+            continue
+        for key, value in usage.items():
+            if isinstance(value, int):
+                usage_totals[key] = usage_totals.get(key, 0) + value
+
     report = {
         "execution_mode": mode,
         "read_mode": _resolve_read_mode(mode, read_mode),
         "provider": "codex-agent",
         "model": codex_model or DEFAULT_CODEX_MODEL,
-        "target": "passed_bills",
+        "target": "all_bills" if target == "all" else "passed_bills",
         "output_dir": str(output_root),
-        "processed_at": datetime.now(timezone.utc).isoformat(),
+        "started_at": started_at.isoformat(),
+        "finished_at": finished_at.isoformat(),
+        "processed_at": finished_at.isoformat(),
         "stats": {
             "target_count": len(targets),
             "processed_count": len(items),
             "success_count": sum(1 for item in items if item["status"] == "success"),
             "failure_count": sum(1 for item in items if item["status"] == "failed"),
+            "total_duration_seconds": total_duration_seconds,
+            "token_usage_available_count": sum(1 for item in items if item.get("token_usage_available")),
+            "usage_totals": usage_totals,
         },
         "items": items,
     }

@@ -370,6 +370,7 @@ class PipelineRuntime:
         read_mode: str | None = None,
         codex_model: str | None = None,
         stop_on_error: bool = False,
+        target: str = "passed",
     ) -> Dict[str, Any]:
         params = {
             "mode": mode,
@@ -378,7 +379,7 @@ class PipelineRuntime:
             "read_mode": read_mode,
             "codex_model": codex_model,
             "stop_on_error": stop_on_error,
-            "target": "passed_bills",
+            "target": target,
         }
 
         def execute(run_id: str) -> List[Dict[str, Any]]:
@@ -392,11 +393,12 @@ class PipelineRuntime:
                 read_mode=read_mode,
                 codex_model=codex_model,
                 stop_on_error=stop_on_error,
+                target=target,
             )
             self._record_step(
                 run_id,
                 steps,
-                "generate_passed_bill_reports",
+                "generate_all_bill_reports" if target == "all" else "generate_passed_bill_reports",
                 report,
             )
             stats = report.get("stats", {})

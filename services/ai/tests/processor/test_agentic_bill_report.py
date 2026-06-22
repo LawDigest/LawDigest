@@ -20,7 +20,9 @@ def test_agentic_report_prompt_requires_active_mcp_research():
         }
     )
 
-    assert "통과된 법안" in prompt
+    assert "Lawdigest가 보유한 법안 후보" in prompt
+    assert "실제 처리결과에 맞게 설명" in prompt
+    assert "이미 통과된 법안" not in prompt
     assert "MCP 도구를 능동적으로 사용" in prompt
     assert "open-assembly" in prompt
     assert "assembly-api" in prompt
@@ -687,6 +689,7 @@ def test_codex_agent_command_includes_four_mcp_servers(tmp_path, monkeypatch):
     assert "memories" in command
     assert "--sandbox" in command
     assert "read-only" in command
+    assert "--json" in command
     assert "--output-last-message" in command
     assert stdin_text == "리포트를 작성하세요."
     assert "mcp_servers.korean-stats.command" in joined
@@ -703,6 +706,47 @@ def test_codex_agent_command_includes_four_mcp_servers(tmp_path, monkeypatch):
     assert "korean-law-mcp@latest" in joined
     assert "assembly-api-mcp@latest" in joined
     assert "open-assembly-mcp@latest" in joined
+
+
+def test_codex_agent_records_operational_usage_metadata(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
+
+    monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
+    output_path = tmp_path / "report.md"
+    report_body = (
+        "# 테스트법 일부개정법률안\n\n"
+        "## 쉬운 요약\n**본문**이에요. <mark>핵심 변화는 거래 전 정보 확인이에요.</mark>\n\n"
+        "## 주요 내용\n- **권한 정비**: 설명이에요.\n\n"
+        "## 무엇이 달라지나\n\n"
+        "### 1) 허위정보 유포 금지 조문 신설\n\n"
+        "제23조의2를 새로 둬 **허위정보 유포**를 금지해요.\n\n"
+        "- 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.\n"
+    )
+    stdout = "\n".join(
+        [
+            '{"type":"thread.started","thread_id":"thread-test"}',
+            '{"type":"turn.completed","usage":{"input_tokens":10,"cached_input_tokens":3,"output_tokens":4,"reasoning_output_tokens":2}}',
+        ]
+    )
+
+    def run_codex(*args, **kwargs):
+        output_path.write_text(report_body, encoding="utf-8")
+        return subprocess.CompletedProcess(args=args[0], returncode=0, stdout=stdout, stderr="")
+
+    agent = CodexBillReportAgent()
+    with patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex):
+        result = agent.write_report(
+            bill={"bill_id": "PRC_TEST", "bill_name": "테스트법 일부개정법률안"},
+            output_path=str(output_path),
+        )
+
+    assert result["status"] == "success"
+    assert result["duration_seconds"] >= 0
+    assert result["exit_code"] == 0
+    assert result["output_bytes"] == output_path.stat().st_size
+    assert result["codex_thread_id"] == "thread-test"
+    assert result["token_usage_available"] is True
+    assert result["usage"]["input_tokens"] == 10
 
 
 def test_codex_agent_uses_gpt_54_mini_by_default():
@@ -760,9 +804,9 @@ def test_run_agentic_bill_reports_writes_markdown_artifacts(tmp_path, monkeypatc
     }
 
     with patch(
-        "lawdigest_ai.processor.agentic_bill_report._fetch_passed_bills",
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
         return_value=[target],
-    ), patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run") as mock_run:
+    ) as fetch_targets, patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run") as mock_run:
         mock_run.return_value = subprocess.CompletedProcess(
             args=["codex"],
             returncode=0,
@@ -781,11 +825,60 @@ def test_run_agentic_bill_reports_writes_markdown_artifacts(tmp_path, monkeypatc
             mode="dry_run",
             limit=1,
             output_dir=str(tmp_path),
-        )
+            )
 
     assert result["stats"]["target_count"] == 1
+    assert result["target"] == "passed_bills"
     assert result["stats"]["success_count"] == 1
     assert result["items"][0]["status"] == "success"
     report_path = Path(result["items"][0]["report_path"])
     assert report_path.exists()
     assert "쉬운 요약" in report_path.read_text(encoding="utf-8")
+    fetch_targets.assert_called_once_with(mode="dry_run", limit=1, read_mode=None, target="passed")
+
+
+def test_run_agentic_bill_reports_can_target_all_bills(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+    monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
+
+    target = {
+        "bill_id": "PRC_TEST_ALL",
+        "bill_number": "2209999",
+        "bill_name": "전체대상 테스트법 일부개정법률안",
+        "summary": "테스트 요약",
+        "bill_result": "소관위심사",
+        "stage": "위원회 심사",
+        "propose_date": "2026-05-01",
+        "proposers": "홍길동의원",
+        "committee": "정무위원회",
+    }
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=[target],
+    ) as fetch_targets, patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run") as mock_run:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["codex"],
+            returncode=0,
+            stdout=(
+                "# 전체대상 테스트법 일부개정법률안\n\n"
+                "## 쉬운 요약\n**본문**이에요. <mark>핵심 변화는 거래 전 정보 확인이에요.</mark>\n\n"
+                "## 주요 내용\n- **권한 정비**: 설명이에요.\n\n"
+                "## 무엇이 달라지나\n\n"
+                "### 1) 허위정보 유포 금지 조문 신설\n\n"
+                "제23조의2를 새로 둬 **허위정보 유포**를 금지해요.\n\n"
+                "- 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.\n"
+            ),
+            stderr="",
+        )
+        result = run_agentic_bill_reports(
+            mode="dry_run",
+            limit=1,
+            output_dir=str(tmp_path),
+            target="all",
+        )
+
+    assert result["target"] == "all_bills"
+    assert result["stats"]["success_count"] == 1
+    fetch_targets.assert_called_once_with(mode="dry_run", limit=1, read_mode=None, target="all")
