@@ -63,6 +63,8 @@ def test_codex_agent_requires_assembly_api_key(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
 
     monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    monkeypatch.delenv("APIKEY_billsInfo", raising=False)
+    monkeypatch.delenv("APIKEY_status", raising=False)
 
     agent = CodexBillReportAgent()
     try:
@@ -71,6 +73,21 @@ def test_codex_agent_requires_assembly_api_key(tmp_path, monkeypatch):
         assert "ASSEMBLY_API_KEY" in str(exc)
     else:
         raise AssertionError("ASSEMBLY_API_KEY 없이 Codex MCP 명령이 생성되면 안 됩니다.")
+
+
+def test_codex_agent_accepts_existing_bills_info_key(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    monkeypatch.setenv("APIKEY_billsInfo", "assembly-key")
+
+    agent = CodexBillReportAgent()
+    command, _ = agent.build_command(
+        prompt="리포트를 작성하세요.",
+        output_path=str(tmp_path / "report.md"),
+    )
+
+    assert "mcp_servers.open-assembly.env" in " ".join(command)
 
 
 def test_run_agentic_bill_reports_writes_markdown_artifacts(tmp_path, monkeypatch):

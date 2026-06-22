@@ -147,7 +147,7 @@ class CodexBillReportAgent:
     workdir: str = DEFAULT_AGENT_WORKDIR
 
     def _mcp_server_config_args(self) -> list[str]:
-        assembly_key = os.getenv("ASSEMBLY_API_KEY")
+        assembly_key = os.getenv("ASSEMBLY_API_KEY") or os.getenv("APIKEY_billsInfo") or os.getenv("APIKEY_status")
         if not assembly_key:
             raise RuntimeError("ASSEMBLY_API_KEY 환경변수가 필요합니다.")
         law_oc = os.getenv("LAW_OC", "")
