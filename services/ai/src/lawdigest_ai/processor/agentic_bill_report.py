@@ -149,9 +149,11 @@ def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
         "## 무엇이 달라지나\n"
         "- 현행법과 달라지는 점을 구체적으로 쓰되, 각 변화 묶음의 첫 문장은 원문 조문 변화의 요약에 가깝게 쓰세요.\n"
         "- 청문 규정, 과태료, 위임·위탁, 조문 체계처럼 일반 사용자가 모를 법한 법률·행정 용어는 괄호로 끼워 넣지 마세요.\n"
-        "- 각 변화 묶음은 반드시 `조문 변화를 요약한 문장`, `- 실제 용어명으로 시작하는 설명 불릿`, `- 쉬운 풀이 불릿`을 붙이는 3줄 패턴으로 쓰세요.\n"
+        "- 각 변화 묶음은 `조문 변화를 요약한 문장`과 `- 쉬운 풀이 불릿`을 기본으로 쓰세요.\n"
+        "- `- 실제 용어명으로 시작하는 설명 불릿`은 어려운 법률·행정 용어가 있을 때만 중간에 붙이세요.\n"
         "- 첫 문장에 `원문 요약:` 같은 메타 라벨을 붙이지 말고 바로 조문 변화 문장을 쓰세요.\n"
         "- 용어 설명 불릿은 `용어 설명:`이나 `법령 체계:` 같은 메타 라벨을 쓰지 말고, 반드시 실제 용어명으로 시작하세요. 예: `청문 규정:`, `과태료:`, `위임·위탁:`\n"
+        "- 허위정보, 필수정보, 표시·광고처럼 뜻이 바로 드러나는 말은 사전식 용어 설명 불릿을 붙이지 마세요. 그런 경우에는 바로 사용자에게 어떤 변화가 생기는지 쉬운 풀이로 넘어가세요.\n"
         "- 원문 요약 문장에 `청문`이 나오면 바로 아래에 반드시 `청문 규정:` 또는 `청문 절차:` 설명 불릿을 붙이세요.\n"
         "- 원문 요약 문장에 `위임·위탁`이 나오면 바로 아래에 반드시 `위임·위탁:` 설명 불릿을 붙이세요.\n"
         "- 원문 요약 문장에 `과태료`가 나오면 바로 아래에 반드시 `과태료:` 설명 불릿을 붙이세요.\n"
@@ -231,6 +233,11 @@ def _validate_report_body(report_body: str) -> None:
     repeated = [starter for starter in repeated_starters if changes_body.count(starter) > 1]
     if repeated:
         raise RuntimeError("생성 리포트의 쉬운 풀이 문장 시작이 반복됩니다: " + ", ".join(repeated))
+
+    unnecessary_definition_labels = ("허위정보:", "허위정보 유포:", "필수정보:", "표시·광고:")
+    unnecessary_definitions = [label for label in unnecessary_definition_labels if label in changes_body]
+    if unnecessary_definitions:
+        raise RuntimeError("생성 리포트에 불필요한 용어 설명 불릿이 있습니다: " + ", ".join(unnecessary_definitions))
 
     easy_starters = repeated_starters + ("사용자 입장에서는,", "바뀌는 점은,", "실제로는,", "이 말은", "결국")
     unbulleted_easy_starters = [

@@ -55,7 +55,8 @@ def test_agentic_report_prompt_targets_user_facing_report():
     assert "현재 심사 단계" in prompt
     assert "청문 규정" in prompt
     assert "괄호로 끼워 넣지 마세요" in prompt
-    assert "- 실제 용어명으로 시작하는 설명 불릿" in prompt
+    assert "어려운 법률·행정 용어가 있을 때만" in prompt
+    assert "허위정보, 필수정보, 표시·광고처럼 뜻이 바로 드러나는 말" in prompt
     assert "원문 요약:" in prompt
     assert "용어 설명:" in prompt
     assert "법령 체계:" in prompt
@@ -237,7 +238,6 @@ def test_agentic_report_validation_ignores_source_section_legal_terms():
 
 ## 무엇이 달라지나
 - 제23조의2를 새로 둬 허위정보 유포를 금지합니다.
-  - 허위정보: 거래를 유리하게 만들기 위해 사실과 다르게 퍼뜨린 내용입니다.
   - 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.
 
 ## 확인한 근거
@@ -245,6 +245,32 @@ def test_agentic_report_validation_ignores_source_section_legal_terms():
 """
 
     _validate_report_body(report_body)
+
+
+def test_agentic_report_validation_rejects_unnecessary_obvious_term_explanations():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+사용자에게 보여줄 요약입니다.
+
+## 주요 내용
+- 권한 정비: 필요한 설명입니다.
+
+## 무엇이 달라지나
+- 제23조의2를 새로 둬 허위정보 유포를 금지합니다.
+  - 허위정보: 거래를 성사시키기 위해 사실이 아닌 내용으로 유포된 광고·글·영상·이미지를 말합니다.
+  - 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.
+"""
+
+    try:
+        _validate_report_body(report_body)
+    except RuntimeError as exc:
+        assert "불필요한 용어 설명" in str(exc)
+    else:
+        raise AssertionError("뜻이 바로 드러나는 말까지 설명한 리포트는 성공하면 안 됩니다.")
 
 
 def test_agentic_report_validation_rejects_repeated_easy_explanation_starter():
