@@ -1,5 +1,6 @@
 import json
 import subprocess
+import threading
 from pathlib import Path
 from unittest.mock import patch
 
@@ -933,3 +934,47 @@ def test_run_agentic_bill_reports_records_usage_meter_snapshot(tmp_path, monkeyp
     }
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["usage_meter"]["weekly"]["delta_percent"] == -0.5
+
+
+def test_run_agentic_bill_reports_runs_codex_sessions_in_parallel(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent, run_agentic_bill_reports
+
+    monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
+    targets = [
+        {"bill_id": "PRC_PARALLEL_1", "bill_name": "병렬 테스트법 1"},
+        {"bill_id": "PRC_PARALLEL_2", "bill_name": "병렬 테스트법 2"},
+    ]
+    lock = threading.Lock()
+    both_started = threading.Event()
+    started_count = 0
+
+    def write_report(self, *, bill, output_path):
+        nonlocal started_count
+        with lock:
+            started_count += 1
+            if started_count == 2:
+                both_started.set()
+        if not both_started.wait(timeout=1):
+            raise AssertionError("두 리포트 세션이 동시에 시작되지 않았습니다.")
+        Path(output_path).write_text("# 병렬 테스트\n", encoding="utf-8")
+        return {
+            "bill_id": bill["bill_id"],
+            "bill_name": bill["bill_name"],
+            "report_path": output_path,
+            "status": "success",
+        }
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=targets,
+    ), patch.object(CodexBillReportAgent, "write_report", write_report):
+        result = run_agentic_bill_reports(
+            mode="dry_run",
+            limit=2,
+            output_dir=str(tmp_path),
+            concurrency=2,
+        )
+
+    assert result["concurrency"] == 2
+    assert result["stats"]["success_count"] == 2
+    assert [item["bill_id"] for item in result["items"]] == ["PRC_PARALLEL_1", "PRC_PARALLEL_2"]

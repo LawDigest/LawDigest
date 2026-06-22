@@ -394,6 +394,7 @@ class PipelineRuntime:
         codex_model: str | None = None,
         stop_on_error: bool = False,
         target: str = "passed",
+        concurrency: int = 1,
         weekly_usage_before: float | None = None,
         weekly_usage_after: float | None = None,
         five_hour_usage_before: float | None = None,
@@ -413,6 +414,7 @@ class PipelineRuntime:
             "codex_model": codex_model,
             "stop_on_error": stop_on_error,
             "target": target,
+            "concurrency": concurrency,
             "usage_meter": usage_meter,
         }
 
@@ -428,6 +430,7 @@ class PipelineRuntime:
                 "codex_model": codex_model,
                 "stop_on_error": stop_on_error,
                 "target": target,
+                "concurrency": concurrency,
             }
             if usage_meter is not None:
                 report_kwargs["usage_meter"] = usage_meter

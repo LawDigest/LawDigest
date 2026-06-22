@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -601,34 +602,37 @@ def run_agentic_bill_reports(
     stop_on_error: bool = False,
     target: str = "passed",
     usage_meter: dict[str, Any] | None = None,
+    concurrency: int = 1,
 ) -> Dict[str, Any]:
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
     if target not in {"passed", "all"}:
         raise ValueError("target은 passed 또는 all이어야 합니다.")
+    if concurrency < 1:
+        raise ValueError("concurrency는 1 이상이어야 합니다.")
 
     targets = _fetch_bill_report_targets(mode=mode, limit=limit, read_mode=read_mode, target=target)
     output_root = Path(output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
     agent = CodexBillReportAgent(model=codex_model or DEFAULT_CODEX_MODEL)
-    items: list[dict[str, Any]] = []
+    items: list[dict[str, Any] | None] = [None] * len(targets)
     started_at = datetime.now(timezone.utc)
     started_perf = time.perf_counter()
 
-    for bill in targets:
+    def generate_one(index: int, bill: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         bill_id = bill.get("bill_id")
         report_path = output_root / f"{_slugify_bill_id(bill_id)}.md"
         try:
-            items.append(agent.write_report(bill=bill, output_path=str(report_path)))
+            return index, agent.write_report(bill=bill, output_path=str(report_path))
         except BillReportGenerationError as exc:
             failed = {
                 **exc.details,
                 "status": "failed",
                 "error": str(exc),
             }
-            items.append(failed)
             if stop_on_error:
                 raise
+            return index, failed
         except Exception as exc:
             failed = {
                 "bill_id": bill_id,
@@ -637,14 +641,26 @@ def run_agentic_bill_reports(
                 "status": "failed",
                 "error": str(exc),
             }
-            items.append(failed)
             if stop_on_error:
                 raise
+            return index, failed
 
+    if targets and concurrency > 1:
+        with ThreadPoolExecutor(max_workers=min(concurrency, len(targets))) as executor:
+            futures = [executor.submit(generate_one, index, bill) for index, bill in enumerate(targets)]
+            for future in as_completed(futures):
+                index, item = future.result()
+                items[index] = item
+    else:
+        for index, bill in enumerate(targets):
+            item_index, item = generate_one(index, bill)
+            items[item_index] = item
+
+    completed_items = [item for item in items if item is not None]
     finished_at = datetime.now(timezone.utc)
     total_duration_seconds = round(time.perf_counter() - started_perf, 3)
     usage_totals: dict[str, int] = {}
-    for item in items:
+    for item in completed_items:
         usage = item.get("usage")
         if not isinstance(usage, dict):
             continue
@@ -658,20 +674,21 @@ def run_agentic_bill_reports(
         "provider": "codex-agent",
         "model": codex_model or DEFAULT_CODEX_MODEL,
         "target": "all_bills" if target == "all" else "passed_bills",
+        "concurrency": concurrency,
         "output_dir": str(output_root),
         "started_at": started_at.isoformat(),
         "finished_at": finished_at.isoformat(),
         "processed_at": finished_at.isoformat(),
         "stats": {
             "target_count": len(targets),
-            "processed_count": len(items),
-            "success_count": sum(1 for item in items if item["status"] == "success"),
-            "failure_count": sum(1 for item in items if item["status"] == "failed"),
+            "processed_count": len(completed_items),
+            "success_count": sum(1 for item in completed_items if item["status"] == "success"),
+            "failure_count": sum(1 for item in completed_items if item["status"] == "failed"),
             "total_duration_seconds": total_duration_seconds,
-            "token_usage_available_count": sum(1 for item in items if item.get("token_usage_available")),
+            "token_usage_available_count": sum(1 for item in completed_items if item.get("token_usage_available")),
             "usage_totals": usage_totals,
         },
-        "items": items,
+        "items": completed_items,
     }
     normalized_usage_meter = _normalize_usage_meter(usage_meter)
     if normalized_usage_meter is not None:
