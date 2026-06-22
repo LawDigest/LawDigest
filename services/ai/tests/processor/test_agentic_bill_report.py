@@ -669,6 +669,28 @@ def test_agentic_report_validation_rejects_repeated_easy_explanation_starter():
         raise AssertionError("같은 쉬운 풀이 접두어가 반복된 리포트는 성공하면 안 됩니다.")
 
 
+def test_agentic_report_validation_allows_eventually_inside_summary_sentence():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+- <mark>결국 이용자 보호를 더 안정적으로 만들려는 법안이에요.</mark>
+
+## 주요 내용
+- **운영 기준 정비**: 기준을 더 분명하게 잡아요.
+
+## 무엇이 달라지나
+### 1) 인사운용 정비
+이 법안은 여러 기준을 따로 보지 않고 한 흐름으로 다시 맞추려는 성격이 강해요. 결국 제도를 더 오래 쓰고, 더 같은 기준으로 운영하겠다는 쪽에 가까워요.
+- 숙련 인력을 빨리 교체하기보다 필요한 자리에 오래 두는 쪽으로 무게가 실려요.
+- 후속 운영 기준이 중요해요.
+""".strip()
+
+    _validate_report_body(report_body)
+
+
 def test_codex_agent_command_includes_four_mcp_servers(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
 

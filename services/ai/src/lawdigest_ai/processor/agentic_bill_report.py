@@ -381,9 +381,7 @@ def _validate_report_body(report_body: str) -> None:
     unbulleted_easy_starters = [
         starter
         for starter in easy_starters
-        if starter in changes_body
-        and f"\n- {starter}" not in changes_body
-        and f"\n  - {starter}" not in changes_body
+        if re.search(rf"(?m)^(?!\s*-\s)\s*{re.escape(starter)}", changes_body)
     ]
     if unbulleted_easy_starters:
         raise RuntimeError(
