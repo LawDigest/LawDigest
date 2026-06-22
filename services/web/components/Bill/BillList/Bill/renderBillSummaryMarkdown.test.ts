@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderBillSummaryMarkdown } from './renderBillSummaryMarkdown';
+import { getFeedSummaryMarkdown, renderBillSummaryMarkdown } from './renderBillSummaryMarkdown';
 
 describe('renderBillSummaryMarkdown', () => {
   it('마크다운 단락명을 제목 태그로 렌더링한다', () => {
@@ -18,5 +18,41 @@ describe('renderBillSummaryMarkdown', () => {
 
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+  });
+});
+
+describe('getFeedSummaryMarkdown', () => {
+  it('피드에서는 쉬운 요약과 주요 내용 섹션만 남긴다', () => {
+    const markdown = [
+      '<mark>아직 통과하지 않았어요.</mark>',
+      '',
+      '## 쉬운 요약',
+      '- 첫 요약',
+      '',
+      '## 주요 내용',
+      '- **핵심** 내용',
+      '',
+      '## 왜 나왔나',
+      '상세 배경',
+      '',
+      '## 무엇이 달라지나',
+      '### 1) 세부 변화',
+      '상세 변화',
+    ].join('\n');
+
+    const feedMarkdown = getFeedSummaryMarkdown(markdown);
+
+    expect(feedMarkdown).toContain('## 쉬운 요약');
+    expect(feedMarkdown).toContain('## 주요 내용');
+    expect(feedMarkdown).not.toContain('아직 통과하지 않았어요');
+    expect(feedMarkdown).not.toContain('## 왜 나왔나');
+    expect(feedMarkdown).not.toContain('## 무엇이 달라지나');
+    expect(feedMarkdown).not.toContain('### 1) 세부 변화');
+  });
+
+  it('대상 섹션이 없으면 원문을 유지한다', () => {
+    const markdown = '기존 한 줄 요약';
+
+    expect(getFeedSummaryMarkdown(markdown)).toBe(markdown);
   });
 });

@@ -9,6 +9,45 @@ const renderInlineMarkdown = (value: string) => {
     .join('');
 };
 
+const FEED_SECTION_HEADINGS = new Set(['쉬운 요약', '주요 내용']);
+
+export const getFeedSummaryMarkdown = (markdown: string) => {
+  const result = markdown.split('\n').reduce(
+    (state, line) => {
+      if (state.done) {
+        return state;
+      }
+
+      const { feedLines, foundFeedSection, isFeedSection } = state;
+
+      if (!line.startsWith('## ')) {
+        return isFeedSection ? { ...state, feedLines: [...feedLines, line] } : state;
+      }
+
+      const heading = line.slice(3).trim();
+
+      if (!FEED_SECTION_HEADINGS.has(heading)) {
+        return foundFeedSection ? { ...state, done: true } : { ...state, isFeedSection: false };
+      }
+
+      return {
+        done: state.done,
+        feedLines: [...feedLines, line],
+        foundFeedSection: true,
+        isFeedSection: true,
+      };
+    },
+    {
+      done: false,
+      feedLines: [] as string[],
+      foundFeedSection: false,
+      isFeedSection: false,
+    },
+  );
+
+  return result.foundFeedSection ? result.feedLines.join('\n').trim() : markdown;
+};
+
 export const renderBillSummaryMarkdown = (markdown: string) =>
   markdown
     .split('\n')
