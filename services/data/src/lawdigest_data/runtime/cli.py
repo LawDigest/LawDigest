@@ -72,6 +72,10 @@ def build_parser() -> argparse.ArgumentParser:
     agent_report.add_argument("--read-mode", choices=["test", "prod"])
     agent_report.add_argument("--codex-model")
     agent_report.add_argument("--target", default="passed", choices=["passed", "all"])
+    agent_report.add_argument("--weekly-usage-before", type=float)
+    agent_report.add_argument("--weekly-usage-after", type=float)
+    agent_report.add_argument("--five-hour-usage-before", type=float)
+    agent_report.add_argument("--five-hour-usage-after", type=float)
     agent_report.add_argument("--stop-on-error", action="store_true")
 
     return parser
@@ -149,6 +153,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             codex_model=args.codex_model,
             stop_on_error=args.stop_on_error,
             target=args.target,
+            weekly_usage_before=args.weekly_usage_before,
+            weekly_usage_after=args.weekly_usage_after,
+            five_hour_usage_before=args.five_hour_usage_before,
+            five_hour_usage_after=args.five_hour_usage_after,
         )
     else:
         parser.error(f"unsupported command: {args.command}")

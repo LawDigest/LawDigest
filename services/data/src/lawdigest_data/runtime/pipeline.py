@@ -17,6 +17,29 @@ def _build_workflow_manager(mode: str):
     return WorkFlowManager(mode)
 
 
+def _build_usage_meter_snapshot(
+    *,
+    weekly_usage_before: float | None,
+    weekly_usage_after: float | None,
+    five_hour_usage_before: float | None,
+    five_hour_usage_after: float | None,
+) -> dict[str, Any] | None:
+    usage_meter: dict[str, Any] = {}
+    weekly = {
+        "before_percent": weekly_usage_before,
+        "after_percent": weekly_usage_after,
+    }
+    five_hour = {
+        "before_percent": five_hour_usage_before,
+        "after_percent": five_hour_usage_after,
+    }
+    if any(value is not None for value in weekly.values()):
+        usage_meter["weekly"] = {key: value for key, value in weekly.items() if value is not None}
+    if any(value is not None for value in five_hour.values()):
+        usage_meter["five_hour"] = {key: value for key, value in five_hour.items() if value is not None}
+    return usage_meter or None
+
+
 class PipelineRunRecorder:
     """Append-only JSONL recorder for pipeline run state."""
 
@@ -371,7 +394,17 @@ class PipelineRuntime:
         codex_model: str | None = None,
         stop_on_error: bool = False,
         target: str = "passed",
+        weekly_usage_before: float | None = None,
+        weekly_usage_after: float | None = None,
+        five_hour_usage_before: float | None = None,
+        five_hour_usage_after: float | None = None,
     ) -> Dict[str, Any]:
+        usage_meter = _build_usage_meter_snapshot(
+            weekly_usage_before=weekly_usage_before,
+            weekly_usage_after=weekly_usage_after,
+            five_hour_usage_before=five_hour_usage_before,
+            five_hour_usage_after=five_hour_usage_after,
+        )
         params = {
             "mode": mode,
             "limit": limit,
@@ -380,20 +413,26 @@ class PipelineRuntime:
             "codex_model": codex_model,
             "stop_on_error": stop_on_error,
             "target": target,
+            "usage_meter": usage_meter,
         }
 
         def execute(run_id: str) -> List[Dict[str, Any]]:
             from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
 
             steps: List[Dict[str, Any]] = []
+            report_kwargs = {
+                "mode": mode,
+                "limit": limit,
+                "output_dir": output_dir,
+                "read_mode": read_mode,
+                "codex_model": codex_model,
+                "stop_on_error": stop_on_error,
+                "target": target,
+            }
+            if usage_meter is not None:
+                report_kwargs["usage_meter"] = usage_meter
             report = run_agentic_bill_reports(
-                mode=mode,
-                limit=limit,
-                output_dir=output_dir,
-                read_mode=read_mode,
-                codex_model=codex_model,
-                stop_on_error=stop_on_error,
-                target=target,
+                **report_kwargs,
             )
             self._record_step(
                 run_id,

@@ -144,6 +144,28 @@ def _parse_codex_json_metadata(stdout_text: str) -> dict[str, Any]:
     }
 
 
+def _normalize_usage_meter(usage_meter: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not usage_meter:
+        return None
+    normalized: dict[str, Any] = {}
+    for key in ("weekly", "five_hour"):
+        raw_meter = usage_meter.get(key)
+        if not isinstance(raw_meter, dict):
+            continue
+        meter = {
+            field: raw_meter[field]
+            for field in ("before_percent", "after_percent")
+            if raw_meter.get(field) is not None
+        }
+        before = meter.get("before_percent")
+        after = meter.get("after_percent")
+        if isinstance(before, (int, float)) and isinstance(after, (int, float)):
+            meter["delta_percent"] = round(after - before, 3)
+        if meter:
+            normalized[key] = meter
+    return normalized or None
+
+
 def _db_mode_for_execution(mode: str) -> str:
     return "prod" if mode == "prod" else "test"
 
@@ -578,6 +600,7 @@ def run_agentic_bill_reports(
     codex_model: str | None = None,
     stop_on_error: bool = False,
     target: str = "passed",
+    usage_meter: dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
@@ -650,6 +673,9 @@ def run_agentic_bill_reports(
         },
         "items": items,
     }
+    normalized_usage_meter = _normalize_usage_meter(usage_meter)
+    if normalized_usage_meter is not None:
+        report["usage_meter"] = normalized_usage_meter
     (output_root / "manifest.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2, default=str),
         encoding="utf-8",

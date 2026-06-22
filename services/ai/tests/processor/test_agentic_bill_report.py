@@ -1,3 +1,4 @@
+import json
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
@@ -882,3 +883,53 @@ def test_run_agentic_bill_reports_can_target_all_bills(tmp_path, monkeypatch):
     assert result["target"] == "all_bills"
     assert result["stats"]["success_count"] == 1
     fetch_targets.assert_called_once_with(mode="dry_run", limit=1, read_mode=None, target="all")
+
+
+def test_run_agentic_bill_reports_records_usage_meter_snapshot(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+    monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
+
+    target = {
+        "bill_id": "PRC_USAGE",
+        "bill_number": "2209998",
+        "bill_name": "사용량 계측 테스트법 일부개정법률안",
+        "summary": "테스트 요약",
+        "bill_result": "소관위심사",
+        "stage": "위원회 심사",
+    }
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=[target],
+    ), patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run") as mock_run:
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["codex"],
+            returncode=0,
+            stdout=(
+                "# 사용량 계측 테스트법 일부개정법률안\n\n"
+                "## 쉬운 요약\n**본문**이에요. <mark>핵심 변화는 거래 전 정보 확인이에요.</mark>\n\n"
+                "## 주요 내용\n- **권한 정비**: 설명이에요.\n\n"
+                "## 무엇이 달라지나\n\n"
+                "### 1) 허위정보 유포 금지 조문 신설\n\n"
+                "제23조의2를 새로 둬 **허위정보 유포**를 금지해요.\n\n"
+                "- 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.\n"
+            ),
+            stderr="",
+        )
+        result = run_agentic_bill_reports(
+            mode="dry_run",
+            limit=1,
+            output_dir=str(tmp_path),
+            usage_meter={
+                "weekly": {"before_percent": 41.2, "after_percent": 40.7},
+                "five_hour": {"before_percent": 8.0, "after_percent": 9.5},
+            },
+        )
+
+    assert result["usage_meter"] == {
+        "weekly": {"before_percent": 41.2, "after_percent": 40.7, "delta_percent": -0.5},
+        "five_hour": {"before_percent": 8.0, "after_percent": 9.5, "delta_percent": 1.5},
+    }
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["usage_meter"]["weekly"]["delta_percent"] == -0.5
