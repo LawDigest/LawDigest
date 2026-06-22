@@ -152,7 +152,8 @@ def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
         "- 본회의 표결수, 현재 심사 단계, 공포일 같은 상태값은 프론트엔드 데이터가 따로 보여주므로 요약 본문에 쓰지 마세요.\n"
         "## 주요 내용\n"
         "- 여러 제도가 함께 바뀌는 법안이면 4~6개 항목을 쓰세요.\n"
-        "- 각 항목은 반드시 `항목 제목: 쉬운 설명` 형식으로 쓰세요.\n"
+        "- 각 항목은 반드시 `**항목 제목**: 쉬운 설명` 형식으로 쓰세요.\n"
+        "- 콜론 앞 핵심 내용은 반드시 Markdown 볼드체로 나타내세요. 예: `**부당한 표시·광고 제한**: 허위·과장 등 소비자를 오도할 수 있는 표현을 규제해요.`\n"
         "- `핵심:` 또는 `설명:` 같은 메타 라벨을 그대로 출력하지 마세요.\n"
         "## 왜 나왔나\n"
         "- 제안 이유와 정책 배경을 사용자 관점에서 설명하세요.\n"
@@ -162,6 +163,7 @@ def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
         "- 제목은 설명문이 아니라 짧은 명사형 항목명으로 쓰세요.\n"
         "- 예를 들어 `허위개발정보 유포를 금지하는 조문을 새로 둔다`가 아니라 `허위개발정보 유포를 금지하는 조문 신설`로 쓰세요.\n"
         "- `인터넷 표시·광고의 필수정보와 부당한 표시를 제한한다`가 아니라 `인터넷 표시·광고의 필수정보와 부당한 표시를 제한`으로 쓰세요.\n"
+        "- `벌칙·과태료 체계 개정과 집행주체 확충`처럼 행정문서식 표현은 피하고, `허위정보·부당광고 위반 시 제재 강화`처럼 사용자가 바로 이해하는 말로 풀어 쓰세요.\n"
         "- 번호 헤딩 다음에는 불릿이 아닌 일반 문단으로 원문 조문 변화의 요약을 1문단 쓰세요.\n"
         "- 그 아래에 필요한 설명/풀이를 Markdown 불릿(`- ...`)으로 붙이세요.\n"
         "- 불릿만으로 변화 묶음을 시작하지 마세요.\n"
@@ -300,6 +302,24 @@ def _validate_report_body(report_body: str) -> None:
     ]
     if sentence_style_headings:
         raise RuntimeError("생성 리포트의 변화 제목은 짧은 명사형 제목이어야 합니다: " + ", ".join(sentence_style_headings))
+
+    hard_heading_terms = ("집행주체", "체계 개정", "확충", "정교화")
+    hard_change_headings = [
+        heading
+        for heading in re.findall(r"(?m)^###\s+\d+\)\s+(.+)$", changes_body)
+        if any(term in heading for term in hard_heading_terms)
+    ]
+    if hard_change_headings:
+        raise RuntimeError("생성 리포트의 변화 제목은 쉬운 변화 제목이어야 합니다: " + ", ".join(hard_change_headings))
+
+    major_body = _markdown_section_body(body, "## 주요 내용")
+    unbolded_major_labels = [
+        line.strip()
+        for line in major_body.splitlines()
+        if line.startswith("- ") and ": " in line and not re.match(r"- \*\*[^*\n]+\*\*:", line)
+    ]
+    if unbolded_major_labels:
+        raise RuntimeError("생성 리포트의 콜론 앞 핵심 라벨은 볼드체여야 합니다: " + ", ".join(unbolded_major_labels))
 
     if not re.search(r"\*\*[^*\n][^*\n]*\*\*", body):
         raise RuntimeError("생성 리포트에 중요 단어 볼드체가 없습니다.")

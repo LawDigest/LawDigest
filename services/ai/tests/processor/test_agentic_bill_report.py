@@ -47,7 +47,8 @@ def test_agentic_report_prompt_targets_user_facing_report():
 
     assert "사용자에게 보여줄 최종 법안 리포트" in prompt
     assert "쉬운 요약" in prompt
-    assert "항목 제목: 쉬운 설명" in prompt
+    assert "**항목 제목**: 쉬운 설명" in prompt
+    assert "**부당한 표시·광고 제한**: 허위·과장 등 소비자를 오도할 수 있는 표현을 규제해요." in prompt
     assert "Lawdigest 요약 개선 제안" not in prompt
     assert "사용한 MCP 도구와 출처" not in prompt
     assert "내부 조사 로그" in prompt
@@ -78,6 +79,8 @@ def test_agentic_report_prompt_targets_user_facing_report():
     assert "짧은 명사형 항목명" in prompt
     assert "허위개발정보 유포를 금지하는 조문 신설" in prompt
     assert "인터넷 표시·광고의 필수정보와 부당한 표시를 제한" in prompt
+    assert "벌칙·과태료 체계 개정과 집행주체 확충" in prompt
+    assert "허위정보·부당광고 위반 시 제재 강화" in prompt
     assert "**중요 단어**" in prompt
     assert "<mark>중요 문장</mark>" in prompt
     assert "토스 앱처럼 자연스러운 `-요` 체" in prompt
@@ -347,6 +350,65 @@ def test_agentic_report_validation_accepts_numbered_change_heading_format():
 """
 
     _validate_report_body(report_body)
+
+
+def test_agentic_report_validation_rejects_unbolded_colon_labels():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 거래 전 정보 확인이 쉬워지는 점이에요.</mark>
+
+## 주요 내용
+- 권한 정비: 필요한 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 허위정보 유포 금지 조문 신설
+
+제23조의2를 새로 둬 **허위정보 유포**를 금지해요.
+
+- 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.
+"""
+
+    try:
+        _validate_report_body(report_body)
+    except RuntimeError as exc:
+        assert "콜론 앞 핵심 라벨" in str(exc)
+    else:
+        raise AssertionError("콜론 앞 핵심 라벨이 볼드체가 아닌 리포트는 성공하면 안 됩니다.")
+
+
+def test_agentic_report_validation_rejects_hard_change_headings():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 거래 전 정보 확인이 쉬워지는 점이에요.</mark>
+
+## 주요 내용
+- **권한 정비**: 필요한 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 벌칙·과태료 체계 개정과 집행주체 확충
+
+허위정보와 부당광고를 어기면 **제재**가 더 분명해져요.
+
+- 과태료: 행정질서 위반에 부과하는 금전 제재에요.
+- 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.
+"""
+
+    try:
+        _validate_report_body(report_body)
+    except RuntimeError as exc:
+        assert "쉬운 변화 제목" in str(exc)
+    else:
+        raise AssertionError("어려운 행정식 변화 제목은 성공하면 안 됩니다.")
 
 
 def test_agentic_report_validation_rejects_missing_visual_emphasis():
