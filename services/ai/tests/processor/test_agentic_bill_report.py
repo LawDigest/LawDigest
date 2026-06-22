@@ -1030,9 +1030,8 @@ def test_agentic_report_builds_db_summary_payload_from_markdown():
 
     assert payload["brief_summary"] == "기존 한 줄 요약"
     assert payload["summary_tags"] == '["기존태그"]'
-    assert "쉬운 요약" in payload["gpt_summary"]
-    assert "1) 지원 대상의 명확화" in payload["gpt_summary"]
-    assert "## 쉬운 요약" not in payload["gpt_summary"]
+    assert "## 쉬운 요약" in payload["gpt_summary"]
+    assert "### 1) 지원 대상의 명확화" in payload["gpt_summary"]
     assert "# 개인정보 보호법 일부개정법률안" not in payload["gpt_summary"]
     assert "확인한 근거" not in payload["gpt_summary"]
 

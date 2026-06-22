@@ -297,16 +297,7 @@ def _build_db_summary_payload(bill: Dict[str, Any], report_body: str) -> Dict[st
     if evidence_heading != -1:
         body = body[:evidence_heading].rstrip()
 
-    formatted_lines: list[str] = []
-    for line in body.splitlines():
-        if line.startswith("## "):
-            formatted_lines.append(line[3:])
-            continue
-        if line.startswith("### "):
-            formatted_lines.append(line[4:])
-            continue
-        formatted_lines.append(line)
-    gpt_summary = "\n".join(formatted_lines).strip()
+    gpt_summary = body.strip()
 
     brief_summary = bill.get("brief_summary")
     if not brief_summary:
