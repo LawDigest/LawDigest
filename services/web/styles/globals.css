@@ -89,6 +89,20 @@ html {
   background-color: transparent;
 }
 
+.lawdigest-summary-mark {
+  display: inline;
+  padding: 0.05em 0.28em 0.08em;
+  color: inherit;
+  background: linear-gradient(100deg, rgba(255, 177, 93, 0.36), rgba(255, 146, 67, 0.28));
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  clip-path: polygon(0.22em 0, 100% 0, calc(100% - 0.22em) 100%, 0 100%);
+}
+
+.dark .lawdigest-summary-mark {
+  background: linear-gradient(100deg, rgba(255, 177, 93, 0.3), rgba(255, 146, 67, 0.22));
+}
+
 /* ── 피드 콘텐츠 타입 탭 ── */
 
 /* 슬라이딩 인디케이터 */

@@ -14,7 +14,7 @@ describe('renderBillSummaryMarkdown', () => {
     expect(html).toContain('<h3');
     expect(html).toContain('1) 변화');
     expect(html).toContain('<strong>핵심</strong>');
-    expect(html).toContain('<mark>중요</mark>');
+    expect(html).toContain('<mark class="lawdigest-summary-mark">중요</mark>');
   });
 
   it('허용하지 않은 HTML은 이스케이프한다', () => {

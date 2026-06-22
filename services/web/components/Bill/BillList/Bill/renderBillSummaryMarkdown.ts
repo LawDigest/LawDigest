@@ -1,7 +1,10 @@
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 const renderInlineMarkdown = (value: string) => {
-  const withAllowedMark = escapeHtml(value).replace(/&lt;mark&gt;(.+?)&lt;\/mark&gt;/g, '<mark>$1</mark>');
+  const withAllowedMark = escapeHtml(value).replace(
+    /&lt;mark&gt;(.+?)&lt;\/mark&gt;/g,
+    '<mark class="lawdigest-summary-mark">$1</mark>',
+  );
 
   return withAllowedMark
     .split('**')
