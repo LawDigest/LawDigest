@@ -656,7 +656,7 @@ def run_agentic_bill_reports(
         raise ValueError("concurrency는 1 이상이어야 합니다.")
 
     targets = _fetch_bill_report_targets(mode=mode, limit=limit, read_mode=read_mode, target=target)
-    output_root = Path(output_dir)
+    output_root = Path(output_dir).expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     agent = CodexBillReportAgent(model=codex_model or DEFAULT_CODEX_MODEL)
     items: list[dict[str, Any] | None] = [None] * len(targets)
