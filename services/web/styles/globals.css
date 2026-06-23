@@ -119,6 +119,32 @@ html {
   );
 }
 
+.lawdigest-summary-heading {
+  display: inline-block;
+  width: fit-content;
+  padding: 0 0.12em;
+  border-radius: 0.16em;
+  background-image: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 26%, transparent) 0,
+    color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 26%, transparent) 42%,
+    transparent 42%,
+    transparent 100%
+  );
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.dark .lawdigest-summary-heading {
+  background-image: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 22%, transparent) 0,
+    color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 22%, transparent) 42%,
+    transparent 42%,
+    transparent 100%
+  );
+}
+
 .lawdigest-summary-list {
   display: grid;
   gap: 0.52em;

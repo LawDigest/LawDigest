@@ -92,14 +92,20 @@ export const renderBillSummaryMarkdown = (markdown: string) => {
 
       if (line.startsWith('### ')) {
         return {
-          html: [...html, `<h3 class="mt-4 mb-2 text-base font-semibold">${renderInlineMarkdown(line.slice(4))}</h3>`],
+          html: [
+            ...html,
+            `<h3 class="lawdigest-summary-heading mt-4 mb-2 text-base font-semibold">${renderInlineMarkdown(line.slice(4))}</h3>`,
+          ],
           inList: false,
         };
       }
 
       if (line.startsWith('## ')) {
         return {
-          html: [...html, `<h2 class="mt-5 mb-2 text-lg font-semibold">${renderInlineMarkdown(line.slice(3))}</h2>`],
+          html: [
+            ...html,
+            `<h2 class="lawdigest-summary-heading mt-5 mb-2 text-lg font-semibold">${renderInlineMarkdown(line.slice(3))}</h2>`,
+          ],
           inList: false,
         };
       }
