@@ -120,7 +120,7 @@ html {
 }
 
 .lawdigest-summary-heading {
-  display: inline-block;
+  display: block;
   width: fit-content;
   padding: 0 0.12em;
   border-radius: 0.16em;
