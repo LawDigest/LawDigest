@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getFeedSummaryMarkdown,
+  getPartyAccentColor,
   getSummaryVisibilityClassNames,
   renderBillSummaryMarkdown,
 } from './renderBillSummaryMarkdown';
@@ -9,9 +10,11 @@ describe('renderBillSummaryMarkdown', () => {
   it('마크다운 단락명을 제목 태그로 렌더링한다', () => {
     const html = renderBillSummaryMarkdown('## 쉬운 요약\n- **핵심** 설명\n### 1) 변화\n<mark>중요</mark>');
 
-    expect(html).toContain('<h2');
+    expect(html).toContain('<h2 class="lawdigest-summary-heading mt-5 mb-2 text-lg font-semibold">');
     expect(html).toContain('쉬운 요약');
-    expect(html).toContain('<h3');
+    expect(html).toContain('<ul class="lawdigest-summary-list">');
+    expect(html).toContain('<li><strong>핵심</strong> 설명</li>');
+    expect(html).toContain('<h3 class="lawdigest-summary-heading mt-4 mb-2 text-base font-semibold">');
     expect(html).toContain('1) 변화');
     expect(html).toContain('<strong>핵심</strong>');
     expect(html).toContain('<mark class="lawdigest-summary-mark">중요</mark>');
@@ -78,5 +81,17 @@ describe('getSummaryVisibilityClassNames', () => {
       moreButtonClassName: 'hidden',
       summaryClassName: '',
     });
+  });
+});
+
+describe('getPartyAccentColor', () => {
+  it('대표발의자 정당명을 요약 리스트 포인트 컬러로 변환한다', () => {
+    expect(getPartyAccentColor('더불어민주당')).toBe('#152484');
+    expect(getPartyAccentColor('국민의힘')).toBe('#e61e2b');
+    expect(getPartyAccentColor('개혁신당')).toBe('#ff7210');
+  });
+
+  it('알 수 없는 정당명은 기본 포인트 컬러를 쓴다', () => {
+    expect(getPartyAccentColor('알 수 없는 정당')).toBe('#e63946');
   });
 });
