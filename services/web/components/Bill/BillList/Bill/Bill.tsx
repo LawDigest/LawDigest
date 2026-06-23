@@ -35,8 +35,8 @@ import {
   getFeedSummaryMarkdown,
   getPartyAccentColor,
   getSummaryVisibilityClassNames,
-  renderBillSummaryMarkdown,
 } from './renderBillSummaryMarkdown';
+import SafeBillSummaryHtml from './SafeBillSummaryHtml';
 
 export default function Bill({
   bill_info_dto: {
@@ -151,15 +151,13 @@ export default function Bill({
           <div className={!detail ? 'hidden md:block md:w-[270px]' : ''} />
           <div className={!detail ? 'md:w-[440px] lg:w-[490px]' : ''}>
             <CardBody className={`p-0 leading-normal whitespace-pre-wrap ${detail ? '' : 'text-sm md:text-base'}`}>
-              <div
+              <SafeBillSummaryHtml
                 className={summaryClassName}
                 style={summaryAccentStyle}
                 onClick={onClickToggleMore}
                 onKeyDown={onKeyDownToggleMore}
-                role="button"
-                tabIndex={0}
-                aria-label={toggleMore ? '법안 요약 접기' : '법안 요약 더 보기'}
-                dangerouslySetInnerHTML={{ __html: renderBillSummaryMarkdown(displayedSummary) }}
+                ariaLabel={toggleMore ? '법안 요약 접기' : '법안 요약 더 보기'}
+                markdown={displayedSummary}
               />
               <span
                 className={moreButtonClassName}

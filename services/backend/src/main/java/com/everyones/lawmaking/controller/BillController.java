@@ -68,7 +68,7 @@ public class BillController {
             throw new IllegalArgumentException(stage);
         }
         var result = billFacade.getBillList(pageable, stage);
-        return BaseResponse.ok(result);
+        return BaseResponse.ok(limitToRequestedSize(result, size));
     }
 
     /**
@@ -88,7 +88,7 @@ public class BillController {
     ) {
         var pageable = PageRequest.of(page, size);
         var result = billFacade.getBillList(pageable, stage);
-        return BaseResponse.ok(result);
+        return BaseResponse.ok(limitToRequestedSize(result, size));
     }
 
     @Operation(summary = "법안 상세 조회", description = "법안 id로 법안 데이터를 가져옵니다.")
@@ -177,5 +177,16 @@ public class BillController {
     public BaseResponse<List<BillDto>> getPopularBills() {
         var result = billFacade.getPopularBills();
         return BaseResponse.ok(result);
+    }
+
+    private BillListResponse limitToRequestedSize(BillListResponse response, int size) {
+        if (response.getBillList().size() <= size) {
+            return response;
+        }
+
+        return BillListResponse.of(
+                response.getPaginationResponse(),
+                response.getBillList().subList(0, size)
+        );
     }
 }

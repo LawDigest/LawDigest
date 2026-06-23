@@ -3,6 +3,7 @@ import { RefObject } from 'react';
 import { Spinner } from '@nextui-org/spinner';
 import { FEED_TAB } from '@/constants';
 import Bill from './Bill';
+import { filterUniqueBills } from './filterUniqueBills';
 
 export default function BillList({
   bills,
@@ -17,11 +18,7 @@ export default function BillList({
   detail?: boolean;
   feedType?: ValueOf<typeof FEED_TAB>;
 }) {
-  const uniqueBills = (bills || []).filter((bill, index, list) => {
-    const billId = bill?.bill_info_dto?.bill_id;
-
-    return Boolean(billId) && list.findIndex((item) => item?.bill_info_dto?.bill_id === billId) === index;
-  });
+  const uniqueBills = filterUniqueBills(bills);
 
   return (
     <section className="xl:w-[840px]">
