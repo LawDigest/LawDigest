@@ -140,7 +140,7 @@ html {
   width: 0.3em;
   height: 0.3em;
   border-radius: 999px;
-  background: #e63946;
+  background: var(--lawdigest-summary-accent, #e63946);
 }
 
 /* ── 피드 콘텐츠 타입 탭 ── */

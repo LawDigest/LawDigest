@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getFeedSummaryMarkdown,
+  getPartyAccentColor,
   getSummaryVisibilityClassNames,
   renderBillSummaryMarkdown,
 } from './renderBillSummaryMarkdown';
@@ -80,5 +81,17 @@ describe('getSummaryVisibilityClassNames', () => {
       moreButtonClassName: 'hidden',
       summaryClassName: '',
     });
+  });
+});
+
+describe('getPartyAccentColor', () => {
+  it('대표발의자 정당명을 요약 리스트 포인트 컬러로 변환한다', () => {
+    expect(getPartyAccentColor('더불어민주당')).toBe('#152484');
+    expect(getPartyAccentColor('국민의힘')).toBe('#e61e2b');
+    expect(getPartyAccentColor('개혁신당')).toBe('#ff7210');
+  });
+
+  it('알 수 없는 정당명은 기본 포인트 컬러를 쓴다', () => {
+    expect(getPartyAccentColor('알 수 없는 정당')).toBe('#e63946');
   });
 });

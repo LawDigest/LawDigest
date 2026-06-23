@@ -1,6 +1,6 @@
 'use client';
 
-import type { KeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent } from 'react';
 import { useState, useCallback, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import {
@@ -33,6 +33,7 @@ import { ProposerList } from '@/app/bill/[id]/components';
 import GPTSummary from '../../GPTSummary';
 import {
   getFeedSummaryMarkdown,
+  getPartyAccentColor,
   getSummaryVisibilityClassNames,
   renderBillSummaryMarkdown,
 } from './renderBillSummaryMarkdown';
@@ -71,6 +72,9 @@ export default function Bill({
     detail: Boolean(detail),
     expanded: toggleMore,
   });
+  const summaryAccentStyle = {
+    '--lawdigest-summary-accent': getPartyAccentColor(partyName),
+  } as CSSProperties;
 
   const onClickToggleMore = useCallback(() => {
     setToggleMore(!toggleMore);
@@ -162,6 +166,7 @@ export default function Bill({
             <CardBody className={`p-0 leading-normal whitespace-pre-wrap ${detail ? '' : 'text-sm md:text-base'}`}>
               <div
                 className={summaryClassName}
+                style={summaryAccentStyle}
                 onClick={onClickToggleMore}
                 onKeyDown={onKeyDownToggleMore}
                 role="button"

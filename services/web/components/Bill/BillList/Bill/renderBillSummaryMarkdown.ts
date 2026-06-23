@@ -14,6 +14,22 @@ const renderInlineMarkdown = (value: string) => {
 
 const FEED_SECTION_HEADINGS = new Set(['쉬운 요약', '주요 내용']);
 
+const PARTY_ACCENT_COLORS: Record<string, string> = {
+  개혁신당: '#ff7210',
+  국민의힘: '#e61e2b',
+  기본소득당: '#00d2c3',
+  녹색정의당: '#007c36',
+  다수: '#2e2e2e',
+  더불어민주당: '#152484',
+  무소속: '#797c85',
+  사회민주당: '#f58400',
+  새로운미래: '#45babd',
+  조국혁신당: '#0073cf',
+  진보당: '#d6001c',
+};
+
+export const getPartyAccentColor = (partyName: string) => PARTY_ACCENT_COLORS[partyName] ?? '#e63946';
+
 export const getFeedSummaryMarkdown = (markdown: string) => {
   const result = markdown.split('\n').reduce(
     (state, line) => {
