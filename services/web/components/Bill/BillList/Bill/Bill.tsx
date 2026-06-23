@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties, KeyboardEvent } from 'react';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useTheme } from 'next-themes';
 import {
   Card,
@@ -59,7 +59,6 @@ export default function Bill({
 }: BillProps) {
   const [isLiked, setIsLiked] = useState(is_book_mark);
   const [likeCount, setLikeCount] = useState(bill_like_count);
-  const [isLoaded, setIsLoaded] = useState(false);
   const mutateBookmark = usePatchBookmark(bill_id);
   const [toggleMore, setToggleMore] = useState(false);
   const isRepresentativeSolo = representative_proposer_dto_list.length === 1;
@@ -114,18 +113,6 @@ export default function Bill({
     setSnackbar({ show: true, type: 'SUCCESS', message: '링크를 복사했습니다.', duration: 3000 });
   }, []);
 
-  useEffect(() => {
-    setIsLoaded(true);
-
-    if (isLoaded) {
-      const summaryElement = document.getElementById(bill_id);
-
-      if (summaryElement !== null && summaryElement?.innerHTML !== null) {
-        summaryElement.innerHTML = renderBillSummaryMarkdown(displayedSummary);
-      }
-    }
-  }, [bill_id, displayedSummary, isLoaded]);
-
   return (
     <section className={`flex flex-col  ${detail ? 'md:flex-row items-start' : 'md:mx-5'}`}>
       <Card
@@ -171,9 +158,9 @@ export default function Bill({
                 onKeyDown={onKeyDownToggleMore}
                 role="button"
                 tabIndex={0}
-                id={bill_id}>
-                {displayedSummary}
-              </div>
+                aria-label={toggleMore ? '법안 요약 접기' : '법안 요약 더 보기'}
+                dangerouslySetInnerHTML={{ __html: renderBillSummaryMarkdown(displayedSummary) }}
+              />
               <span
                 className={moreButtonClassName}
                 onClick={onClickToggleMore}

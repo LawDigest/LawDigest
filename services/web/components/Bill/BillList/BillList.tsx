@@ -17,13 +17,17 @@ export default function BillList({
   detail?: boolean;
   feedType?: ValueOf<typeof FEED_TAB>;
 }) {
+  const uniqueBills = (bills || []).filter((bill, index, list) => {
+    const billId = bill?.bill_info_dto?.bill_id;
+
+    return Boolean(billId) && list.findIndex((item) => item?.bill_info_dto?.bill_id === billId) === index;
+  });
+
   return (
     <section className="xl:w-[840px]">
-      {(bills || [])
-        .filter((bill) => bill?.bill_info_dto)
-        .map((bill, index) => (
-          <Bill key={`${bill.bill_info_dto.bill_id + index}`} {...bill} detail={detail} />
-        ))}
+      {uniqueBills.map((bill) => (
+        <Bill key={bill.bill_info_dto.bill_id} {...bill} detail={detail} />
+      ))}
       {feedType === 'sorted_by_latest' && isFetching && (
         <div className="flex justify-center w-full my-4">
           <Spinner color="default" />

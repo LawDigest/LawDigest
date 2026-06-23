@@ -43,12 +43,12 @@ public class BillRepositoryImpl implements BillRepositoryCustom {
     @Override
     public BillListResponse findBillWithDetailAndPage(Pageable pageable, Optional<Long> userIdOptional, String stage) {
         var pagedBill = findPagedBills(pageable, stage);
+        var pagination = PaginationResponse.of(PaginationUtil.hasNextPage(pagedBill, pageable.getPageSize()), pageable.getPageNumber());
         var billIds = extractBillIds(pagedBill);
         var representativeProposerMap = findRepresentativeProposerMap(billIds);
         var publicProposerMap = findPublicProposerMap(billIds);
         var billLikeMap = checkBillLiked(billIds, userIdOptional);
         var billDtoList = createBillDtoList(pagedBill, representativeProposerMap, publicProposerMap, billLikeMap);
-        var pagination = PaginationResponse.of(PaginationUtil.hasNextPage(pagedBill, pageable.getPageSize()), pageable.getPageNumber());
         return BillListResponse.of(pagination, billDtoList);
     }
     private List<BillInfoDto> findPagedBills(Pageable pageable, String stage) {
