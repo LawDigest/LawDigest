@@ -11,7 +11,8 @@
 | 위치 | 역할 |
 | --- | --- |
 | `services/ai/src/lawdigest_ai/processor/agentic_bill_report.py` | Codex 세션에 `korean-law` MCP 서버를 주입한다. |
-| `services/ai/src/lawdigest_ai/processor/legal_term_glossary.py` | 법률·행정용어 풀이 사전과 법제처 API 참조를 프롬프트에 붙인다. |
+| `services/ai/src/lawdigest_ai/processor/law_open_api_terms.py` | `LAW_OC`로 법제처 용어 API를 호출한다. |
+| `services/ai/src/lawdigest_ai/processor/legal_term_glossary.py` | API 조회 결과와 정적 보조 사전을 합쳐 프롬프트에 붙인다. |
 
 실행 경로는 [bill-report-agent-pipeline.md](./bill-report-agent-pipeline.md)를 따른다.
 
@@ -68,7 +69,16 @@ npx -y korean-law-mcp@latest
 
 ## 4. 법률 용어 자동 풀이
 
-현재 구현은 실시간 API 호출 결과를 사전으로 저장하지 않는다. 대신 정적 용어 사전을 프롬프트에 붙이고, Codex 에이전트가 `korean-law` MCP 도구로 필요한 용어를 확인할 수 있게 한다.
+현재 구현은 `LAW_OC`가 있으면 법제처 Open API를 실제로 호출한다. 조회에 성공하면 프롬프트에 `법제처 API 조회 결과` 섹션을 넣고, 실패하거나 키가 없으면 Lawdigest가 관리하는 정적 보조 사전만 fallback으로 넣는다.
+
+현재 호출하는 API:
+
+| API | 사용 방식 |
+| --- | --- |
+| `lawSearch.do?target=lstrmAI` | 법령정보지식베이스에서 법령용어 후보를 조회한다. |
+| `lawService.do?target=lstrmRlt` | 법령용어와 연결된 일상어를 조회한다. |
+
+`dlytrmRlt` 역방향 조회 메서드는 클라이언트에 있지만, 자동 프롬프트 컨텍스트에는 넣지 않는다. 실제 스모크에서 `검토 → 검열`처럼 너무 넓은 관련 법령용어가 섞이는 문제가 확인되어, 현재 프롬프트에는 법령용어에서 직접 연결된 일상어만 넣는다.
 
 기본 사전:
 
@@ -98,7 +108,7 @@ npx -y korean-law-mcp@latest
 | 법령용어-일상용어 연계 | `https://www.law.go.kr/DRF/lawService.do?target=lstrmRlt` |
 | 일상용어-법령용어 연계 | `https://www.law.go.kr/DRF/lawService.do?target=dlytrmRlt` |
 
-현재 `legal_term_glossary.py`는 이 URL들을 프롬프트 컨텍스트에 명시한다. 다음 단계에서 정식 API 클라이언트를 붙이면, 자주 등장하는 용어를 캐시하고 검증 테스트에 넣을 수 있다.
+현재 `law_open_api_terms.py`가 이 중 `lstrmAI`, `lstrmRlt`를 호출한다. 다음 단계에서는 자주 등장하는 용어를 캐시하고, 법안 원문에서 어려운 용어 후보를 더 넓게 추출하는 쪽을 보강한다.
 
 ## 6. 출력 형식 규칙
 
@@ -139,10 +149,10 @@ npx -y korean-law-mcp@latest
 
 우선순위는 다음 순서다.
 
-1. 법제처 용어 API 클라이언트 추가
-2. 용어 조회 결과 캐시 테이블 또는 파일 캐시 추가
-3. 생성 전에 법안 원문에서 어려운 용어 후보 추출
-4. API 사전과 정적 사전을 병합해 프롬프트 컨텍스트 생성
-5. 설명하지 않을 용어 목록을 실제 리포트 품질 리뷰 결과로 갱신
+1. 용어 조회 결과 캐시 테이블 또는 파일 캐시 추가
+2. 생성 전에 법안 원문에서 어려운 용어 후보 추출
+3. 법제처 API 결과와 정적 설명의 충돌 여부 점검
+4. 설명하지 않을 용어 목록을 실제 리포트 품질 리뷰 결과로 갱신
+5. API 실패율과 fallback 사용 여부를 manifest에 기록
 
 이 보강은 리포트 본문의 길이를 늘리는 작업이 아니다. 목적은 어려운 용어만 골라 정확히 설명하고, 쉬운 말에는 설명을 붙이지 않는 것이다.

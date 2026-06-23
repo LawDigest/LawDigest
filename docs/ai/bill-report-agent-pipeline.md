@@ -140,7 +140,7 @@ Codex 세션은 `--ignore-user-config`, `--disable plugins`, `--disable apps`, `
 
 ## 9. 법률 용어 풀이
 
-`legal_term_glossary.py`는 프롬프트에 짧은 용어 사전 컨텍스트를 붙인다.
+`legal_term_glossary.py`는 프롬프트에 짧은 용어 사전 컨텍스트를 붙인다. `LAW_OC`가 있으면 `law_open_api_terms.py`의 `LawOpenApiTermClient`가 법제처 Open API를 실제로 호출해 법령용어와 일상어 연계어를 조회한다.
 
 현재 기본 사전:
 
@@ -148,7 +148,12 @@ Codex 세션은 `--ignore-user-config`, `--disable plugins`, `--disable apps`, `
 - `과태료`: 행정질서 위반에 대해 부과하는 금전 제재
 - `위임·위탁`: 행정기관의 권한이나 업무 일부를 다른 기관이 맡아 처리하는 방식
 
-법제처 Open API의 법령용어, 법령용어-일상용어 연계, 일상용어-법령용어 연계 API는 사전 보강 출처로 문서화되어 있다. 현재 구현은 API를 실시간 호출하지 않고, 정적 사전과 `korean-law` MCP 도구를 함께 쓰는 구조다.
+조회하는 API:
+
+- `lawSearch.do?target=lstrmAI`: 법령정보지식베이스 법령용어 조회
+- `lawService.do?target=lstrmRlt`: 법령용어-일상용어 연계 조회
+
+API 조회에 성공하면 프롬프트에 `법제처 API 조회 결과` 섹션이 들어간다. `LAW_OC`가 없거나 호출에 실패하면 API 결과를 넣지 않고, Lawdigest가 관리하는 정적 보조 사전만 fallback으로 넣는다. 이 경우 프롬프트에는 `정적 보조 사전`이라고 명시한다.
 
 `허위정보`, `필수정보`, `표시·광고`처럼 뜻이 바로 드러나는 말은 설명하지 않을 용어로 분류한다. 너무 당연한 말까지 설명해 리포트가 늘어지는 문제를 막기 위해서다.
 
