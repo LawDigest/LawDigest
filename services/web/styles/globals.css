@@ -97,8 +97,8 @@ html {
     102deg,
     transparent 0,
     transparent 0.2em,
-    rgba(255, 176, 89, 0.34) 0.2em,
-    rgba(255, 139, 48, 0.28) calc(100% - 0.2em),
+    rgba(255, 176, 89, 0.22) 0.2em,
+    rgba(255, 139, 48, 0.18) calc(100% - 0.2em),
     transparent calc(100% - 0.2em),
     transparent 100%
   );
@@ -112,8 +112,8 @@ html {
     102deg,
     transparent 0,
     transparent 0.2em,
-    rgba(255, 176, 89, 0.26) 0.2em,
-    rgba(255, 139, 48, 0.2) calc(100% - 0.2em),
+    rgba(255, 176, 89, 0.18) 0.2em,
+    rgba(255, 139, 48, 0.14) calc(100% - 0.2em),
     transparent calc(100% - 0.2em),
     transparent 100%
   );
