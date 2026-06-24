@@ -74,7 +74,7 @@ describe('SafeBillSummaryHtml', () => {
       toJSON: () => {},
     });
 
-    fireEvent.mouseEnter(term);
+    fireEvent.pointerOver(term);
 
     expect(screen.getByRole('tooltip')).toHaveStyle({
       '--lawdigest-term-tooltip-left': '164px',
@@ -96,10 +96,10 @@ describe('SafeBillSummaryHtml', () => {
 
     const term = screen.getByText('변상금');
 
-    fireEvent.mouseEnter(term);
+    fireEvent.pointerOver(term);
     expect(screen.getByRole('tooltip')).toBeInTheDocument();
 
-    fireEvent.mouseLeave(term, { relatedTarget: document.body });
+    fireEvent.pointerOut(term, { relatedTarget: document.body });
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
@@ -117,7 +117,29 @@ describe('SafeBillSummaryHtml', () => {
 
     const summary = screen.getByRole('button', { name: '법안 요약 더 보기' });
 
-    fireEvent.mouseEnter(summary);
+    fireEvent.pointerOver(summary);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('다른 법령용어에 마우스를 올리면 툴팁 내용을 새 단어 기준으로 갱신한다', () => {
+    render(
+      <SafeBillSummaryHtml
+        ariaLabel="법안 요약 더 보기"
+        className="summary"
+        markdown="{{변상금:허가 없이 재산을 사용한 사람에게 부과하는 금액}}과 {{대부료:빌려 쓰는 대가로 내는 돈}}"
+        onClick={() => {}}
+        onKeyDown={() => {}}
+        style={{ '--lawdigest-summary-accent': '#152484' } as CSSProperties}
+      />,
+    );
+
+    const firstTerm = screen.getByText('변상금');
+    const secondTerm = screen.getByText('대부료');
+
+    fireEvent.pointerOver(firstTerm);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('허가 없이 재산을 사용한 사람에게 부과하는 금액');
+
+    fireEvent.pointerOver(secondTerm);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('빌려 쓰는 대가로 내는 돈');
   });
 });

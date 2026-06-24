@@ -1,5 +1,13 @@
-import type { CSSProperties, KeyboardEvent, MouseEvent, KeyboardEventHandler, MouseEventHandler } from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type {
+  CSSProperties,
+  FocusEvent,
+  KeyboardEvent,
+  MouseEvent,
+  PointerEvent,
+  KeyboardEventHandler,
+  MouseEventHandler,
+} from 'react';
+import { useMemo, useState } from 'react';
 import { renderBillSummaryMarkdown } from './renderBillSummaryMarkdown';
 
 type SafeBillSummaryHtmlProps = {
@@ -35,12 +43,11 @@ export default function SafeBillSummaryHtml({
   onKeyDown,
   style,
 }: SafeBillSummaryHtmlProps) {
-  const summaryRef = useRef<HTMLDivElement>(null);
   const [termTooltip, setTermTooltip] = useState<TermTooltipState | null>(null);
   const renderedMarkdown = useMemo(() => renderBillSummaryMarkdown(markdown), [markdown]);
   const isTermTooltipTarget = (target: EventTarget | null) => getTermTooltipElement(target) !== null;
 
-  const showTermTooltip = useCallback((termElement: HTMLElement) => {
+  const showTermTooltip = (termElement: HTMLElement) => {
     const { definition } = termElement.dataset;
     if (!definition) {
       return;
@@ -59,11 +66,46 @@ export default function SafeBillSummaryHtml({
       left,
       top: rect.bottom + TOOLTIP_VERTICAL_OFFSET,
     });
-  }, []);
+  };
 
-  const hideTermTooltip = useCallback(() => {
+  const hideTermTooltip = () => {
     setTermTooltip(null);
-  }, []);
+  };
+
+  const handleTermPointerOver = (event: PointerEvent<HTMLDivElement>) => {
+    const termElement = getTermTooltipElement(event.target);
+    if (!termElement) {
+      return;
+    }
+
+    showTermTooltip(termElement);
+  };
+
+  const handleTermPointerOut = (event: PointerEvent<HTMLDivElement>) => {
+    const termElement = getTermTooltipElement(event.target);
+    if (!termElement) {
+      return;
+    }
+
+    if (event.relatedTarget instanceof Node && termElement.contains(event.relatedTarget)) {
+      return;
+    }
+
+    hideTermTooltip();
+  };
+
+  const handleFocus = (event: FocusEvent<HTMLDivElement>) => {
+    const termElement = getTermTooltipElement(event.target);
+    if (termElement) {
+      showTermTooltip(termElement);
+    }
+  };
+
+  const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (isTermTooltipTarget(event.target)) {
+      hideTermTooltip();
+    }
+  };
 
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
     if (isTermTooltipTarget(event.target)) {
@@ -81,41 +123,18 @@ export default function SafeBillSummaryHtml({
     onKeyDown(event);
   };
 
-  useEffect(() => {
-    const termElements = Array.from(summaryRef.current?.querySelectorAll<HTMLElement>(TERM_TOOLTIP_SELECTOR) ?? []);
-
-    const cleanups = termElements.map((termElement) => {
-      const handleMouseEnter = () => showTermTooltip(termElement);
-      const handleMouseLeave = () => hideTermTooltip();
-      const handleFocus = () => showTermTooltip(termElement);
-      const handleBlur = () => hideTermTooltip();
-
-      termElement.addEventListener('mouseenter', handleMouseEnter);
-      termElement.addEventListener('mouseleave', handleMouseLeave);
-      termElement.addEventListener('focus', handleFocus);
-      termElement.addEventListener('blur', handleBlur);
-
-      return () => {
-        termElement.removeEventListener('mouseenter', handleMouseEnter);
-        termElement.removeEventListener('mouseleave', handleMouseLeave);
-        termElement.removeEventListener('focus', handleFocus);
-        termElement.removeEventListener('blur', handleBlur);
-      };
-    });
-
-    return () => {
-      cleanups.forEach((cleanup) => cleanup());
-    };
-  }, [hideTermTooltip, renderedMarkdown, showTermTooltip]);
-
   return (
     <>
       <div
-        ref={summaryRef}
         className={className}
         style={style}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
+        onPointerOver={handleTermPointerOver}
+        onPointerOut={handleTermPointerOut}
+        onPointerLeave={hideTermTooltip}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         role="button"
         tabIndex={0}
         aria-label={ariaLabel}
