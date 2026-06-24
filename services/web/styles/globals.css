@@ -146,6 +146,27 @@ html {
   );
 }
 
+.lawdigest-summary-section-heading {
+  letter-spacing: 0;
+}
+
+.lawdigest-summary-subheading {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.45em;
+  color: color-mix(in srgb, currentColor 90%, var(--lawdigest-summary-accent, #e63946));
+  letter-spacing: 0;
+}
+
+.lawdigest-summary-subheading::before {
+  content: '';
+  width: 0.18em;
+  height: 1.15em;
+  border-radius: 999px;
+  background: var(--lawdigest-summary-accent, #e63946);
+}
+
 .lawdigest-term-tooltip {
   position: relative;
   display: inline;

@@ -106,7 +106,7 @@ export const renderBillSummaryMarkdown = (markdown: string) => {
         return {
           html: [
             ...html,
-            `<h3 class="lawdigest-summary-heading mt-4 mb-2 text-base font-semibold">${renderInlineMarkdown(line.slice(4))}</h3>`,
+            `<h3 class="lawdigest-summary-subheading mt-4 mb-1.5 text-sm font-semibold">${renderInlineMarkdown(line.slice(4))}</h3>`,
           ],
           inList: false,
         };
@@ -116,7 +116,7 @@ export const renderBillSummaryMarkdown = (markdown: string) => {
         return {
           html: [
             ...html,
-            `<h2 class="lawdigest-summary-heading mt-5 mb-2 text-lg font-semibold">${renderInlineMarkdown(line.slice(3))}</h2>`,
+            `<h2 class="lawdigest-summary-heading lawdigest-summary-section-heading mt-6 mb-3 text-lg font-bold">${renderInlineMarkdown(line.slice(3))}</h2>`,
           ],
           inList: false,
         };

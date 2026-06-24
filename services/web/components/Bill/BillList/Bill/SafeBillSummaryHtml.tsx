@@ -103,7 +103,7 @@ const renderSummaryMarkdown = (markdown: string, renderTerm: RenderTerm) => {
 
     if (line.startsWith('### ')) {
       nodes.push(
-        <h3 className="lawdigest-summary-heading mt-4 mb-2 text-base font-semibold" key={key}>
+        <h3 className="lawdigest-summary-subheading mt-4 mb-1.5 text-sm font-semibold" key={key}>
           {parseInlineMarkdown(line.slice(4), key, renderTerm)}
         </h3>,
       );
@@ -112,7 +112,9 @@ const renderSummaryMarkdown = (markdown: string, renderTerm: RenderTerm) => {
 
     if (line.startsWith('## ')) {
       nodes.push(
-        <h2 className="lawdigest-summary-heading mt-5 mb-2 text-lg font-semibold" key={key}>
+        <h2
+          className="lawdigest-summary-heading lawdigest-summary-section-heading mt-6 mb-3 text-lg font-bold"
+          key={key}>
           {parseInlineMarkdown(line.slice(3), key, renderTerm)}
         </h2>,
       );

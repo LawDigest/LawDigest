@@ -10,11 +10,13 @@ describe('renderBillSummaryMarkdown', () => {
   it('마크다운 단락명을 제목 태그로 렌더링한다', () => {
     const html = renderBillSummaryMarkdown('## 쉬운 요약\n- **핵심** 설명\n### 1) 변화\n<mark>중요</mark>');
 
-    expect(html).toContain('<h2 class="lawdigest-summary-heading mt-5 mb-2 text-lg font-semibold">');
+    expect(html).toContain(
+      '<h2 class="lawdigest-summary-heading lawdigest-summary-section-heading mt-6 mb-3 text-lg font-bold">',
+    );
     expect(html).toContain('쉬운 요약');
     expect(html).toContain('<ul class="lawdigest-summary-list">');
     expect(html).toContain('<li><strong>핵심</strong> 설명</li>');
-    expect(html).toContain('<h3 class="lawdigest-summary-heading mt-4 mb-2 text-base font-semibold">');
+    expect(html).toContain('<h3 class="lawdigest-summary-subheading mt-4 mb-1.5 text-sm font-semibold">');
     expect(html).toContain('1) 변화');
     expect(html).toContain('<strong>핵심</strong>');
     expect(html).toContain('<mark class="lawdigest-summary-mark">중요</mark>');
