@@ -1,14 +1,12 @@
 import type {
   CSSProperties,
-  FocusEvent,
   KeyboardEvent,
   MouseEvent,
-  PointerEvent,
   KeyboardEventHandler,
   MouseEventHandler,
+  ReactNode,
 } from 'react';
-import { useMemo, useState } from 'react';
-import { renderBillSummaryMarkdown } from './renderBillSummaryMarkdown';
+import { useState } from 'react';
 
 type SafeBillSummaryHtmlProps = {
   ariaLabel: string;
@@ -28,11 +26,107 @@ type TermTooltipState = {
 const TOOLTIP_MAX_WIDTH = 280;
 const TOOLTIP_VIEWPORT_PADDING = 16;
 const TOOLTIP_VERTICAL_OFFSET = 8;
-const TERM_TOOLTIP_SELECTOR = '.lawdigest-term-tooltip';
+const INLINE_TOKEN_PATTERN = /(\{\{[^:{}\n]+:[^{}\n]+\}\}|<mark>.+?<\/mark>|\*\*.+?\*\*)/g;
+const TERM_TOKEN_PATTERN = /^\{\{([^:{}\n]+):([^{}\n]+)\}\}$/;
 
-const getTermTooltipElement = (target: EventTarget | null) => {
-  if (!(target instanceof Element)) return null;
-  return target.closest<HTMLElement>(TERM_TOOLTIP_SELECTOR);
+type RenderTerm = (term: string, definition: string, key: string) => ReactNode;
+
+const parseInlineMarkdown = (value: string, keyPrefix: string, renderTerm: RenderTerm): ReactNode[] => {
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+  let tokenIndex = 0;
+
+  Array.from(value.matchAll(INLINE_TOKEN_PATTERN)).forEach((match) => {
+    const token = match[0];
+    const index = match.index ?? 0;
+
+    if (index > lastIndex) {
+      nodes.push(value.slice(lastIndex, index));
+    }
+
+    const key = `${keyPrefix}-${tokenIndex}`;
+    const termMatch = token.match(TERM_TOKEN_PATTERN);
+
+    if (termMatch) {
+      nodes.push(renderTerm(termMatch[1].trim(), termMatch[2].trim(), key));
+    } else if (token.startsWith('<mark>') && token.endsWith('</mark>')) {
+      nodes.push(
+        <mark className="lawdigest-summary-mark" key={key}>
+          {parseInlineMarkdown(token.slice(6, -7), key, renderTerm)}
+        </mark>,
+      );
+    } else if (token.startsWith('**') && token.endsWith('**')) {
+      nodes.push(<strong key={key}>{parseInlineMarkdown(token.slice(2, -2), key, renderTerm)}</strong>);
+    } else {
+      nodes.push(token);
+    }
+
+    lastIndex = index + token.length;
+    tokenIndex += 1;
+  });
+
+  if (lastIndex < value.length) {
+    nodes.push(value.slice(lastIndex));
+  }
+
+  return nodes;
+};
+
+const renderSummaryMarkdown = (markdown: string, renderTerm: RenderTerm) => {
+  const nodes: ReactNode[] = [];
+  let listItems: ReactNode[] = [];
+  let blockId = 0;
+
+  const flushList = () => {
+    if (listItems.length === 0) {
+      return;
+    }
+
+    nodes.push(
+      <ul className="lawdigest-summary-list" key={`list-${nodes.length}`}>
+        {listItems}
+      </ul>,
+    );
+    listItems = [];
+  };
+
+  markdown.split('\n').forEach((line) => {
+    const key = `block-${blockId}`;
+    blockId += 1;
+
+    if (line.startsWith('- ')) {
+      listItems.push(<li key={key}>{parseInlineMarkdown(line.slice(2), key, renderTerm)}</li>);
+      return;
+    }
+
+    flushList();
+
+    if (line.startsWith('### ')) {
+      nodes.push(
+        <h3 className="lawdigest-summary-heading mt-4 mb-2 text-base font-semibold" key={key}>
+          {parseInlineMarkdown(line.slice(4), key, renderTerm)}
+        </h3>,
+      );
+      return;
+    }
+
+    if (line.startsWith('## ')) {
+      nodes.push(
+        <h2 className="lawdigest-summary-heading mt-5 mb-2 text-lg font-semibold" key={key}>
+          {parseInlineMarkdown(line.slice(3), key, renderTerm)}
+        </h2>,
+      );
+      return;
+    }
+
+    if (line.trim() !== '') {
+      nodes.push(<p key={key}>{parseInlineMarkdown(line, key, renderTerm)}</p>);
+    }
+  });
+
+  flushList();
+
+  return nodes;
 };
 
 export default function SafeBillSummaryHtml({
@@ -44,8 +138,6 @@ export default function SafeBillSummaryHtml({
   style,
 }: SafeBillSummaryHtmlProps) {
   const [termTooltip, setTermTooltip] = useState<TermTooltipState | null>(null);
-  const renderedMarkdown = useMemo(() => renderBillSummaryMarkdown(markdown), [markdown]);
-  const isTermTooltipTarget = (target: EventTarget | null) => getTermTooltipElement(target) !== null;
 
   const showTermTooltip = (termElement: HTMLElement) => {
     const { definition } = termElement.dataset;
@@ -72,56 +164,30 @@ export default function SafeBillSummaryHtml({
     setTermTooltip(null);
   };
 
-  const handleTermPointerOver = (event: PointerEvent<HTMLDivElement>) => {
-    const termElement = getTermTooltipElement(event.target);
-    if (!termElement) {
-      return;
-    }
-
-    showTermTooltip(termElement);
-  };
-
-  const handleTermPointerOut = (event: PointerEvent<HTMLDivElement>) => {
-    const termElement = getTermTooltipElement(event.target);
-    if (!termElement) {
-      return;
-    }
-
-    if (event.relatedTarget instanceof Node && termElement.contains(event.relatedTarget)) {
-      return;
-    }
-
-    hideTermTooltip();
-  };
-
-  const handleFocus = (event: FocusEvent<HTMLDivElement>) => {
-    const termElement = getTermTooltipElement(event.target);
-    if (termElement) {
-      showTermTooltip(termElement);
-    }
-  };
-
-  const handleBlur = (event: FocusEvent<HTMLDivElement>) => {
-    if (isTermTooltipTarget(event.target)) {
-      hideTermTooltip();
-    }
-  };
-
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (isTermTooltipTarget(event.target)) {
-      event.stopPropagation();
-      return;
-    }
     onClick(event);
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (isTermTooltipTarget(event.target)) {
-      event.stopPropagation();
-      return;
-    }
     onKeyDown(event);
   };
+
+  const renderedMarkdown = renderSummaryMarkdown(markdown, (term, definition, key) => (
+    <button
+      aria-label={`${term}: ${definition}`}
+      className="lawdigest-term-tooltip"
+      data-definition={definition}
+      key={key}
+      onBlur={hideTermTooltip}
+      onClick={(event) => event.stopPropagation()}
+      onFocus={(event) => showTermTooltip(event.currentTarget)}
+      onKeyDown={(event) => event.stopPropagation()}
+      onMouseEnter={(event) => showTermTooltip(event.currentTarget)}
+      onMouseLeave={hideTermTooltip}
+      type="button">
+      {term}
+    </button>
+  ));
 
   return (
     <>
@@ -130,17 +196,11 @@ export default function SafeBillSummaryHtml({
         style={style}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        onPointerOver={handleTermPointerOver}
-        onPointerOut={handleTermPointerOut}
-        onPointerLeave={hideTermTooltip}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
         role="button"
         tabIndex={0}
-        aria-label={ariaLabel}
-        // eslint-disable-next-line react/no-danger
-        dangerouslySetInnerHTML={{ __html: renderedMarkdown }}
-      />
+        aria-label={ariaLabel}>
+        {renderedMarkdown}
+      </div>
       {termTooltip && (
         <div
           className="lawdigest-term-tooltip-layer"

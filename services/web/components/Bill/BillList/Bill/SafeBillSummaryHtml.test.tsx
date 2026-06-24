@@ -74,7 +74,7 @@ describe('SafeBillSummaryHtml', () => {
       toJSON: () => {},
     });
 
-    fireEvent.pointerOver(term);
+    fireEvent.mouseEnter(term);
 
     expect(screen.getByRole('tooltip')).toHaveStyle({
       '--lawdigest-term-tooltip-left': '164px',
@@ -96,10 +96,10 @@ describe('SafeBillSummaryHtml', () => {
 
     const term = screen.getByText('변상금');
 
-    fireEvent.pointerOver(term);
+    fireEvent.mouseEnter(term);
     expect(screen.getByRole('tooltip')).toBeInTheDocument();
 
-    fireEvent.pointerOut(term, { relatedTarget: document.body });
+    fireEvent.mouseLeave(term, { relatedTarget: document.body });
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
@@ -117,7 +117,7 @@ describe('SafeBillSummaryHtml', () => {
 
     const summary = screen.getByRole('button', { name: '법안 요약 더 보기' });
 
-    fireEvent.pointerOver(summary);
+    fireEvent.mouseEnter(summary);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
@@ -136,10 +136,10 @@ describe('SafeBillSummaryHtml', () => {
     const firstTerm = screen.getByText('변상금');
     const secondTerm = screen.getByText('대부료');
 
-    fireEvent.pointerOver(firstTerm);
+    fireEvent.mouseEnter(firstTerm);
     expect(screen.getByRole('tooltip')).toHaveTextContent('허가 없이 재산을 사용한 사람에게 부과하는 금액');
 
-    fireEvent.pointerOver(secondTerm);
+    fireEvent.mouseEnter(secondTerm);
     expect(screen.getByRole('tooltip')).toHaveTextContent('빌려 쓰는 대가로 내는 돈');
   });
 });

@@ -149,7 +149,12 @@ html {
 .lawdigest-term-tooltip {
   position: relative;
   display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: inherit;
+  font: inherit;
   text-decoration-line: underline;
   text-decoration-style: dotted;
   text-decoration-color: color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 74%, transparent);
