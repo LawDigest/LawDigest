@@ -375,6 +375,34 @@ class DatabaseManager:
             cleaned_ids.append(value)
         return cleaned_ids
 
+    def insert_bill_alternatives(self, alternatives_data: List[Dict[str, Any]]) -> int:
+        unique_pairs = []
+        seen_pairs = set()
+        for row in alternatives_data:
+            alternative_bill_id = str(row.get("alternative_bill_id") or "").strip()
+            original_bill_id = str(row.get("original_bill_id") or "").strip()
+            if not alternative_bill_id or not original_bill_id:
+                continue
+            pair = (alternative_bill_id, original_bill_id)
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+            unique_pairs.append(pair)
+
+        if not unique_pairs:
+            return 0
+
+        query = """
+            INSERT INTO BillAlternative (
+                alternative_bill_id, original_bill_id, created_date, modified_date
+            ) VALUES (%s, %s, NOW(6), NOW(6)) AS new
+            ON DUPLICATE KEY UPDATE
+                modified_date = NOW(6)
+        """
+        with self.transaction() as cursor:
+            cursor.executemany(query, unique_pairs)
+        return len(unique_pairs)
+
     def _link_proposers(self, cursor: pymysql.cursors.Cursor, bill_id: str, proposer_ids: List[str], is_representative: bool = False) -> None:
         """
         법안과 의원(발의자) 간의 관계를 저장합니다.

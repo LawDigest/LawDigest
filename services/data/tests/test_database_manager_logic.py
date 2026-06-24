@@ -162,6 +162,25 @@ class TestDatabaseManagerLogic(unittest.TestCase):
         self.cursor.execute.assert_not_called()
         self.cursor.executemany.assert_not_called()
 
+    def test_insert_bill_alternatives_upserts_valid_pairs(self):
+        alternatives_data = [
+            {"alternative_bill_id": "ALT-1", "original_bill_id": "ORG-1"},
+            {"alternative_bill_id": "ALT-1", "original_bill_id": "ORG-1"},
+            {"alternative_bill_id": "", "original_bill_id": "ORG-2"},
+            {"alternative_bill_id": "ALT-2", "original_bill_id": None},
+        ]
+
+        with patch.object(self.db_manager, "transaction") as mock_transaction:
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+
+            inserted = self.db_manager.insert_bill_alternatives(alternatives_data)
+
+        self.assertEqual(inserted, 1)
+        self.cursor.executemany.assert_called_once()
+        query, params = self.cursor.executemany.call_args.args
+        self.assertIn("INSERT INTO BillAlternative", query)
+        self.assertEqual(params, [("ALT-1", "ORG-1")])
+
     def test_update_bill_stage(self):
         """Test update_bill_stage filters duplicates and batches updates"""
         stage_data = [
