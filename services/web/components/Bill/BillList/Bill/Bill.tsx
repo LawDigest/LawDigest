@@ -333,36 +333,24 @@ export default function Bill({
             radius="sm"
             shadow="sm">
             <div className="flex items-center gap-2">
-              {isGovernmentProposer ? (
-                <div className="flex items-center justify-center w-16 h-12 p-1 overflow-hidden bg-white border rounded-md shrink-0 dark:border-dark-l">
-                  <Image
-                    src="/images/government-logo.png"
-                    width={64}
-                    height={48}
-                    alt="대한민국정부 로고"
-                    className="object-contain w-full h-full"
+              {!isGovernmentProposer && isRepresentativeSolo && (
+                <Link
+                  href={
+                    isRepresentativeSolo
+                      ? `/congressman/${representative_proposer_dto_list[0].representative_proposer_id}`
+                      : {}
+                  }
+                  scroll={isRepresentativeSolo}
+                  onClick={(e) => {
+                    if (!isRepresentativeSolo) e.preventDefault();
+                  }}>
+                  <Avatar
+                    radius="full"
+                    name={representative_proposer_dto_list[0].representative_proposer_name}
+                    src={`${process.env.NEXT_PUBLIC_IMAGE_URL}${representative_proposer_dto_list[0].represent_proposer_img_url}`}
+                    className="border dark:border-dark-l"
                   />
-                </div>
-              ) : (
-                isRepresentativeSolo && (
-                  <Link
-                    href={
-                      isRepresentativeSolo
-                        ? `/congressman/${representative_proposer_dto_list[0].representative_proposer_id}`
-                        : {}
-                    }
-                    scroll={isRepresentativeSolo}
-                    onClick={(e) => {
-                      if (!isRepresentativeSolo) e.preventDefault();
-                    }}>
-                    <Avatar
-                      radius="full"
-                      name={representative_proposer_dto_list[0].representative_proposer_name}
-                      src={`${process.env.NEXT_PUBLIC_IMAGE_URL}${representative_proposer_dto_list[0].represent_proposer_img_url}`}
-                      className="border dark:border-dark-l"
-                    />
-                  </Link>
-                )
+                </Link>
               )}
               <div className="flex flex-col gap-0.5">
                 {isGovernmentProposer ? (
