@@ -111,7 +111,7 @@ const renderSummaryMarkdown = (markdown: string, renderTerm: RenderTerm) => {
 
     if (line.startsWith('### ')) {
       nodes.push(
-        <h3 className="lawdigest-summary-subheading mt-4 mb-1.5 text-sm font-semibold" key={key}>
+        <h3 className="lawdigest-summary-subheading mt-4 mb-1.5 text-base font-semibold" key={key}>
           {parseInlineMarkdown(line.slice(4), key, renderTerm)}
         </h3>,
       );

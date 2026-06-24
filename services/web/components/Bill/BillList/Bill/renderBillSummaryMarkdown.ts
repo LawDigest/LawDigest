@@ -112,7 +112,7 @@ export const renderBillSummaryMarkdown = (markdown: string) => {
         return {
           html: [
             ...html,
-            `<h3 class="lawdigest-summary-subheading mt-4 mb-1.5 text-sm font-semibold">${renderInlineMarkdown(line.slice(4))}</h3>`,
+            `<h3 class="lawdigest-summary-subheading mt-4 mb-1.5 text-base font-semibold">${renderInlineMarkdown(line.slice(4))}</h3>`,
           ],
           inList: false,
           isSubsectionBody: true,

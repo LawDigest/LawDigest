@@ -227,15 +227,15 @@ html {
 
 .lawdigest-summary-list {
   display: grid;
-  gap: 0.52em;
-  margin: 0.45em 0 1.05em;
-  padding-left: 1.08em;
+  gap: 0.62em;
+  margin: 0.5em 0 1.1em;
+  padding-left: 1.36em;
   list-style: none;
 }
 
 .lawdigest-summary-list li {
   position: relative;
-  padding-left: 0.72em;
+  padding-left: 0.88em;
 }
 
 .lawdigest-summary-list li::before {

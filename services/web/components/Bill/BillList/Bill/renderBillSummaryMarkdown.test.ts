@@ -16,7 +16,7 @@ describe('renderBillSummaryMarkdown', () => {
     expect(html).toContain('쉬운 요약');
     expect(html).toContain('<ul class="lawdigest-summary-list">');
     expect(html).toContain('<li><strong>핵심</strong> 설명</li>');
-    expect(html).toContain('<h3 class="lawdigest-summary-subheading mt-4 mb-1.5 text-sm font-semibold">');
+    expect(html).toContain('<h3 class="lawdigest-summary-subheading mt-4 mb-1.5 text-base font-semibold">');
     expect(html).toContain('1) 변화');
     expect(html).toContain('<strong>핵심</strong>');
     expect(html).toContain('<mark class="lawdigest-summary-mark">중요</mark>');
@@ -49,7 +49,7 @@ describe('renderBillSummaryMarkdown', () => {
   it('하위 제목 아래 본문과 목록에 들여쓰기 클래스를 붙인다', () => {
     const html = renderBillSummaryMarkdown('## 무엇이 달라지나\n### 1) 변상금 원칙 유지\n본문 설명\n- 세부 설명');
 
-    expect(html).toContain('<h3 class="lawdigest-summary-subheading mt-4 mb-1.5 text-sm font-semibold">');
+    expect(html).toContain('<h3 class="lawdigest-summary-subheading mt-4 mb-1.5 text-base font-semibold">');
     expect(html).toContain('<p class="lawdigest-summary-subsection-body">본문 설명</p>');
     expect(html).toContain('<ul class="lawdigest-summary-list lawdigest-summary-subsection-body">');
   });
