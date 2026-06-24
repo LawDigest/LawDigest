@@ -20,6 +20,12 @@ type TermTooltipState = {
 const TOOLTIP_MAX_WIDTH = 280;
 const TOOLTIP_VIEWPORT_PADDING = 16;
 const TOOLTIP_VERTICAL_OFFSET = 8;
+const TERM_TOOLTIP_SELECTOR = '.lawdigest-term-tooltip';
+
+const getTermTooltipElement = (target: EventTarget | null) => {
+  if (!(target instanceof Element)) return null;
+  return target.closest<HTMLElement>(TERM_TOOLTIP_SELECTOR);
+};
 
 export default function SafeBillSummaryHtml({
   ariaLabel,
@@ -30,20 +36,20 @@ export default function SafeBillSummaryHtml({
   style,
 }: SafeBillSummaryHtmlProps) {
   const [termTooltip, setTermTooltip] = useState<TermTooltipState | null>(null);
-  const shouldKeepTooltipOpen = (target: EventTarget | null) =>
-    target instanceof Element && Boolean(target.closest('.lawdigest-term-tooltip'));
+  const isTermTooltipTarget = (target: EventTarget | null) => getTermTooltipElement(target) !== null;
 
   const showTermTooltip = (target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement) || !target.classList.contains('lawdigest-term-tooltip')) {
+    const termElement = getTermTooltipElement(target);
+    if (!termElement) {
       return;
     }
 
-    const { definition } = target.dataset;
+    const { definition } = termElement.dataset;
     if (!definition) {
       return;
     }
 
-    const rect = target.getBoundingClientRect();
+    const rect = termElement.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const tooltipWidth = Math.min(TOOLTIP_MAX_WIDTH, viewportWidth - TOOLTIP_VIEWPORT_PADDING * 2);
     const centerLeft = rect.left + rect.width / 2;
@@ -62,8 +68,21 @@ export default function SafeBillSummaryHtml({
     setTermTooltip(null);
   };
 
+  const handleTermMouseOut = (target: EventTarget | null, relatedTarget: EventTarget | null) => {
+    const termElement = getTermTooltipElement(target);
+    if (!termElement) {
+      return;
+    }
+
+    if (relatedTarget instanceof Node && termElement.contains(relatedTarget)) {
+      return;
+    }
+
+    hideTermTooltip();
+  };
+
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
-    if (shouldKeepTooltipOpen(event.target)) {
+    if (isTermTooltipTarget(event.target)) {
       event.stopPropagation();
       return;
     }
@@ -71,7 +90,7 @@ export default function SafeBillSummaryHtml({
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (shouldKeepTooltipOpen(event.target)) {
+    if (isTermTooltipTarget(event.target)) {
       event.stopPropagation();
       return;
     }
@@ -86,14 +105,11 @@ export default function SafeBillSummaryHtml({
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         onMouseOver={(event) => showTermTooltip(event.target)}
-        onMouseOut={(event) => {
-          if (shouldKeepTooltipOpen(event.target)) {
-            hideTermTooltip();
-          }
-        }}
+        onMouseOut={(event) => handleTermMouseOut(event.target, event.relatedTarget)}
+        onMouseLeave={hideTermTooltip}
         onFocus={(event) => showTermTooltip(event.target)}
         onBlur={(event) => {
-          if (shouldKeepTooltipOpen(event.target)) {
+          if (isTermTooltipTarget(event.target)) {
             hideTermTooltip();
           }
         }}

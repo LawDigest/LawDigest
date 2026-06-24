@@ -81,4 +81,46 @@ describe('SafeBillSummaryHtml', () => {
       '--lawdigest-term-tooltip-top': '148px',
     });
   });
+
+  it('법령용어에서 마우스가 벗어나면 툴팁 레이어를 닫는다', () => {
+    render(
+      <SafeBillSummaryHtml
+        ariaLabel="법안 요약 더 보기"
+        className="summary"
+        markdown="{{변상금:허가 없이 재산을 사용한 사람에게 부과하는 금액}}"
+        onClick={() => {}}
+        onKeyDown={() => {}}
+        style={{ '--lawdigest-summary-accent': '#152484' } as CSSProperties}
+      />,
+    );
+
+    const term = screen.getByText('변상금');
+
+    fireEvent.mouseOver(term);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    fireEvent.mouseOut(term, { relatedTarget: document.body });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('요약 영역을 마우스가 벗어나면 남아 있는 툴팁 레이어를 닫는다', () => {
+    render(
+      <SafeBillSummaryHtml
+        ariaLabel="법안 요약 더 보기"
+        className="summary"
+        markdown="{{변상금:허가 없이 재산을 사용한 사람에게 부과하는 금액}}"
+        onClick={() => {}}
+        onKeyDown={() => {}}
+        style={{ '--lawdigest-summary-accent': '#152484' } as CSSProperties}
+      />,
+    );
+
+    const summary = screen.getByRole('button', { name: '법안 요약 더 보기' });
+
+    fireEvent.mouseOver(screen.getByText('변상금'));
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    fireEvent.mouseLeave(summary);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
 });
