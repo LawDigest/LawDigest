@@ -22,7 +22,7 @@ import Link from 'next/link';
 import { BillProps } from '@/types';
 import { IconClock, IconExport, IconScrabSmall } from '@/public/svgs';
 import { usePatchBookmark } from '@/app/bill/[id]/apis';
-import { getTimeRemaining, copyClipBoard } from '@/utils';
+import { getTimeRemaining, copyClipBoard, getPartyLogoSrc } from '@/utils';
 import Image from 'next/image';
 import { PartyLogoReplacement } from '@/components/common';
 import { getCookie } from 'cookies-next';
@@ -279,6 +279,7 @@ export default function Bill({
                   }}>
                   <Avatar
                     radius="full"
+                    name={representative_proposer_dto_list[0].representative_proposer_name}
                     src={`${process.env.NEXT_PUBLIC_IMAGE_URL}${representative_proposer_dto_list[0].represent_proposer_img_url}`}
                     className="border dark:border-dark-l"
                   />
@@ -339,7 +340,7 @@ export default function Bill({
                 }}>
                 {representative_proposer_dto_list[0].party_image_url !== null ? (
                   <Image
-                    src={`${process.env.NEXT_PUBLIC_IMAGE_URL}${isDark ? representative_proposer_dto_list[0].party_image_url.replace('wide', 'dark') : representative_proposer_dto_list[0].party_image_url}`}
+                    src={getPartyLogoSrc(representative_proposer_dto_list[0].party_image_url, isDark) as string}
                     width={100}
                     height={45}
                     alt={`${representative_proposer_dto_list[0].party_name} 이미지`}
@@ -354,7 +355,7 @@ export default function Bill({
                 {representative_proposer_dto_list.map(({ party_image_url, party_id, party_name }) => (
                   <Link href={party_image_url !== null ? `/party/${party_id}` : {}} key={party_id}>
                     <Avatar
-                      src={`${process.env.NEXT_PUBLIC_IMAGE_URL}${isDark ? party_image_url.replace('wide', 'dark') : party_image_url}`}
+                      src={getPartyLogoSrc(party_image_url, isDark) ?? undefined}
                       size="md"
                       classNames={{
                         base: [`bg-white dark:bg-dark-pb p-1 border ${party_name}`],
