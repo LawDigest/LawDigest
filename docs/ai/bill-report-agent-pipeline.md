@@ -47,6 +47,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --limit 3 \
   --target all \
   --concurrency 3 \
+  --inspection \
   --output-dir /tmp/lawdigest-bill-agent-reports
 ```
 
@@ -72,6 +73,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
 | `--target` | `passed` | `passed`는 통과 법안 중심, `all`은 요약이 있는 전체 법안 대상이다. |
 | `--concurrency` | `1` | 동시에 실행할 Codex 세션 수. 3개 병렬 실행은 `--concurrency 3`으로 지정한다. |
 | `--codex-model` | 환경변수 또는 `gpt-5.4-mini` | 실행 모델 override. |
+| `--inspection` | 꺼짐 | 법안별 검사 로그를 `inspection/` 아래에 추가로 저장한다. 에이전트 행동, 도구 호출 요약, 프롬프트, 검증 결과, 최종 근거 섹션을 감사할 때 사용한다. |
 | `--stop-on-error` | 꺼짐 | 하나라도 실패하면 즉시 중단한다. 기본은 실패 항목을 manifest에 남기고 다음 법안을 계속 처리한다. |
 | `--weekly-usage-before`, `--weekly-usage-after` | 없음 | 주간 사용량 퍼센트 계측값. |
 | `--five-hour-usage-before`, `--five-hour-usage-after` | 없음 | 5시간 사용량 퍼센트 계측값. |
@@ -189,6 +191,18 @@ API 정의 조회에 성공하면 프롬프트에 `법제처 API 조회 결과` 
 └── manifest.json
 ```
 
+`--inspection`을 켜면 같은 디렉터리 아래에 `inspection/` 폴더가 추가된다.
+
+```text
+/tmp/lawdigest-bill-agent-reports/
+├── PRC_X2Y6W0W4U1R4R1P1Q0O8P2N7O7V1U5.md
+├── manifest.json
+└── inspection/
+    ├── PRC_X2Y6W0W4U1R4R1P1Q0O8P2N7O7V1U5.prompt.txt
+    ├── PRC_X2Y6W0W4U1R4R1P1Q0O8P2N7O7V1U5.codex-events.jsonl
+    └── PRC_X2Y6W0W4U1R4R1P1Q0O8P2N7O7V1U5.inspection.json
+```
+
 manifest에는 다음 정보가 들어간다.
 
 - 실행 모드, 읽기 모드, 모델, 대상 범위, 병렬도
@@ -199,6 +213,19 @@ manifest에는 다음 정보가 들어간다.
 - Codex thread id, JSON 이벤트 수
 - token usage가 있으면 `usage`와 `usage_totals`
 - 주간/5시간 사용량 퍼센트 전후값이 있으면 `usage_meter`
+- 검사 모드가 켜졌는지와 검사 로그 디렉터리
+
+검사 파일에는 다음 정보가 들어간다.
+
+- 입력 법안 payload와 프롬프트 파일 경로, 프롬프트 해시
+- Codex thread id, token usage, 이벤트 수
+- MCP 도구 호출 이름과 인자 미리보기
+- 도구 출력 미리보기
+- Markdown 검증 통과/실패 결과
+- 최종 리포트의 `## 확인한 근거` 섹션에서 추출한 근거 목록
+- 리포트 파일, 프롬프트 파일, 이벤트 로그 파일 경로
+
+검사 모드는 모델의 비공개 추론 원문을 저장하지 않는다. 대신 재현 가능한 행동 로그와 근거 요약을 저장한다.
 
 ## 12. DB 반영
 

@@ -871,6 +871,56 @@ def test_codex_agent_records_operational_usage_metadata(tmp_path, monkeypatch):
     assert result["usage"]["input_tokens"] == 10
 
 
+def test_codex_agent_writes_inspection_artifacts(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
+
+    monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
+    output_path = tmp_path / "report.md"
+    inspection_dir = tmp_path / "inspection"
+    report_body = (
+        "# 테스트법 일부개정법률안\n\n"
+        "## 쉬운 요약\n**본문**이에요. <mark>핵심 변화는 거래 전 정보 확인이에요.</mark>\n\n"
+        "## 주요 내용\n- **권한 정비**: 설명이에요.\n\n"
+        "## 무엇이 달라지나\n\n"
+        "### 1) 허위정보 유포 금지 조문 신설\n\n"
+        "제23조의2를 새로 둬 **허위정보 유포**를 금지해요.\n\n"
+        "- 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.\n\n"
+        "## 확인한 근거\n- 국회 의안정보시스템 의안 상세\n"
+    )
+    stdout = "\n".join(
+        [
+            '{"type":"thread.started","thread_id":"thread-inspect"}',
+            '{"type":"item.completed","item":{"type":"function_call","name":"get_bill_detail","call_id":"call_1","arguments":"{\\"bill_id\\":\\"PRC_INSPECT\\"}"}}',
+            '{"type":"item.completed","item":{"type":"function_call_output","call_id":"call_1","output":"국회 의안 상세를 확인했습니다."}}',
+            '{"type":"turn.completed","usage":{"input_tokens":20,"cached_input_tokens":5,"output_tokens":6,"reasoning_output_tokens":3}}',
+        ]
+    )
+
+    def run_codex(*args, **kwargs):
+        output_path.write_text(report_body, encoding="utf-8")
+        return subprocess.CompletedProcess(args=args[0], returncode=0, stdout=stdout, stderr="")
+
+    agent = CodexBillReportAgent()
+    with patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex):
+        result = agent.write_report(
+            bill={"bill_id": "PRC_INSPECT", "bill_name": "테스트법 일부개정법률안"},
+            output_path=str(output_path),
+            inspection_dir=str(inspection_dir),
+        )
+
+    assert result["inspection_path"].endswith("PRC_INSPECT.inspection.json")
+    inspection = json.loads(Path(result["inspection_path"]).read_text(encoding="utf-8"))
+    assert inspection["mode"] == "inspection"
+    assert inspection["prompt"]["character_count"] > 0
+    assert inspection["agent"]["codex_thread_id"] == "thread-inspect"
+    assert inspection["agent"]["tool_calls"][0]["name"] == "get_bill_detail"
+    assert inspection["evidence"]["reported_sources"] == ["국회 의안정보시스템 의안 상세"]
+    assert inspection["validation"]["status"] == "passed"
+    event_lines = Path(result["inspection_events_path"]).read_text(encoding="utf-8").splitlines()
+    assert len(event_lines) == 4
+    assert "국회 의안 상세" in event_lines[2]
+
+
 def test_codex_agent_uses_gpt_54_mini_by_default():
     from lawdigest_ai.processor.agentic_bill_report import DEFAULT_CODEX_MODEL
 
@@ -1068,7 +1118,7 @@ def test_run_agentic_bill_reports_runs_codex_sessions_in_parallel(tmp_path, monk
     both_started = threading.Event()
     started_count = 0
 
-    def write_report(self, *, bill, output_path):
+    def write_report(self, *, bill, output_path, inspection_dir=None):
         nonlocal started_count
         with lock:
             started_count += 1
@@ -1152,7 +1202,7 @@ def test_run_agentic_bill_reports_upserts_successful_items(tmp_path, monkeypatch
         encoding="utf-8",
     )
 
-    def write_report(self, *, bill, output_path):
+    def write_report(self, *, bill, output_path, inspection_dir=None):
         return {
             "bill_id": bill["bill_id"],
             "bill_name": bill["bill_name"],

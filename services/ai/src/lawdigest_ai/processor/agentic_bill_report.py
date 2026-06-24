@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -92,6 +93,17 @@ MCP_APPROVED_TOOLS = {
         "research_data",
     ),
 }
+INSPECTION_ACTION_ITEM_TYPES = {
+    "function_call",
+    "tool_call",
+    "mcp_tool_call",
+    "web_search",
+    "command_execution",
+}
+INSPECTION_OUTPUT_ITEM_TYPES = INSPECTION_ACTION_ITEM_TYPES | {
+    "function_call_output",
+    "tool_call_output",
+}
 
 
 class BillReportGenerationError(RuntimeError):
@@ -146,6 +158,228 @@ def _parse_codex_json_metadata(stdout_text: str) -> dict[str, Any]:
     }
 
 
+def _preview(value: Any, limit: int = 1200) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = value
+    else:
+        text = json.dumps(value, ensure_ascii=False, default=str)
+    text = re.sub(r"\s+", " ", text).strip()
+    if not text:
+        return None
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1] + "…"
+
+
+def _build_bill_payload(bill: Dict[str, Any]) -> dict[str, Any]:
+    return {
+        "bill_id": bill.get("bill_id"),
+        "bill_number": bill.get("bill_number"),
+        "bill_name": bill.get("bill_name"),
+        "bill_result": bill.get("bill_result"),
+        "stage": bill.get("stage"),
+        "committee": bill.get("committee"),
+        "propose_date": str(bill.get("propose_date") or ""),
+        "proposers": bill.get("proposers"),
+        "summary": bill.get("summary"),
+        "bill_link": bill.get("bill_link"),
+        "bill_pdf_url": bill.get("bill_pdf_url"),
+    }
+
+
+def _sanitize_codex_event(event: dict[str, Any]) -> dict[str, Any]:
+    sanitized: dict[str, Any] = {"type": event.get("type")}
+    if event.get("thread_id"):
+        sanitized["thread_id"] = event.get("thread_id")
+    if isinstance(event.get("usage"), dict):
+        sanitized["usage"] = event["usage"]
+
+    item = event.get("item")
+    if isinstance(item, dict):
+        item_type = item.get("type")
+        sanitized["item_type"] = item_type
+        for key in (
+            "name",
+            "call_id",
+            "status",
+            "server",
+            "server_name",
+            "mcp_server",
+            "tool",
+            "tool_name",
+            "function",
+            "function_name",
+            "command",
+            "query",
+        ):
+            if item.get(key) is not None:
+                sanitized[key] = item.get(key)
+        if item_type in INSPECTION_ACTION_ITEM_TYPES:
+            sanitized["arguments_preview"] = _preview(
+                item.get("arguments") or item.get("input") or item.get("args") or item.get("params")
+            )
+        if item_type in INSPECTION_OUTPUT_ITEM_TYPES:
+            sanitized["output_preview"] = _preview(
+                item.get("output") or item.get("result") or item.get("content") or item.get("text")
+            )
+
+    message = event.get("message")
+    if isinstance(message, dict):
+        sanitized["message_role"] = message.get("role")
+        sanitized["message_preview"] = _preview(message.get("content"), limit=500)
+
+    return {key: value for key, value in sanitized.items() if value is not None}
+
+
+def _parse_codex_inspection_events(stdout_text: str) -> dict[str, Any]:
+    events: list[dict[str, Any]] = []
+    tool_calls: list[dict[str, Any]] = []
+    for line in stdout_text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        sanitized = _sanitize_codex_event(event)
+        events.append(sanitized)
+        if sanitized.get("item_type") in INSPECTION_ACTION_ITEM_TYPES or sanitized.get("name"):
+            tool_calls.append({
+                key: sanitized[key]
+                for key in (
+                    "type",
+                    "item_type",
+                    "name",
+                    "server",
+                    "server_name",
+                    "mcp_server",
+                    "tool",
+                    "tool_name",
+                    "function",
+                    "function_name",
+                    "command",
+                    "query",
+                    "call_id",
+                    "status",
+                    "arguments_preview",
+                    "output_preview",
+                )
+                if key in sanitized
+            })
+    return {"events": events, "tool_calls": tool_calls}
+
+
+def _extract_evidence_section(report_body: str) -> list[str]:
+    evidence_body = _markdown_section_body(report_body, "## 확인한 근거")
+    if evidence_body == report_body:
+        return []
+    evidence: list[str] = []
+    for line in evidence_body.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            evidence.append(stripped[2:].strip())
+    return evidence
+
+
+def _write_inspection_artifacts(
+    *,
+    inspection_dir: Path,
+    bill: Dict[str, Any],
+    prompt: str,
+    command: list[str],
+    stdout_text: str,
+    stderr_text: str,
+    report_path: Path,
+    details: dict[str, Any],
+    validation: dict[str, Any],
+) -> dict[str, str]:
+    bill_id = _slugify_bill_id(bill.get("bill_id"))
+    inspection_dir.mkdir(parents=True, exist_ok=True)
+    prompt_path = inspection_dir / f"{bill_id}.prompt.txt"
+    events_path = inspection_dir / f"{bill_id}.codex-events.jsonl"
+    inspection_path = inspection_dir / f"{bill_id}.inspection.json"
+
+    prompt_path.write_text(prompt, encoding="utf-8")
+    event_summary = _parse_codex_inspection_events(stdout_text)
+    with events_path.open("w", encoding="utf-8") as handle:
+        for event in event_summary["events"]:
+            handle.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
+
+    report_body = report_path.read_text(encoding="utf-8") if report_path.exists() else ""
+    command_summary = [
+        "<redacted-env>" if arg.startswith("mcp_servers.") and ".env=" in arg else arg
+        for arg in command
+    ]
+    inspection = {
+        "schema_version": 1,
+        "mode": "inspection",
+        "bill": _build_bill_payload(bill),
+        "prompt": {
+            "path": str(prompt_path),
+            "sha256": hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+            "character_count": len(prompt),
+        },
+        "agent": {
+            "command_summary": command_summary,
+            "codex_thread_id": details.get("codex_thread_id"),
+            "event_count": details.get("codex_event_count"),
+            "tool_calls": event_summary["tool_calls"],
+            "usage": details.get("usage"),
+            "stderr_preview": _preview(stderr_text),
+        },
+        "behavior_log": [
+            {
+                "step": "build_prompt",
+                "summary": "입력 법안 payload와 법제처 용어 컨텍스트를 합쳐 작성 프롬프트를 구성했습니다.",
+            },
+            {
+                "step": "run_codex_agent",
+                "summary": "Codex CLI를 read-only sandbox와 임시 MCP 설정으로 실행했습니다.",
+            },
+            {
+                "step": "write_markdown_report",
+                "summary": "에이전트의 마지막 응답을 Markdown 리포트 파일로 저장했습니다.",
+            },
+            {
+                "step": "validate_report",
+                "summary": validation["summary"],
+            },
+        ],
+        "evidence": {
+            "reported_sources": _extract_evidence_section(report_body),
+            "note": "이 항목은 최종 Markdown의 확인한 근거 섹션에서 추출한 사용자 표시용 근거입니다. 도구 원문 전체가 아니라 감사용 요약입니다.",
+        },
+        "validation": validation,
+        "outputs": {
+            "report_path": str(report_path),
+            "inspection_path": str(inspection_path),
+            "events_path": str(events_path),
+            "prompt_path": str(prompt_path),
+        },
+        "runtime": {
+            "started_at": details.get("started_at"),
+            "finished_at": details.get("finished_at"),
+            "duration_seconds": details.get("duration_seconds"),
+            "exit_code": details.get("exit_code"),
+            "output_bytes": details.get("output_bytes"),
+        },
+    }
+    inspection_path.write_text(
+        json.dumps(inspection, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8",
+    )
+    return {
+        "inspection_path": str(inspection_path),
+        "inspection_events_path": str(events_path),
+        "inspection_prompt_path": str(prompt_path),
+    }
+
+
 def _normalize_usage_meter(usage_meter: dict[str, Any] | None) -> dict[str, Any] | None:
     if not usage_meter:
         return None
@@ -179,19 +413,7 @@ def _resolve_read_mode(mode: str, read_mode: str | None) -> str:
 
 
 def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
-    payload = {
-        "bill_id": bill.get("bill_id"),
-        "bill_number": bill.get("bill_number"),
-        "bill_name": bill.get("bill_name"),
-        "bill_result": bill.get("bill_result"),
-        "stage": bill.get("stage"),
-        "committee": bill.get("committee"),
-        "propose_date": str(bill.get("propose_date") or ""),
-        "proposers": bill.get("proposers"),
-        "summary": bill.get("summary"),
-        "bill_link": bill.get("bill_link"),
-        "bill_pdf_url": bill.get("bill_pdf_url"),
-    }
+    payload = _build_bill_payload(bill)
     payload_text = json.dumps(payload, ensure_ascii=False, default=str)
     legal_term_context = build_legal_term_glossary_context(payload_text)
     return (
@@ -583,7 +805,13 @@ class CodexBillReportAgent:
         ]
         return command, prompt
 
-    def write_report(self, *, bill: Dict[str, Any], output_path: str) -> Dict[str, Any]:
+    def write_report(
+        self,
+        *,
+        bill: Dict[str, Any],
+        output_path: str,
+        inspection_dir: str | None = None,
+    ) -> Dict[str, Any]:
         prompt = build_bill_report_prompt(bill)
         command, stdin_text = self.build_command(prompt=prompt, output_path=output_path)
         report_path = Path(output_path)
@@ -591,17 +819,24 @@ class CodexBillReportAgent:
         started_at = datetime.now(timezone.utc)
         started_perf = time.perf_counter()
 
-        proc = subprocess.run(
-            command,
-            input=stdin_text,
-            capture_output=True,
-            text=True,
-            cwd=self.workdir,
-            timeout=self.timeout_seconds,
-        )
-        finished_at = datetime.now(timezone.utc)
-        duration_seconds = round(time.perf_counter() - started_perf, 3)
-        stdout_text = (proc.stdout or "").strip()
+        try:
+            proc = subprocess.run(
+                command,
+                input=stdin_text,
+                capture_output=True,
+                text=True,
+                cwd=self.workdir,
+                timeout=self.timeout_seconds,
+            )
+            stdout_text = (proc.stdout or "").strip()
+            stderr_text = (proc.stderr or "").strip()
+            exit_code = proc.returncode
+        except Exception:
+            raise
+        finally:
+            finished_at = datetime.now(timezone.utc)
+            duration_seconds = round(time.perf_counter() - started_perf, 3)
+
         metadata = _parse_codex_json_metadata(stdout_text)
         details = {
             "bill_id": bill.get("bill_id"),
@@ -610,22 +845,78 @@ class CodexBillReportAgent:
             "started_at": started_at.isoformat(),
             "finished_at": finished_at.isoformat(),
             "duration_seconds": duration_seconds,
-            "exit_code": proc.returncode,
+            "exit_code": exit_code,
             **metadata,
         }
-        if proc.returncode != 0:
-            error = (proc.stderr or stdout_text or "Codex agent failed").strip()
+        validation = {"status": "not_run", "summary": "리포트 생성 실패로 Markdown 검증을 실행하지 않았습니다."}
+        if exit_code != 0:
+            if inspection_dir:
+                inspection_paths = _write_inspection_artifacts(
+                    inspection_dir=Path(inspection_dir),
+                    bill=bill,
+                    prompt=prompt,
+                    command=command,
+                    stdout_text=stdout_text,
+                    stderr_text=stderr_text,
+                    report_path=report_path,
+                    details=details,
+                    validation=validation,
+                )
+                details.update(inspection_paths)
+            error = (stderr_text or stdout_text or "Codex agent failed").strip()
             raise BillReportGenerationError(error, details=details)
         if not report_path.exists() and stdout_text:
             report_path.write_text(stdout_text, encoding="utf-8")
         if not report_path.exists():
+            if inspection_dir:
+                inspection_paths = _write_inspection_artifacts(
+                    inspection_dir=Path(inspection_dir),
+                    bill=bill,
+                    prompt=prompt,
+                    command=command,
+                    stdout_text=stdout_text,
+                    stderr_text=stderr_text,
+                    report_path=report_path,
+                    details=details,
+                    validation=validation,
+                )
+                details.update(inspection_paths)
             raise BillReportGenerationError("Codex agent report body is empty.", details=details)
         output_bytes = report_path.stat().st_size
         details["output_bytes"] = output_bytes
         try:
             _validate_report_body(report_path.read_text(encoding="utf-8"))
+            validation = {"status": "passed", "summary": "Markdown 리포트 품질 검증을 통과했습니다."}
         except RuntimeError as exc:
+            validation = {"status": "failed", "summary": str(exc)}
+            if inspection_dir:
+                inspection_paths = _write_inspection_artifacts(
+                    inspection_dir=Path(inspection_dir),
+                    bill=bill,
+                    prompt=prompt,
+                    command=command,
+                    stdout_text=stdout_text,
+                    stderr_text=stderr_text,
+                    report_path=report_path,
+                    details=details,
+                    validation=validation,
+                )
+                details.update(inspection_paths)
             raise BillReportGenerationError(str(exc), details=details) from exc
+
+        if inspection_dir:
+            inspection_paths = _write_inspection_artifacts(
+                inspection_dir=Path(inspection_dir),
+                bill=bill,
+                prompt=prompt,
+                command=command,
+                stdout_text=stdout_text,
+                stderr_text=stderr_text,
+                report_path=report_path,
+                details=details,
+                validation=validation,
+            )
+            details.update(inspection_paths)
 
         return {
             **details,
@@ -644,6 +935,7 @@ def run_agentic_bill_reports(
     target: str = "passed",
     usage_meter: dict[str, Any] | None = None,
     concurrency: int = 1,
+    inspection: bool = False,
 ) -> Dict[str, Any]:
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
@@ -655,6 +947,9 @@ def run_agentic_bill_reports(
     targets = _fetch_bill_report_targets(mode=mode, limit=limit, read_mode=read_mode, target=target)
     output_root = Path(output_dir).expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
+    inspection_dir = output_root / "inspection" if inspection else None
+    if inspection_dir is not None:
+        inspection_dir.mkdir(parents=True, exist_ok=True)
     agent = CodexBillReportAgent(model=codex_model or DEFAULT_CODEX_MODEL)
     items: list[dict[str, Any] | None] = [None] * len(targets)
     started_at = datetime.now(timezone.utc)
@@ -664,7 +959,11 @@ def run_agentic_bill_reports(
         bill_id = bill.get("bill_id")
         report_path = output_root / f"{_slugify_bill_id(bill_id)}.md"
         try:
-            return index, agent.write_report(bill=bill, output_path=str(report_path))
+            return index, agent.write_report(
+                bill=bill,
+                output_path=str(report_path),
+                inspection_dir=str(inspection_dir) if inspection_dir is not None else None,
+            )
         except BillReportGenerationError as exc:
             failed = {
                 **exc.details,
@@ -740,6 +1039,10 @@ def run_agentic_bill_reports(
         "model": codex_model or DEFAULT_CODEX_MODEL,
         "target": "all_bills" if target == "all" else "passed_bills",
         "concurrency": concurrency,
+        "inspection": {
+            "enabled": inspection,
+            "output_dir": str(inspection_dir) if inspection_dir is not None else None,
+        },
         "output_dir": str(output_root),
         "started_at": started_at.isoformat(),
         "finished_at": finished_at.isoformat(),
