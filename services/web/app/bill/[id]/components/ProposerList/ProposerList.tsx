@@ -4,7 +4,7 @@ import { useTheme } from 'next-themes';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge, Card, CardHeader, CardBody } from '@nextui-org/react';
-import { sortByParty } from '@/utils';
+import { getPartyLogoSrc, sortByParty } from '@/utils';
 
 export default function ProposerList({
   representativeProposerList,
@@ -63,7 +63,7 @@ export default function ProposerList({
                     <div className="text-xs font-medium text-black">무소속</div>
                   ) : (
                     <Image
-                      src={`${process.env.NEXT_PUBLIC_IMAGE_URL}${isDark ? proposers[0][1].replace('wide', 'dark') : proposers[0][1]}`}
+                      src={getPartyLogoSrc(proposers[0][1], isDark) as string}
                       width={30}
                       height={30}
                       alt={`${party} 로고 이미지`}

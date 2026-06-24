@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Card, CardFooter, CardBody, Chip, AvatarGroup, Avatar } from '@nextui-org/react';
 import Link from 'next/link';
 import { PartyLogoReplacement } from '@/components';
+import { getPartyLogoSrc } from '@/utils';
 
 export default function BillBookmarked({
   billBriefSummary,
@@ -57,7 +58,7 @@ export default function BillBookmarked({
             }}>
             {party[0].party_image_url !== null ? (
               <Image
-                src={`${process.env.NEXT_PUBLIC_IMAGE_URL}${isDark ? party[0].party_image_url.replace('wide', 'dark') : party[0].party_image_url}`}
+                src={getPartyLogoSrc(party[0].party_image_url, isDark) as string}
                 width={60}
                 height={30}
                 alt={`${party[0].party_name} 이미지`}
@@ -71,7 +72,7 @@ export default function BillBookmarked({
           <AvatarGroup>
             {party.map(({ party_image_url, party_id, party_name }) => (
               <Avatar
-                src={`${process.env.NEXT_PUBLIC_IMAGE_URL}${isDark ? party_image_url.replace('wide', 'dark') : party_image_url}`}
+                src={getPartyLogoSrc(party_image_url, isDark) ?? undefined}
                 key={party_id}
                 size="md"
                 classNames={{

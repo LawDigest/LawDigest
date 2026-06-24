@@ -118,17 +118,42 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --mode dry_run \
   --read-mode prod \
   --limit 1 \
+  --target passed \
+  --concurrency 1 \
   --output-dir /tmp/lawdigest-bill-agent-reports
 ```
 
 이 경로는 일반 결측 요약 백필이 아니라 통과된 법안의 심화 리포트 작성용입니다. Codex 에이전트가 `open-assembly`, `assembly-api`, `korean-law`, `korean-stats` MCP 서버를 능동적으로 사용해 법안 통과 경로, 법령 맥락, 정책 배경 통계, 이해관계자 영향, 후속 모니터링 포인트를 Markdown으로 작성합니다.
+
+전체 법안을 대상으로 병렬 실행하려면 아래처럼 실행합니다.
+
+```bash
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  bill-agent-report \
+  --mode dry_run \
+  --read-mode prod \
+  --limit 9 \
+  --target all \
+  --concurrency 3 \
+  --output-dir /tmp/lawdigest-bill-agent-reports
+```
 
 실행 전 환경변수:
 
 - `ASSEMBLY_API_KEY`: 열린국회정보 API 키. 없으면 `sample` 키로 시도하지만 실운영 리포트에는 정식 키를 사용합니다.
 - `LAW_OC`: 국가법령정보센터 Open API 인증키.
 - `KOSIS_API_KEY`: 통계청 KOSIS OpenAPI 키. 원격 `korean-stats` MCP는 별도 키 없이 동작할 수 있지만 로컬/정식 조회 품질을 위해 설정을 권장합니다.
-- `BILL_AGENT_CODEX_MODEL`: Codex 모델 override. 기본값은 `gpt-5.3-codex-spark`입니다.
+- `BILL_AGENT_CODEX_MODEL`: Codex 모델 override. 기본값은 `gpt-5.4-mini`입니다.
+- `BILL_AGENT_CODEX_TIMEOUT_SECONDS`: Codex 세션 timeout. 기본값은 900초입니다.
+
+결과 확인:
+
+```bash
+jq '.stats, .usage_meter, .items[] | {bill_id, status, duration_seconds, usage, error}' \
+  /tmp/lawdigest-bill-agent-reports/manifest.json
+```
+
+자세한 계약은 [에이전트 기반 법안 리포트 생성 파이프라인](/home/ubuntu/project/Lawdigest/docs/ai/bill-report-agent-pipeline.md)을 기준으로 봅니다.
 
 ### 3.5 AI Batch 제출 (legacy fallback)
 

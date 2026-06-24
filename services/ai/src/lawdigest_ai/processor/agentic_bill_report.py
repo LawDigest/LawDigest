@@ -269,6 +269,9 @@ def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
         "- 독자가 바로 봐야 할 **중요 단어**에는 Markdown 볼드체를 적용하세요.\n"
         "- 결론이나 행동 변화처럼 중요한 한 문장에는 `<mark>중요 문장</mark>` 형식으로 하이라이트를 적용하세요.\n"
         "- 볼드체와 하이라이트는 과하게 쓰지 말고, 리포트 전체에서 꼭 필요한 곳에만 쓰세요.\n"
+        "- `법제처 API 조회 결과`에 뜻이 있는 법률·행정용어가 본문에 나오면 첫 등장 한 번만 `{{용어:뜻}}` 형식으로 감싸세요.\n"
+        "- `{{용어:뜻}}` 안의 뜻은 법제처 API 조회 결과의 정의를 1문장으로 줄여 쓰세요. 이 표기는 화면에서 점선 밑줄과 뜻 툴팁으로 렌더링됩니다.\n"
+        "- 법제처 정의가 없는 용어에는 `{{용어:뜻}}` 표기를 쓰지 마세요.\n"
         "- 최종 출력은 Markdown만 작성하세요.\n\n"
         f"{legal_term_context}\n\n"
         f"입력 법안 payload:\n{json.dumps(payload, ensure_ascii=False, indent=2, default=str)}"
@@ -289,6 +292,7 @@ def _markdown_section_body(body: str, heading: str) -> str:
 def _strip_markdown_for_summary(text: str) -> str:
     normalized = text.replace("<mark>", "").replace("</mark>", "")
     normalized = normalized.replace("**", "").replace("`", "")
+    normalized = re.sub(r"\{\{([^:{}\n]+):[^{}\n]+\}\}", r"\1", normalized)
     normalized = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", normalized)
     return normalized.strip()
 
@@ -427,7 +431,8 @@ def _validate_report_body(report_body: str) -> None:
     if not re.search(r"<mark>[^<>\n]+</mark>", body):
         raise RuntimeError("생성 리포트에 중요 문장 하이라이트가 없습니다.")
 
-    remaining_formal_endings = sorted(set(re.findall(r"[가-힣]+니다\.", body)))
+    body_without_term_tooltips = re.sub(r"\{\{([^:{}\n]+):[^{}\n]+\}\}", r"\1", body)
+    remaining_formal_endings = sorted(set(re.findall(r"[가-힣]+니다\.", body_without_term_tooltips)))
     if remaining_formal_endings:
         raise RuntimeError("생성 리포트에 토스식 -요 체가 아닌 격식체 종결이 남아 있습니다: " + ", ".join(remaining_formal_endings))
 

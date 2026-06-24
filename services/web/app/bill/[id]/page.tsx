@@ -3,7 +3,7 @@ import { HydrationBoundary, dehydrate } from '@tanstack/react-query';
 import { SubHeader } from '@/components';
 import getQueryClient from '@/lib/getQueryClient';
 import { getMetadata } from '@/utils';
-import { BillContainer } from './components';
+import { BillDetail } from './components';
 import { useGetBillDetail, usePatchViewCount } from './apis';
 
 export const generateMetadata = async ({ params: { id } }: { params: { id: string } }): Promise<Metadata> => {
@@ -18,15 +18,20 @@ export const generateMetadata = async ({ params: { id } }: { params: { id: strin
   });
 };
 
-export default async function BillDetail({ params: { id } }: { params: { id: string } }) {
+export default async function BillDetailPage({ params: { id } }: { params: { id: string } }) {
   const queryClient = getQueryClient();
-  const viewCount = await usePatchViewCount(id).then((res) => res.data.view_count);
+  const { data } = await useGetBillDetail(id, queryClient);
+  const viewCount = await usePatchViewCount(id)
+    .then((res) => res.data.view_count)
+    .catch(() => data.bill_info_dto.view_count);
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <section className="flex flex-col">
         <SubHeader title="의안 자세히 보기" />
-        <BillContainer id={id} viewCount={viewCount} />
+        <section className="flex flex-col md:mb-10">
+          <BillDetail data={data} viewCount={viewCount} />
+        </section>
       </section>
     </HydrationBoundary>
   );

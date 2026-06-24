@@ -3,10 +3,9 @@ import '@/styles/mobile-floating-nav.css';
 import { Metadata, Viewport } from 'next';
 import { siteConfig } from '@/config/site';
 import clsx from 'clsx';
-import { Suspense } from 'react';
 import Script from 'next/script';
 import { QueryClientProvider, NextUIProvider, NextThemesProvider, RecoilRootProvider } from '@/lib/provider';
-import { GoToTopButton, Loading, Snackbar } from '@/components';
+import { GoToTopButton, Snackbar } from '@/components';
 import SearchModal from '@/components/common/SearchBar/SearchModal';
 import Nav from '@/components/Layout/Nav/Nav';
 
@@ -87,12 +86,10 @@ function RootLayout({ children }: { children: React.ReactNode }) {
               <NextUIProvider>
                 <div className="relative flex flex-col h-auto min-h-[100dvh] min-w-[360px]">
                   <main className="flex items-center justify-center w-full h-full ">
-                    <Suspense fallback={<Loading />}>
-                      {children}
-                      <SearchModal />
-                      <Snackbar />
-                      <GoToTopButton />
-                    </Suspense>
+                    {children}
+                    <SearchModal />
+                    <Snackbar />
+                    <GoToTopButton />
                   </main>
                   {/* Nav는 모든 페이지 전환에서 유지되도록 루트 레이아웃에 배치 */}
                   <Nav />

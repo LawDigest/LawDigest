@@ -1,4 +1,5 @@
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const escapeHtmlAttribute = (value: string) => escapeHtml(value).replace(/"/g, '&quot;');
 
 const renderInlineMarkdown = (value: string) => {
   const withAllowedMark = escapeHtml(value).replace(
@@ -7,6 +8,17 @@ const renderInlineMarkdown = (value: string) => {
   );
 
   return withAllowedMark
+    .replace(/\{\{([^:{}\n]+):([^{}\n]+)\}\}/g, (_match, term: string, definition: string) => {
+      const label = term.trim();
+      const tooltip = definition.trim();
+      return [
+        `<span class="lawdigest-term-tooltip" tabindex="0"`,
+        ` aria-label="${escapeHtmlAttribute(`${label}: ${tooltip}`)}"`,
+        ` data-definition="${escapeHtmlAttribute(tooltip)}">`,
+        label,
+        '</span>',
+      ].join('');
+    })
     .split('**')
     .map((text, index) => (index % 2 === 0 ? text : `<strong>${text}</strong>`))
     .join('');
@@ -78,13 +90,19 @@ export const renderBillSummaryMarkdown = (markdown: string) => {
   const result = markdown.split('\n').reduce(
     (state, line) => {
       if (line.startsWith('- ')) {
+        const shouldOpenList = !state.inList;
+        const listClassName = state.isSubsectionBody
+          ? 'lawdigest-summary-list lawdigest-summary-subsection-body'
+          : 'lawdigest-summary-list';
+
         return {
           html: [
             ...state.html,
-            ...(state.inList ? [] : ['<ul class="lawdigest-summary-list">']),
+            ...(shouldOpenList ? [`<ul class="${listClassName}">`] : []),
             `<li>${renderInlineMarkdown(line.slice(2))}</li>`,
           ],
           inList: true,
+          isSubsectionBody: state.isSubsectionBody,
         };
       }
 
@@ -94,9 +112,10 @@ export const renderBillSummaryMarkdown = (markdown: string) => {
         return {
           html: [
             ...html,
-            `<h3 class="lawdigest-summary-heading mt-4 mb-2 text-base font-semibold">${renderInlineMarkdown(line.slice(4))}</h3>`,
+            `<h3 class="lawdigest-summary-subheading mt-4 mb-1.5 text-base font-semibold">${renderInlineMarkdown(line.slice(4))}</h3>`,
           ],
           inList: false,
+          isSubsectionBody: true,
         };
       }
 
@@ -104,19 +123,26 @@ export const renderBillSummaryMarkdown = (markdown: string) => {
         return {
           html: [
             ...html,
-            `<h2 class="lawdigest-summary-heading mt-5 mb-2 text-lg font-semibold">${renderInlineMarkdown(line.slice(3))}</h2>`,
+            `<h2 class="lawdigest-summary-heading lawdigest-summary-section-heading mt-6 mb-3 text-lg font-bold">${renderInlineMarkdown(line.slice(3))}</h2>`,
           ],
           inList: false,
+          isSubsectionBody: false,
         };
       }
 
       if (line.trim() === '') {
-        return { html, inList: false };
+        return { html, inList: false, isSubsectionBody: state.isSubsectionBody };
       }
 
-      return { html: [...html, `<p>${renderInlineMarkdown(line)}</p>`], inList: false };
+      const className = state.isSubsectionBody ? ' class="lawdigest-summary-subsection-body"' : '';
+
+      return {
+        html: [...html, `<p${className}>${renderInlineMarkdown(line)}</p>`],
+        inList: false,
+        isSubsectionBody: state.isSubsectionBody,
+      };
     },
-    { html: [] as string[], inList: false },
+    { html: [] as string[], inList: false, isSubsectionBody: false },
   );
 
   return closeList(result.html, result.inList).join('');

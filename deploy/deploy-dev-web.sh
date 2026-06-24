@@ -13,8 +13,8 @@ PORT="${WEB_PORT:-3021}"
 APP_HOST="${APP_HOST:-0.0.0.0}"
 PM2_NAME="${PM2_NAME:-lawdigest-web-dev}"
 NEXT_PUBLIC_URL="${NEXT_PUBLIC_URL:-https://api.lawdigest.kr/}"
-NEXT_PUBLIC_IMAGE_URL="${NEXT_PUBLIC_IMAGE_URL:-https://api.lawdigest.kr}"
-NEXT_PUBLIC_HOSTNAME="${NEXT_PUBLIC_HOSTNAME:-api.lawdigest.kr}"
+NEXT_PUBLIC_IMAGE_URL="${NEXT_PUBLIC_IMAGE_URL:-https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axv8wzohklg1/b/lawDigestBucket/o}"
+NEXT_PUBLIC_HOSTNAME="${NEXT_PUBLIC_HOSTNAME:-objectstorage.ap-chuncheon-1.oraclecloud.com}"
 INTERNAL_API_ORIGIN="${INTERNAL_API_ORIGIN:-http://127.0.0.1:808}"
 NEXT_PUBLIC_DOMAIN="${NEXT_PUBLIC_DOMAIN:-https://dev.lawdigest.kr}"
 
@@ -82,6 +82,7 @@ NEXT_PUBLIC_IMAGE_URL="$NEXT_PUBLIC_IMAGE_URL" \
 NEXT_PUBLIC_HOSTNAME="$NEXT_PUBLIC_HOSTNAME" \
 INTERNAL_API_ORIGIN="$INTERNAL_API_ORIGIN" \
 NEXT_PUBLIC_DOMAIN="$NEXT_PUBLIC_DOMAIN" \
+DEV_WEB_COMMIT="$RESOLVED_COMMIT" \
 "$SCRIPT_DIR/ensure-dev-web-pm2.sh"
 
 echo "✓ 개발모드 배포 완료"

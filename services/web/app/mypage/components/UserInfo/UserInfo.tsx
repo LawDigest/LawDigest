@@ -18,7 +18,7 @@ export default async function UserInfo({ queryClient }: { queryClient: QueryClie
             height={100}
             alt="프로필 사진 테두리"
             priority
-            loader={({ src }) => `${src}`}
+            unoptimized
             className="absolute z-10"
           />
           <Avatar src={`${user_image_url}`} className="w-[100px] h-[100px] mr-4 lg:mr-0" />

@@ -146,17 +146,96 @@ html {
   );
 }
 
+.lawdigest-summary-section-heading {
+  letter-spacing: 0;
+}
+
+.lawdigest-summary-subheading {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.45em;
+  color: color-mix(in srgb, currentColor 90%, var(--lawdigest-summary-accent, #e63946));
+  letter-spacing: 0;
+}
+
+.lawdigest-summary-subheading::before {
+  content: '';
+  width: 0.18em;
+  height: 1.15em;
+  border-radius: 999px;
+  background: var(--lawdigest-summary-accent, #e63946);
+}
+
+.lawdigest-summary-subsection-body {
+  margin-left: clamp(0.85rem, 2vw, 1.25rem);
+}
+
+.lawdigest-term-tooltip {
+  position: relative;
+  display: inline;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 74%, transparent);
+  text-decoration-thickness: 0.09em;
+  text-underline-offset: 0.22em;
+  cursor: help;
+  outline: none;
+}
+
+.lawdigest-term-tooltip::after {
+  content: none;
+}
+
+.lawdigest-term-tooltip::before {
+  content: none;
+}
+
+.lawdigest-term-tooltip-layer {
+  position: fixed;
+  left: var(--lawdigest-term-tooltip-left);
+  top: var(--lawdigest-term-tooltip-top);
+  z-index: 70;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 32px));
+  padding: 0.55rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 28%, transparent);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 14%);
+  color: #191919;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.45;
+  white-space: normal;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.dark .lawdigest-term-tooltip-layer {
+  border-color: color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 40%, #2b2b2b);
+  background: rgb(35 35 35 / 96%);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 32%);
+  color: #f7f7f7;
+}
+
 .lawdigest-summary-list {
   display: grid;
-  gap: 0.52em;
-  margin: 0.45em 0 1.05em;
-  padding-left: 1.08em;
+  gap: 0.62em;
+  margin: 0.5em 0 1.1em;
+  padding-left: 1.36em;
   list-style: none;
 }
 
 .lawdigest-summary-list li {
   position: relative;
-  padding-left: 0.72em;
+  padding-left: 0.88em;
 }
 
 .lawdigest-summary-list li::before {

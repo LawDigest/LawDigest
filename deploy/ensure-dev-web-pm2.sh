@@ -11,10 +11,11 @@ WEB_PORT="${WEB_PORT:-3021}"
 APP_HOST="${APP_HOST:-0.0.0.0}"
 PM2_NAME="${PM2_NAME:-lawdigest-web-dev}"
 NEXT_PUBLIC_URL="${NEXT_PUBLIC_URL:-https://api.lawdigest.kr/}"
-NEXT_PUBLIC_IMAGE_URL="${NEXT_PUBLIC_IMAGE_URL:-https://api.lawdigest.kr}"
-NEXT_PUBLIC_HOSTNAME="${NEXT_PUBLIC_HOSTNAME:-api.lawdigest.kr}"
+NEXT_PUBLIC_IMAGE_URL="${NEXT_PUBLIC_IMAGE_URL:-https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axv8wzohklg1/b/lawDigestBucket/o}"
+NEXT_PUBLIC_HOSTNAME="${NEXT_PUBLIC_HOSTNAME:-objectstorage.ap-chuncheon-1.oraclecloud.com}"
 INTERNAL_API_ORIGIN="${INTERNAL_API_ORIGIN:-http://127.0.0.1:808}"
 NEXT_PUBLIC_DOMAIN="${NEXT_PUBLIC_DOMAIN:-https://dev.lawdigest.kr}"
+DEV_WEB_COMMIT="${DEV_WEB_COMMIT:-}"
 QUIET=0
 
 if [ "${1:-}" = "--quiet" ]; then
@@ -53,6 +54,9 @@ if [ ! -d "$TARGET_WEB_DIR" ]; then
 fi
 
 TARGET_REALPATH="$(realpath "$TARGET_WEB_DIR")"
+if [ -z "$DEV_WEB_COMMIT" ]; then
+  DEV_WEB_COMMIT="$(git -C "$CURRENT_LINK" rev-parse --verify HEAD 2>/dev/null || true)"
+fi
 
 CURRENT_STATE="$(
   "$PM2_BIN" jlist | "$NODE_BIN" -e '
@@ -70,19 +74,43 @@ process.stdin.on("end", () => {
   const pid = String(app.pid ?? 0);
   const nodeEnv = app.pm2_env?.NODE_ENV ?? app.pm2_env?.env?.NODE_ENV ?? "";
   const port = app.pm2_env?.PORT ?? app.pm2_env?.env?.PORT ?? "";
-  process.stdout.write([status, cwd, pid, nodeEnv, port].join("\t"));
+  const publicUrl = app.pm2_env?.NEXT_PUBLIC_URL ?? app.pm2_env?.env?.NEXT_PUBLIC_URL ?? "";
+  const imageUrl = app.pm2_env?.NEXT_PUBLIC_IMAGE_URL ?? app.pm2_env?.env?.NEXT_PUBLIC_IMAGE_URL ?? "";
+  const imageHostname = app.pm2_env?.NEXT_PUBLIC_HOSTNAME ?? app.pm2_env?.env?.NEXT_PUBLIC_HOSTNAME ?? "";
+  const internalApiOrigin = app.pm2_env?.INTERNAL_API_ORIGIN ?? app.pm2_env?.env?.INTERNAL_API_ORIGIN ?? "";
+  const publicDomain = app.pm2_env?.NEXT_PUBLIC_DOMAIN ?? app.pm2_env?.env?.NEXT_PUBLIC_DOMAIN ?? "";
+  const devWebCommit = app.pm2_env?.DEV_WEB_COMMIT ?? app.pm2_env?.env?.DEV_WEB_COMMIT ?? "";
+  process.stdout.write([
+    status,
+    cwd,
+    pid,
+    nodeEnv,
+    port,
+    publicUrl,
+    imageUrl,
+    imageHostname,
+    internalApiOrigin,
+    publicDomain,
+    devWebCommit,
+  ].join("\t"));
 });' "$PM2_NAME" 2>/dev/null || true
 )"
 
 if [ -n "$CURRENT_STATE" ]; then
-  IFS=$'\t' read -r CURRENT_STATUS CURRENT_CWD CURRENT_PID CURRENT_NODE_ENV CURRENT_PORT <<< "$CURRENT_STATE"
+  IFS=$'\t' read -r CURRENT_STATUS CURRENT_CWD CURRENT_PID CURRENT_NODE_ENV CURRENT_PORT CURRENT_PUBLIC_URL CURRENT_IMAGE_URL CURRENT_IMAGE_HOSTNAME CURRENT_INTERNAL_API_ORIGIN CURRENT_PUBLIC_DOMAIN CURRENT_DEV_WEB_COMMIT <<< "$CURRENT_STATE"
   CURRENT_CWD_REALPATH="$(realpath -m "$CURRENT_CWD")"
 
   if [ "$CURRENT_STATUS" = "online" ] \
     && [ "$CURRENT_CWD_REALPATH" = "$TARGET_REALPATH" ] \
     && [ "${CURRENT_PID:-0}" != "0" ] \
     && [ "$CURRENT_NODE_ENV" = "development" ] \
-    && [ "$CURRENT_PORT" = "$WEB_PORT" ]; then
+    && [ "$CURRENT_PORT" = "$WEB_PORT" ] \
+    && [ "$CURRENT_PUBLIC_URL" = "$NEXT_PUBLIC_URL" ] \
+    && [ "$CURRENT_IMAGE_URL" = "$NEXT_PUBLIC_IMAGE_URL" ] \
+    && [ "$CURRENT_IMAGE_HOSTNAME" = "$NEXT_PUBLIC_HOSTNAME" ] \
+    && [ "$CURRENT_INTERNAL_API_ORIGIN" = "$INTERNAL_API_ORIGIN" ] \
+    && [ "$CURRENT_PUBLIC_DOMAIN" = "$NEXT_PUBLIC_DOMAIN" ] \
+    && [ "$CURRENT_DEV_WEB_COMMIT" = "$DEV_WEB_COMMIT" ]; then
     log "✓ PM2 개발 서버가 이미 정상 상태입니다"
     "$PM2_BIN" save >/dev/null
     exit 0
@@ -103,6 +131,7 @@ NEXT_PUBLIC_IMAGE_URL="$NEXT_PUBLIC_IMAGE_URL" \
 NEXT_PUBLIC_HOSTNAME="$NEXT_PUBLIC_HOSTNAME" \
 INTERNAL_API_ORIGIN="$INTERNAL_API_ORIGIN" \
 NEXT_PUBLIC_DOMAIN="$NEXT_PUBLIC_DOMAIN" \
+DEV_WEB_COMMIT="$DEV_WEB_COMMIT" \
 "$PM2_BIN" start "$NPM_BIN" \
   --name "$PM2_NAME" \
   --cwd "$TARGET_WEB_DIR" \

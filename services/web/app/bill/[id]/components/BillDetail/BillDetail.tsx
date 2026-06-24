@@ -1,17 +1,13 @@
 import { Bill } from '@/components';
 import { Divider } from '@nextui-org/react';
-import { useQueryClient } from '@tanstack/react-query';
+import { BillResponse } from '@/types';
 import { SectionContainer } from '../SectionContainer';
 import { ProposerList } from '../ProposerList';
 import { ProgressStage } from '../ProgressStage';
 import { AnotherBillList } from '../AnotherBill';
-import { useGetBillDetail } from '../../apis';
 import { ProcessResult } from '../ProcessResult';
 
-export default async function BillDetail({ id, viewCount }: { id: string; viewCount: number }) {
-  const queryClient = useQueryClient();
-  const { data } = await useGetBillDetail(id, queryClient);
-
+export default function BillDetail({ data, viewCount }: { data: BillResponse; viewCount: number }) {
   return (
     <section>
       <Bill {...data} detail viewCount={viewCount}>

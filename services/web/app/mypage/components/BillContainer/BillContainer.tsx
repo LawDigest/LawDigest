@@ -37,7 +37,7 @@ export default function BillContainer() {
           height={64}
           alt="스크랩 아이콘 이미지"
           priority
-          loader={({ src }) => `${src}`}
+          unoptimized
           className="shrink-0"
         />
         <p className="text-base font-semibold text-white lg:text-lg">이곳에서 스크랩한 법안들을 모아서 확인하세요!</p>

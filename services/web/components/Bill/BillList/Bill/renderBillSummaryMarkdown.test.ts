@@ -10,11 +10,13 @@ describe('renderBillSummaryMarkdown', () => {
   it('마크다운 단락명을 제목 태그로 렌더링한다', () => {
     const html = renderBillSummaryMarkdown('## 쉬운 요약\n- **핵심** 설명\n### 1) 변화\n<mark>중요</mark>');
 
-    expect(html).toContain('<h2 class="lawdigest-summary-heading mt-5 mb-2 text-lg font-semibold">');
+    expect(html).toContain(
+      '<h2 class="lawdigest-summary-heading lawdigest-summary-section-heading mt-6 mb-3 text-lg font-bold">',
+    );
     expect(html).toContain('쉬운 요약');
     expect(html).toContain('<ul class="lawdigest-summary-list">');
     expect(html).toContain('<li><strong>핵심</strong> 설명</li>');
-    expect(html).toContain('<h3 class="lawdigest-summary-heading mt-4 mb-2 text-base font-semibold">');
+    expect(html).toContain('<h3 class="lawdigest-summary-subheading mt-4 mb-1.5 text-base font-semibold">');
     expect(html).toContain('1) 변화');
     expect(html).toContain('<strong>핵심</strong>');
     expect(html).toContain('<mark class="lawdigest-summary-mark">중요</mark>');
@@ -25,6 +27,31 @@ describe('renderBillSummaryMarkdown', () => {
 
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
+  });
+
+  it('법령용어 툴팁 표기를 점선 밑줄 span으로 렌더링한다', () => {
+    const html = renderBillSummaryMarkdown('- {{청문:행정청이 처분 전에 당사자의 의견을 직접 듣는 절차}}을 거쳐요.');
+
+    expect(html).toContain('class="lawdigest-term-tooltip"');
+    expect(html).toContain('tabindex="0"');
+    expect(html).toContain('aria-label="청문: 행정청이 처분 전에 당사자의 의견을 직접 듣는 절차"');
+    expect(html).toContain('data-definition="행정청이 처분 전에 당사자의 의견을 직접 듣는 절차"');
+    expect(html).toContain('>청문</span>을 거쳐요.');
+  });
+
+  it('법령용어 툴팁 정의 안의 HTML은 이스케이프한다', () => {
+    const html = renderBillSummaryMarkdown('{{청문:<script>alert(1)</script>}}');
+
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;');
+  });
+
+  it('하위 제목 아래 본문과 목록에 들여쓰기 클래스를 붙인다', () => {
+    const html = renderBillSummaryMarkdown('## 무엇이 달라지나\n### 1) 변상금 원칙 유지\n본문 설명\n- 세부 설명');
+
+    expect(html).toContain('<h3 class="lawdigest-summary-subheading mt-4 mb-1.5 text-base font-semibold">');
+    expect(html).toContain('<p class="lawdigest-summary-subsection-body">본문 설명</p>');
+    expect(html).toContain('<ul class="lawdigest-summary-list lawdigest-summary-subsection-body">');
   });
 });
 

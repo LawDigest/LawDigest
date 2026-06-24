@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
+import { getPartyLogoSrc } from '@/utils';
 
 interface VoteResultBoardProps {
   party_vote_list: {
@@ -30,7 +31,7 @@ export default function VoteResultBoard({ party_vote_list }: VoteResultBoardProp
                 <div className="text-xs font-medium text-black">무</div>
               ) : (
                 <Image
-                  src={`${process.env.NEXT_PUBLIC_IMAGE_URL}${isDark ? party_image_url.replace('wide', 'dark') : party_image_url}`}
+                  src={getPartyLogoSrc(party_image_url, isDark) as string}
                   width={20}
                   height={20}
                   alt={`${party_name} 로고 이미지`}
