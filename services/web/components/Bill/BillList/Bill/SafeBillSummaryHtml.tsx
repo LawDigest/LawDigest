@@ -75,6 +75,8 @@ const parseInlineMarkdown = (value: string, keyPrefix: string, renderTerm: Rende
 const renderSummaryMarkdown = (markdown: string, renderTerm: RenderTerm) => {
   const nodes: ReactNode[] = [];
   let listItems: ReactNode[] = [];
+  let isSubsectionBody = false;
+  let isSubsectionList = false;
   let blockId = 0;
 
   const flushList = () => {
@@ -83,11 +85,14 @@ const renderSummaryMarkdown = (markdown: string, renderTerm: RenderTerm) => {
     }
 
     nodes.push(
-      <ul className="lawdigest-summary-list" key={`list-${nodes.length}`}>
+      <ul
+        className={`lawdigest-summary-list${isSubsectionList ? ' lawdigest-summary-subsection-body' : ''}`}
+        key={`list-${nodes.length}`}>
         {listItems}
       </ul>,
     );
     listItems = [];
+    isSubsectionList = false;
   };
 
   markdown.split('\n').forEach((line) => {
@@ -95,6 +100,9 @@ const renderSummaryMarkdown = (markdown: string, renderTerm: RenderTerm) => {
     blockId += 1;
 
     if (line.startsWith('- ')) {
+      if (listItems.length === 0) {
+        isSubsectionList = isSubsectionBody;
+      }
       listItems.push(<li key={key}>{parseInlineMarkdown(line.slice(2), key, renderTerm)}</li>);
       return;
     }
@@ -107,10 +115,12 @@ const renderSummaryMarkdown = (markdown: string, renderTerm: RenderTerm) => {
           {parseInlineMarkdown(line.slice(4), key, renderTerm)}
         </h3>,
       );
+      isSubsectionBody = true;
       return;
     }
 
     if (line.startsWith('## ')) {
+      isSubsectionBody = false;
       nodes.push(
         <h2
           className="lawdigest-summary-heading lawdigest-summary-section-heading mt-6 mb-3 text-lg font-bold"
@@ -122,7 +132,11 @@ const renderSummaryMarkdown = (markdown: string, renderTerm: RenderTerm) => {
     }
 
     if (line.trim() !== '') {
-      nodes.push(<p key={key}>{parseInlineMarkdown(line, key, renderTerm)}</p>);
+      nodes.push(
+        <p className={isSubsectionBody ? 'lawdigest-summary-subsection-body' : undefined} key={key}>
+          {parseInlineMarkdown(line, key, renderTerm)}
+        </p>,
+      );
     }
   });
 

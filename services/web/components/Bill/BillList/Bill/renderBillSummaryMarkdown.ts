@@ -90,13 +90,19 @@ export const renderBillSummaryMarkdown = (markdown: string) => {
   const result = markdown.split('\n').reduce(
     (state, line) => {
       if (line.startsWith('- ')) {
+        const shouldOpenList = !state.inList;
+        const listClassName = state.isSubsectionBody
+          ? 'lawdigest-summary-list lawdigest-summary-subsection-body'
+          : 'lawdigest-summary-list';
+
         return {
           html: [
             ...state.html,
-            ...(state.inList ? [] : ['<ul class="lawdigest-summary-list">']),
+            ...(shouldOpenList ? [`<ul class="${listClassName}">`] : []),
             `<li>${renderInlineMarkdown(line.slice(2))}</li>`,
           ],
           inList: true,
+          isSubsectionBody: state.isSubsectionBody,
         };
       }
 
@@ -109,6 +115,7 @@ export const renderBillSummaryMarkdown = (markdown: string) => {
             `<h3 class="lawdigest-summary-subheading mt-4 mb-1.5 text-sm font-semibold">${renderInlineMarkdown(line.slice(4))}</h3>`,
           ],
           inList: false,
+          isSubsectionBody: true,
         };
       }
 
@@ -119,16 +126,23 @@ export const renderBillSummaryMarkdown = (markdown: string) => {
             `<h2 class="lawdigest-summary-heading lawdigest-summary-section-heading mt-6 mb-3 text-lg font-bold">${renderInlineMarkdown(line.slice(3))}</h2>`,
           ],
           inList: false,
+          isSubsectionBody: false,
         };
       }
 
       if (line.trim() === '') {
-        return { html, inList: false };
+        return { html, inList: false, isSubsectionBody: state.isSubsectionBody };
       }
 
-      return { html: [...html, `<p>${renderInlineMarkdown(line)}</p>`], inList: false };
+      const className = state.isSubsectionBody ? ' class="lawdigest-summary-subsection-body"' : '';
+
+      return {
+        html: [...html, `<p${className}>${renderInlineMarkdown(line)}</p>`],
+        inList: false,
+        isSubsectionBody: state.isSubsectionBody,
+      };
     },
-    { html: [] as string[], inList: false },
+    { html: [] as string[], inList: false, isSubsectionBody: false },
   );
 
   return closeList(result.html, result.inList).join('');
