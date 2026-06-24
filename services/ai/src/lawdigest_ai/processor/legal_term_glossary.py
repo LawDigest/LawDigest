@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm, LawOpenApiTermClient
@@ -15,9 +16,7 @@ class LegalTermEntry:
 
 LAW_OPEN_API_REFERENCES = (
     "법령용어 목록: https://www.law.go.kr/DRF/lawSearch.do?target=lstrm",
-    "법령정보지식베이스 법령용어: https://www.law.go.kr/DRF/lawSearch.do?target=lstrmAI",
-    "법령용어-일상용어 연계: https://www.law.go.kr/DRF/lawService.do?target=lstrmRlt",
-    "일상용어-법령용어 연계: https://www.law.go.kr/DRF/lawService.do?target=dlytrmRlt",
+    "법령용어 상세 정의: https://www.law.go.kr/DRF/lawService.do?target=lstrm",
 )
 
 LEGAL_TERM_GLOSSARY = (
@@ -40,6 +39,80 @@ LEGAL_TERM_GLOSSARY = (
 
 COMMON_TERMS_WITHOUT_EXPLANATION = ("허위정보", "허위정보 유포", "필수정보", "표시·광고")
 
+LEGAL_TERM_CANDIDATE_SUFFIXES = (
+    "감사",
+    "보고서",
+    "요구",
+    "위원회",
+    "시설",
+    "시설물",
+    "부지",
+    "재산",
+    "점유",
+    "사용료",
+    "대부료",
+    "변상금",
+    "수급자",
+    "주차장",
+    "분권",
+    "자치",
+    "행정구",
+    "청문",
+    "과태료",
+    "위임",
+    "위탁",
+    "양여",
+)
+
+LEGAL_TERM_CANDIDATE_STOPWORDS = {
+    "제안이유",
+    "주요내용",
+    "현행법",
+    "법률안",
+    "개정법률안",
+}
+
+LEGAL_TERM_PARTICLES = (
+    "으로써",
+    "으로서",
+    "에서는",
+    "에게는",
+    "부터",
+    "까지",
+    "으로",
+    "로서",
+    "로써",
+    "에는",
+    "에서",
+    "에게",
+    "하고",
+    "하며",
+    "하게",
+    "하도록",
+    "하여",
+    "하는",
+    "된다",
+    "되어",
+    "되며",
+    "되지",
+    "이며",
+    "이고",
+    "라는",
+    "이라",
+    "은",
+    "는",
+    "이",
+    "가",
+    "을",
+    "를",
+    "의",
+    "와",
+    "과",
+    "도",
+    "만",
+    "등",
+)
+
 
 def _matches(text: str, entry: LegalTermEntry) -> bool:
     return any(alias in text for alias in entry.aliases)
@@ -49,8 +122,40 @@ def _matched_static_entries(text: str) -> list[LegalTermEntry]:
     return [entry for entry in LEGAL_TERM_GLOSSARY if _matches(text, entry)]
 
 
+def _strip_particle(value: str) -> str:
+    token = value.strip(" .,;:()[]「」‘’“”\"'")
+    for particle in LEGAL_TERM_PARTICLES:
+        if len(token) > len(particle) + 1 and token.endswith(particle):
+            return token[: -len(particle)]
+    return token
+
+
+def _extract_legal_term_candidates(text: str, *, max_terms: int = 8) -> list[str]:
+    normalized = re.sub(r"\s+", " ", text.replace("ㆍ", "·"))
+    terms: list[str] = []
+    seen: set[str] = set(COMMON_TERMS_WITHOUT_EXPLANATION)
+
+    def add(term: str) -> None:
+        if (
+            len(term) < 3
+            or term in seen
+            or term in LEGAL_TERM_CANDIDATE_STOPWORDS
+            or not any(term.endswith(suffix) for suffix in LEGAL_TERM_CANDIDATE_SUFFIXES)
+        ):
+            return
+        seen.add(term)
+        terms.append(term)
+
+    for token in re.split(r"[^가-힣A-Za-z0-9·]+", normalized):
+        add(_strip_particle(token))
+        if len(terms) >= max_terms:
+            break
+
+    return terms
+
+
 def _lookup_law_open_api_terms(
-    entries: list[LegalTermEntry],
+    terms: list[str],
     term_client: LawOpenApiTermClient | None,
 ) -> list[LawOpenApiTerm]:
     client = term_client or LawOpenApiTermClient()
@@ -58,9 +163,9 @@ def _lookup_law_open_api_terms(
         return []
 
     results: list[LawOpenApiTerm] = []
-    for entry in entries:
+    for term in terms:
         try:
-            result = client.lookup_term(entry.aliases[0] if entry.aliases else entry.term)
+            result = client.lookup_term(term)
         except Exception:
             continue
         if result is not None and result.definitions:
@@ -70,8 +175,10 @@ def _lookup_law_open_api_terms(
 
 def build_legal_term_glossary_context(text: str, term_client: LawOpenApiTermClient | None = None) -> str:
     direct_matches = _matched_static_entries(text)
-    matched_entries = direct_matches or list(LEGAL_TERM_GLOSSARY)
-    api_terms = _lookup_law_open_api_terms(direct_matches, term_client)
+    direct_terms = [entry.aliases[0] if entry.aliases else entry.term for entry in direct_matches]
+    candidate_terms = [*direct_terms, *_extract_legal_term_candidates(text)]
+    api_terms = _lookup_law_open_api_terms(candidate_terms, term_client)
+    matched_entries = direct_matches or ([] if api_terms else list(LEGAL_TERM_GLOSSARY))
 
     lines = [
         "법률·행정용어 풀이 사전:",
@@ -86,10 +193,11 @@ def build_legal_term_glossary_context(text: str, term_client: LawOpenApiTermClie
     if api_terms:
         lines.append("- 법제처 API 조회 결과:")
         for item in api_terms:
-            definitions = " / ".join(item.definitions)
+            definitions = item.definitions[0]
             lines.append(f"  - {item.term}: 뜻={definitions}")
-    lines.append("- 설명할 용어:")
-    lines.extend(f"  - {entry.term}: {entry.definition}" for entry in matched_entries if entry.explain)
+    if matched_entries:
+        lines.append("- 설명할 용어:")
+        lines.extend(f"  - {entry.term}: {entry.definition}" for entry in matched_entries if entry.explain)
     lines.append("- 설명하지 않을 용어:")
     lines.extend(f"  - {term}" for term in COMMON_TERMS_WITHOUT_EXPLANATION)
     return "\n".join(lines)

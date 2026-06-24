@@ -102,7 +102,9 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
     assert "짧게 쓴다는 이유로 근거, 영향, 예외를 덜어내지 마세요" in prompt
     assert "법률·행정용어 풀이 사전" in prompt
     assert "정적 보조 사전" in prompt
-    assert "target=lstrmAI" in prompt
+    assert "target=lstrm" in prompt
+    assert "target=lstrmAI" not in prompt
+    assert "target=lstrmRlt" not in prompt
     assert "{{용어:뜻}}" in prompt
     assert "설명하지 않을 용어" in prompt
 
@@ -640,9 +642,10 @@ def test_legal_term_glossary_context_uses_static_fallback_without_law_open_api(m
     assert "법률·행정용어 풀이 사전" in context
     assert "정적 보조 사전" in context
     assert "법제처 API 조회 결과" not in context
-    assert "lawSearch.do?target=lstrmAI" in context
-    assert "lawService.do?target=lstrmRlt" in context
-    assert "lawService.do?target=dlytrmRlt" in context
+    assert "lawSearch.do?target=lstrm" in context
+    assert "lawService.do?target=lstrm" in context
+    assert "lawService.do?target=lstrmRlt" not in context
+    assert "lawService.do?target=dlytrmRlt" not in context
     assert "청문 규정: 처분을 받기 전에" in context
     assert "과태료: 행정질서 위반" in context
     assert "허위정보" in context
@@ -670,6 +673,32 @@ def test_legal_term_glossary_context_includes_real_api_lookup_results():
     assert "청문: 뜻=처분 전에 당사자의 의견을 직접 듣고 증거를 조사하는 절차를 말한다." in context
     assert "일상어 연계어" not in context
     assert "청문 규정: 처분을 받기 전에" in context
+
+
+def test_legal_term_glossary_context_extracts_defined_terms_from_bill_text():
+    from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm
+    from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
+
+    class FakeTermClient:
+        enabled = True
+
+        def lookup_term(self, query):
+            if query == "공유재산":
+                return LawOpenApiTerm(
+                    term=query,
+                    source="law.go.kr",
+                    definitions=("지방자치단체 소유로 된 재산을 말한다.",),
+                )
+            return None
+
+    context = build_legal_term_glossary_context(
+        "현행법은 공유재산을 무단점유한 자에게 변상금을 징수하도록 하고 있습니다.",
+        term_client=FakeTermClient(),
+    )
+
+    assert "공유재산: 뜻=지방자치단체 소유로 된 재산을 말한다." in context
+    assert "일상어 연계어" not in context
+    assert "청문 규정: 처분을 받기 전에" not in context
 
 
 def test_legal_term_glossary_context_ignores_api_results_without_definitions():
