@@ -15,6 +15,9 @@
 - 도메인: `https://dev.lawdigest.kr`
 - PM2 프로세스: `lawdigest-web-dev`
 - 포트: `3021`
+- API 기준 URL: `https://api.lawdigest.kr/`
+- 이미지 기준 URL: `https://objectstorage.ap-chuncheon-1.oraclecloud.com/n/axv8wzohklg1/b/lawDigestBucket/o`
+- Next Image 허용 호스트: `objectstorage.ap-chuncheon-1.oraclecloud.com`
 - 배포 스크립트: [`deploy-dev-web.sh`](./deploy-dev-web.sh)
 - PM2 복구 스크립트: [`ensure-dev-web-pm2.sh`](./ensure-dev-web-pm2.sh)
 - watchdog 설치 스크립트: [`install-dev-web-watchdog.sh`](./install-dev-web-watchdog.sh)
