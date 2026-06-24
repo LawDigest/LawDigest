@@ -16,6 +16,8 @@ export default function BillDetail({ data, viewCount }: { data: BillResponse; vi
             <ProposerList
               representativeProposerList={data.representative_proposer_dto_list}
               publicProposerList={data.public_proposer_dto_list}
+              proposerKind={data.bill_info_dto.proposer_kind}
+              proposeDate={data.bill_info_dto.propose_date}
               popover={false}
             />
           </SectionContainer>
