@@ -22,7 +22,7 @@
 
 ## Legacy 기록
 
-`legacy/` 아래 문서는 Airflow, n8n, 과거 리팩터링 기록입니다. 새 운영 판단이나 신규 기능 추가 기준으로 사용하지 않습니다.
+`legacy/` 아래 문서는 Airflow와 과거 리팩터링 기록입니다. 새 운영 판단이나 신규 기능 추가 기준으로 사용하지 않습니다.
 
 - Airflow 관련 파일은 `infra/airflow/DEPRECATED.md`와 함께 legacy reference로만 취급합니다.
 - 신규 법안 파이프라인 기능은 `services/data/src/lawdigest_data/runtime/`에 추가합니다.

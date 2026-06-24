@@ -50,8 +50,7 @@
 
 ## Security & Configuration Tips
 - Keep `.env` values and DB credentials out of git.
-- Prefer dry-run/manual smoke execution in a non-production DB before enabling scheduled n8n/cron jobs.
-- For n8n migration, disable legacy Airflow jobs during overlap window to avoid double insertion.
+- Prefer dry-run/manual smoke execution in a non-production DB before enabling scheduled Airflow or cron jobs.
 
 ---
 

@@ -3,6 +3,7 @@ import os
 import json
 import pymysql
 import contextlib 
+import re
 from typing import List, Tuple, Dict, Any, Optional, Generator, Set
 
 class DatabaseManager:
@@ -130,6 +131,49 @@ class DatabaseManager:
         cursor.execute("SHOW COLUMNS FROM Bill LIKE %s", (column_name,))
         return bool(cursor.fetchall())
 
+    def _bill_table_enum_values(self, cursor: pymysql.cursors.Cursor, column_name: str) -> Set[str]:
+        cursor.execute("SHOW COLUMNS FROM Bill LIKE %s", (column_name,))
+        row = cursor.fetchone()
+        if not row:
+            return set()
+
+        column_type = row.get("Type") if isinstance(row, dict) else row[1]
+        if not isinstance(column_type, str) or not column_type.startswith("enum("):
+            return set()
+
+        return {
+            match.group(1).replace("''", "'")
+            for match in re.finditer(r"'((?:''|[^'])*)'", column_type)
+        }
+
+    def _validate_bill_proposer_kind_schema(
+        self,
+        cursor: pymysql.cursors.Cursor,
+        bills_data: List[Dict],
+    ) -> None:
+        requested_values = {
+            str(bill.get("proposer_kind") or "").strip()
+            for bill in bills_data
+            if str(bill.get("proposer_kind") or "").strip()
+        }
+        if not requested_values:
+            return
+
+        allowed_values = self._bill_table_enum_values(cursor, "proposer_kind")
+        if not allowed_values:
+            return
+
+        unsupported_values = sorted(requested_values - allowed_values)
+        if not unsupported_values:
+            return
+
+        raise RuntimeError(
+            "Bill.proposer_kind enum does not allow "
+            f"{', '.join(unsupported_values)}. "
+            "Apply infra/db/migrations/20260624_extend_bill_proposer_kind_government.sql "
+            "before ingesting these bill proposer kinds."
+        )
+
 
     def get_latest_propose_date(self) -> Optional[str]:
         """
@@ -226,6 +270,7 @@ class DatabaseManager:
 
         with self.transaction() as cursor:
             include_summary_tags = self._bill_table_has_column(cursor, "summary_tags")
+            self._validate_bill_proposer_kind_schema(cursor, normalized_bills)
             insert_columns = [
                 "bill_id",
                 "assembly_number",
@@ -319,6 +364,17 @@ class DatabaseManager:
                 if 'rst_proposer_ids' in bill and bill['rst_proposer_ids']:
                     self._link_proposers(cursor, bill_id, bill['rst_proposer_ids'], is_representative=True)
 
+    def _clean_proposer_ids(self, proposer_ids: List[Any]) -> List[str]:
+        cleaned_ids = []
+        for proposer_id in proposer_ids:
+            if proposer_id is None:
+                continue
+            value = str(proposer_id).strip()
+            if not value or value.lower() == "nan":
+                continue
+            cleaned_ids.append(value)
+        return cleaned_ids
+
     def _link_proposers(self, cursor: pymysql.cursors.Cursor, bill_id: str, proposer_ids: List[str], is_representative: bool = False) -> None:
         """
         법안과 의원(발의자) 간의 관계를 저장합니다.
@@ -329,6 +385,7 @@ class DatabaseManager:
             proposer_ids: 의원 ID 리스트
             is_representative: 대표발의자 여부 (True: RepresentativeProposer, False: BillProposer)
         """
+        proposer_ids = self._clean_proposer_ids(proposer_ids)
         if not proposer_ids:
             return
 

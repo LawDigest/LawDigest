@@ -374,6 +374,6 @@ Airflow 관련 파일은 legacy reference입니다.
 | `docs/data/법안 데이터 파이프라인/pipeline_architecture.md` | 현재 구조 source of truth |
 | `docs/data/법안 데이터 파이프라인/pipeline_restart_runbook.md` | 실행 명령과 운영 런북 |
 | `docs/data/법안 데이터 파이프라인/status_sync_monitoring_queries.md` | 상태 동기화 확인 쿼리 |
-| `docs/data/legacy/*` | Airflow/n8n/과거 리팩터링 기록 |
+| `docs/data/legacy/*` | Airflow/과거 리팩터링 기록 |
 | `docs/data/pipeline_architecture.md` | canonical 문서 안내용 compatibility stub |
 | `docs/data/pipeline_restart_runbook.md` | canonical 런북 안내용 compatibility stub |
