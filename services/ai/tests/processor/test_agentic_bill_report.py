@@ -103,6 +103,7 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
     assert "법률·행정용어 풀이 사전" in prompt
     assert "정적 보조 사전" in prompt
     assert "target=lstrmAI" in prompt
+    assert "{{용어:뜻}}" in prompt
     assert "설명하지 않을 용어" in prompt
 
 
@@ -660,16 +661,36 @@ def test_legal_term_glossary_context_includes_real_api_lookup_results():
                 term=query,
                 source="law.go.kr",
                 definitions=("처분 전에 당사자의 의견을 직접 듣고 증거를 조사하는 절차를 말한다.",),
-                related_daily_terms=("면담", "심문"),
-                related_legal_terms=("의견청취",),
             )
 
     context = build_legal_term_glossary_context("청문 규정을 설명합니다.", term_client=FakeTermClient())
 
-    assert "아래 `법제처 API 조회 결과`는 실제 법제처 Open API 호출 결과입니다." in context
+    assert "아래 `법제처 API 조회 결과`는 실제 법제처 Open API 정의 조회 결과입니다." in context
     assert "법제처 API 조회 결과:" in context
-    assert "청문: 뜻=처분 전에 당사자의 의견을 직접 듣고 증거를 조사하는 절차를 말한다.; 일상어 연계어=면담, 심문" in context
+    assert "청문: 뜻=처분 전에 당사자의 의견을 직접 듣고 증거를 조사하는 절차를 말한다." in context
+    assert "일상어 연계어" not in context
     assert "청문 규정: 처분을 받기 전에" in context
+
+
+def test_legal_term_glossary_context_ignores_api_results_without_definitions():
+    from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm
+    from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
+
+    class FakeTermClient:
+        enabled = True
+
+        def lookup_term(self, query):
+            return LawOpenApiTerm(
+                term=query,
+                source="law.go.kr",
+                related_daily_terms=("면담", "심문"),
+            )
+
+    context = build_legal_term_glossary_context("청문 규정을 설명합니다.", term_client=FakeTermClient())
+
+    assert "정적 보조 사전" in context
+    assert "법제처 API 조회 결과" not in context
+    assert "일상어 연계어" not in context
 
 
 def test_legal_term_glossary_context_skips_api_lookup_without_matched_terms():

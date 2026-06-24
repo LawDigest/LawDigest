@@ -1,4 +1,4 @@
-import type { CSSProperties, KeyboardEventHandler, MouseEventHandler } from 'react';
+import type { CSSProperties, KeyboardEvent, MouseEvent, KeyboardEventHandler, MouseEventHandler } from 'react';
 import { renderBillSummaryMarkdown } from './renderBillSummaryMarkdown';
 
 type SafeBillSummaryHtmlProps = {
@@ -18,12 +18,31 @@ export default function SafeBillSummaryHtml({
   onKeyDown,
   style,
 }: SafeBillSummaryHtmlProps) {
+  const shouldKeepTooltipOpen = (target: EventTarget | null) =>
+    target instanceof Element && Boolean(target.closest('.lawdigest-term-tooltip'));
+
+  const handleClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (shouldKeepTooltipOpen(event.target)) {
+      event.stopPropagation();
+      return;
+    }
+    onClick(event);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (shouldKeepTooltipOpen(event.target)) {
+      event.stopPropagation();
+      return;
+    }
+    onKeyDown(event);
+  };
+
   return (
     <div
       className={className}
       style={style}
-      onClick={onClick}
-      onKeyDown={onKeyDown}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
       role="button"
       tabIndex={0}
       aria-label={ariaLabel}

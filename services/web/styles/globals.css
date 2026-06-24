@@ -146,6 +146,92 @@ html {
   );
 }
 
+.lawdigest-term-tooltip {
+  position: relative;
+  display: inline;
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 74%, transparent);
+  text-decoration-thickness: 0.09em;
+  text-underline-offset: 0.22em;
+  cursor: help;
+  outline: none;
+}
+
+.lawdigest-term-tooltip::after {
+  content: attr(data-definition);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.5rem);
+  z-index: 20;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 32px));
+  padding: 0.55rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 28%, transparent);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 14%);
+  color: #191919;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.45;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 4px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.lawdigest-term-tooltip::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.16rem);
+  z-index: 21;
+  width: 0.54rem;
+  height: 0.54rem;
+  border-right: 1px solid color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 28%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 28%, transparent);
+  background: rgb(255 255 255 / 96%);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 4px) rotate(45deg);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.lawdigest-term-tooltip:hover::after,
+.lawdigest-term-tooltip:focus::after,
+.lawdigest-term-tooltip:focus-visible::after,
+.lawdigest-term-tooltip:hover::before,
+.lawdigest-term-tooltip:focus::before,
+.lawdigest-term-tooltip:focus-visible::before {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.lawdigest-term-tooltip:hover::before,
+.lawdigest-term-tooltip:focus::before,
+.lawdigest-term-tooltip:focus-visible::before {
+  transform: translate(-50%, 0) rotate(45deg);
+}
+
+.dark .lawdigest-term-tooltip::after {
+  border-color: color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 40%, #2b2b2b);
+  background: rgb(35 35 35 / 96%);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 32%);
+  color: #f7f7f7;
+}
+
+.dark .lawdigest-term-tooltip::before {
+  border-color: color-mix(in srgb, var(--lawdigest-summary-accent, #e63946) 40%, #2b2b2b);
+  background: rgb(35 35 35 / 96%);
+}
+
 .lawdigest-summary-list {
   display: grid;
   gap: 0.52em;

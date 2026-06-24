@@ -1,4 +1,5 @@
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const escapeHtmlAttribute = (value: string) => escapeHtml(value).replace(/"/g, '&quot;');
 
 const renderInlineMarkdown = (value: string) => {
   const withAllowedMark = escapeHtml(value).replace(
@@ -7,6 +8,17 @@ const renderInlineMarkdown = (value: string) => {
   );
 
   return withAllowedMark
+    .replace(/\{\{([^:{}\n]+):([^{}\n]+)\}\}/g, (_match, term: string, definition: string) => {
+      const label = term.trim();
+      const tooltip = definition.trim();
+      return [
+        `<span class="lawdigest-term-tooltip" tabindex="0"`,
+        ` aria-label="${escapeHtmlAttribute(`${label}: ${tooltip}`)}"`,
+        ` data-definition="${escapeHtmlAttribute(tooltip)}">`,
+        label,
+        '</span>',
+      ].join('');
+    })
     .split('**')
     .map((text, index) => (index % 2 === 0 ? text : `<strong>${text}</strong>`))
     .join('');

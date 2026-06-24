@@ -26,6 +26,23 @@ describe('renderBillSummaryMarkdown', () => {
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
   });
+
+  it('법령용어 툴팁 표기를 점선 밑줄 span으로 렌더링한다', () => {
+    const html = renderBillSummaryMarkdown('- {{청문:행정청이 처분 전에 당사자의 의견을 직접 듣는 절차}}을 거쳐요.');
+
+    expect(html).toContain('class="lawdigest-term-tooltip"');
+    expect(html).toContain('tabindex="0"');
+    expect(html).toContain('aria-label="청문: 행정청이 처분 전에 당사자의 의견을 직접 듣는 절차"');
+    expect(html).toContain('data-definition="행정청이 처분 전에 당사자의 의견을 직접 듣는 절차"');
+    expect(html).toContain('>청문</span>을 거쳐요.');
+  });
+
+  it('법령용어 툴팁 정의 안의 HTML은 이스케이프한다', () => {
+    const html = renderBillSummaryMarkdown('{{청문:<script>alert(1)</script>}}');
+
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&amp;lt;script&amp;gt;alert(1)&amp;lt;/script&amp;gt;');
+  });
 });
 
 describe('getFeedSummaryMarkdown', () => {

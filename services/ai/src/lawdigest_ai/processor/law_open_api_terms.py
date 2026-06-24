@@ -201,11 +201,9 @@ class LawOpenApiTermClient:
         return list(_compact_unique(legal_terms))
 
     def lookup_term(self, query: str) -> LawOpenApiTerm | None:
-        legal_terms = self.search_legal_terms(query)
-        related_daily_terms = self.get_related_daily_terms(query)
         definitions, definition_sources = self.get_legal_term_definitions(query)
 
-        if not legal_terms and not related_daily_terms and not definitions:
+        if not definitions:
             return None
 
         return LawOpenApiTerm(
@@ -213,5 +211,4 @@ class LawOpenApiTermClient:
             source="law.go.kr",
             definitions=tuple(definitions[:2]),
             definition_sources=tuple(definition_sources[:3]),
-            related_daily_terms=tuple(related_daily_terms[:8]),
         )

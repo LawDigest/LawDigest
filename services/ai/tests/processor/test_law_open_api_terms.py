@@ -89,7 +89,7 @@ class _FakeSession:
         raise AssertionError(f"unexpected target: {target}")
 
 
-def test_law_open_api_term_client_looks_up_terms_and_relations():
+def test_law_open_api_term_client_looks_up_term_definitions():
     session = _FakeSession()
     client = LawOpenApiTermClient(oc="law-key", session=session, timeout_seconds=1.5)
 
@@ -100,9 +100,9 @@ def test_law_open_api_term_client_looks_up_terms_and_relations():
     assert result.source == "law.go.kr"
     assert result.definitions == ("행정청이 어떠한 처분을 하기 전에 당사자등의 의견을 직접 듣고 증거를 조사하는 절차를 말한다.",)
     assert result.definition_sources == ("행정절차법[법률 제18748호]",)
-    assert result.related_daily_terms == ("면담", "심문")
+    assert result.related_daily_terms == ()
     assert result.related_legal_terms == ()
-    assert [call["params"]["target"] for call in session.calls] == ["lstrmAI", "lstrmRlt", "lstrm", "lstrm"]
+    assert [call["params"]["target"] for call in session.calls] == ["lstrm", "lstrm"]
     assert session.calls[0]["params"]["OC"] == "law-key"
     assert session.calls[0]["params"]["type"] == "JSON"
     assert session.calls[0]["params"]["query"] == "청문"

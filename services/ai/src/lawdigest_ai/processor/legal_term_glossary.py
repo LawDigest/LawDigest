@@ -63,7 +63,7 @@ def _lookup_law_open_api_terms(
             result = client.lookup_term(entry.aliases[0] if entry.aliases else entry.term)
         except Exception:
             continue
-        if result is not None:
+        if result is not None and result.definitions:
             results.append(result)
     return results
 
@@ -78,7 +78,7 @@ def build_legal_term_glossary_context(text: str, term_client: LawOpenApiTermClie
         "- 설명 불릿은 아래 사전에 있는 어려운 법률·행정용어가 본문에 나올 때만 붙이세요.",
     ]
     if api_terms:
-        lines.append("- 아래 `법제처 API 조회 결과`는 실제 법제처 Open API 호출 결과입니다.")
+        lines.append("- 아래 `법제처 API 조회 결과`는 실제 법제처 Open API 정의 조회 결과입니다.")
     else:
         lines.append("- 아래 `정적 보조 사전`은 API 조회 결과가 아니라 Lawdigest가 관리하는 fallback 설명입니다.")
     lines.append("- 법제처 API 참조:")
@@ -86,9 +86,8 @@ def build_legal_term_glossary_context(text: str, term_client: LawOpenApiTermClie
     if api_terms:
         lines.append("- 법제처 API 조회 결과:")
         for item in api_terms:
-            definitions = " / ".join(item.definitions) if item.definitions else "없음"
-            related_daily_terms = ", ".join(item.related_daily_terms) if item.related_daily_terms else "없음"
-            lines.append(f"  - {item.term}: 뜻={definitions}; 일상어 연계어={related_daily_terms}")
+            definitions = " / ".join(item.definitions)
+            lines.append(f"  - {item.term}: 뜻={definitions}")
     lines.append("- 설명할 용어:")
     lines.extend(f"  - {entry.term}: {entry.definition}" for entry in matched_entries if entry.explain)
     lines.append("- 설명하지 않을 용어:")

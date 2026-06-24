@@ -69,17 +69,15 @@ npx -y korean-law-mcp@latest
 
 ## 4. 법률 용어 자동 풀이
 
-현재 구현은 `LAW_OC`가 있으면 법제처 Open API를 실제로 호출한다. 조회에 성공하면 프롬프트에 `법제처 API 조회 결과` 섹션을 넣고, 법령용어 정의와 일상어 연계어를 함께 제공한다. 실패하거나 키가 없으면 Lawdigest가 관리하는 정적 보조 사전만 fallback으로 넣는다.
+현재 구현은 `LAW_OC`가 있으면 법제처 Open API를 실제로 호출한다. 조회에 성공하면 프롬프트에 `법제처 API 조회 결과` 섹션을 넣고, 법령용어 정의만 제공한다. 정의가 없거나 키가 없거나 호출에 실패하면 Lawdigest가 관리하는 정적 보조 사전만 fallback으로 넣는다.
 
 현재 호출하는 API:
 
 | API | 사용 방식 |
 | --- | --- |
-| `lawSearch.do?target=lstrmAI` | 법령정보지식베이스에서 법령용어 후보를 조회한다. |
-| `lawService.do?target=lstrmRlt` | 법령용어와 연결된 일상어를 조회한다. |
 | `lawSearch.do?target=lstrm` + `lawService.do?target=lstrm` | 법령용어 상세 정의를 조회한다. |
 
-`dlytrmRlt` 역방향 조회 메서드는 클라이언트에 있지만, 자동 프롬프트 컨텍스트에는 넣지 않는다. 실제 스모크에서 `검토 → 검열`처럼 너무 넓은 관련 법령용어가 섞이는 문제가 확인되어, 현재 프롬프트에는 법령용어에서 직접 연결된 일상어만 넣는다.
+`lstrmAI`, `lstrmRlt`, `dlytrmRlt` 조회 메서드는 클라이언트에 남아 있지만, 자동 프롬프트 컨텍스트에는 넣지 않는다. 실제 스모크에서 연계어가 사용자가 기대한 뜻풀이보다 넓게 섞이는 문제가 확인되어, 현재 프롬프트에는 상세 정의가 있는 용어만 넣는다.
 
 기본 사전:
 
@@ -109,7 +107,7 @@ npx -y korean-law-mcp@latest
 | 법령용어-일상용어 연계 | `https://www.law.go.kr/DRF/lawService.do?target=lstrmRlt` |
 | 일상용어-법령용어 연계 | `https://www.law.go.kr/DRF/lawService.do?target=dlytrmRlt` |
 
-현재 `law_open_api_terms.py`가 이 중 `lstrmAI`, `lstrmRlt`, `lstrm` 상세 조회를 호출한다. 다음 단계에서는 자주 등장하는 용어를 캐시하고, 법안 원문에서 어려운 용어 후보를 더 넓게 추출하는 쪽을 보강한다.
+현재 자동 프롬프트 경로는 이 중 `lstrm` 상세 조회만 호출한다. 다음 단계에서는 자주 등장하는 용어를 캐시하고, 법안 원문에서 어려운 용어 후보를 더 넓게 추출하는 쪽을 보강한다.
 
 ## 6. 출력 형식 규칙
 
