@@ -20,7 +20,10 @@ export const generateMetadata = async ({ params: { id } }: { params: { id: strin
 
 export default async function BillDetail({ params: { id } }: { params: { id: string } }) {
   const queryClient = getQueryClient();
-  const viewCount = await usePatchViewCount(id).then((res) => res.data.view_count);
+  const { data } = await useGetBillDetail(id, queryClient);
+  const viewCount = await usePatchViewCount(id)
+    .then((res) => res.data.view_count)
+    .catch(() => data.bill_info_dto.view_count);
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
