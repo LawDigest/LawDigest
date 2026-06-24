@@ -74,7 +74,7 @@ describe('SafeBillSummaryHtml', () => {
       toJSON: () => {},
     });
 
-    fireEvent.mouseOver(term);
+    fireEvent.mouseEnter(term);
 
     expect(screen.getByRole('tooltip')).toHaveStyle({
       '--lawdigest-term-tooltip-left': '164px',
@@ -96,14 +96,14 @@ describe('SafeBillSummaryHtml', () => {
 
     const term = screen.getByText('변상금');
 
-    fireEvent.mouseOver(term);
+    fireEvent.mouseEnter(term);
     expect(screen.getByRole('tooltip')).toBeInTheDocument();
 
-    fireEvent.mouseOut(term, { relatedTarget: document.body });
+    fireEvent.mouseLeave(term, { relatedTarget: document.body });
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
-  it('요약 영역을 마우스가 벗어나면 남아 있는 툴팁 레이어를 닫는다', () => {
+  it('요약 영역 자체에 마우스가 올라가도 툴팁 레이어를 열지 않는다', () => {
     render(
       <SafeBillSummaryHtml
         ariaLabel="법안 요약 더 보기"
@@ -117,10 +117,7 @@ describe('SafeBillSummaryHtml', () => {
 
     const summary = screen.getByRole('button', { name: '법안 요약 더 보기' });
 
-    fireEvent.mouseOver(screen.getByText('변상금'));
-    expect(screen.getByRole('tooltip')).toBeInTheDocument();
-
-    fireEvent.mouseLeave(summary);
+    fireEvent.mouseEnter(summary);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 });
