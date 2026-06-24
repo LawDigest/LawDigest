@@ -47,6 +47,31 @@ class _FakeSession:
                     }
                 }
             )
+        if target == "lstrm" and "query" in params:
+            return _FakeResponse(
+                {
+                    "LsTrmSearch": {
+                        "lstrm": [
+                            {
+                                "법령용어명": "청문",
+                                "법령용어ID": "20388,5009349",
+                            }
+                        ]
+                    }
+                }
+            )
+        if target == "lstrm" and "trmSeqs" in params:
+            return _FakeResponse(
+                {
+                    "LsTrmService": {
+                        "법령용어정의": [
+                            "행정청이 어떠한 처분을 하기 전에 당사자등의 의견을 직접 듣고 증거를 조사하는 절차를 말한다.",
+                            "hearing",
+                        ],
+                        "출처": ["행정절차법[법률 제18748호]"],
+                    }
+                }
+            )
         if target == "dlytrmRlt":
             return _FakeResponse(
                 {
@@ -73,9 +98,11 @@ def test_law_open_api_term_client_looks_up_terms_and_relations():
     assert result is not None
     assert result.term == "청문"
     assert result.source == "law.go.kr"
+    assert result.definitions == ("행정청이 어떠한 처분을 하기 전에 당사자등의 의견을 직접 듣고 증거를 조사하는 절차를 말한다.",)
+    assert result.definition_sources == ("행정절차법[법률 제18748호]",)
     assert result.related_daily_terms == ("면담", "심문")
     assert result.related_legal_terms == ()
-    assert [call["params"]["target"] for call in session.calls] == ["lstrmAI", "lstrmRlt"]
+    assert [call["params"]["target"] for call in session.calls] == ["lstrmAI", "lstrmRlt", "lstrm", "lstrm"]
     assert session.calls[0]["params"]["OC"] == "law-key"
     assert session.calls[0]["params"]["type"] == "JSON"
     assert session.calls[0]["params"]["query"] == "청문"

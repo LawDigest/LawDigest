@@ -140,7 +140,7 @@ Codex 세션은 `--ignore-user-config`, `--disable plugins`, `--disable apps`, `
 
 ## 9. 법률 용어 풀이
 
-`legal_term_glossary.py`는 프롬프트에 짧은 용어 사전 컨텍스트를 붙인다. `LAW_OC`가 있으면 `law_open_api_terms.py`의 `LawOpenApiTermClient`가 법제처 Open API를 실제로 호출해 법령용어와 일상어 연계어를 조회한다.
+`legal_term_glossary.py`는 프롬프트에 짧은 용어 사전 컨텍스트를 붙인다. `LAW_OC`가 있으면 `law_open_api_terms.py`의 `LawOpenApiTermClient`가 법제처 Open API를 실제로 호출해 법령용어 정의와 일상어 연계어를 조회한다.
 
 현재 기본 사전:
 
@@ -152,6 +152,7 @@ Codex 세션은 `--ignore-user-config`, `--disable plugins`, `--disable apps`, `
 
 - `lawSearch.do?target=lstrmAI`: 법령정보지식베이스 법령용어 조회
 - `lawService.do?target=lstrmRlt`: 법령용어-일상용어 연계 조회
+- `lawSearch.do?target=lstrm` + `lawService.do?target=lstrm`: 법령용어 상세 정의 조회
 
 API 조회에 성공하면 프롬프트에 `법제처 API 조회 결과` 섹션이 들어간다. `LAW_OC`가 없거나 호출에 실패하면 API 결과를 넣지 않고, Lawdigest가 관리하는 정적 보조 사전만 fallback으로 넣는다. 이 경우 프롬프트에는 `정적 보조 사전`이라고 명시한다.
 

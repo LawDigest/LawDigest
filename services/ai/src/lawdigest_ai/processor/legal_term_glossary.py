@@ -86,8 +86,9 @@ def build_legal_term_glossary_context(text: str, term_client: LawOpenApiTermClie
     if api_terms:
         lines.append("- 법제처 API 조회 결과:")
         for item in api_terms:
+            definitions = " / ".join(item.definitions) if item.definitions else "없음"
             related_daily_terms = ", ".join(item.related_daily_terms) if item.related_daily_terms else "없음"
-            lines.append(f"  - {item.term}: 일상어 연계어={related_daily_terms}")
+            lines.append(f"  - {item.term}: 뜻={definitions}; 일상어 연계어={related_daily_terms}")
     lines.append("- 설명할 용어:")
     lines.extend(f"  - {entry.term}: {entry.definition}" for entry in matched_entries if entry.explain)
     lines.append("- 설명하지 않을 용어:")

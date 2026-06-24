@@ -8,7 +8,7 @@ Lawdigest의 AI 가공 파이프라인 코드다. 법안 요약, provider batch 
 | --- | --- |
 | `src/lawdigest_ai/processor/` | 법안 요약, provider 처리, 에이전트 리포트 생성 |
 | `src/lawdigest_ai/processor/agentic_bill_report.py` | Codex MCP 에이전트 기반 법안 리포트 생성 |
-| `src/lawdigest_ai/processor/law_open_api_terms.py` | 법제처 Open API 법령용어 클라이언트 |
+| `src/lawdigest_ai/processor/law_open_api_terms.py` | 법제처 Open API 법령용어 정의·일상어 연계 클라이언트 |
 | `src/lawdigest_ai/processor/legal_term_glossary.py` | 법제처 API 조회 결과와 정적 보조 사전을 합치는 프롬프트 컨텍스트 |
 | `src/lawdigest_ai/rag/` | RAG 챗봇과 벡터 검색 |
 | `tests/` | AI 서비스 단위 테스트 |

@@ -18,6 +18,8 @@ class LawOpenApiTermClientError(RuntimeError):
 class LawOpenApiTerm:
     term: str
     source: str
+    definitions: tuple[str, ...] = ()
+    definition_sources: tuple[str, ...] = ()
     related_daily_terms: tuple[str, ...] = ()
     related_legal_terms: tuple[str, ...] = ()
 
@@ -40,6 +42,14 @@ def _compact_unique(values: list[str]) -> tuple[str, ...]:
         seen.add(normalized)
         compacted.append(normalized)
     return tuple(compacted)
+
+
+def _definition_score(definition: str) -> tuple[int, int]:
+    narrow_markers = ("법 제", "규정에 따른", "장관", "기관장", "검사기관", "고시", "훈령")
+    general_markers = ("절차를 말한다", "것을 말한다", "의견을 직접 듣고", "증거를 조사")
+    narrow_score = sum(1 for marker in narrow_markers if marker in definition)
+    general_score = sum(1 for marker in general_markers if marker in definition)
+    return (narrow_score - general_score, len(definition))
 
 
 class LawOpenApiTermClient:
@@ -94,6 +104,59 @@ class LawOpenApiTermClient:
                     terms.append(term)
         return list(_compact_unique(terms))
 
+    def search_legal_dictionary_terms(self, query: str, *, display: int = 5) -> list[dict[str, Any]]:
+        payload = self._get_json(
+            "lawSearch.do",
+            {
+                "target": "lstrm",
+                "query": query,
+                "display": display,
+            },
+        )
+        root = payload.get("LsTrmSearch") or {}
+        rows = []
+        for item in _as_list(root.get("lstrm")):
+            if isinstance(item, dict):
+                rows.append(item)
+        return rows
+
+    def get_legal_term_definitions(self, query: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        rows = self.search_legal_dictionary_terms(query)
+        exact_rows = [row for row in rows if row.get("법령용어명") == query]
+        if not exact_rows:
+            return (), ()
+
+        term_sequences = exact_rows[0].get("법령용어ID")
+        if not isinstance(term_sequences, str) or not term_sequences.strip():
+            return (), ()
+
+        payload = self._get_json(
+            "lawService.do",
+            {
+                "target": "lstrm",
+                "trmSeqs": term_sequences,
+            },
+        )
+        root = payload.get("LsTrmService") or {}
+        definitions = sorted(
+            _compact_unique(
+                [
+                    str(item)
+                    for item in _as_list(root.get("법령용어정의"))
+                    if isinstance(item, str) and any("가" <= char <= "힣" for char in item)
+                ]
+            ),
+            key=_definition_score,
+        )
+        sources = _compact_unique(
+            [
+                str(item)
+                for item in _as_list(root.get("출처"))
+                if isinstance(item, str)
+            ]
+        )
+        return definitions, sources
+
     def get_related_daily_terms(self, legal_term: str) -> list[str]:
         payload = self._get_json(
             "lawService.do",
@@ -140,12 +203,15 @@ class LawOpenApiTermClient:
     def lookup_term(self, query: str) -> LawOpenApiTerm | None:
         legal_terms = self.search_legal_terms(query)
         related_daily_terms = self.get_related_daily_terms(query)
+        definitions, definition_sources = self.get_legal_term_definitions(query)
 
-        if not legal_terms and not related_daily_terms:
+        if not legal_terms and not related_daily_terms and not definitions:
             return None
 
         return LawOpenApiTerm(
             term=query,
             source="law.go.kr",
+            definitions=tuple(definitions[:2]),
+            definition_sources=tuple(definition_sources[:3]),
             related_daily_terms=tuple(related_daily_terms[:8]),
         )

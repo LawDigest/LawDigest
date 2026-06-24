@@ -659,6 +659,7 @@ def test_legal_term_glossary_context_includes_real_api_lookup_results():
             return LawOpenApiTerm(
                 term=query,
                 source="law.go.kr",
+                definitions=("처분 전에 당사자의 의견을 직접 듣고 증거를 조사하는 절차를 말한다.",),
                 related_daily_terms=("면담", "심문"),
                 related_legal_terms=("의견청취",),
             )
@@ -667,7 +668,7 @@ def test_legal_term_glossary_context_includes_real_api_lookup_results():
 
     assert "아래 `법제처 API 조회 결과`는 실제 법제처 Open API 호출 결과입니다." in context
     assert "법제처 API 조회 결과:" in context
-    assert "청문: 일상어 연계어=면담, 심문" in context
+    assert "청문: 뜻=처분 전에 당사자의 의견을 직접 듣고 증거를 조사하는 절차를 말한다.; 일상어 연계어=면담, 심문" in context
     assert "청문 규정: 처분을 받기 전에" in context
 
 
