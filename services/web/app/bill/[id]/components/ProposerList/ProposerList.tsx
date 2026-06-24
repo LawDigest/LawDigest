@@ -4,11 +4,12 @@ import { useTheme } from 'next-themes';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge, Card, CardHeader, CardBody } from '@nextui-org/react';
-import { getGovernmentAdministrationName, getPartyLogoSrc, isGovernmentProposerKind, sortByParty } from '@/utils';
+import { getGovernmentAdministrationName, getPartyLogoSrc, isGovernmentBill, sortByParty } from '@/utils';
 
 export default function ProposerList({
   representativeProposerList,
   publicProposerList,
+  billId,
   proposerKind,
   proposeDate,
   popover,
@@ -29,18 +30,24 @@ export default function ProposerList({
     public_proposer_party_image_url: string;
     public_proposer_party_name: string;
   }[];
+  billId?: string | null;
   proposerKind?: string | null;
   proposeDate?: string | null;
   popover: boolean;
 }) {
-  const isGovernmentBill = isGovernmentProposerKind(proposerKind);
+  const isGovernmentProposer = isGovernmentBill({
+    proposerKind,
+    billId,
+    representativeProposerCount: representativeProposerList.length,
+    publicProposerCount: publicProposerList.length,
+  });
   const representativeProposerLength = representativeProposerList.length;
   const publicProposerLength = publicProposerList.length;
   const proposerListByParty = sortByParty({ publicProposerList });
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  if (isGovernmentBill) {
+  if (isGovernmentProposer) {
     return (
       <Card
         classNames={{

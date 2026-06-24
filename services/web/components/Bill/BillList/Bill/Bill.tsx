@@ -27,7 +27,7 @@ import {
   copyClipBoard,
   getPartyLogoSrc,
   getGovernmentAdministrationName,
-  isGovernmentProposerKind,
+  isGovernmentBill,
 } from '@/utils';
 import Image from 'next/image';
 import { PartyLogoReplacement } from '@/components/common';
@@ -68,10 +68,15 @@ export default function Bill({
   const [likeCount, setLikeCount] = useState(bill_like_count);
   const mutateBookmark = usePatchBookmark(bill_id);
   const [toggleMore, setToggleMore] = useState(false);
-  const isGovernmentBill = isGovernmentProposerKind(proposer_kind);
-  const isRepresentativeSolo = !isGovernmentBill && representative_proposer_dto_list.length === 1;
+  const isGovernmentProposer = isGovernmentBill({
+    proposerKind: proposer_kind,
+    billId: bill_id,
+    representativeProposerCount: representative_proposer_dto_list.length,
+    publicProposerCount: public_proposer_dto_list.length,
+  });
+  const isRepresentativeSolo = !isGovernmentProposer && representative_proposer_dto_list.length === 1;
   const partyName = isRepresentativeSolo ? representative_proposer_dto_list[0].party_name : '다수';
-  const proposerCardBorderClassName = isGovernmentBill ? 'border-gray-1 dark:border-dark-l' : partyName;
+  const proposerCardBorderClassName = isGovernmentProposer ? 'border-gray-1 dark:border-dark-l' : partyName;
   const setSnackbar = useSetRecoilState(snackbarState);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -139,7 +144,7 @@ export default function Bill({
     </AvatarGroup>
   );
 
-  if (isGovernmentBill) {
+  if (isGovernmentProposer) {
     proposerAffiliationContent = (
       <Image
         src="/images/government-logo.png"
@@ -328,7 +333,7 @@ export default function Bill({
             radius="sm"
             shadow="sm">
             <div className="flex items-center gap-2">
-              {isGovernmentBill ? (
+              {isGovernmentProposer ? (
                 <div className="flex items-center justify-center w-16 h-12 p-1 overflow-hidden bg-white border rounded-md shrink-0 dark:border-dark-l">
                   <Image
                     src="/images/government-logo.png"
@@ -360,7 +365,7 @@ export default function Bill({
                 )
               )}
               <div className="flex flex-col gap-0.5">
-                {isGovernmentBill ? (
+                {isGovernmentProposer ? (
                   <>
                     <h3 className="font-medium">대한민국 정부</h3>
                     <h4 className="text-xs text-gray-2">{getGovernmentAdministrationName(propose_date)}</h4>
@@ -402,6 +407,7 @@ export default function Bill({
                         <ProposerList
                           representativeProposerList={representative_proposer_dto_list}
                           publicProposerList={public_proposer_dto_list}
+                          billId={bill_id}
                           proposerKind={proposer_kind}
                           proposeDate={propose_date}
                           popover
