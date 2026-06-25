@@ -1,6 +1,7 @@
 import { Bill } from '@/components';
 import { Divider } from '@nextui-org/react';
 import { BillResponse } from '@/types';
+import { isGovernmentBill } from '@/utils';
 import { SectionContainer } from '../SectionContainer';
 import { ProposerList } from '../ProposerList';
 import { ProgressStage } from '../ProgressStage';
@@ -8,22 +9,33 @@ import { AnotherBillList } from '../AnotherBill';
 import { ProcessResult } from '../ProcessResult';
 
 export default function BillDetail({ data, viewCount }: { data: BillResponse; viewCount: number }) {
+  const isGovernmentProposer = isGovernmentBill({
+    proposerKind: data.bill_info_dto.proposer_kind,
+    billId: data.bill_info_dto.bill_id,
+    representativeProposerCount: data.representative_proposer_dto_list.length,
+    publicProposerCount: data.public_proposer_dto_list.length,
+  });
+
   return (
     <section>
       <Bill {...data} detail viewCount={viewCount}>
         <section className="md:w-[300px] lg:w-[490px] md:float-right flex flex-col gap-[34px] mt-[34px]">
-          <SectionContainer title="발의자 명단">
-            <ProposerList
-              representativeProposerList={data.representative_proposer_dto_list}
-              publicProposerList={data.public_proposer_dto_list}
-              billId={data.bill_info_dto.bill_id}
-              proposerKind={data.bill_info_dto.proposer_kind}
-              proposeDate={data.bill_info_dto.propose_date}
-              popover={false}
-            />
-          </SectionContainer>
+          {!isGovernmentProposer && (
+            <>
+              <SectionContainer title="발의자 명단">
+                <ProposerList
+                  representativeProposerList={data.representative_proposer_dto_list}
+                  publicProposerList={data.public_proposer_dto_list}
+                  billId={data.bill_info_dto.bill_id}
+                  proposerKind={data.bill_info_dto.proposer_kind}
+                  proposeDate={data.bill_info_dto.propose_date}
+                  popover={false}
+                />
+              </SectionContainer>
 
-          <Divider className="hidden md:block h-[1px] w-full border-gray-1 dark:border-dark-l" />
+              <Divider className="hidden md:block h-[1px] w-full border-gray-1 dark:border-dark-l" />
+            </>
+          )}
 
           <SectionContainer title="심사 진행 단계">
             <ProgressStage billStage={data.bill_info_dto.bill_stage} />
