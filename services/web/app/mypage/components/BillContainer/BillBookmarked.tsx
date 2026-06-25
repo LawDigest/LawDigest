@@ -19,19 +19,27 @@ import {
 import Link from 'next/link';
 import { PartyLogoReplacement } from '@/components';
 import { ProposerList } from '@/app/bill/[id]/components';
+import { getChairmanProposerInfo } from '@/utils';
 
 export default function BillBookmarked({
-  bill_info_dto: { bill_id, brief_summary, bill_stage },
+  bill_info_dto: { bill_id, brief_summary, bill_stage, proposer_kind, proposers, committee },
   representative_proposer_dto_list,
   public_proposer_dto_list,
 }: BillProps) {
-  const isRepresentativeSolo = representative_proposer_dto_list.length === 1;
+  const chairmanProposerInfo = getChairmanProposerInfo({
+    proposerKind: proposer_kind,
+    proposerText: proposers,
+    committee,
+  });
+  const isChairmanProposer = chairmanProposerInfo !== null;
+  const isRepresentativeSolo = !isChairmanProposer && representative_proposer_dto_list.length === 1;
   const partyName = isRepresentativeSolo ? representative_proposer_dto_list[0].party_name : '다수';
+  const cardBorderClassName = isChairmanProposer ? 'lawdigest-chairman-proposer-card' : partyName;
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
   return (
-    <Card className={`border-1.5 flex-row md:py-2 ${partyName}`} radius="md">
+    <Card className={`border-1.5 flex-row md:py-2 ${cardBorderClassName}`} radius="md">
       <CardBody className="flex justify-between gap-2">
         <Link href={`/bill/${bill_id}`}>
           <p className="text-sm font-bold md:text-base lg:text-lg">{brief_summary}</p>
@@ -44,33 +52,51 @@ export default function BillBookmarked({
             radius="sm">
             {bill_stage}
           </Chip>
-          <Popover placement="bottom" showArrow>
-            <PopoverTrigger>
-              <Button className="p-0 m-0 bg-transparent h-min">
-                <Tooltip showArrow content="발의자 명단 보기">
-                  <h4 className="text-xs font-semibold md:text-sm text-gray-2 shrink-0">
-                    {isRepresentativeSolo
-                      ? `${representative_proposer_dto_list[0].representative_proposer_name} 의원 등 ${public_proposer_dto_list.length}인`
-                      : `${representative_proposer_dto_list
-                          .map(({ representative_proposer_name }) => representative_proposer_name)
-                          .join('·')} 의원 등 ${public_proposer_dto_list.length}인`}
-                  </h4>
-                </Tooltip>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent>
-              <ProposerList
-                representativeProposerList={representative_proposer_dto_list}
-                publicProposerList={public_proposer_dto_list}
-                popover
-              />
-            </PopoverContent>
-          </Popover>
+          {chairmanProposerInfo ? (
+            <h4 className="text-xs font-semibold md:text-sm text-gray-2 shrink-0">
+              {chairmanProposerInfo.proposerTitle}
+              {chairmanProposerInfo.committeeName && ` · ${chairmanProposerInfo.committeeName}`}
+            </h4>
+          ) : (
+            <Popover placement="bottom" showArrow>
+              <PopoverTrigger>
+                <Button className="p-0 m-0 bg-transparent h-min">
+                  <Tooltip showArrow content="발의자 명단 보기">
+                    <h4 className="text-xs font-semibold md:text-sm text-gray-2 shrink-0">
+                      {isRepresentativeSolo
+                        ? `${representative_proposer_dto_list[0].representative_proposer_name} 의원 등 ${public_proposer_dto_list.length}인`
+                        : `${representative_proposer_dto_list
+                            .map(({ representative_proposer_name }) => representative_proposer_name)
+                            .join('·')} 의원 등 ${public_proposer_dto_list.length}인`}
+                    </h4>
+                  </Tooltip>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent>
+                <ProposerList
+                  representativeProposerList={representative_proposer_dto_list}
+                  publicProposerList={public_proposer_dto_list}
+                  proposerKind={proposer_kind}
+                  proposerText={proposers}
+                  committee={committee}
+                  popover
+                />
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </CardBody>
       <CardFooter className="flex justify-center pl-0 overflow-visible basis-1/4 md:basis-1/5 shrink-0">
         {/* eslint-disable-next-line no-nested-ternary */}
-        {isRepresentativeSolo ? (
+        {chairmanProposerInfo ? (
+          <Image
+            src={chairmanProposerInfo.logoSrc}
+            width={160}
+            height={48}
+            alt={chairmanProposerInfo.logoAlt}
+            className="object-contain w-auto h-[28px] md:h-[34px] max-w-[120px]"
+          />
+        ) : isRepresentativeSolo ? (
           <Link
             href={
               representative_proposer_dto_list[0].party_image_url !== null

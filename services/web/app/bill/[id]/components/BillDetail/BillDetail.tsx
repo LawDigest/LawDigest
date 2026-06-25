@@ -1,7 +1,7 @@
 import { Bill } from '@/components';
 import { Divider } from '@nextui-org/react';
 import { BillResponse } from '@/types';
-import { isGovernmentBill } from '@/utils';
+import { getChairmanProposerInfo, isGovernmentBill } from '@/utils';
 import { SectionContainer } from '../SectionContainer';
 import { ProposerList } from '../ProposerList';
 import { ProgressStage } from '../ProgressStage';
@@ -15,12 +15,19 @@ export default function BillDetail({ data, viewCount }: { data: BillResponse; vi
     representativeProposerCount: data.representative_proposer_dto_list.length,
     publicProposerCount: data.public_proposer_dto_list.length,
   });
+  const isChairmanProposer = Boolean(
+    getChairmanProposerInfo({
+      proposerKind: data.bill_info_dto.proposer_kind,
+      proposerText: data.bill_info_dto.proposers,
+      committee: data.bill_info_dto.committee,
+    }),
+  );
 
   return (
     <section>
       <Bill {...data} detail viewCount={viewCount}>
         <section className="md:w-[300px] lg:w-[490px] md:float-right flex flex-col gap-[34px] mt-[34px]">
-          {!isGovernmentProposer && (
+          {!isGovernmentProposer && !isChairmanProposer && (
             <>
               <SectionContainer title="발의자 명단">
                 <ProposerList
