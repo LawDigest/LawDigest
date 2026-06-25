@@ -80,7 +80,7 @@ html {
   inset: 0;
   border-radius: inherit;
   padding: 1.5px;
-  background: linear-gradient(135deg, #c60c30 0%, #c60c30 45%, #003478 55%, #003478 100%);
+  background: linear-gradient(to bottom, #c60c30 0%, #c60c30 50%, #003478 50%, #003478 100%);
   pointer-events: none;
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
