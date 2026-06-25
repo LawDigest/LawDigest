@@ -151,8 +151,8 @@ export default function Bill({
     proposerAffiliationContent = (
       <Image
         src="/images/government-logo.png"
-        width={108}
-        height={68}
+        width={320}
+        height={245}
         alt="대한민국정부 로고"
         className="w-auto h-[66px] object-contain -my-2"
       />
