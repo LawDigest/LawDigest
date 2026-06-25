@@ -123,7 +123,9 @@ import java.util.List;
                         billDfRequest.getBillName(),
                         billDfRequest.getProposeDate(),
                         billDfRequest.getStage(),
-                        billDfRequest.getSummary()
+                        billDfRequest.getSummary(),
+                        billDfRequest.getBriefSummary(),
+                        billDfRequest.getGptSummary()
                 ))
                 .build();
     }
@@ -144,7 +146,9 @@ import java.util.List;
                 billDfRequest.getBillName(),
                 billDfRequest.getProposeDate(),
                 billDfRequest.getStage(),
-                billDfRequest.getSummary()
+                billDfRequest.getSummary(),
+                billDfRequest.getBriefSummary(),
+                billDfRequest.getGptSummary()
         ));
 
     }
@@ -164,13 +168,17 @@ import java.util.List;
             String billName,
             LocalDate proposeDate,
             String stage,
-            String summary
+            String summary,
+            String briefSummary,
+            String gptSummary
     ) {
-        if (hasText(billName) && proposeDate != null && hasText(stage) && hasText(summary)) {
+        if (hasText(billName) && proposeDate != null && hasText(stage)
+                && hasText(summary) && hasText(briefSummary) && hasText(gptSummary)) {
             return IngestStatusType.READY;
         }
 
-        if (hasText(billName) || proposeDate != null || hasText(stage) || hasText(summary)) {
+        if (hasText(billName) || proposeDate != null || hasText(stage)
+                || hasText(summary) || hasText(briefSummary) || hasText(gptSummary)) {
             return IngestStatusType.PARTIAL;
         }
 
