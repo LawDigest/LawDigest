@@ -104,6 +104,16 @@ public interface BillRepository extends JpaRepository<Bill, String>, BillReposit
             "ORDER BY b.proposeDate desc, b.id desc")
     List<Bill> findBillInfoByIdList(List<String> billList);
 
+    @Query("SELECT b FROM Bill b " +
+            "WHERE b.id in :billList " +
+            "AND b.ingestStatus = com.everyones.lawmaking.domain.entity.IngestStatusType.READY " +
+            "AND b.briefSummary IS NOT NULL " +
+            "AND length(trim(b.briefSummary)) > 0 " +
+            "AND b.gptSummary IS NOT NULL " +
+            "AND length(trim(b.gptSummary)) > 0 " +
+            "ORDER BY b.proposeDate desc, b.id desc")
+    List<Bill> findFeedBillInfoByIdList(List<String> billList);
+
     // 유사한 법안 조회 법안과 같은 이름을 가진 법안 조회
     @Query("SELECT b FROM Bill b " +
             "WHERE b.billName = :billName " +
