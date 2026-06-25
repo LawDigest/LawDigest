@@ -154,7 +154,7 @@ export default function Bill({
         width={320}
         height={245}
         alt="대한민국정부 로고"
-        className="w-auto h-[66px] object-contain -my-2"
+        className="w-auto h-[60px] object-contain -my-1"
       />
     );
   } else if (isRepresentativeSolo) {
