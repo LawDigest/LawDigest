@@ -151,10 +151,10 @@ export default function Bill({
     proposerAffiliationContent = (
       <Image
         src="/images/government-logo.png"
-        width={140}
-        height={64}
+        width={104}
+        height={60}
         alt="대한민국정부 로고"
-        className="w-[140px] h-[58px] object-contain -my-1"
+        className="w-auto h-[58px] object-contain -my-1"
       />
     );
   } else if (isRepresentativeSolo) {
