@@ -86,8 +86,11 @@ export default function Bill({
     expanded: toggleMore,
   });
   const summaryAccentStyle = {
-    '--lawdigest-summary-accent': getPartyAccentColor(partyName),
+    '--lawdigest-summary-accent': isGovernmentProposer ? '#c60c30' : getPartyAccentColor(partyName),
+    '--lawdigest-summary-accent-secondary': isGovernmentProposer ? '#003478' : getPartyAccentColor(partyName),
   } as CSSProperties;
+  const summaryContentClassName =
+    `${summaryClassName} ${isGovernmentProposer ? 'lawdigest-summary-government-accent' : ''}`.trim();
 
   const onClickToggleMore = useCallback(() => {
     setToggleMore(!toggleMore);
@@ -148,10 +151,10 @@ export default function Bill({
     proposerAffiliationContent = (
       <Image
         src="/images/government-logo.png"
-        width={100}
-        height={45}
+        width={140}
+        height={64}
         alt="대한민국정부 로고"
-        className="w-[100px] h-[40px] object-contain"
+        className="w-[140px] h-[58px] object-contain -my-1"
       />
     );
   } else if (isRepresentativeSolo) {
@@ -219,7 +222,7 @@ export default function Bill({
           <div className={!detail ? 'md:w-[440px] lg:w-[490px]' : ''}>
             <CardBody className={`p-0 leading-normal whitespace-pre-wrap ${detail ? '' : 'text-sm md:text-base'}`}>
               <SafeBillSummaryHtml
-                className={summaryClassName}
+                className={summaryContentClassName}
                 style={summaryAccentStyle}
                 onClick={onClickToggleMore}
                 onKeyDown={onKeyDownToggleMore}

@@ -146,6 +146,32 @@ html {
   );
 }
 
+.lawdigest-summary-government-accent .lawdigest-summary-mark {
+  background-image: linear-gradient(
+    102deg,
+    transparent 0,
+    transparent 0.2em,
+    color-mix(in srgb, var(--lawdigest-summary-accent, #c60c30) 13%, transparent) 0.2em,
+    color-mix(in srgb, var(--lawdigest-summary-accent, #c60c30) 10%, transparent) 48%,
+    color-mix(in srgb, var(--lawdigest-summary-accent-secondary, #003478) 10%, transparent) 48%,
+    color-mix(in srgb, var(--lawdigest-summary-accent-secondary, #003478) 13%, transparent) calc(100% - 0.2em),
+    transparent calc(100% - 0.2em),
+    transparent 100%
+  );
+}
+
+.lawdigest-summary-government-accent .lawdigest-summary-heading {
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--lawdigest-summary-accent, #c60c30) 22%, transparent) 0,
+    color-mix(in srgb, var(--lawdigest-summary-accent, #c60c30) 21%, transparent) 21%,
+    color-mix(in srgb, var(--lawdigest-summary-accent-secondary, #003478) 18%, transparent) 21%,
+    color-mix(in srgb, var(--lawdigest-summary-accent-secondary, #003478) 18%, transparent) 42%,
+    transparent 42%,
+    transparent 100%
+  );
+}
+
 .lawdigest-summary-section-heading {
   letter-spacing: 0;
 }
@@ -165,6 +191,17 @@ html {
   height: 1.15em;
   border-radius: 999px;
   background: var(--lawdigest-summary-accent, #e63946);
+}
+
+.lawdigest-summary-government-accent .lawdigest-summary-subheading::before,
+.lawdigest-summary-government-accent .lawdigest-summary-list li::before {
+  background: linear-gradient(
+    to bottom,
+    var(--lawdigest-summary-accent, #c60c30) 0,
+    var(--lawdigest-summary-accent, #c60c30) 50%,
+    var(--lawdigest-summary-accent-secondary, #003478) 50%,
+    var(--lawdigest-summary-accent-secondary, #003478) 100%
+  );
 }
 
 .lawdigest-summary-subsection-body {
