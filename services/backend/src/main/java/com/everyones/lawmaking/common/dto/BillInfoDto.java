@@ -29,6 +29,8 @@ public class BillInfoDto {
     private String billStage;
     private String briefSummary;
     private String proposerKind;
+    private String proposers;
+    private String committee;
 
     @QueryProjection
     public BillInfoDto(Bill bill) {
@@ -42,7 +44,10 @@ public class BillInfoDto {
         this.billStage = bill.getStage();
         this.briefSummary = bill.getBriefSummary();
         this.proposerKind = bill.getProposerKind() == null ? null : bill.getProposerKind().name();
+        this.proposers = bill.getProposers();
+        this.committee = bill.getCommittee();
     }
+
     @Deprecated
     public static BillInfoDto from(Bill bill) {
         var billLikeCount = bill.getBillLike().size();
@@ -57,6 +62,8 @@ public class BillInfoDto {
                 .billStage(bill.getStage())
                 .briefSummary(bill.getBriefSummary())
                 .proposerKind(bill.getProposerKind() == null ? null : bill.getProposerKind().name())
+                .proposers(bill.getProposers())
+                .committee(bill.getCommittee())
                 .build();
     }
 

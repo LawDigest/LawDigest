@@ -73,8 +73,7 @@ export default function Feed() {
   const { data: popularFeed } = useGetBillPopular();
   const [popularBills, setPopularBills] = useState(popularFeed?.data || []);
 
-  const fetchRef = useIntersect(async (entry: any, observer: any) => {
-    observer.unobserve(entry.target);
+  const fetchRef = useIntersect(async () => {
     if (hasNextPage && !isFetching) {
       fetchNextPage();
     }

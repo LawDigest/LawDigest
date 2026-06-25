@@ -4,13 +4,21 @@ import { useTheme } from 'next-themes';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge, Card, CardHeader, CardBody } from '@nextui-org/react';
-import { getGovernmentAdministrationName, getPartyLogoSrc, isGovernmentBill, sortByParty } from '@/utils';
+import {
+  getChairmanProposerInfo,
+  getGovernmentAdministrationName,
+  getPartyLogoSrc,
+  isGovernmentBill,
+  sortByParty,
+} from '@/utils';
 
 export default function ProposerList({
   representativeProposerList,
   publicProposerList,
   billId,
   proposerKind,
+  proposerText,
+  committee,
   proposeDate,
   popover,
 }: {
@@ -32,6 +40,8 @@ export default function ProposerList({
   }[];
   billId?: string | null;
   proposerKind?: string | null;
+  proposerText?: string | null;
+  committee?: string | null;
   proposeDate?: string | null;
   popover: boolean;
 }) {
@@ -46,6 +56,7 @@ export default function ProposerList({
   const proposerListByParty = sortByParty({ publicProposerList });
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const chairmanProposerInfo = getChairmanProposerInfo({ proposerKind, proposerText, committee });
 
   if (isGovernmentProposer) {
     return (
@@ -73,6 +84,43 @@ export default function ProposerList({
             <div className="flex flex-col gap-0.5">
               <p className="text-sm font-medium">대한민국 정부</p>
               <p className="text-xs text-gray-2">{getGovernmentAdministrationName(proposeDate)}</p>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+    );
+  }
+
+  if (chairmanProposerInfo) {
+    return (
+      <Card
+        classNames={{
+          base: [`lg:shadow-none dark:lg:bg-dark-pb ${popover ? 'shadow-none  dark:lg:bg-transparent' : ''}`],
+        }}>
+        <CardHeader>
+          <p className="font-medium">
+            {chairmanProposerInfo.proposerTitle}
+            {chairmanProposerInfo.committeeName && (
+              <span className="text-sm font-normal text-gray-2"> {chairmanProposerInfo.committeeName}</span>
+            )}
+          </p>
+        </CardHeader>
+        <CardBody>
+          <div className="flex items-center gap-3 my-[18px]">
+            <div className="flex items-center justify-center w-28 h-14 p-2 overflow-hidden bg-white border rounded-md shrink-0 dark:border-dark-l">
+              <Image
+                src={chairmanProposerInfo.logoSrc}
+                width={112}
+                height={56}
+                alt={chairmanProposerInfo.logoAlt}
+                className="object-contain w-full h-full"
+              />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <p className="text-sm font-medium">{chairmanProposerInfo.proposerTitle}</p>
+              {chairmanProposerInfo.committeeName && (
+                <p className="text-xs text-gray-2">{chairmanProposerInfo.committeeName}</p>
+              )}
             </div>
           </div>
         </CardBody>

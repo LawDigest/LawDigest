@@ -13,6 +13,8 @@ export interface BillResponse {
     brief_summary: string;
     bill_result: string;
     proposer_kind?: 'CONGRESSMAN' | 'CHAIRMAN' | 'GOVERNMENT' | string | null;
+    proposers?: string | null;
+    committee?: string | null;
   };
   representative_proposer_dto_list: {
     representative_proposer_id: string;
