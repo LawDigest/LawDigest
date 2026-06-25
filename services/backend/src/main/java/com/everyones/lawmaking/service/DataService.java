@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 
@@ -36,6 +37,9 @@ public class DataService {
         // 시점 파티 데이터 넣기
         billDfRequestList
             .forEach(billDfRequest -> {
+                if (!StringUtils.hasText(billDfRequest.getSummary())) {
+                    return;
+                }
                 var oldBill = billRepository.findBillById(billDfRequest.getBillId())
                         .orElse(null);
                 if (oldBill != null){
@@ -348,6 +352,5 @@ public class DataService {
             });
         }
 }
-
 
 
