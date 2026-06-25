@@ -30,7 +30,7 @@ export default function BillList({
           <Spinner color="default" />
         </div>
       )}
-      <div ref={fetchRef} />
+      {feedType === 'sorted_by_latest' && <div ref={fetchRef} className="h-16 w-full" aria-hidden="true" />}
     </section>
   );
 }
