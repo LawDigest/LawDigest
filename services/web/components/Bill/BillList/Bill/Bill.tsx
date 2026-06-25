@@ -76,7 +76,7 @@ export default function Bill({
   });
   const isRepresentativeSolo = !isGovernmentProposer && representative_proposer_dto_list.length === 1;
   const partyName = isRepresentativeSolo ? representative_proposer_dto_list[0].party_name : '다수';
-  const proposerCardBorderClassName = isGovernmentProposer ? 'border-gray-1 dark:border-dark-l' : partyName;
+  const proposerCardBorderClassName = isGovernmentProposer ? 'lawdigest-government-proposer-card' : partyName;
   const setSnackbar = useSetRecoilState(snackbarState);
   const { theme } = useTheme();
   const isDark = theme === 'dark';

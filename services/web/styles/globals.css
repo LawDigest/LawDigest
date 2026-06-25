@@ -69,6 +69,26 @@ html {
   border-color: #2e2e2e;
 }
 
+.lawdigest-government-proposer-card {
+  position: relative;
+  border-color: transparent !important;
+}
+
+.lawdigest-government-proposer-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(135deg, #c60c30 0%, #c60c30 45%, #003478 55%, #003478 100%);
+  pointer-events: none;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
 .ERROR {
   background-color: rgb(239 68 68 / 95%);
 }
