@@ -84,7 +84,7 @@ public class BillFacade {
 
     public List<BillDto> getPopularBills() {
         var popularBillIds = redisService.getPopularBills();
-        var billList = billService.getBillListResponse(popularBillIds);
+        var billList = billService.getFeedBillListResponse(popularBillIds);
         var userIdOptional = AuthenticationUtil.getUserId();
         return userIdOptional.map(userId -> billList.stream()
                 .map(billDto -> {

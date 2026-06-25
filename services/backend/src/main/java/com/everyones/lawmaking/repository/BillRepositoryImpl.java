@@ -20,6 +20,7 @@ import com.everyones.lawmaking.domain.entity.IngestStatusType;
 import com.everyones.lawmaking.global.util.PaginationUtil;
 import com.querydsl.core.group.GroupBy;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.StringPath;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import java.util.Collections;
 import java.util.List;
@@ -55,7 +56,7 @@ public class BillRepositoryImpl implements BillRepositoryCustom {
     private List<BillInfoDto> findPagedBills(Pageable pageable, String stage) {
         return queryFactory.select(new QBillInfoDto(bill))
                 .from(bill)
-                .where(eqReady(), eqStage(stage))
+                .where(eqReady(), hasText(bill.briefSummary), hasText(bill.gptSummary), eqStage(stage))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize() + 1)
                 .orderBy(bill.proposeDate.desc(), bill.id.desc())
@@ -69,6 +70,9 @@ public class BillRepositoryImpl implements BillRepositoryCustom {
             return bill.stage.eq(stage);
         }
         return null;
+    }
+    private BooleanExpression hasText(StringPath value) {
+        return value.isNotNull().and(value.trim().isNotEmpty());
     }
     private Map<String, List<RepresentativeProposerDto>> findRepresentativeProposerMap(List<String> billIds) {
         return queryFactory

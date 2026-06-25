@@ -148,6 +148,14 @@ public class BillService {
                 .toList();
     }
 
+    public List<BillDto> getFeedBillListResponse(List<String> billIdList) {
+        var billList = billRepository.findFeedBillInfoByIdList(billIdList);
+
+        return billList.stream()
+                .map(this::getBillInfoFrom)
+                .toList();
+    }
+
     // DTO로 이전시켜야함
     private BillDto getBillInfoFrom(Bill bill) {
 
