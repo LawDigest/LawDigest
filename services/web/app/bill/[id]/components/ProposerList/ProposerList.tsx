@@ -4,11 +4,14 @@ import { useTheme } from 'next-themes';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Badge, Card, CardHeader, CardBody } from '@nextui-org/react';
-import { getPartyLogoSrc, sortByParty } from '@/utils';
+import { getGovernmentAdministrationName, getPartyLogoSrc, isGovernmentBill, sortByParty } from '@/utils';
 
 export default function ProposerList({
   representativeProposerList,
   publicProposerList,
+  billId,
+  proposerKind,
+  proposeDate,
   popover,
 }: {
   representativeProposerList: {
@@ -27,13 +30,55 @@ export default function ProposerList({
     public_proposer_party_image_url: string;
     public_proposer_party_name: string;
   }[];
+  billId?: string | null;
+  proposerKind?: string | null;
+  proposeDate?: string | null;
   popover: boolean;
 }) {
+  const isGovernmentProposer = isGovernmentBill({
+    proposerKind,
+    billId,
+    representativeProposerCount: representativeProposerList.length,
+    publicProposerCount: publicProposerList.length,
+  });
   const representativeProposerLength = representativeProposerList.length;
   const publicProposerLength = publicProposerList.length;
   const proposerListByParty = sortByParty({ publicProposerList });
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+
+  if (isGovernmentProposer) {
+    return (
+      <Card
+        classNames={{
+          base: [`lg:shadow-none dark:lg:bg-dark-pb ${popover ? 'shadow-none  dark:lg:bg-transparent' : ''}`],
+        }}>
+        <CardHeader>
+          <p className="font-medium">
+            대한민국 정부{' '}
+            <span className="text-sm font-normal text-gray-2">{getGovernmentAdministrationName(proposeDate)}</span>
+          </p>
+        </CardHeader>
+        <CardBody>
+          <div className="flex items-center gap-3 my-[18px]">
+            <div className="flex items-center justify-center w-24 h-16 p-2 overflow-hidden bg-white border rounded-md shrink-0 dark:border-dark-l">
+              <Image
+                src="/images/government-logo.png"
+                width={96}
+                height={64}
+                alt="대한민국정부 로고"
+                className="object-contain w-full h-full"
+              />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <p className="text-sm font-medium">대한민국 정부</p>
+              <p className="text-xs text-gray-2">{getGovernmentAdministrationName(proposeDate)}</p>
+            </div>
+          </div>
+        </CardBody>
+      </Card>
+    );
+  }
 
   return (
     <Card

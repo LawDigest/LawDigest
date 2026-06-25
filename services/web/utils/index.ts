@@ -6,6 +6,7 @@ import getDateStatus from './getDateStatus';
 import getDDay from './getDDay';
 import convertDateFormat from './convertDateFormat';
 import getPartyLogoSrc from './getPartyLogoSrc';
+import { getGovernmentAdministrationName, isGovernmentBill, isGovernmentProposerKind } from './governmentProposer';
 
 export {
   getTimeRemaining,
@@ -16,4 +17,7 @@ export {
   getDDay,
   convertDateFormat,
   getPartyLogoSrc,
+  getGovernmentAdministrationName,
+  isGovernmentBill,
+  isGovernmentProposerKind,
 };

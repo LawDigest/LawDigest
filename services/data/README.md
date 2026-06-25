@@ -10,7 +10,7 @@
 - 표준 실행 로그: `/tmp/lawdigest-pipeline/pipeline-runs.jsonl`
 - 표준 AI 요약: `ai-summary --cli-provider gemini`
 - Gemini 장애 fallback: Codex CLI `gpt-5.3-codex-spark`
-- Airflow/n8n: legacy reference
+- Airflow: legacy reference
 
 상세 문서:
 

@@ -1421,7 +1421,6 @@ git commit -m "feat: rag 모듈 추가 - EmbeddingGenerator, VectorStore, Lawdig
 
 **Files:**
 - Modify: `services/data/src/lawdigest_data_pipeline/WorkFlowManager.py` (AISummarizer import 및 summarize_bill_step 제거)
-- Modify: `services/data/scripts/run_n8n_db_pipeline.py` (bills_summarize 스텝 lawdigest_ai로 교체)
 - Delete: `services/data/src/lawdigest_data_pipeline/AISummarizer.py` (래퍼 파일) ← Task 6 완료 후
 - Delete: `services/data/src/lawdigest_data_pipeline/ai_batch_pipeline_utils.py` ← Task 6 완료 후
 - Delete: `services/data/src/lawdigest_ai/` (디렉토리 전체) ← Task 6 완료 후
@@ -1436,22 +1435,7 @@ git commit -m "feat: rag 모듈 추가 - EmbeddingGenerator, VectorStore, Lawdig
 
 변경 후 `update_bills_data`의 책임: 수집 → 중복 제거 → DB 적재
 
-- [ ] **Step 2: run_n8n_db_pipeline.py의 bills_summarize 스텝 교체**
-
-`services/data/scripts/run_n8n_db_pipeline.py`의 `bills_summarize` 스텝(현재 `wfm.summarize_bill_step(input_data)` 호출)을 다음으로 교체:
-
-```python
-# 변경 전
-import sys
-sys.path.insert(0, "/opt/airflow/project")
-summarized_rows = wfm.summarize_bill_step(input_data)
-
-# 변경 후
-from lawdigest_ai.processor.instant_summarizer import summarize_bills
-summarized_rows = summarize_bills(input_data if isinstance(input_data, list) else [input_data])
-```
-
-- [ ] **Step 3: WorkFlowManager 단위 테스트 실행**
+- [ ] **Step 2: WorkFlowManager 단위 테스트 실행**
 
 ```bash
 cd /home/ubuntu/project/Lawdigest/services/data
@@ -1460,7 +1444,7 @@ python -m pytest tests/ -v -k "workflow"
 
 Expected: 기존 테스트 모두 PASS (AI 관련 테스트는 services/ai로 이미 이전됨)
 
-- [ ] **Step 4: 불필요한 파일 삭제 (Task 6 완료 후에만 실행)**
+- [ ] **Step 3: 불필요한 파일 삭제 (Task 6 완료 후에만 실행)**
 
 > **⚠️ 선행 조건: Task 6의 모든 DAG import 경로 변경 및 검증이 완료된 후 실행할 것**
 
@@ -1472,7 +1456,7 @@ rm -rf services/data/src/lawdigest_ai/
 rm services/data/tools/update_vector_db.py
 ```
 
-- [ ] **Step 5: 커밋**
+- [ ] **Step 4: 커밋**
 
 ```bash
 git add -u services/data/
@@ -1706,7 +1690,6 @@ git commit -m "feat: services/ai 독립 서비스 완성 - processor/rag 모듈 
 
 - [ ] `services/ai`에서 `python -m pytest tests/ -v` 전체 통과
 - [ ] Airflow DAG import 오류 없음 (Task 6 Step 5 검증 통과)
-- [ ] `services/data/scripts/run_n8n_db_pipeline.py`의 `wfm.summarize_bill_step` 호출 제거됨
 - [ ] `services/data`에서 AI import 관련 코드 없음:
   ```bash
   grep -r "AISummarizer\|ai_batch_pipeline_utils\|from.*lawdigest_ai" services/data/src/

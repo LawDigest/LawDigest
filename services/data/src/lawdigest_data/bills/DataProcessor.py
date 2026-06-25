@@ -132,10 +132,16 @@ class DataProcessor:
             return pd.DataFrame(), pd.DataFrame()
 
         # 위원장안 - 포함된 의원 관계 데이터 수집
-        df_alternatives = self.fetcher.fetch_bills_alternatives(df_bills)
+        df_alternatives = self.fetcher.fetch_bills_alternatives(df_bills_chair)
 
         # df_bills_chair의 billName에서 (대안) 제거
-        df_bills_chair["billName"] = df_bills_chair["billName"].str.replace(r"\(대안\)", "", regex=True)
+        for bill_name_column in ["billName", "bill_name"]:
+            if bill_name_column in df_bills_chair.columns:
+                df_bills_chair[bill_name_column] = df_bills_chair[bill_name_column].str.replace(
+                    r"\(대안\)",
+                    "",
+                    regex=True,
+                )
 
         # TODO: 의장 법안 데이터용 proposers 컬럼 추출
         # 위 의원 데이터 처리에서와 같은 로직 적용 가능

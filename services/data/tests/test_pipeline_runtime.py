@@ -141,6 +141,7 @@ def test_bill_agent_report_delegates_to_agentic_report_runtime(tmp_path):
         stop_on_error=False,
         target="passed",
         concurrency=1,
+        inspection=False,
     )
     assert result["command"] == "bill.agent_report"
     assert result["steps"][0]["step"] == "generate_passed_bill_reports"
@@ -171,6 +172,7 @@ def test_bill_agent_report_can_target_all_bills(tmp_path):
         stop_on_error=False,
         target="all",
         concurrency=1,
+        inspection=False,
     )
     assert result["steps"][0]["step"] == "generate_all_bill_reports"
 
@@ -201,10 +203,39 @@ def test_bill_agent_report_forwards_usage_meter_snapshot(tmp_path):
         stop_on_error=False,
         target="passed",
         concurrency=1,
+        inspection=False,
         usage_meter={
             "weekly": {"before_percent": 41.2, "after_percent": 40.7},
             "five_hour": {"before_percent": 8.0, "after_percent": 9.5},
         },
+    )
+
+
+def test_bill_agent_report_forwards_inspection_mode(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.run_agentic_bill_reports",
+        return_value={"stats": {"success_count": 1}},
+    ) as run_reports:
+        PipelineRuntime(log_dir=tmp_path).run_bill_agent_report(
+            mode="dry_run",
+            limit=3,
+            output_dir="/tmp/reports",
+            read_mode="prod",
+            inspection=True,
+        )
+
+    run_reports.assert_called_once_with(
+        mode="dry_run",
+        limit=3,
+        output_dir="/tmp/reports",
+        read_mode="prod",
+        codex_model=None,
+        stop_on_error=False,
+        target="passed",
+        concurrency=1,
+        inspection=True,
     )
 
 
@@ -323,6 +354,7 @@ def test_cli_dispatches_bill_agent_report(tmp_path):
         weekly_usage_after=None,
         five_hour_usage_before=None,
         five_hour_usage_after=None,
+        inspection=False,
     )
 
 
@@ -361,6 +393,7 @@ def test_cli_dispatches_bill_agent_report_target_all(tmp_path):
         weekly_usage_after=None,
         five_hour_usage_before=None,
         five_hour_usage_after=None,
+        inspection=False,
     )
 
 
@@ -401,6 +434,7 @@ def test_cli_dispatches_bill_agent_report_usage_meter(tmp_path):
         weekly_usage_after=40.7,
         five_hour_usage_before=8.0,
         five_hour_usage_after=9.5,
+        inspection=False,
     )
 
 
@@ -435,4 +469,39 @@ def test_cli_dispatches_bill_agent_report_concurrency(tmp_path):
         weekly_usage_after=None,
         five_hour_usage_before=None,
         five_hour_usage_after=None,
+        inspection=False,
+    )
+
+
+def test_cli_dispatches_bill_agent_report_inspection(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_bill_agent_report.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "bill-agent-report",
+            "--mode",
+            "dry_run",
+            "--limit",
+            "3",
+            "--inspection",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_bill_agent_report.assert_called_once_with(
+        mode="dry_run",
+        limit=3,
+        output_dir="/tmp/lawdigest-bill-agent-reports",
+        read_mode=None,
+        codex_model=None,
+        stop_on_error=False,
+        target="passed",
+        concurrency=1,
+        weekly_usage_before=None,
+        weekly_usage_after=None,
+        five_hour_usage_before=None,
+        five_hour_usage_after=None,
+        inspection=True,
     )

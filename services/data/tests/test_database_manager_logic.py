@@ -36,6 +36,10 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             self.db_manager,
             "_bill_table_has_column",
             return_value=True,
+        ), patch.object(
+            self.db_manager,
+            "_bill_table_enum_values",
+            return_value={"CHAIRMAN", "CONGRESSMAN", "GOVERNMENT"},
         ):
             mock_transaction.return_value.__enter__.return_value = self.cursor
             
@@ -108,6 +112,10 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             self.db_manager,
             "_bill_table_has_column",
             return_value=False,
+        ), patch.object(
+            self.db_manager,
+            "_bill_table_enum_values",
+            return_value={"CHAIRMAN", "CONGRESSMAN", "GOVERNMENT"},
         ):
             mock_transaction.return_value.__enter__.return_value = self.cursor
 
@@ -115,6 +123,63 @@ class TestDatabaseManagerLogic(unittest.TestCase):
 
             bill_query = self.cursor.executemany.call_args_list[0].args[0]
             self.assertNotIn("summary_tags", bill_query)
+
+    def test_insert_bill_info_fails_before_upsert_when_proposer_kind_enum_is_missing(self):
+        bills_data = [
+            {
+                "bill_id": "BILL-GOV",
+                "bill_name": "정부 제출 법안",
+                "proposer_kind": "GOVERNMENT",
+                "public_proposer_ids": [],
+                "rst_proposer_ids": [],
+            }
+        ]
+
+        with patch.object(self.db_manager, "transaction") as mock_transaction, patch.object(
+            self.db_manager,
+            "_bill_table_has_column",
+            return_value=False,
+        ), patch.object(
+            self.db_manager,
+            "_bill_table_enum_values",
+            return_value={"CHAIRMAN", "CONGRESSMAN"},
+        ):
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+
+            with self.assertRaisesRegex(RuntimeError, "GOVERNMENT"):
+                self.db_manager.insert_bill_info(bills_data)
+
+            self.cursor.executemany.assert_not_called()
+
+    def test_link_proposers_ignores_empty_and_nan_ids(self):
+        self.db_manager._link_proposers(
+            self.cursor,
+            "BILL-GOV",
+            [None, "", " ", "nan", "NaN"],
+            is_representative=False,
+        )
+
+        self.cursor.execute.assert_not_called()
+        self.cursor.executemany.assert_not_called()
+
+    def test_insert_bill_alternatives_upserts_valid_pairs(self):
+        alternatives_data = [
+            {"alternative_bill_id": "ALT-1", "original_bill_id": "ORG-1"},
+            {"alternative_bill_id": "ALT-1", "original_bill_id": "ORG-1"},
+            {"alternative_bill_id": "", "original_bill_id": "ORG-2"},
+            {"alternative_bill_id": "ALT-2", "original_bill_id": None},
+        ]
+
+        with patch.object(self.db_manager, "transaction") as mock_transaction:
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+
+            inserted = self.db_manager.insert_bill_alternatives(alternatives_data)
+
+        self.assertEqual(inserted, 1)
+        self.cursor.executemany.assert_called_once()
+        query, params = self.cursor.executemany.call_args.args
+        self.assertIn("INSERT INTO BillAlternative", query)
+        self.assertEqual(params, [("ALT-1", "ORG-1")])
 
     def test_update_bill_stage(self):
         """Test update_bill_stage filters duplicates and batches updates"""

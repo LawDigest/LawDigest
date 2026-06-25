@@ -4,10 +4,12 @@ from xml.etree import ElementTree
 import time
 from datetime import datetime, timedelta
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 import json
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from bs4 import BeautifulSoup
 
 from .open_assembly import OpenAssemblyBillClient
 
@@ -109,8 +111,76 @@ class DataFetcher:
             "success_code": "00",
         }
 
-        load_dotenv()
+        load_dotenv(Path(__file__).resolve().parents[3] / ".env")
         # __init__에서 자동 데이터 수집 로직 제거
+
+    @staticmethod
+    def _parse_likms_alternative_fragment(alternative_bill_id, html):
+        soup = BeautifulSoup(html, "html.parser")
+        rows_by_bill_id = {}
+        for anchor in soup.select("a[data-bill-id]"):
+            bill_id = str(anchor.get("data-bill-id") or "").strip()
+            if not bill_id or bill_id == alternative_bill_id:
+                continue
+
+            bill_name = " ".join(anchor.get_text(" ", strip=True).split())
+            existing = rows_by_bill_id.get(bill_id)
+            if existing and existing.get("bill_name") and not existing["bill_name"].isdigit():
+                continue
+
+            rows_by_bill_id[bill_id] = {
+                "bill_id": bill_id,
+                "bill_name": bill_name,
+            }
+
+        return list(rows_by_bill_id.values())
+
+    def _fetch_likms_alternative_bills(self, bill_id):
+        detail_response = self.session.get(
+            "https://likms.assembly.go.kr/bill/billDetail.do",
+            params={"billId": bill_id},
+            timeout=30,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        if detail_response.status_code != 200:
+            tqdm.write(
+                f"❌ [ERROR] 의안정보시스템 상세 조회 실패 (bill_id={bill_id}), "
+                f"응답 코드: {detail_response.status_code}"
+            )
+            return []
+
+        soup = BeautifulSoup(detail_response.text, "html.parser")
+        params = {}
+        for form_id in ["form", "historyForm"]:
+            form = soup.find("form", {"id": form_id})
+            if form is None:
+                continue
+            for input_tag in form.find_all("input"):
+                name = input_tag.get("name")
+                if name:
+                    params.setdefault(name, input_tag.get("value", ""))
+
+        if not params.get("billId"):
+            params["billId"] = bill_id
+
+        fragment_response = self.session.post(
+            "https://likms.assembly.go.kr/bill/bi/bill/detail/anBillInfo.do",
+            data=params,
+            timeout=30,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "X-Requested-With": "XMLHttpRequest",
+                "Referer": detail_response.url,
+            },
+        )
+        if fragment_response.status_code != 200:
+            tqdm.write(
+                f"❌ [ERROR] 의안정보시스템 대안정보 조회 실패 (bill_id={bill_id}), "
+                f"응답 코드: {fragment_response.status_code}"
+            )
+            return []
+
+        return self._parse_likms_alternative_fragment(bill_id, fragment_response.text)
 
     # ------------------------------------------------------------------
     # Generic API helpers (변경 없음)
@@ -1450,8 +1520,11 @@ class DataFetcher:
 
                         return law_data
                     else:
-                        tqdm.write(f"❌ [ERROR] API 요청 실패 (bill_id={bill_id}), 응답 코드: {response.status_code}")
-                        return []
+                        tqdm.write(
+                            f"⚠️ [WARN] 공공데이터 대안 API 요청 실패 "
+                            f"(bill_id={bill_id}, status={response.status_code}); 의안정보시스템 fallback 사용"
+                        )
+                        return self._fetch_likms_alternative_bills(bill_id)
                 except Exception as e:
                     if attempt < max_retry:
                         tqdm.write(f"⚠️ [RETRY] bill_id={bill_id} 요청 중 오류 발생 ({attempt+1}/{max_retry}): {e}")
@@ -1459,7 +1532,7 @@ class DataFetcher:
                         continue
                     else:
                         tqdm.write(f"❌ [ERROR] bill_id={bill_id} 처리 중 최종 오류 발생: {e}")
-                        return []
+                        return self._fetch_likms_alternative_bills(bill_id)
             return []
 
         # 대안 데이터프레임 초기화

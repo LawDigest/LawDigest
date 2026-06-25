@@ -399,6 +399,7 @@ class PipelineRuntime:
         weekly_usage_after: float | None = None,
         five_hour_usage_before: float | None = None,
         five_hour_usage_after: float | None = None,
+        inspection: bool = False,
     ) -> Dict[str, Any]:
         usage_meter = _build_usage_meter_snapshot(
             weekly_usage_before=weekly_usage_before,
@@ -416,6 +417,7 @@ class PipelineRuntime:
             "target": target,
             "concurrency": concurrency,
             "usage_meter": usage_meter,
+            "inspection": inspection,
         }
 
         def execute(run_id: str) -> List[Dict[str, Any]]:
@@ -431,6 +433,7 @@ class PipelineRuntime:
                 "stop_on_error": stop_on_error,
                 "target": target,
                 "concurrency": concurrency,
+                "inspection": inspection,
             }
             if usage_meter is not None:
                 report_kwargs["usage_meter"] = usage_meter

@@ -216,6 +216,37 @@ class WorkFlowManager:
             )
         return rows
 
+    def _build_bill_alternative_rows(self, df_alternatives: pd.DataFrame | None) -> List[Dict[str, Any]]:
+        if df_alternatives is None or df_alternatives.empty:
+            return []
+
+        rows: List[Dict[str, Any]] = []
+        seen_pairs: set[tuple[str, str]] = set()
+        for row in df_alternatives.to_dict(orient="records"):
+            alternative_bill_id = self._coerce_optional_text(
+                row.get("alternative_bill_id")
+                or row.get("altBillId")
+                or row.get("alt_bill_id")
+            )
+            original_bill_id = self._coerce_optional_text(
+                row.get("original_bill_id")
+                or row.get("bill_id")
+                or row.get("billId")
+            )
+            if not alternative_bill_id or not original_bill_id:
+                continue
+            pair = (alternative_bill_id, original_bill_id)
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+            rows.append(
+                {
+                    "alternative_bill_id": alternative_bill_id,
+                    "original_bill_id": original_bill_id,
+                }
+            )
+        return rows
+
     @staticmethod
     def _determine_bill_ingest_status(
         bill_name: Optional[str],
@@ -382,6 +413,13 @@ class WorkFlowManager:
         )
         return len(rows)
 
+    def _persist_bill_alternative_rows(self, rows: List[Dict[str, Any]]) -> int:
+        if not rows or self.mode == "dry_run":
+            return 0
+
+        db = self._build_db_manager(self.mode)
+        return db.insert_bill_alternatives(rows)
+
     def fetch_bills_data_step(
         self,
         start_date: str | None = None,
@@ -448,6 +486,7 @@ class WorkFlowManager:
 
         processor = DataProcessor(fetcher)
         df_congressman_bills = processor.process_congressman_bills(df_bills.copy())
+        _, df_alternatives = processor.process_chairman_bills(df_bills.copy())
 
         if (
             df_congressman_bills is not None
@@ -477,32 +516,58 @@ class WorkFlowManager:
                         df_bills.drop(columns=[enriched], inplace=True)
 
         rows = self._build_bill_rows(df_bills)
-        processed_artifact_path = self._write_artifact("bill_ingest_process", rows)
+        alternative_rows = self._build_bill_alternative_rows(df_alternatives)
+        processed_artifact_path = self._write_artifact(
+            "bill_ingest_process",
+            {
+                "bills": rows,
+                "alternatives": alternative_rows,
+            },
+        )
         return {
             "mode": self.mode,
             "processed": len(rows),
+            "alternatives": len(alternative_rows),
             "artifact_path": processed_artifact_path,
         }
 
     def upsert_bills_data_step(self, artifact_path: str) -> Dict[str, Any]:
         print(f"[bill_ingest.upsert] mode={self.mode} artifact={artifact_path}")
 
-        rows = self._read_artifact(artifact_path)
-        if not rows:
+        payload = self._read_artifact(artifact_path)
+        if isinstance(payload, dict):
+            rows = payload.get("bills") or []
+            alternative_rows = payload.get("alternatives") or []
+        else:
+            rows = payload or []
+            alternative_rows = []
+
+        if not rows and not alternative_rows:
             print("[bill_ingest.upsert] 적재할 법안이 없습니다.")
-            return {"mode": self.mode, "upserted": 0}
+            return {"mode": self.mode, "upserted": 0, "alternatives_upserted": 0}
 
         if self.mode == "dry_run":
-            print(f"[bill_ingest.upsert] [DRY_RUN] {len(rows)}개의 법안을 수집했으나 DB에 반영하지 않습니다.")
-            return {"mode": self.mode, "upserted": 0}
+            print(
+                "[bill_ingest.upsert] [DRY_RUN] "
+                f"{len(rows)}개의 법안과 {len(alternative_rows)}개의 대안 관계를 수집했으나 DB에 반영하지 않습니다."
+            )
+            return {"mode": self.mode, "upserted": 0, "alternatives_upserted": 0}
 
         upserted = self._persist_bill_rows(
             rows,
             source_name="bill_ingest",
             metadata={"upserted": len(rows)},
         )
-        print(f"[bill_ingest.upsert] [{self.mode}] upserted={upserted}")
-        return {"mode": self.mode, "upserted": upserted}
+        alternatives_upserted = self._persist_bill_alternative_rows(alternative_rows)
+        print(
+            f"[bill_ingest.upsert] [{self.mode}] "
+            f"upserted={upserted} alternatives_upserted={alternatives_upserted}"
+        )
+        return {
+            "mode": self.mode,
+            "upserted": upserted,
+            "alternatives_upserted": alternatives_upserted,
+        }
 
     def update_lawmakers_data(self) -> Dict[str, Any]:
         print(f"[bill_status_sync] step=update_lawmakers_data mode={self.mode}")

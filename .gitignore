@@ -14,6 +14,7 @@ Thumbs.db
 # 에이전트
 .claude
 .codex
+.codegraph/
 .gemini
 harness
 .codesight/
@@ -100,6 +101,7 @@ logs/
 temp.html
 pencil-new.pen
 .tmp/
+_workspace/
 =4.60.0
 
 # =====================
@@ -108,6 +110,7 @@ pencil-new.pen
 services/data/data/
 services/data/archive/
 services/data/airflow/logs/
+services/data/scripts/dump/
 services/backend/build/
 services/web/.vercel/
 

@@ -77,6 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
     agent_report.add_argument("--weekly-usage-after", type=float)
     agent_report.add_argument("--five-hour-usage-before", type=float)
     agent_report.add_argument("--five-hour-usage-after", type=float)
+    agent_report.add_argument("--inspection", action="store_true", help="에이전트 실행 감사용 검사 로그를 함께 저장")
     agent_report.add_argument("--stop-on-error", action="store_true")
 
     return parser
@@ -159,6 +160,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             weekly_usage_after=args.weekly_usage_after,
             five_hour_usage_before=args.five_hour_usage_before,
             five_hour_usage_after=args.five_hour_usage_after,
+            inspection=args.inspection,
         )
     else:
         parser.error(f"unsupported command: {args.command}")

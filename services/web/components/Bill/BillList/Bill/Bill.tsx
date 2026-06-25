@@ -22,7 +22,13 @@ import Link from 'next/link';
 import { BillProps } from '@/types';
 import { IconClock, IconExport, IconScrabSmall } from '@/public/svgs';
 import { usePatchBookmark } from '@/app/bill/[id]/apis';
-import { getTimeRemaining, copyClipBoard, getPartyLogoSrc } from '@/utils';
+import {
+  getTimeRemaining,
+  copyClipBoard,
+  getPartyLogoSrc,
+  getGovernmentAdministrationName,
+  isGovernmentBill,
+} from '@/utils';
 import Image from 'next/image';
 import { PartyLogoReplacement } from '@/components/common';
 import { getCookie } from 'cookies-next';
@@ -49,6 +55,7 @@ export default function Bill({
     view_count,
     bill_like_count,
     bill_stage,
+    proposer_kind,
   },
   representative_proposer_dto_list,
   is_book_mark,
@@ -61,8 +68,15 @@ export default function Bill({
   const [likeCount, setLikeCount] = useState(bill_like_count);
   const mutateBookmark = usePatchBookmark(bill_id);
   const [toggleMore, setToggleMore] = useState(false);
-  const isRepresentativeSolo = representative_proposer_dto_list.length === 1;
+  const isGovernmentProposer = isGovernmentBill({
+    proposerKind: proposer_kind,
+    billId: bill_id,
+    representativeProposerCount: representative_proposer_dto_list.length,
+    publicProposerCount: public_proposer_dto_list.length,
+  });
+  const isRepresentativeSolo = !isGovernmentProposer && representative_proposer_dto_list.length === 1;
   const partyName = isRepresentativeSolo ? representative_proposer_dto_list[0].party_name : '다수';
+  const proposerCardBorderClassName = isGovernmentProposer ? 'lawdigest-government-proposer-card' : partyName;
   const setSnackbar = useSetRecoilState(snackbarState);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -72,8 +86,11 @@ export default function Bill({
     expanded: toggleMore,
   });
   const summaryAccentStyle = {
-    '--lawdigest-summary-accent': getPartyAccentColor(partyName),
+    '--lawdigest-summary-accent': isGovernmentProposer ? '#c60c30' : getPartyAccentColor(partyName),
+    '--lawdigest-summary-accent-secondary': isGovernmentProposer ? '#003478' : getPartyAccentColor(partyName),
   } as CSSProperties;
+  const summaryContentClassName =
+    `${summaryClassName} ${isGovernmentProposer ? 'lawdigest-summary-government-accent' : ''}`.trim();
 
   const onClickToggleMore = useCallback(() => {
     setToggleMore(!toggleMore);
@@ -112,6 +129,59 @@ export default function Bill({
     copyClipBoard(`${process.env.NEXT_PUBLIC_DOMAIN}/bill/${bill_id}`);
     setSnackbar({ show: true, type: 'SUCCESS', message: '링크를 복사했습니다.', duration: 3000 });
   }, []);
+
+  let proposerAffiliationContent = (
+    <AvatarGroup>
+      {representative_proposer_dto_list.map(({ party_image_url, party_id, party_name }) => (
+        <Link href={party_image_url !== null ? `/party/${party_id}` : {}} key={party_id}>
+          <Avatar
+            src={getPartyLogoSrc(party_image_url, isDark) ?? undefined}
+            size="md"
+            classNames={{
+              base: [`bg-white dark:bg-dark-pb p-1 border ${party_name}`],
+              img: ['object-contain'],
+            }}
+          />
+        </Link>
+      ))}
+    </AvatarGroup>
+  );
+
+  if (isGovernmentProposer) {
+    proposerAffiliationContent = (
+      <Image
+        src="/images/government-logo.png"
+        width={320}
+        height={245}
+        alt="대한민국정부 로고"
+        className="w-auto h-[60px] object-contain -my-1"
+      />
+    );
+  } else if (isRepresentativeSolo) {
+    proposerAffiliationContent = (
+      <Link
+        href={
+          representative_proposer_dto_list[0].party_image_url !== null
+            ? `/party/${representative_proposer_dto_list[0].party_id}`
+            : {}
+        }
+        onClick={(e) => {
+          if (representative_proposer_dto_list[0].party_image_url === null) e.preventDefault();
+        }}>
+        {representative_proposer_dto_list[0].party_image_url !== null ? (
+          <Image
+            src={getPartyLogoSrc(representative_proposer_dto_list[0].party_image_url, isDark) as string}
+            width={100}
+            height={45}
+            alt={`${representative_proposer_dto_list[0].party_name} 이미지`}
+            className="w-[100px] h-[40px] object-contain"
+          />
+        ) : (
+          <PartyLogoReplacement partyName={representative_proposer_dto_list[0].party_name} circle={false} />
+        )}
+      </Link>
+    );
+  }
 
   return (
     <section className={`flex flex-col  ${detail ? 'md:flex-row items-start' : 'md:mx-5'}`}>
@@ -152,7 +222,7 @@ export default function Bill({
           <div className={!detail ? 'md:w-[440px] lg:w-[490px]' : ''}>
             <CardBody className={`p-0 leading-normal whitespace-pre-wrap ${detail ? '' : 'text-sm md:text-base'}`}>
               <SafeBillSummaryHtml
-                className={summaryClassName}
+                className={summaryContentClassName}
                 style={summaryAccentStyle}
                 onClick={onClickToggleMore}
                 onKeyDown={onKeyDownToggleMore}
@@ -262,11 +332,11 @@ export default function Bill({
         className={`flex flex-col w-full md:w-auto md:flex-col ${detail ? 'md:border-l md:dark:border-dark-l' : ''}`}>
         <div className="pt-4 pb-6">
           <Card
-            className={`flex flex-row h-[78px] mx-5 border-1.5 items-center justify-between px-[18px] dark:bg-gray-4 md:w-[410px] lg:max-w-full lg:w-[490px] md:float-right ${detail ? 'md:w-[300px] lg:float-left' : ''} ${partyName}`}
+            className={`flex flex-row h-[78px] mx-5 border-1.5 items-center justify-between px-[18px] dark:bg-gray-4 md:w-[410px] lg:max-w-full lg:w-[490px] md:float-right ${detail ? 'md:w-[300px] lg:float-left' : ''} ${proposerCardBorderClassName}`}
             radius="sm"
             shadow="sm">
             <div className="flex items-center gap-2">
-              {isRepresentativeSolo && (
+              {!isGovernmentProposer && isRepresentativeSolo && (
                 <Link
                   href={
                     isRepresentativeSolo
@@ -286,86 +356,61 @@ export default function Bill({
                 </Link>
               )}
               <div className="flex flex-col gap-0.5">
-                <Link
-                  href={
-                    isRepresentativeSolo
-                      ? `/congressman/${representative_proposer_dto_list[0].representative_proposer_id}`
-                      : {}
-                  }
-                  scroll={isRepresentativeSolo}
-                  onClick={(e) => {
-                    if (!isRepresentativeSolo) e.preventDefault();
-                  }}>
-                  <h3 className="font-medium">
-                    {isRepresentativeSolo
-                      ? `${representative_proposer_dto_list[0].representative_proposer_name} 의원`
-                      : `${representative_proposer_dto_list.map(({ representative_proposer_name }) => representative_proposer_name).join('·')} 의원`}
-                  </h3>
-                </Link>
+                {isGovernmentProposer ? (
+                  <>
+                    <h3 className="font-medium">대한민국 정부</h3>
+                    <h4 className="text-xs text-gray-2">{getGovernmentAdministrationName(propose_date)}</h4>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href={
+                        isRepresentativeSolo
+                          ? `/congressman/${representative_proposer_dto_list[0].representative_proposer_id}`
+                          : {}
+                      }
+                      scroll={isRepresentativeSolo}
+                      onClick={(e) => {
+                        if (!isRepresentativeSolo) e.preventDefault();
+                      }}>
+                      <h3 className="font-medium">
+                        {isRepresentativeSolo
+                          ? `${representative_proposer_dto_list[0].representative_proposer_name} 의원`
+                          : `${representative_proposer_dto_list.map(({ representative_proposer_name }) => representative_proposer_name).join('·')} 의원`}
+                      </h3>
+                    </Link>
 
-                <Popover placement="bottom" showArrow>
-                  <PopoverTrigger>
-                    <Button className="p-0 m-0 bg-transparent h-min">
-                      <Tooltip showArrow content="발의자 명단 보기">
-                        <h4 className="text-xs text-gray-2">
-                          {isRepresentativeSolo
-                            ? `${representative_proposer_dto_list[0].representative_proposer_name} 의원 등 ${public_proposer_dto_list.length}인`
-                            : `${representative_proposer_dto_list
-                                .map(({ representative_proposer_name }) => representative_proposer_name)
-                                .join('·')} 의원 등 ${public_proposer_dto_list.length}인`}
-                        </h4>
-                      </Tooltip>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent>
-                    <ProposerList
-                      representativeProposerList={representative_proposer_dto_list}
-                      publicProposerList={public_proposer_dto_list}
-                      popover
-                    />
-                  </PopoverContent>
-                </Popover>
+                    <Popover placement="bottom" showArrow>
+                      <PopoverTrigger>
+                        <Button className="p-0 m-0 bg-transparent h-min">
+                          <Tooltip showArrow content="발의자 명단 보기">
+                            <h4 className="text-xs text-gray-2">
+                              {isRepresentativeSolo
+                                ? `${representative_proposer_dto_list[0].representative_proposer_name} 의원 등 ${public_proposer_dto_list.length}인`
+                                : `${representative_proposer_dto_list
+                                    .map(({ representative_proposer_name }) => representative_proposer_name)
+                                    .join('·')} 의원 등 ${public_proposer_dto_list.length}인`}
+                            </h4>
+                          </Tooltip>
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent>
+                        <ProposerList
+                          representativeProposerList={representative_proposer_dto_list}
+                          publicProposerList={public_proposer_dto_list}
+                          billId={bill_id}
+                          proposerKind={proposer_kind}
+                          proposeDate={propose_date}
+                          popover
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </>
+                )}
               </div>
             </div>
 
-            {isRepresentativeSolo ? (
-              <Link
-                href={
-                  representative_proposer_dto_list[0].party_image_url !== null
-                    ? `/party/${representative_proposer_dto_list[0].party_id}`
-                    : {}
-                }
-                onClick={(e) => {
-                  if (representative_proposer_dto_list[0].party_image_url === null) e.preventDefault();
-                }}>
-                {representative_proposer_dto_list[0].party_image_url !== null ? (
-                  <Image
-                    src={getPartyLogoSrc(representative_proposer_dto_list[0].party_image_url, isDark) as string}
-                    width={100}
-                    height={45}
-                    alt={`${representative_proposer_dto_list[0].party_name} 이미지`}
-                    className="w-[100px] h-[40px] object-contain"
-                  />
-                ) : (
-                  <PartyLogoReplacement partyName={representative_proposer_dto_list[0].party_name} circle={false} />
-                )}
-              </Link>
-            ) : (
-              <AvatarGroup>
-                {representative_proposer_dto_list.map(({ party_image_url, party_id, party_name }) => (
-                  <Link href={party_image_url !== null ? `/party/${party_id}` : {}} key={party_id}>
-                    <Avatar
-                      src={getPartyLogoSrc(party_image_url, isDark) ?? undefined}
-                      size="md"
-                      classNames={{
-                        base: [`bg-white dark:bg-dark-pb p-1 border ${party_name}`],
-                        img: ['object-contain'],
-                      }}
-                    />
-                  </Link>
-                ))}
-              </AvatarGroup>
-            )}
+            {proposerAffiliationContent}
           </Card>
         </div>
 
