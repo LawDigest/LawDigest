@@ -75,6 +75,14 @@ class _FakeClientWithoutSummary(_FakeClient):
         return {}
 
 
+class _FakeClientWithMissingOptionalResponses(_FakeClient):
+    def fetch_bill_summary(self, bill_no):
+        return None
+
+    def fetch_bill_lifecycle(self, bill_no):
+        return None
+
+
 def test_discover_bill_candidates_collects_base_bill_rows(monkeypatch):
     monkeypatch.setenv("APIKEY_billsInfo", "test-key")
     monkeypatch.setattr(data_fetcher_module, "OpenAssemblyBillClient", _FakeClient)
@@ -123,3 +131,19 @@ def test_fetch_bills_data_keeps_partial_bill_without_summary(monkeypatch):
     assert row["bill_id"] == "BILL-1"
     assert row["summary"] is None
     assert row["stage"] == "위원회 심사"
+
+
+def test_fetch_bills_data_keeps_partial_bill_when_optional_open_assembly_rows_are_missing(monkeypatch):
+    monkeypatch.setenv("APIKEY_billsInfo", "test-key")
+    monkeypatch.setattr(data_fetcher_module, "OpenAssemblyBillClient", _FakeClientWithMissingOptionalResponses)
+
+    fetcher = DataFetcher(filter_data=False)
+    df = fetcher.fetch_bills_data(start_date="2026-04-15", end_date="2026-04-15", age="22")
+
+    assert len(df) == 1
+    row = df.iloc[0]
+    assert row["bill_id"] == "BILL-1"
+    assert row["bill_name"] == "테스트 법안"
+    assert row["summary"] is None
+    assert row["stage"] == "접수"
+    assert row["proposer_kind"] == "의원"
