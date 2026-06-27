@@ -254,6 +254,17 @@ class DatabaseManager:
                 - public_proposer_ids (List[str]): 공동발의자 의원 ID 목록
                 - rst_proposer_ids (List[str]): 대표발의자 의원 ID 목록
         """
+        missing_summary_ids = [
+            str(bill.get("bill_id") or "<unknown>")
+            for bill in bills_data
+            if not str(bill.get("summary") or "").strip()
+        ]
+        if missing_summary_ids:
+            raise ValueError(
+                "Bill.summary is required before insert_bill_info: "
+                + ", ".join(missing_summary_ids[:10])
+            )
+
         normalized_bills = []
         for bill in bills_data:
             row = dict(bill)

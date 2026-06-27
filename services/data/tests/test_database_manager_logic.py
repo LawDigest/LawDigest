@@ -20,12 +20,14 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             {
                 "bill_id": "BILL1",
                 "bill_name": "Test Bill 1",
+                "summary": "Summary 1",
                 "public_proposer_ids": ["EJ001", "EJ002"],
                 "rst_proposer_ids": ["EJ001"]
             },
             {
                 "bill_id": "BILL2",
                 "bill_name": "Test Bill 2",
+                "summary": "Summary 2",
                 "public_proposer_ids": [],
                 "rst_proposer_ids": []
             }
@@ -102,6 +104,7 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             {
                 "bill_id": "BILL1",
                 "bill_name": "Test Bill 1",
+                "summary": "Summary 1",
                 "summary_tags": '["태그"]',
                 "public_proposer_ids": [],
                 "rst_proposer_ids": [],
@@ -129,6 +132,7 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             {
                 "bill_id": "BILL-GOV",
                 "bill_name": "정부 제출 법안",
+                "summary": "정부 제출 법안 요약",
                 "proposer_kind": "GOVERNMENT",
                 "public_proposer_ids": [],
                 "rst_proposer_ids": [],
@@ -149,6 +153,24 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "GOVERNMENT"):
                 self.db_manager.insert_bill_info(bills_data)
 
+            self.cursor.executemany.assert_not_called()
+
+    def test_insert_bill_info_fails_before_transaction_when_summary_is_missing(self):
+        bills_data = [
+            {
+                "bill_id": "BILL-NO-SUMMARY",
+                "bill_name": "요약 없는 법안",
+                "summary": " ",
+                "public_proposer_ids": [],
+                "rst_proposer_ids": [],
+            }
+        ]
+
+        with patch.object(self.db_manager, "transaction") as mock_transaction:
+            with self.assertRaisesRegex(ValueError, "Bill.summary is required"):
+                self.db_manager.insert_bill_info(bills_data)
+
+            mock_transaction.assert_not_called()
             self.cursor.executemany.assert_not_called()
 
     def test_link_proposers_ignores_empty_and_nan_ids(self):
