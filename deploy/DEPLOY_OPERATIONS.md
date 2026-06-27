@@ -5,7 +5,7 @@
 ## 적용 범위
 
 - 웹 프론트엔드 도메인별 배포
-- 테스트 백엔드
+- 운영 API 백엔드
 - 서버 로컬 셸에서 실행하는 배포 스크립트
 
 개별 절차는 아래 문서를 함께 참고한다.
@@ -14,7 +14,7 @@
 - [Prod Web Deploy Guide](./PROD_WEB_DEPLOY.md)
 - [Test Web Deploy Guide](./TEST_WEB_DEPLOY.md)
 - [Dev Web Deploy Guide](./DEV_WEB_DEPLOY.md)
-- [Test Backend Deploy Guide](./TEST_BACKEND_DEPLOY.md)
+- [Prod Backend Deploy Guide](./PROD_BACKEND_DEPLOY.md)
 
 ## 전체 구조
 
@@ -28,8 +28,12 @@
 
 ### 백엔드
 
-- 배포 스크립트: [`deploy/deploy-test-backend.sh`](./deploy-test-backend.sh)
-- 테스트 API 진입점: `https://test.api.lawdigest.kr`
+- 운영 API 배포 wrapper: [`deploy/deploy-prod-backend.sh`](./deploy-prod-backend.sh)
+- 기존 배포 본체: [`deploy/deploy-test-backend.sh`](./deploy-test-backend.sh)
+- 운영 API 진입점: `https://api.lawdigest.kr`
+- nginx 경로: `/etc/nginx/sites-enabled/test-back.conf`
+- nginx upstream: `test_backend` -> `127.0.0.1:808`
+- live 컨테이너: `lawdigest-backend-test` (`ACTIVE=prod`)
 - 런타임 구조: Docker 컨테이너 재기동
 
 ### 서버 전제
@@ -57,8 +61,8 @@
 
 ### 백엔드 배포
 
-1. 서버의 `dev-backend-release` worktree를 배포할 ref 기준으로 맞춘다.
-2. `deploy-test-backend.sh`를 실행한다.
+1. 배포 대상 worktree를 배포할 ref 기준으로 맞춘다.
+2. `deploy-prod-backend.sh`를 실행한다.
 3. 스크립트는 staging 컨테이너를 먼저 띄운다.
 4. staging 헬스체크가 통과해야 live 컨테이너를 교체한다.
 5. live 헬스체크가 실패하면 이전 컨테이너를 자동 복구한다.
@@ -72,7 +76,7 @@
 ./deploy/deploy-test-web.sh /path/to/target-worktree
 ./deploy/deploy-dev-web.sh <git-ref>
 ./deploy/install-dev-web-watchdog.sh
-./deploy/deploy-test-backend.sh /path/to/target-worktree
+./deploy/deploy-prod-backend.sh /path/to/target-worktree
 ```
 
 ## 확인 방법
@@ -90,7 +94,9 @@ curl -sSI https://dev.lawdigest.kr/election | sed -n '1,20p'
 
 ```bash
 docker ps --filter "name=lawdigest-backend-test"
+docker inspect lawdigest-backend-test --format '{{range .Config.Env}}{{if eq . "ACTIVE=prod"}}{{.}}{{end}}{{end}}'
 curl -sSI http://127.0.0.1:808/ | sed -n '1,20p'
+curl -sSI https://api.lawdigest.kr/ | sed -n '1,20p'
 ```
 
 ## 운영 메모
@@ -98,4 +104,5 @@ curl -sSI http://127.0.0.1:808/ | sed -n '1,20p'
 - 테스트 웹은 `.runtime/test-web/current`가 기준이다.
 - 개발 웹은 `.runtime/dev-web/current` 심링크가 가리키는 source worktree가 기준이다.
 - 개발 웹은 PM2 dump만 단독으로 신뢰하지 않고 watchdog cron으로 재복구한다.
-- 백엔드는 live 컨테이너가 기준이다.
+- 백엔드는 `api.lawdigest.kr` 운영 API를 처리하는 live 컨테이너가 기준이다.
+- 현재 운영 API 경로에는 `test_backend`, `lawdigest-backend-test` 같은 기존 명칭이 남아 있다.
