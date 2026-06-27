@@ -203,6 +203,44 @@ class TestDatabaseManagerLogic(unittest.TestCase):
         self.assertIn("INSERT INTO BillAlternative", query)
         self.assertEqual(params, [("ALT-1", "ORG-1")])
 
+    def test_fetch_bill_search_document_candidates_selects_missing_or_stale_ready_bills(self):
+        with patch.object(self.db_manager, "transaction") as mock_transaction:
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+            self.cursor.fetchall.return_value = [{"bill_id": "BILL-1"}]
+
+            rows = self.db_manager.fetch_bill_search_document_candidates(limit=50)
+
+        self.assertEqual(rows, [{"bill_id": "BILL-1"}])
+        query, params = self.cursor.execute.call_args.args
+        self.assertIn("LEFT JOIN BillSearchDocument", query)
+        self.assertIn("b.ingest_status = 'READY'", query)
+        self.assertIn("bsd.bill_id IS NULL", query)
+        self.assertEqual(params, (50,))
+
+    def test_upsert_bill_search_documents_uses_replace_semantics(self):
+        documents = [
+            {
+                "bill_id": "BILL-1",
+                "bill_name_text": "법안명",
+                "brief_summary_text": "짧은 요약",
+                "gpt_summary_text": "AI 요약",
+                "raw_summary_text": "원문 요약",
+                "search_text": "법안명 짧은 요약 AI 요약 원문 요약",
+                "source_modified_date": "2026-06-27 10:00:00",
+            }
+        ]
+
+        with patch.object(self.db_manager, "transaction") as mock_transaction:
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+
+            count = self.db_manager.upsert_bill_search_documents(documents)
+
+        self.assertEqual(count, 1)
+        query, params = self.cursor.executemany.call_args.args
+        self.assertIn("INSERT INTO BillSearchDocument", query)
+        self.assertIn("ON DUPLICATE KEY UPDATE", query)
+        self.assertEqual(params, documents)
+
     def test_update_bill_stage(self):
         """Test update_bill_stage filters duplicates and batches updates"""
         stage_data = [

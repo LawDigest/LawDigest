@@ -11,6 +11,7 @@ import pandas as pd
 
 from ..bills.DataFetcher import DataFetcher
 from ..bills.DataProcessor import DataProcessor
+from ..bills.search_document import build_bill_search_documents
 from ..connectors.DatabaseManager import DatabaseManager
 from ..bills.constants import ProposerKindType
 
@@ -427,6 +428,20 @@ class WorkFlowManager:
 
         db = self._build_db_manager(self.mode)
         return db.insert_bill_alternatives(rows)
+
+    def rebuild_bill_search_documents(self, limit: int = 500) -> Dict[str, Any]:
+        if self.mode == "dry_run":
+            return {"mode": self.mode, "candidates": 0, "rebuilt": 0}
+
+        db = self._build_db_manager(self.mode)
+        candidates = db.fetch_bill_search_document_candidates(limit=limit)
+        documents = build_bill_search_documents(candidates)
+        rebuilt = db.upsert_bill_search_documents(documents)
+        return {
+            "mode": self.mode,
+            "candidates": len(candidates),
+            "rebuilt": rebuilt,
+        }
 
     def fetch_bills_data_step(
         self,

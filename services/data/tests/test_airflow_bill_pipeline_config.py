@@ -11,6 +11,7 @@ def test_bill_related_dags_import_workflow_manager_from_current_package():
         REPO_ROOT / "infra/airflow/dags/bill_ingest_dag.py",
         REPO_ROOT / "infra/airflow/dags/manual_bill_collect_dag.py",
         REPO_ROOT / "infra/airflow/dags/bill_status_sync_dag.py",
+        REPO_ROOT / "infra/airflow/dags/bill_search_rebuild_dag.py",
     ]
 
     for dag_path in dag_paths:

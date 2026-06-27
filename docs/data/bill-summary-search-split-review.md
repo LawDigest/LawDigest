@@ -93,3 +93,17 @@ Use this sequence instead:
 6. After search has moved, drop FULLTEXT indexes from `Bill.summary`, `Bill.gpt_summary`, and `Bill.brief_summary` if no other query uses them.
 
 This keeps the immediate data-quality fix small while giving us a path to uncouple source-data constraints from search-index maintenance.
+
+## Initial implementation
+
+The first implementation introduces `BillSearchDocument` as an asynchronously rebuilt table.
+
+- Schema migration: `infra/db/migrations/20260627_create_bill_search_document.sql`
+- Rebuild runtime command:
+  ```bash
+  uv run python -m lawdigest_data.runtime.cli bill-search-rebuild --mode prod --limit 500
+  ```
+- Airflow DAG: `bill_search_rebuild_dag`
+- Backend search source: `BillSearchDocument.search_text`
+
+The rebuild job selects `READY` bills whose search document is missing or stale, rebuilds weighted search text from bill fields, and upserts `BillSearchDocument` independently from the bill ingestion path.

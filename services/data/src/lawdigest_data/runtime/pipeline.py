@@ -199,6 +199,27 @@ class PipelineRuntime:
 
         return self._run("bill.status_sync", params, execute)
 
+    def run_bill_search_rebuild(
+        self,
+        *,
+        mode: str = "dry_run",
+        limit: int = 500,
+    ) -> Dict[str, Any]:
+        params = {"mode": mode, "limit": limit}
+
+        def execute(run_id: str) -> List[Dict[str, Any]]:
+            manager = _build_workflow_manager(mode)
+            steps: List[Dict[str, Any]] = []
+            self._record_step(
+                run_id,
+                steps,
+                "rebuild_bill_search_documents",
+                manager.rebuild_bill_search_documents(limit=limit),
+            )
+            return steps
+
+        return self._run("bill.search_rebuild", params, execute)
+
     def run_ai_batch_submit(
         self,
         *,

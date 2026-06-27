@@ -40,6 +40,10 @@ def build_parser() -> argparse.ArgumentParser:
     status_sync.add_argument("--end-date")
     status_sync.add_argument("--age", default="22")
 
+    search_rebuild = subparsers.add_parser("bill-search-rebuild", help="법안 검색 문서 비동기 재빌드")
+    search_rebuild.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod", "test_db"])
+    search_rebuild.add_argument("--limit", type=int, default=500)
+
     batch_submit = subparsers.add_parser("ai-batch-submit", help="provider batch 요약 요청 제출")
     batch_submit.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
     batch_submit.add_argument("--provider", default="openai", choices=["openai", "gemini"])
@@ -101,6 +105,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             start_date=args.start_date,
             end_date=args.end_date,
             age=args.age,
+        )
+    elif args.command == "bill-search-rebuild":
+        result = runtime.run_bill_search_rebuild(
+            mode=args.mode,
+            limit=args.limit,
         )
     elif args.command == "ai-batch-submit":
         result = runtime.run_ai_batch_submit(

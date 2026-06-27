@@ -261,6 +261,21 @@ def test_bill_agent_report_fails_when_all_agent_reports_fail(tmp_path):
             raise AssertionError("모든 리포트가 실패했는데 파이프라인이 성공하면 안 됩니다.")
 
 
+def test_bill_search_rebuild_delegates_to_search_document_service(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    manager = MagicMock()
+    manager.rebuild_bill_search_documents.return_value = {"rebuilt": 3}
+
+    with patch("lawdigest_data.runtime.pipeline._build_workflow_manager", return_value=manager):
+        result = PipelineRuntime(log_dir=tmp_path).run_bill_search_rebuild(mode="dry_run", limit=3)
+
+    manager.rebuild_bill_search_documents.assert_called_once_with(limit=3)
+    assert result["command"] == "bill.search_rebuild"
+    assert result["steps"][0]["step"] == "rebuild_bill_search_documents"
+    assert result["status"] == "success"
+
+
 def test_cli_dispatches_bill_ingest(tmp_path):
     from lawdigest_data.runtime.cli import main
 
@@ -355,6 +370,28 @@ def test_cli_dispatches_bill_agent_report(tmp_path):
         five_hour_usage_before=None,
         five_hour_usage_after=None,
         inspection=False,
+    )
+
+
+def test_cli_dispatches_bill_search_rebuild(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_bill_search_rebuild.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "bill-search-rebuild",
+            "--mode",
+            "dry_run",
+            "--limit",
+            "25",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_bill_search_rebuild.assert_called_once_with(
+        mode="dry_run",
+        limit=25,
     )
 
 

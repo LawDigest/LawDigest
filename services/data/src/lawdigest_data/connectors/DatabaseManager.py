@@ -414,6 +414,70 @@ class DatabaseManager:
             cursor.executemany(query, unique_pairs)
         return len(unique_pairs)
 
+    def fetch_bill_search_document_candidates(self, limit: int = 500) -> List[Dict[str, Any]]:
+        query = """
+            SELECT
+                b.bill_id,
+                b.bill_name,
+                b.brief_summary,
+                b.gpt_summary,
+                b.summary,
+                COALESCE(b.modified_date, b.created_date) AS source_modified_date
+            FROM Bill b
+            LEFT JOIN BillSearchDocument bsd
+                ON b.bill_id = bsd.bill_id
+            WHERE b.ingest_status = 'READY'
+              AND b.summary IS NOT NULL
+              AND b.summary <> ''
+              AND (
+                  bsd.bill_id IS NULL
+                  OR bsd.source_modified_date IS NULL
+                  OR COALESCE(b.modified_date, b.created_date) > bsd.source_modified_date
+              )
+            ORDER BY COALESCE(b.modified_date, b.created_date) ASC, b.bill_id ASC
+            LIMIT %s
+        """
+        with self.transaction() as cursor:
+            cursor.execute(query, (limit,))
+            return cursor.fetchall()
+
+    def upsert_bill_search_documents(self, documents: List[Dict[str, Any]]) -> int:
+        if not documents:
+            return 0
+
+        query = """
+            INSERT INTO BillSearchDocument (
+                bill_id,
+                bill_name_text,
+                brief_summary_text,
+                gpt_summary_text,
+                raw_summary_text,
+                search_text,
+                source_modified_date,
+                rebuilt_date
+            ) VALUES (
+                %(bill_id)s,
+                %(bill_name_text)s,
+                %(brief_summary_text)s,
+                %(gpt_summary_text)s,
+                %(raw_summary_text)s,
+                %(search_text)s,
+                %(source_modified_date)s,
+                NOW(6)
+            ) AS new
+            ON DUPLICATE KEY UPDATE
+                bill_name_text = new.bill_name_text,
+                brief_summary_text = new.brief_summary_text,
+                gpt_summary_text = new.gpt_summary_text,
+                raw_summary_text = new.raw_summary_text,
+                search_text = new.search_text,
+                source_modified_date = new.source_modified_date,
+                rebuilt_date = NOW(6)
+        """
+        with self.transaction() as cursor:
+            cursor.executemany(query, documents)
+        return len(documents)
+
     def _link_proposers(self, cursor: pymysql.cursors.Cursor, bill_id: str, proposer_ids: List[str], is_representative: bool = False) -> None:
         """
         법안과 의원(발의자) 간의 관계를 저장합니다.
