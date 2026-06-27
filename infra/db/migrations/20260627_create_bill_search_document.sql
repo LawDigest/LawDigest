@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS BillSearchDocument (
-    bill_id VARCHAR(255) NOT NULL,
+    bill_id VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL,
     bill_name_text VARCHAR(255) NOT NULL,
     brief_summary_text TEXT NOT NULL,
     gpt_summary_text TEXT NOT NULL,
@@ -13,4 +13,4 @@ CREATE TABLE IF NOT EXISTS BillSearchDocument (
     CONSTRAINT fk_bill_search_document_bill
         FOREIGN KEY (bill_id) REFERENCES Bill (bill_id)
         ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

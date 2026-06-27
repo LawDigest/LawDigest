@@ -215,6 +215,7 @@ class TestDatabaseManagerLogic(unittest.TestCase):
         self.assertIn("LEFT JOIN BillSearchDocument", query)
         self.assertIn("b.ingest_status = 'READY'", query)
         self.assertIn("bsd.bill_id IS NULL", query)
+        self.assertIn("COALESCE(b.modified_date, b.created_date) IS NOT NULL", query)
         self.assertEqual(params, (50,))
 
     def test_upsert_bill_search_documents_uses_replace_semantics(self):

@@ -431,8 +431,13 @@ class DatabaseManager:
               AND b.summary <> ''
               AND (
                   bsd.bill_id IS NULL
-                  OR bsd.source_modified_date IS NULL
-                  OR COALESCE(b.modified_date, b.created_date) > bsd.source_modified_date
+                  OR (
+                      COALESCE(b.modified_date, b.created_date) IS NOT NULL
+                      AND (
+                          bsd.source_modified_date IS NULL
+                          OR COALESCE(b.modified_date, b.created_date) > bsd.source_modified_date
+                      )
+                  )
               )
             ORDER BY COALESCE(b.modified_date, b.created_date) ASC, b.bill_id ASC
             LIMIT %s
