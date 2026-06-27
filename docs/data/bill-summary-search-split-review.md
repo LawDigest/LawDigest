@@ -103,7 +103,7 @@ The first implementation introduces `BillSearchDocument` as an asynchronously re
   ```bash
   uv run python -m lawdigest_data.runtime.cli bill-search-rebuild --mode prod --limit 500
   ```
-- Airflow DAG: `bill_search_rebuild_dag`
+- Scheduler: external scheduler or manual CLI execution. Do not add an Airflow DAG for this path.
 - Backend search source: `BillSearchDocument.search_text`
 
 The rebuild job selects `READY` bills whose search document is missing or stale, rebuilds weighted search text from bill fields, and upserts `BillSearchDocument` independently from the bill ingestion path.
