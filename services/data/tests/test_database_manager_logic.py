@@ -61,6 +61,10 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             # First call should be Bill upsert
             args, _ = self.cursor.executemany.call_args_list[0]
             self.assertIn("INSERT INTO Bill", args[0])
+            self.assertIn("created_date", args[0])
+            self.assertIn("modified_date", args[0])
+            self.assertIn("NOW()", args[0])
+            self.assertIn("created_date = COALESCE(Bill.created_date, new.created_date)", args[0])
             expected_bills = [
                 {
                     **bills_data[0],

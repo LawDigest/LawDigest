@@ -338,6 +338,7 @@ class DatabaseManager:
                 "bill_result = new.bill_result",
                 "proposer_kind = new.proposer_kind",
                 "ingest_status = new.ingest_status",
+                "created_date = COALESCE(Bill.created_date, new.created_date)",
                 "modified_date = NOW()",
             ]
             if include_summary_tags:
