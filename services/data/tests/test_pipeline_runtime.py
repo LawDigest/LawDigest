@@ -118,6 +118,78 @@ def test_ai_summary_uses_gemini_cli_realtime_command(tmp_path):
     assert result["status"] == "success"
 
 
+def test_ai_summary_chunks_requested_limit_to_max_five(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    output_path = tmp_path / "summary.json"
+    chunk_results = [
+        {
+            "stats": {
+                "target_count": 5,
+                "processed_count": 5,
+                "success_count": 5,
+                "failure_count": 0,
+                "db_upserted_count": 5,
+                "token_usage_available_count": 5,
+                "usage_totals": {"input_tokens": 100, "output_tokens": 10},
+            }
+        },
+        {
+            "stats": {
+                "target_count": 5,
+                "processed_count": 5,
+                "success_count": 4,
+                "failure_count": 1,
+                "db_upserted_count": 4,
+                "token_usage_available_count": 5,
+                "usage_totals": {"input_tokens": 200, "output_tokens": 20},
+            }
+        },
+        {
+            "stats": {
+                "target_count": 2,
+                "processed_count": 2,
+                "success_count": 2,
+                "failure_count": 0,
+                "db_upserted_count": 2,
+                "token_usage_available_count": 2,
+                "usage_totals": {"input_tokens": 30, "output_tokens": 3},
+            }
+        },
+    ]
+
+    with patch(
+        "lawdigest_ai.processor.gemini_repair_pipeline.run_gemini_repair_pipeline",
+        side_effect=chunk_results,
+    ) as run_repair:
+        result = PipelineRuntime(log_dir=tmp_path).run_ai_summary(
+            mode="dry_run",
+            cli_provider="codex",
+            limit=12,
+            batch_size=10,
+            output_path=str(output_path),
+        )
+
+    assert [call.kwargs["limit"] for call in run_repair.call_args_list] == [5, 5, 2]
+    assert [call.kwargs["batch_size"] for call in run_repair.call_args_list] == [5, 5, 2]
+    assert [call.kwargs["output_path"] for call in run_repair.call_args_list] == [
+        str(tmp_path / "summary.part001.json"),
+        str(tmp_path / "summary.part002.json"),
+        str(tmp_path / "summary.part003.json"),
+    ]
+    step_result = result["steps"][0]["result"]
+    assert step_result["requested_limit"] == 12
+    assert step_result["total_limit"] == 12
+    assert step_result["chunk_size"] == 5
+    assert step_result["max_chunk_size"] == 5
+    assert step_result["stats"]["processed_count"] == 12
+    assert step_result["stats"]["success_count"] == 11
+    assert step_result["stats"]["db_upserted_count"] == 11
+    assert step_result["stats"]["usage_totals"] == {"input_tokens": 330, "output_tokens": 33}
+    saved = json.loads(output_path.read_text(encoding="utf-8"))
+    assert saved["stats"]["processed_count"] == 12
+
+
 def test_bill_agent_report_delegates_to_agentic_report_runtime(tmp_path):
     from lawdigest_data.runtime.pipeline import PipelineRuntime
 
@@ -347,7 +419,7 @@ def test_cli_dispatches_ai_summary_with_codex_default(tmp_path):
             "ai-summary",
             "--mode",
             "dry_run",
-            "--limit",
+            "--total-limit",
             "1",
             "--batch-size",
             "1",

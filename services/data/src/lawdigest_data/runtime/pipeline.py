@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List
 
 DEFAULT_LOG_DIR = Path(os.getenv("LAWDIGEST_PIPELINE_LOG_DIR", "/tmp/lawdigest-pipeline"))
+MAX_AI_SUMMARY_CHUNK_SIZE = 5
 
 
 def _build_workflow_manager(mode: str):
@@ -38,6 +39,30 @@ def _build_usage_meter_snapshot(
     if any(value is not None for value in five_hour.values()):
         usage_meter["five_hour"] = {key: value for key, value in five_hour.items() if value is not None}
     return usage_meter or None
+
+
+def _chunk_output_path(output_path: str, chunk_number: int) -> str:
+    path = Path(output_path)
+    suffix = path.suffix or ".json"
+    return str(path.with_name(f"{path.stem}.part{chunk_number:03d}{suffix}"))
+
+
+def _merge_usage_totals(items: List[Dict[str, Any]]) -> Dict[str, int]:
+    totals: Dict[str, int] = {}
+    for item in items:
+        usage = item.get("stats", {}).get("usage_totals", {})
+        if not isinstance(usage, dict):
+            continue
+        for key, value in usage.items():
+            if isinstance(value, int):
+                totals[key] = totals.get(key, 0) + value
+    return totals
+
+
+def _write_json_output(payload: Dict[str, Any], output_path: str) -> None:
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
 
 class PipelineRunRecorder:
@@ -321,11 +346,21 @@ class PipelineRuntime:
         read_mode: str | None = None,
         target_mode: str = "missing",
     ) -> Dict[str, Any]:
+        total_limit = limit
+        if total_limit < 1:
+            raise ValueError("limit는 1 이상이어야 합니다.")
+        if batch_size < 1:
+            raise ValueError("batch_size는 1 이상이어야 합니다.")
+
+        chunk_size = min(batch_size, MAX_AI_SUMMARY_CHUNK_SIZE)
         params = {
             "mode": mode,
             "cli_provider": cli_provider,
-            "limit": limit,
+            "limit": total_limit,
+            "total_limit": total_limit,
             "batch_size": batch_size,
+            "chunk_size": chunk_size,
+            "max_chunk_size": MAX_AI_SUMMARY_CHUNK_SIZE,
             "output_path": output_path,
             "stop_on_error": stop_on_error,
             "read_mode": read_mode,
@@ -336,21 +371,69 @@ class PipelineRuntime:
             from lawdigest_ai.processor.gemini_repair_pipeline import run_gemini_repair_pipeline
 
             steps: List[Dict[str, Any]] = []
-            self._record_step(
-                run_id,
-                steps,
-                step,
-                run_gemini_repair_pipeline(
+            chunk_results: List[Dict[str, Any]] = []
+            remaining = total_limit
+            chunk_number = 1
+            while remaining > 0:
+                chunk_limit = min(remaining, chunk_size)
+                chunk_output_path = (
+                    output_path if total_limit <= chunk_size else _chunk_output_path(output_path, chunk_number)
+                )
+                chunk_result = run_gemini_repair_pipeline(
                     mode=mode,
-                    limit=limit,
-                    batch_size=batch_size,
-                    output_path=output_path,
+                    limit=chunk_limit,
+                    batch_size=chunk_limit,
+                    output_path=chunk_output_path,
                     stop_on_error=stop_on_error,
                     read_mode=read_mode,
                     target_mode=target_mode,
                     cli_provider=cli_provider,
+                )
+                chunk_stats = chunk_result.get("stats", {})
+                chunk_results.append({
+                    "chunk": chunk_number,
+                    "requested_limit": chunk_limit,
+                    "output_path": chunk_output_path,
+                    "stats": chunk_stats,
+                })
+                processed_count = int(chunk_stats.get("processed_count") or 0)
+                target_count = int(chunk_stats.get("target_count") or 0)
+                if target_count == 0 or processed_count == 0:
+                    break
+                remaining -= target_count
+                if target_count < chunk_limit:
+                    break
+                chunk_number += 1
+
+            aggregate_stats = {
+                "target_count": sum(int(item["stats"].get("target_count") or 0) for item in chunk_results),
+                "processed_count": sum(int(item["stats"].get("processed_count") or 0) for item in chunk_results),
+                "success_count": sum(int(item["stats"].get("success_count") or 0) for item in chunk_results),
+                "failure_count": sum(int(item["stats"].get("failure_count") or 0) for item in chunk_results),
+                "db_upserted_count": sum(int(item["stats"].get("db_upserted_count") or 0) for item in chunk_results),
+                "token_usage_available_count": sum(
+                    int(item["stats"].get("token_usage_available_count") or 0) for item in chunk_results
                 ),
-            )
+                "usage_totals": _merge_usage_totals(chunk_results),
+            }
+            aggregate_result = {
+                "execution_mode": mode,
+                "requested_limit": total_limit,
+                "total_limit": total_limit,
+                "chunk_size": chunk_size,
+                "max_chunk_size": MAX_AI_SUMMARY_CHUNK_SIZE,
+                "batch_size_requested": batch_size,
+                "stop_on_error": stop_on_error,
+                "read_mode": read_mode,
+                "target_mode": target_mode,
+                "cli_provider": cli_provider,
+                "stats": aggregate_stats,
+                "chunks": chunk_results,
+                "output_path": output_path,
+            }
+            if total_limit > chunk_size:
+                _write_json_output(aggregate_result, output_path)
+            self._record_step(run_id, steps, step, aggregate_result)
             return steps
 
         return self._run(command, params, execute)

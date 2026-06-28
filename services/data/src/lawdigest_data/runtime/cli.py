@@ -14,8 +14,8 @@ def _print_result(result: dict) -> None:
 def _add_cli_summary_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
     parser.add_argument("--cli-provider", default="codex", choices=["gemini", "codex", "claude"])
-    parser.add_argument("--limit", type=int, default=20)
-    parser.add_argument("--batch-size", type=int, default=5)
+    parser.add_argument("--limit", "--total-limit", dest="limit", type=int, default=20, help="총 처리 요청 건수")
+    parser.add_argument("--batch-size", type=int, default=5, help="한 chunk 처리 건수. ai-summary 계열은 최대 5로 제한")
     parser.add_argument("--output-path", default="/tmp/lawdigest_ai_summary_results.json")
     parser.add_argument("--stop-on-error", action="store_true")
     parser.add_argument("--read-mode", choices=["test", "prod"])
