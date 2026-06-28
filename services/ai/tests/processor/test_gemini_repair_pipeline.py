@@ -109,6 +109,70 @@ def test_gemini_repair_pipeline_upserts_successful_items():
     mock_update.assert_called_once()
 
 
+def test_gemini_repair_pipeline_upserts_each_success_before_later_failure(tmp_path):
+    from lawdigest_ai.processor.gemini_repair_pipeline import run_gemini_repair_pipeline
+
+    rows = [
+        {
+            "bill_id": "B010",
+            "bill_name": "성공 법안",
+            "summary": "원문 요약",
+            "proposers": "김철수",
+            "proposer_kind": "의원발의",
+            "brief_summary": None,
+            "gpt_summary": None,
+            "propose_date": "2026-04-16",
+            "stage": "본회의",
+        },
+        {
+            "bill_id": "B011",
+            "bill_name": "실패 법안",
+            "summary": "원문 요약",
+            "proposers": "박영희",
+            "proposer_kind": "의원발의",
+            "brief_summary": None,
+            "gpt_summary": None,
+            "propose_date": "2026-04-16",
+            "stage": "위원회",
+        },
+    ]
+    first_result = pd.DataFrame([
+        {
+            **rows[0],
+            "brief_summary": "첫 번째 요약",
+            "gpt_summary": "1. 첫 번째 법안을 요약한다.",
+            "summary_tags": json.dumps(["요약", "즉시저장", "법안", "테스트", "성공"], ensure_ascii=False),
+        }
+    ])
+    second_result = pd.DataFrame([rows[1]])
+    output_path = tmp_path / "partial-upsert.json"
+
+    with patch("lawdigest_ai.processor.gemini_repair_pipeline.get_db_connection", return_value=_mock_connection(rows)), \
+         patch("lawdigest_ai.processor.gemini_repair_pipeline.update_bill_summary") as mock_update, \
+         patch("lawdigest_ai.processor.gemini_repair_pipeline.build_cli_summarizer") as mock_build:
+        mock_build.return_value.failed_bills = []
+        mock_build.return_value.usage_by_bill_id = {}
+        mock_build.return_value.AI_structured_summarize.side_effect = [
+            first_result,
+            second_result,
+        ]
+
+        with pytest.raises(RuntimeError):
+            run_gemini_repair_pipeline(
+                mode="test",
+                limit=2,
+                batch_size=1,
+                output_path=str(output_path),
+                stop_on_error=True,
+            )
+
+    saved = json.loads(Path(output_path).read_text(encoding="utf-8"))
+    assert saved["stats"]["success_count"] == 1
+    assert saved["stats"]["failure_count"] == 1
+    assert saved["stats"]["db_upserted_count"] == 1
+    mock_update.assert_called_once()
+
+
 def test_gemini_repair_pipeline_raises_when_all_items_fail(tmp_path):
     from lawdigest_ai.processor.gemini_repair_pipeline import run_gemini_repair_pipeline
 

@@ -135,20 +135,17 @@ def _sum_usage(items: List[Dict[str, Any]]) -> Dict[str, int]:
     return totals
 
 
-def _upsert_successful_items(items: List[Dict[str, Any]], mode: str) -> int:
-    upserted = 0
-    for item in items:
-        if item["status"] != "success":
-            continue
-        update_bill_summary(
-            bill_id=str(item["bill_id"]),
-            brief_summary=item.get("ai_title"),
-            gpt_summary=item.get("ai_summary"),
-            summary_tags=item.get("summary_tags"),
-            mode=_db_mode_for_execution(mode),
-        )
-        upserted += 1
-    return upserted
+def _upsert_successful_item(item: Dict[str, Any], mode: str) -> bool:
+    if item["status"] != "success":
+        return False
+    update_bill_summary(
+        bill_id=str(item["bill_id"]),
+        brief_summary=item.get("ai_title"),
+        gpt_summary=item.get("ai_summary"),
+        summary_tags=item.get("summary_tags"),
+        mode=_db_mode_for_execution(mode),
+    )
+    return True
 
 
 def run_gemini_repair_pipeline(
@@ -200,7 +197,7 @@ def run_gemini_repair_pipeline(
 
         summarizer = build_cli_summarizer(cli_provider)
         items = []
-        success_items = []
+        db_upserted_count = 0
 
         for start in range(0, len(targets), batch_size):
             batch = targets[start:start + batch_size]
@@ -233,7 +230,12 @@ def run_gemini_repair_pipeline(
                     item = _normalize_item(row, failure_map, summarizer.usage_by_bill_id)
                     items.append(item)
                     if item["status"] == "success":
-                        success_items.append(item)
+                        if mode != "dry_run" and _upsert_successful_item(item, mode):
+                            db_upserted_count += 1
+                            _print_progress(
+                                f"db upsert item done bill_id={item['bill_id']} "
+                                f"upserted={db_upserted_count}"
+                            )
 
                 usage_totals = _sum_usage(items)
                 _print_progress(
@@ -266,7 +268,7 @@ def run_gemini_repair_pipeline(
             "processed_count": len(items),
             "success_count": sum(1 for item in items if item["status"] == "success"),
             "failure_count": sum(1 for item in items if item["status"] == "failed"),
-            "db_upserted_count": 0,
+            "db_upserted_count": db_upserted_count,
             "token_usage_available_count": sum(1 for item in items if isinstance(item.get("usage"), dict)),
             "usage_totals": _sum_usage(items),
         },
@@ -282,11 +284,7 @@ def run_gemini_repair_pipeline(
         _write_json_output(report, output_path)
         raise RuntimeError(f"CLI 요약 실패가 발생해 실행을 중단했습니다. 산출물: {output_path}")
 
-    if mode != "dry_run":
-        _print_progress(f"db upsert start items={len(success_items)}")
-        report["stats"]["db_upserted_count"] = _upsert_successful_items(success_items, mode)
-        _print_progress(f"db upsert done items={report['stats']['db_upserted_count']}")
-    else:
+    if mode == "dry_run":
         _print_progress("db upsert skipped dry_run")
 
     _write_json_output(report, output_path)
