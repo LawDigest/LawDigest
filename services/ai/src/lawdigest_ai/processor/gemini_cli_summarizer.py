@@ -88,7 +88,7 @@ StructuredBillSummary = BatchStructuredSummary
 
 
 class GeminiCliSummarizer:
-    def __init__(self, provider: str = "gemini", fallback_provider: str | None = "codex"):
+    def __init__(self, provider: str = "codex", fallback_provider: str | None = "codex"):
         config = _provider_config(provider)
         self.failed_bills: List[dict] = []
         self.logger = logging.getLogger(__name__)
@@ -425,5 +425,5 @@ class ClaudeCliSummarizer(GeminiCliSummarizer):
         super().__init__(provider="claude", fallback_provider=None)
 
 
-def build_cli_summarizer(provider: str = "gemini") -> GeminiCliSummarizer:
+def build_cli_summarizer(provider: str = "codex") -> GeminiCliSummarizer:
     return GeminiCliSummarizer(provider=provider)

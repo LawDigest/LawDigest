@@ -6,6 +6,15 @@ import pandas as pd
 import pytest
 
 
+def test_cli_summarizer_defaults_to_codex_model():
+    from lawdigest_ai.processor.gemini_cli_summarizer import GeminiCliSummarizer
+
+    summarizer = GeminiCliSummarizer()
+
+    assert summarizer.provider == "codex"
+    assert summarizer.model == "gpt-5.4-mini"
+
+
 def test_gemini_cli_summarizer_processes_unsummarized():
     from lawdigest_ai.processor.gemini_cli_summarizer import GeminiCliSummarizer
 
@@ -74,7 +83,7 @@ def test_gemini_cli_summarizer_records_failures():
     assert pd.isna(result.iloc[0]["brief_summary"])
     assert len(summarizer.failed_bills) == 1
     assert summarizer.failed_bills[0]["bill_id"] == "B003"
-    assert "fallback" in summarizer.failed_bills[0]["error"]
+    assert "codex CLI 실패" in summarizer.failed_bills[0]["error"]
 
 
 def test_gemini_cli_summarizer_falls_back_to_codex_on_primary_failure():
@@ -94,7 +103,7 @@ def test_gemini_cli_summarizer_falls_back_to_codex_on_primary_failure():
             subprocess.CompletedProcess(args=["gemini"], returncode=1, stdout="", stderr="quota exceeded"),
             subprocess.CompletedProcess(args=["codex"], returncode=0, stdout=codex_stdout, stderr=""),
         ]
-        summarizer = GeminiCliSummarizer()
+        summarizer = GeminiCliSummarizer(provider="gemini")
         df = pd.DataFrame(
             [
                 {
@@ -115,7 +124,7 @@ def test_gemini_cli_summarizer_falls_back_to_codex_on_primary_failure():
     assert first_command[0] == "gemini"
     assert second_command[:2] == ["codex", "exec"]
     assert "--model" in second_command
-    assert "gpt-5.3-codex-spark" in second_command
+    assert "gpt-5.4-mini" in second_command
     assert result.iloc[0]["brief_summary"] == "Codex 대체 제목"
     assert result.iloc[0]["gpt_summary"] == "Codex 대체 상세"
     assert summarizer.failed_bills == []

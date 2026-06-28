@@ -336,6 +336,36 @@ def test_cli_dispatches_ai_summary(tmp_path):
     )
 
 
+def test_cli_dispatches_ai_summary_with_codex_default(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_ai_summary.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "ai-summary",
+            "--mode",
+            "dry_run",
+            "--limit",
+            "1",
+            "--batch-size",
+            "1",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_ai_summary.assert_called_once_with(
+        mode="dry_run",
+        cli_provider="codex",
+        limit=1,
+        batch_size=1,
+        output_path="/tmp/lawdigest_ai_summary_results.json",
+        stop_on_error=False,
+        read_mode=None,
+        target_mode="missing",
+    )
+
+
 def test_cli_dispatches_bill_agent_report(tmp_path):
     from lawdigest_data.runtime.cli import main
 
