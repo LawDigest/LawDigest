@@ -90,7 +90,11 @@ def _fetch_latest_bills(mode: str, limit: int, read_mode: str | None = None) -> 
         conn.close()
 
 
-def _normalize_item(row: Dict[str, Any], failure_map: Dict[str, str]) -> Dict[str, Any]:
+def _normalize_item(
+    row: Dict[str, Any],
+    failure_map: Dict[str, str],
+    usage_map: Dict[str, dict[str, int]],
+) -> Dict[str, Any]:
     ai_title = row.get("brief_summary")
     ai_summary = row.get("gpt_summary")
     bill_id = row.get("bill_id")
@@ -99,7 +103,7 @@ def _normalize_item(row: Dict[str, Any], failure_map: Dict[str, str]) -> Dict[st
     if not error and (not ai_title or not ai_summary):
         error = "Gemini 요약 결과에 필수 필드가 비어 있습니다."
 
-    return {
+    item = {
         "bill_id": bill_id,
         "bill_name": row.get("bill_name"),
         "ai_title": ai_title,
@@ -108,6 +112,22 @@ def _normalize_item(row: Dict[str, Any], failure_map: Dict[str, str]) -> Dict[st
         "status": "failed" if error else "success",
         "error": error,
     }
+    usage = usage_map.get(str(bill_id))
+    if usage is not None:
+        item["usage"] = usage
+    return item
+
+
+def _sum_usage(items: List[Dict[str, Any]]) -> Dict[str, int]:
+    totals: Dict[str, int] = {}
+    for item in items:
+        usage = item.get("usage")
+        if not isinstance(usage, dict):
+            continue
+        for key, value in usage.items():
+            if isinstance(value, int):
+                totals[key] = totals.get(key, 0) + value
+    return totals
 
 
 def _upsert_successful_items(items: List[Dict[str, Any]], mode: str) -> int:
@@ -195,7 +215,7 @@ def run_gemini_repair_pipeline(
                 }
 
                 for row in result_df.to_dict("records"):
-                    item = _normalize_item(row, failure_map)
+                    item = _normalize_item(row, failure_map, summarizer.usage_by_bill_id)
                     items.append(item)
                     if item["status"] == "success":
                         success_items.append(item)
@@ -221,21 +241,25 @@ def run_gemini_repair_pipeline(
             "success_count": sum(1 for item in items if item["status"] == "success"),
             "failure_count": sum(1 for item in items if item["status"] == "failed"),
             "db_upserted_count": 0,
+            "token_usage_available_count": sum(1 for item in items if isinstance(item.get("usage"), dict)),
+            "usage_totals": _sum_usage(items),
         },
         "items": items,
         "output_path": output_path,
     }
 
-    _write_json_output(report, output_path)
-
     if report["stats"]["target_count"] > 0 and report["stats"]["success_count"] == 0:
+        _write_json_output(report, output_path)
         raise RuntimeError(f"CLI 요약이 모두 실패했습니다. 산출물: {output_path}")
 
     if stop_on_error and report["stats"]["failure_count"] > 0:
+        _write_json_output(report, output_path)
         raise RuntimeError(f"CLI 요약 실패가 발생해 실행을 중단했습니다. 산출물: {output_path}")
 
     if mode != "dry_run":
         report["stats"]["db_upserted_count"] = _upsert_successful_items(success_items, mode)
+
+    _write_json_output(report, output_path)
 
     print(
         "[cli-summary-repair] completed "

@@ -91,6 +91,7 @@ class GeminiCliSummarizer:
     def __init__(self, provider: str = "codex", fallback_provider: str | None = "codex"):
         config = _provider_config(provider)
         self.failed_bills: List[dict] = []
+        self.usage_by_bill_id: Dict[str, dict[str, int]] = {}
         self.logger = logging.getLogger(__name__)
         self.provider = config.provider
         self.fallback_provider = fallback_provider if self.provider == "gemini" else None
@@ -213,6 +214,7 @@ class GeminiCliSummarizer:
             command = [
                 self.cli_bin,
                 "exec",
+                "--json",
                 "--sandbox",
                 "read-only",
                 "--cd",
@@ -244,11 +246,35 @@ class GeminiCliSummarizer:
         command.append(prompt)
         return command, None
 
+    @staticmethod
+    def _parse_codex_json_events(stdout_text: str) -> tuple[str | None, dict[str, int] | None]:
+        last_message: str | None = None
+        usage: dict[str, int] | None = None
+        for line in stdout_text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("type") == "item.completed":
+                item = event.get("item")
+                if isinstance(item, dict) and item.get("type") == "agent_message":
+                    text = item.get("text")
+                    if isinstance(text, str):
+                        last_message = text
+            elif event.get("type") == "turn.completed":
+                raw_usage = event.get("usage")
+                if isinstance(raw_usage, dict):
+                    usage = {key: value for key, value in raw_usage.items() if isinstance(value, int)}
+        return last_message, usage
+
     def _run_headless_prompt(
         self,
         prompt: str,
         model_name: Optional[str] = None,
-    ) -> str:
+    ) -> tuple[str, dict[str, int] | None]:
         env = os.environ.copy()
         requested_model = model_name or self.model
         temp_home: tempfile.TemporaryDirectory[str] | None = None
@@ -300,14 +326,22 @@ class GeminiCliSummarizer:
                 env=env,
                 timeout=self.timeout_seconds,
             )
+            raw_stdout = (proc.stdout or "").strip()
             output_text = ""
+            usage: dict[str, int] | None = None
             if output_path:
                 try:
                     output_text = Path(output_path).read_text(encoding="utf-8").strip()
                 except FileNotFoundError:
                     output_text = ""
             if not output_text:
-                output_text = (proc.stdout or "").strip()
+                if self.provider == "codex":
+                    output_text, usage = self._parse_codex_json_events(raw_stdout)
+                    output_text = output_text or raw_stdout
+                else:
+                    output_text = raw_stdout
+            elif self.provider == "codex":
+                _, usage = self._parse_codex_json_events(raw_stdout)
 
             if proc.returncode != 0:
                 stderr_text = (proc.stderr or "").strip()
@@ -315,7 +349,7 @@ class GeminiCliSummarizer:
             if not output_text:
                 stderr_text = (proc.stderr or "").strip()
                 raise RuntimeError(f"{self.provider} CLI 응답 본문이 비어 있습니다. {stderr_text}".strip())
-            return output_text
+            return output_text, usage
         finally:
             if output_path:
                 try:
@@ -331,7 +365,10 @@ class GeminiCliSummarizer:
         model: Optional[str] = None,
     ) -> StructuredBillSummary:
         prompt = self._build_user_prompt(row)
-        raw_text = self._run_headless_prompt(prompt, model_name=model)
+        raw_text, usage = self._run_headless_prompt(prompt, model_name=model)
+        bill_id = row.get("bill_id")
+        if bill_id is not None and usage is not None:
+            self.usage_by_bill_id[str(bill_id)] = usage
         return self._extract_json_summary(raw_text)
 
     def _summarize_one(self, row: Dict[str, Any], model: Optional[str] = None) -> Optional[StructuredBillSummary]:
@@ -389,6 +426,7 @@ class GeminiCliSummarizer:
             return df_bills
 
         success = 0
+        self.usage_by_bill_id = {}
         with trace_span(
             f"{self.provider}_cli_structured_summarize",
             input={"provider": self.provider, "model": resolved_model, "count": len(to_process)},
