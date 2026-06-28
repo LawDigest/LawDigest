@@ -15,7 +15,7 @@ def test_cli_summarizer_defaults_to_codex_model():
     assert summarizer.model == "gpt-5.4-mini"
 
 
-def test_gemini_cli_summarizer_processes_unsummarized():
+def test_gemini_cli_summarizer_processes_unsummarized(capsys):
     from lawdigest_ai.processor.gemini_cli_summarizer import GeminiCliSummarizer
 
     stdout = json.dumps(
@@ -57,8 +57,11 @@ def test_gemini_cli_summarizer_processes_unsummarized():
         )
         result = summarizer.AI_structured_summarize(df)
 
+    stdout = capsys.readouterr().out
     assert result.iloc[0]["brief_summary"] == "요약 제목"
     assert result.iloc[0]["gpt_summary"] == "상세 요약 내용"
+    assert "[cli-summary] codex item 1/1 start bill_id=B002" in stdout
+    assert "[cli-summary] codex item 1/1 done bill_id=B002" in stdout
 
 
 def test_gemini_cli_summarizer_records_failures():

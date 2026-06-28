@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
@@ -102,6 +103,10 @@ class GeminiCliSummarizer:
         self.cli_home = config.cli_home
         self.cli_workdir = config.cli_workdir
         self.debug_log_path = os.getenv(f"{self.provider.upper()}_CLI_DEBUG_LOG_PATH")
+
+    @staticmethod
+    def _print_progress(message: str) -> None:
+        print(f"[cli-summary] {message}", flush=True)
 
     def _build_user_prompt(self, row: Dict[str, Any]) -> str:
         api_prompt = _build_prompt_for_bill(row)
@@ -431,8 +436,13 @@ class GeminiCliSummarizer:
             f"{self.provider}_cli_structured_summarize",
             input={"provider": self.provider, "model": resolved_model, "count": len(to_process)},
         ) as root_span:
-            for idx, row in to_process.iterrows():
+            total = len(to_process)
+            for position, (idx, row) in enumerate(to_process.iterrows(), start=1):
                 bill_id = row.get("bill_id")
+                item_started_at = time.monotonic()
+                self._print_progress(
+                    f"{self.provider} item {position}/{total} start bill_id={bill_id}"
+                )
                 with trace_generation(
                     root_span,
                     name=f"{self.provider}_cli_summarize_one",
@@ -441,11 +451,22 @@ class GeminiCliSummarizer:
                 ) as generation:
                     result = self._summarize_one(row.to_dict(), model=model)
                     if result is None:
+                        self._print_progress(
+                            f"{self.provider} item {position}/{total} failed "
+                            f"bill_id={bill_id} elapsed={time.monotonic() - item_started_at:.1f}s"
+                        )
                         continue
                     df_bills.loc[idx, "brief_summary"] = result.brief_summary
                     df_bills.loc[idx, "gpt_summary"] = result.gpt_summary
                     df_bills.loc[idx, "summary_tags"] = json.dumps(result.tags, ensure_ascii=False)
                     success += 1
+                    usage = self.usage_by_bill_id.get(str(bill_id), {})
+                    self._print_progress(
+                        f"{self.provider} item {position}/{total} done "
+                        f"bill_id={bill_id} elapsed={time.monotonic() - item_started_at:.1f}s "
+                        f"input_tokens={usage.get('input_tokens', 0)} "
+                        f"output_tokens={usage.get('output_tokens', 0)}"
+                    )
                     if generation is not None:
                         generation.update(output={"bill_id": bill_id})
 
