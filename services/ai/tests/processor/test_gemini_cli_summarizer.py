@@ -13,6 +13,7 @@ def test_cli_summarizer_defaults_to_codex_model():
 
     assert summarizer.provider == "codex"
     assert summarizer.model == "gpt-5.4-mini"
+    assert summarizer.timeout_seconds == 240
 
 
 def test_gemini_cli_summarizer_processes_unsummarized(capsys):
