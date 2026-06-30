@@ -31,6 +31,7 @@ public class BillInfoDto {
     private String proposerKind;
     private String proposers;
     private String committee;
+    private String category;
 
     @QueryProjection
     public BillInfoDto(Bill bill) {
@@ -46,6 +47,7 @@ public class BillInfoDto {
         this.proposerKind = bill.getProposerKind() == null ? null : bill.getProposerKind().name();
         this.proposers = bill.getProposers();
         this.committee = bill.getCommittee();
+        this.category = bill.getCategory();
     }
 
     @Deprecated
@@ -64,6 +66,7 @@ public class BillInfoDto {
                 .proposerKind(bill.getProposerKind() == null ? null : bill.getProposerKind().name())
                 .proposers(bill.getProposers())
                 .committee(bill.getCommittee())
+                .category(bill.getCategory())
                 .build();
     }
 

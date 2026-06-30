@@ -1,5 +1,6 @@
 package com.everyones.lawmaking.controller;
 
+import com.everyones.lawmaking.common.dto.CategoryCountDto;
 import com.everyones.lawmaking.common.dto.bill.BillDto;
 import com.everyones.lawmaking.common.dto.response.BillDetailResponse;
 import com.everyones.lawmaking.common.dto.response.BillLikeResponse;
@@ -88,6 +89,33 @@ public class BillController {
     ) {
         var pageable = PageRequest.of(page, size);
         var result = billFacade.getBillList(pageable, stage);
+        return BaseResponse.ok(limitToRequestedSize(result, size));
+    }
+
+    @Operation(summary = "분야별 법안 수 조회", description = "분야(category) 코드별 법안 수를 내림차순으로 가져옵니다. 법안이 없는 분야는 제외됩니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+    })
+    @GetMapping("/categories")
+    public BaseResponse<List<CategoryCountDto>> getCategoryCounts() {
+        return BaseResponse.ok(billFacade.getCategoryCounts());
+    }
+
+    @Operation(summary = "분야별 법안 목록 조회", description = "특정 분야(category)에 속한 법안을 페이지 단위로 가져옵니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+    })
+    @GetMapping("/category")
+    public BaseResponse<BillListResponse> getBillsByCategory(
+            @Parameter(example = "0", description = "스크롤할 때마다 page값을 0에서 1씩 늘려주면 됩니다.")
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @Parameter(example = "3", description = "한번에 가져올 데이터 크기를 의미합니다.")
+            @RequestParam(name = "size", defaultValue = "3") int size,
+            @Parameter(example = "economy", description = "분야 코드입니다.")
+            @RequestParam(name = "category") String category
+    ) {
+        var pageable = PageRequest.of(page, size);
+        var result = billFacade.getBillListByCategory(pageable, category);
         return BaseResponse.ok(limitToRequestedSize(result, size));
     }
 

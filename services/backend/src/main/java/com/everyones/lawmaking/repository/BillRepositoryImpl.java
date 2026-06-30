@@ -8,8 +8,10 @@ import static com.everyones.lawmaking.domain.entity.QParty.party;
 import static com.everyones.lawmaking.domain.entity.QRepresentativeProposer.representativeProposer;
 
 import com.everyones.lawmaking.common.dto.BillInfoDto;
+import com.everyones.lawmaking.common.dto.CategoryCountDto;
 import com.everyones.lawmaking.common.dto.PublicProposerDto;
 import com.everyones.lawmaking.common.dto.QBillInfoDto;
+import com.everyones.lawmaking.common.dto.QCategoryCountDto;
 import com.everyones.lawmaking.common.dto.QPublicProposerDto;
 import com.everyones.lawmaking.common.dto.bill.BillDto;
 import com.everyones.lawmaking.common.dto.proposer.QRepresentativeProposerDto;
@@ -44,6 +46,27 @@ public class BillRepositoryImpl implements BillRepositoryCustom {
     @Override
     public BillListResponse findBillWithDetailAndPage(Pageable pageable, Optional<Long> userIdOptional, String stage) {
         var pagedBill = findPagedBills(pageable, stage);
+        return buildBillListResponse(pagedBill, pageable, userIdOptional);
+    }
+
+    @Override
+    public BillListResponse findBillByCategoryAndPage(Pageable pageable, Optional<Long> userIdOptional, String category) {
+        var pagedBill = findPagedBillsByCategory(pageable, category);
+        return buildBillListResponse(pagedBill, pageable, userIdOptional);
+    }
+
+    @Override
+    public List<CategoryCountDto> countByCategory() {
+        return queryFactory
+                .select(new QCategoryCountDto(bill.category, bill.count()))
+                .from(bill)
+                .where(eqReady(), bill.category.isNotNull())
+                .groupBy(bill.category)
+                .orderBy(bill.count().desc())
+                .fetch();
+    }
+
+    private BillListResponse buildBillListResponse(List<BillInfoDto> pagedBill, Pageable pageable, Optional<Long> userIdOptional) {
         var isLastPage = PaginationUtil.hasNextPage(pagedBill, pageable.getPageSize());
         var pagination = PaginationResponse.of(isLastPage, pageable.getPageNumber());
         var billIds = extractBillIds(pagedBill);
@@ -53,10 +76,21 @@ public class BillRepositoryImpl implements BillRepositoryCustom {
         var billDtoList = createBillDtoList(pagedBill, representativeProposerMap, publicProposerMap, billLikeMap);
         return BillListResponse.of(pagination, billDtoList);
     }
+
     private List<BillInfoDto> findPagedBills(Pageable pageable, String stage) {
         return queryFactory.select(new QBillInfoDto(bill))
                 .from(bill)
                 .where(eqReady(), hasText(bill.briefSummary), hasText(bill.gptSummary), eqStage(stage))
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize() + 1)
+                .orderBy(bill.proposeDate.desc(), bill.id.desc())
+                .fetch();
+    }
+
+    private List<BillInfoDto> findPagedBillsByCategory(Pageable pageable, String category) {
+        return queryFactory.select(new QBillInfoDto(bill))
+                .from(bill)
+                .where(eqReady(), hasText(bill.briefSummary), hasText(bill.gptSummary), bill.category.eq(category))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize() + 1)
                 .orderBy(bill.proposeDate.desc(), bill.id.desc())
