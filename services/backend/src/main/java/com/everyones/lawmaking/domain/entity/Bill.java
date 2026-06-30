@@ -63,6 +63,9 @@ import java.util.List;
 
     private String committee;
 
+    @Column(name = "category")
+    private String category;
+
     @Column(name = "propose_date")
     private LocalDate proposeDate;
 

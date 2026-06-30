@@ -114,6 +114,7 @@ def test_gemini_instant_provider_uses_response_json_schema():
                         brief_summary="짧은 요약",
                         gpt_summary="상세 요약",
                         tags=["태그1", "태그2", "태그3", "태그4", "태그5"],
+                        category="경제·세금",
                     ).model_dump_json(by_alias=True)
                 )
             )

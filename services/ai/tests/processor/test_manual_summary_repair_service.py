@@ -138,4 +138,5 @@ def test_manual_summary_repair_upserts_successful_items():
         gpt_summary="상세1",
         summary_tags='["a","b","c","d","e"]',
         mode="test",
+        category=None,
     )

@@ -40,6 +40,15 @@ public class BillService {
         return billRepository.findBillWithDetailAndPage(pageable, userIdOptional, stage);
     }
 
+    public BillListResponse getBillListByCategory(Pageable pageable, String category) {
+        var userIdOptional = AuthenticationUtil.getUserId();
+        return billRepository.findBillByCategoryAndPage(pageable, userIdOptional, category);
+    }
+
+    public List<CategoryCountDto> getCategoryCounts() {
+        return billRepository.countByCategory();
+    }
+
     public BillDetailResponse getBillWithDetail(String billId) {
         var bill = billRepository.findBillById(billId)
                 .orElseThrow(() -> new BillException.BillNotFound(Map.of(BILL_ID_KEY_STRING, billId)));

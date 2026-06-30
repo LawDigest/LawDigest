@@ -101,6 +101,7 @@ def apply_batch_results_for_provider(
     success = failed = 0
     with conn.cursor() as cursor:
         include_summary_tags = bill_table_has_column(cursor, "summary_tags")
+        include_category = bill_table_has_column(cursor, "category")
         for result in parsed_results:
             if not result.bill_id:
                 failed += 1
@@ -123,6 +124,8 @@ def apply_batch_results_for_provider(
                 summary_tags=result.tags,
                 bill_id=result.bill_id,
                 include_summary_tags=include_summary_tags,
+                category=result.category,
+                include_category=include_category,
             )
             bill_updated = cursor.execute(update_sql, update_params)
             if not bill_updated:

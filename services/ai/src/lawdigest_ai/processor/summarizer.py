@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from lawdigest_ai.config import SUMMARY_STRUCTURED_MODEL, SUMMARY_STRUCTURED_FALLBACK_MODEL
 from lawdigest_ai.processor.providers.openai_batch import BatchStructuredSummary, _build_prompt_for_bill
+from lawdigest_ai.processor.category_taxonomy import category_label_to_code
 
 import pandas as pd
 
@@ -77,6 +78,7 @@ class AISummarizer:
             df_bills.loc[idx, "brief_summary"] = result.brief_summary
             df_bills.loc[idx, "gpt_summary"] = result.gpt_summary
             df_bills.loc[idx, "summary_tags"] = json.dumps(result.tags, ensure_ascii=False)
+            df_bills.loc[idx, "category"] = category_label_to_code(result.category)
             success += 1
 
         print(f"[AI 구조화 요약 완료] 성공={success}, 실패={len(to_process) - success}")

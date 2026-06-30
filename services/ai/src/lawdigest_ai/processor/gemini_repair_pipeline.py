@@ -114,6 +114,7 @@ def _normalize_item(
         "ai_title": ai_title,
         "ai_summary": ai_summary,
         "summary_tags": row.get("summary_tags"),
+        "category": row.get("category"),
         "status": "failed" if error else "success",
         "error": error,
     }
@@ -144,6 +145,7 @@ def _upsert_successful_item(item: Dict[str, Any], mode: str) -> bool:
         gpt_summary=item.get("ai_summary"),
         summary_tags=item.get("summary_tags"),
         mode=_db_mode_for_execution(mode),
+        category=item.get("category"),
     )
     return True
 

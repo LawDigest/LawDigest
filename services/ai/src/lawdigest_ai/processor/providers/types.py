@@ -24,6 +24,7 @@ class BatchProviderParseResult:
     gpt_summary: str | None
     tags: list[str] | None
     error: str | None
+    category: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +43,7 @@ class InstantProviderResult:
     gpt_summary: str | None
     summary_tags: str | None
     error: str | None
+    category: str | None = None
 
 
 class BatchProviderBase(ProviderBase, ABC):
@@ -184,6 +186,7 @@ class OpenAIInstantProvider(InstantProviderBase):
                     gpt_summary=row.get("gpt_summary"),
                     summary_tags=_normalize_summary_tags(row.get("summary_tags")),
                     error=error,
+                    category=row.get("category"),
                 )
             )
         return results
@@ -212,6 +215,7 @@ class GeminiInstantProvider(InstantProviderBase):
 
         from lawdigest_ai.processor.providers.gemini_batch import SYSTEM_INSTRUCTION
         from lawdigest_ai.processor.providers.openai_batch import BatchStructuredSummary, _build_prompt_for_bill
+        from lawdigest_ai.processor.category_taxonomy import category_label_to_code
         from lawdigest_ai.observability import trace_generation, trace_span
 
         if not model:
@@ -253,6 +257,7 @@ class GeminiInstantProvider(InstantProviderBase):
                                 gpt_summary=parsed.gpt_summary,
                                 summary_tags=_normalize_summary_tags(parsed.tags),
                                 error=None,
+                                category=category_label_to_code(parsed.category),
                             )
                         )
                         if generation is not None:

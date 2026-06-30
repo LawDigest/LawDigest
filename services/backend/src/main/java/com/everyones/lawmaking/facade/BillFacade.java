@@ -1,5 +1,6 @@
 package com.everyones.lawmaking.facade;
 
+import com.everyones.lawmaking.common.dto.CategoryCountDto;
 import com.everyones.lawmaking.common.dto.PartyVoteDto;
 import com.everyones.lawmaking.common.dto.VoteResultResponse;
 import com.everyones.lawmaking.common.dto.bill.BillDto;
@@ -122,6 +123,14 @@ public class BillFacade {
     @Transactional(readOnly = true)
     public BillListResponse getBillList(Pageable pageable, String stage) {
         return billService.getBillList(pageable, stage);
+    }
+    @Transactional(readOnly = true)
+    public BillListResponse getBillListByCategory(Pageable pageable, String category) {
+        return billService.getBillListByCategory(pageable, category);
+    }
+    @Transactional(readOnly = true)
+    public List<CategoryCountDto> getCategoryCounts() {
+        return billService.getCategoryCounts();
     }
     public CountDto getBookmarkedBillCount() {
         var userId = AuthenticationUtil.getUserId();

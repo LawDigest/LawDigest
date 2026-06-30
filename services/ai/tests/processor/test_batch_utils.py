@@ -24,7 +24,7 @@ def test_build_batch_request_rows_structure():
 
 def test_parse_output_jsonl_line_success():
     summary = BatchStructuredSummary(
-        brief_summary="요약", gpt_summary="상세", tags=["a", "b", "c", "d", "e"]
+        brief_summary="요약", gpt_summary="상세", tags=["a", "b", "c", "d", "e"], category="경제·세금"
     )
     content = summary.model_dump_json(by_alias=True)
     line = json.dumps({
@@ -34,9 +34,10 @@ def test_parse_output_jsonl_line_success():
             "body": {"choices": [{"message": {"content": content}}]}
         }
     })
-    bill_id, brief, gpt, tags, err = parse_output_jsonl_line(line)
+    bill_id, brief, gpt, tags, category, err = parse_output_jsonl_line(line)
     assert bill_id == "B001"
     assert brief == "요약"
+    assert category == "economy"
     assert err is None
 
 
@@ -45,7 +46,7 @@ def test_parse_output_jsonl_line_error():
         "custom_id": "B001",
         "response": {"status_code": 500, "body": {}}
     })
-    bill_id, brief, gpt, tags, err = parse_output_jsonl_line(line)
+    bill_id, brief, gpt, tags, category, err = parse_output_jsonl_line(line)
     assert err is not None
     assert brief is None
 
@@ -56,7 +57,7 @@ def test_parse_output_jsonl_line_surfaces_top_level_openai_error():
         "error": {"code": "invalid_request_error", "message": "row failed before response"},
     })
 
-    bill_id, brief, gpt, tags, err = parse_output_jsonl_line(line)
+    bill_id, brief, gpt, tags, category, err = parse_output_jsonl_line(line)
 
     assert bill_id == "B001"
     assert brief is None
@@ -78,10 +79,41 @@ def test_build_bill_summary_update_omits_summary_tags_when_column_absent():
     assert params == ("요약", "상세", "B001")
 
 
+def test_build_bill_summary_update_includes_category_when_present():
+    sql, params = build_bill_summary_update(
+        brief_summary="요약",
+        gpt_summary="상세",
+        summary_tags=None,
+        bill_id="B001",
+        include_summary_tags=False,
+        category="economy",
+        include_category=True,
+    )
+
+    assert "category=%s" in sql
+    assert "economy" in params
+
+
+def test_build_bill_summary_update_skips_category_when_none():
+    """미분류 경로가 기존 분류를 NULL로 덮지 않도록, category=None이면 절(clause) 생략."""
+    sql, params = build_bill_summary_update(
+        brief_summary="요약",
+        gpt_summary="상세",
+        summary_tags=None,
+        bill_id="B001",
+        include_summary_tags=False,
+        category=None,
+        include_category=True,
+    )
+
+    assert "category" not in sql
+    assert params == ("요약", "상세", "B001")
+
+
 def test_apply_batch_results_success_and_partial_failure():
     """성공 라인과 실패 라인이 섞인 JSONL에서 각각 올바르게 처리되는지 확인."""
     summary = BatchStructuredSummary(
-        brief_summary="요약", gpt_summary="상세", tags=["a", "b", "c", "d", "e"]
+        brief_summary="요약", gpt_summary="상세", tags=["a", "b", "c", "d", "e"], category="경제·세금"
     )
     success_line = json.dumps({
         "custom_id": "B001",

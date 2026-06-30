@@ -15,6 +15,7 @@ export interface BillResponse {
     proposer_kind?: 'CONGRESSMAN' | 'CHAIRMAN' | 'GOVERNMENT' | string | null;
     proposers?: string | null;
     committee?: string | null;
+    category?: string | null;
   };
   representative_proposer_dto_list: {
     representative_proposer_id: string;

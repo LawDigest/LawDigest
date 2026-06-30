@@ -26,6 +26,7 @@ def _result_to_dict(result: InstantProviderResult) -> Dict[str, Any]:
         "brief_summary": result.brief_summary,
         "gpt_summary": result.gpt_summary,
         "summary_tags": result.summary_tags,
+        "category": result.category,
         "error": result.error,
     }
 

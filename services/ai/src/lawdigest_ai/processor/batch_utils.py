@@ -44,9 +44,16 @@ def openai_download_file_content(file_id: str) -> str:
 
 def parse_output_jsonl_line(
     line: str,
-) -> Tuple[str, Optional[str], Optional[str], Optional[List[str]], Optional[str]]:
+) -> Tuple[str, Optional[str], Optional[str], Optional[List[str]], Optional[str], Optional[str]]:
     result = OpenAIBatchProvider().parse_output_line(line)
-    return result.bill_id, result.brief_summary, result.gpt_summary, result.tags, result.error
+    return (
+        result.bill_id,
+        result.brief_summary,
+        result.gpt_summary,
+        result.tags,
+        result.category,
+        result.error,
+    )
 
 
 def bill_table_has_column(cursor: pymysql.cursors.Cursor, column_name: str) -> bool:
@@ -61,12 +68,18 @@ def build_bill_summary_update(
     summary_tags: list[str] | None,
     bill_id: str,
     include_summary_tags: bool,
+    category: str | None = None,
+    include_category: bool = False,
 ) -> tuple[str, tuple[Any, ...]]:
     set_clauses = ["brief_summary=%s", "gpt_summary=%s"]
     params: list[Any] = [brief_summary, gpt_summary]
     if include_summary_tags:
         set_clauses.append("summary_tags=%s")
         params.append(json.dumps(summary_tags or [], ensure_ascii=False))
+    # category는 값이 있을 때만 기록(미분류 경로가 기존 분류를 NULL로 덮지 않도록).
+    if include_category and category is not None:
+        set_clauses.append("category=%s")
+        params.append(category)
     set_clauses.append("modified_date=NOW()")
     params.append(bill_id)
     return f"UPDATE Bill SET {', '.join(set_clauses)} WHERE bill_id=%s", tuple(params)
@@ -221,8 +234,9 @@ def apply_batch_results(
     success = failed = 0
     with conn.cursor() as cursor:
         include_summary_tags = bill_table_has_column(cursor, "summary_tags")
+        include_category = bill_table_has_column(cursor, "category")
         for line in [l for l in output_jsonl.splitlines() if l.strip()]:  # noqa: E741
-            bill_id, brief, gpt, tags, err = parse_output_jsonl_line(line)
+            bill_id, brief, gpt, tags, category, err = parse_output_jsonl_line(line)
             if not bill_id:
                 failed += 1
                 continue
@@ -240,6 +254,8 @@ def apply_batch_results(
                 summary_tags=tags,
                 bill_id=bill_id,
                 include_summary_tags=include_summary_tags,
+                category=category,
+                include_category=include_category,
             )
             cursor.execute(update_sql, update_params)
             cursor.execute(
