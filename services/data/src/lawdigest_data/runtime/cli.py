@@ -13,10 +13,10 @@ def _print_result(result: dict) -> None:
 
 def _add_cli_summary_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
-    parser.add_argument("--cli-provider", default="gemini", choices=["gemini", "codex", "claude"])
-    parser.add_argument("--limit", type=int, default=20)
-    parser.add_argument("--batch-size", type=int, default=5)
-    parser.add_argument("--output-path", default="/tmp/gemini_ai_summary_results.json")
+    parser.add_argument("--cli-provider", default="codex", choices=["gemini", "codex", "claude"])
+    parser.add_argument("--limit", "--total-limit", dest="limit", type=int, default=20, help="총 처리 요청 건수")
+    parser.add_argument("--batch-size", type=int, default=5, help="한 chunk 처리 건수. ai-summary 계열은 최대 5로 제한")
+    parser.add_argument("--output-path", default="/tmp/lawdigest_ai_summary_results.json")
     parser.add_argument("--stop-on-error", action="store_true")
     parser.add_argument("--read-mode", choices=["test", "prod"])
     parser.add_argument("--target-mode", default="missing", choices=["missing", "latest"])
@@ -40,6 +40,10 @@ def build_parser() -> argparse.ArgumentParser:
     status_sync.add_argument("--end-date")
     status_sync.add_argument("--age", default="22")
 
+    search_rebuild = subparsers.add_parser("bill-search-rebuild", help="법안 검색 문서 비동기 재빌드")
+    search_rebuild.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod", "test_db"])
+    search_rebuild.add_argument("--limit", type=int, default=500)
+
     batch_submit = subparsers.add_parser("ai-batch-submit", help="provider batch 요약 요청 제출")
     batch_submit.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
     batch_submit.add_argument("--provider", default="openai", choices=["openai", "gemini"])
@@ -59,7 +63,7 @@ def build_parser() -> argparse.ArgumentParser:
     native_repair.add_argument("--model")
     native_repair.add_argument("--output-path", default="/tmp/lawdigest_missing_summaries.json")
 
-    realtime_summary = subparsers.add_parser("ai-summary", help="Gemini CLI 기반 실시간 결측 요약")
+    realtime_summary = subparsers.add_parser("ai-summary", help="Codex CLI 기반 실시간 결측 요약")
     _add_cli_summary_args(realtime_summary)
 
     cli_repair = subparsers.add_parser("ai-repair-cli", help="Gemini/Codex/Claude CLI 기반 결측 요약 복구")
@@ -101,6 +105,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             start_date=args.start_date,
             end_date=args.end_date,
             age=args.age,
+        )
+    elif args.command == "bill-search-rebuild":
+        result = runtime.run_bill_search_rebuild(
+            mode=args.mode,
+            limit=args.limit,
         )
     elif args.command == "ai-batch-submit":
         result = runtime.run_ai_batch_submit(

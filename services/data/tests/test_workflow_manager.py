@@ -206,7 +206,7 @@ def test_bill_ingest_persists_chairman_alternative_relations(tmp_path):
     )
 
 
-def test_fetch_bills_data_step_persists_discovered_candidates_in_test_mode(tmp_path):
+def test_fetch_bills_data_step_skips_discovered_candidates_without_summary_in_test_mode(tmp_path):
     df_candidates = _build_candidate_df()
     db = Mock()
     manager = WorkFlowManager("test")
@@ -217,12 +217,46 @@ def test_fetch_bills_data_step_persists_discovered_candidates_in_test_mode(tmp_p
         fetched = manager.fetch_bills_data_step(start_date="2026-01-01", end_date="2026-01-01", age="22")
 
     assert fetched["fetched"] == 1
-    assert fetched["discovered"] == 1
+    assert fetched["discovered"] == 0
+    db.insert_bill_info.assert_not_called()
+    db.upsert_ingest_checkpoint.assert_not_called()
+
+
+def test_upsert_bills_data_step_skips_rows_without_summary(tmp_path):
+    artifact = tmp_path / "processed.json"
+    artifact.write_text(
+        json.dumps(
+            {
+                "bills": [
+                    {
+                        "bill_id": "BILL-1",
+                        "summary": None,
+                        "assembly_number": 22,
+                        "propose_date": "2026-01-01",
+                    },
+                    {
+                        "bill_id": "BILL-2",
+                        "summary": "요약",
+                        "assembly_number": 22,
+                        "propose_date": "2026-01-02",
+                    },
+                ],
+                "alternatives": [],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    db = Mock()
+    manager = WorkFlowManager("test")
+
+    with patch.object(WorkFlowManager, "_build_db_manager", return_value=db):
+        result = manager.upsert_bills_data_step(str(artifact))
+
+    assert result["upserted"] == 1
     db.insert_bill_info.assert_called_once()
     inserted_rows = db.insert_bill_info.call_args.args[0]
-    assert inserted_rows[0]["bill_id"] == "BILL-1"
-    assert inserted_rows[0]["ingest_status"] == "PARTIAL"
-    db.upsert_ingest_checkpoint.assert_called_once()
+    assert [row["bill_id"] for row in inserted_rows] == ["BILL-2"]
 
 
 def test_build_bill_rows_sets_ready_status_for_public_bill():

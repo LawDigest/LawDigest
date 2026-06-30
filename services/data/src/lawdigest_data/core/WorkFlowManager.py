@@ -11,6 +11,7 @@ import pandas as pd
 
 from ..bills.DataFetcher import DataFetcher
 from ..bills.DataProcessor import DataProcessor
+from ..bills.search_document import build_bill_search_documents
 from ..connectors.DatabaseManager import DatabaseManager
 from ..bills.constants import ProposerKindType
 
@@ -216,6 +217,10 @@ class WorkFlowManager:
             )
         return rows
 
+    @staticmethod
+    def _rows_with_summary(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        return [row for row in rows if str(row.get("summary") or "").strip()]
+
     def _build_bill_alternative_rows(self, df_alternatives: pd.DataFrame | None) -> List[Dict[str, Any]]:
         if df_alternatives is None or df_alternatives.empty:
             return []
@@ -402,6 +407,10 @@ class WorkFlowManager:
         if not rows or self.mode == "dry_run":
             return 0
 
+        rows = self._rows_with_summary(rows)
+        if not rows:
+            return 0
+
         db = self._build_db_manager(self.mode)
         db.insert_bill_info(rows)
         max_propose_date = max((row.get("propose_date") for row in rows if row.get("propose_date")), default=None)
@@ -419,6 +428,20 @@ class WorkFlowManager:
 
         db = self._build_db_manager(self.mode)
         return db.insert_bill_alternatives(rows)
+
+    def rebuild_bill_search_documents(self, limit: int = 500) -> Dict[str, Any]:
+        if self.mode == "dry_run":
+            return {"mode": self.mode, "candidates": 0, "rebuilt": 0}
+
+        db = self._build_db_manager(self.mode)
+        candidates = db.fetch_bill_search_document_candidates(limit=limit)
+        documents = build_bill_search_documents(candidates)
+        rebuilt = db.upsert_bill_search_documents(documents)
+        return {
+            "mode": self.mode,
+            "candidates": len(candidates),
+            "rebuilt": rebuilt,
+        }
 
     def fetch_bills_data_step(
         self,
@@ -553,6 +576,11 @@ class WorkFlowManager:
             )
             return {"mode": self.mode, "upserted": 0, "alternatives_upserted": 0}
 
+        rows = self._rows_with_summary(rows)
+        kept_bill_ids = {row.get("bill_id") for row in rows}
+        alternative_rows = [
+            row for row in alternative_rows if row.get("alternative_bill_id") in kept_bill_ids
+        ]
         upserted = self._persist_bill_rows(
             rows,
             source_name="bill_ingest",
