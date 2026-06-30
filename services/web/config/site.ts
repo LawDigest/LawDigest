@@ -1,4 +1,4 @@
-import { IconElection, IconHome, IconMyPage, IconTimeline } from '@/public/svgs';
+import { IconExplore, IconHome, IconMyPage, IconTimeline } from '@/public/svgs';
 
 export type SiteConfig = typeof siteConfig;
 
@@ -28,9 +28,9 @@ export const siteConfig = {
       IconComponent: IconTimeline,
     },
     {
-      label: '선거',
-      href: '/election',
-      IconComponent: IconElection,
+      label: '탐색',
+      href: '/explore',
+      IconComponent: IconExplore,
     },
     {
       label: '마이페이지',
