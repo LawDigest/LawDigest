@@ -93,6 +93,7 @@ def update_bill_summary(
     gpt_summary: str | None,
     summary_tags: str | None,
     mode: str = "test",
+    category: str | None = None,
 ) -> None:
     """Bill 테이블의 AI 요약 컬럼을 업데이트합니다."""
     bill_columns = get_bill_table_columns(mode=mode)
@@ -103,6 +104,10 @@ def update_bill_summary(
         if "summary_tags" in bill_columns:
             set_clauses.append("summary_tags=%s")
             params.append(summary_tags)
+        # category는 값이 있을 때만 기록(미분류 경로가 기존 분류를 NULL로 덮지 않도록).
+        if category is not None and "category" in bill_columns:
+            set_clauses.append("category=%s")
+            params.append(category)
         params.append(bill_id)
         with conn.cursor() as cur:
             cur.execute(

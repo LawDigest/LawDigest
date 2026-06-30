@@ -105,6 +105,7 @@ def _normalize_item(row: Dict[str, Any], failure_map: Dict[str, str]) -> Dict[st
         "ai_title": ai_title,
         "ai_summary": ai_summary,
         "summary_tags": row.get("summary_tags"),
+        "category": row.get("category"),
         "status": "failed" if error else "success",
         "error": error,
     }
@@ -121,6 +122,7 @@ def _upsert_successful_items(items: List[Dict[str, Any]], mode: str) -> int:
             gpt_summary=item.get("ai_summary"),
             summary_tags=item.get("summary_tags"),
             mode=_db_mode_for_execution(mode),
+            category=item.get("category"),
         )
         upserted += 1
     return upserted

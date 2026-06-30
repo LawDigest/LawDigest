@@ -1029,6 +1029,7 @@ def run_agentic_bill_reports(
                 gpt_summary=payload.get("gpt_summary"),
                 summary_tags=payload.get("summary_tags"),
                 mode=_db_mode_for_execution(mode),
+                category=payload.get("category"),
             )
             db_upserted_count += 1
 

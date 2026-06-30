@@ -615,7 +615,7 @@ def test_provider_batch_apply_results_uses_provider_parse_output_lines():
     cursor.__exit__ = MagicMock(return_value=False)
     cursor.fetchall.return_value = [{"bill_id": "B001"}]
     cursor.rowcount = 0
-    cursor.execute.side_effect = [None, None, 1, 1, 0, None]
+    cursor.execute.side_effect = [None, None, None,1, 1, 0, None]
     conn.cursor.return_value = cursor
 
     provider = MagicMock()
@@ -654,7 +654,7 @@ def test_provider_batch_apply_results_is_idempotent_for_already_processed_items(
     cursor.__exit__ = MagicMock(return_value=False)
     cursor.fetchall.return_value = [{"bill_id": "B001"}]
     cursor.rowcount = 0
-    cursor.execute.side_effect = [None, None, 1, 0, 0, None]
+    cursor.execute.side_effect = [None, None, None,1, 0, 0, None]
     conn.cursor.return_value = cursor
 
     provider = MagicMock()
@@ -687,7 +687,7 @@ def test_provider_batch_apply_results_marks_missing_bill_row_as_failed():
     cursor.__exit__ = MagicMock(return_value=False)
     cursor.fetchall.return_value = [{"bill_id": "B001"}]
     cursor.rowcount = 0
-    cursor.execute.side_effect = [None, None, 0, 1, 0, None]
+    cursor.execute.side_effect = [None, None, None,0, 1, 0, None]
     conn.cursor.return_value = cursor
 
     provider = MagicMock()

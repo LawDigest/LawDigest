@@ -66,6 +66,7 @@ def _to_report_item(source: Dict[str, Any], result: Dict[str, Any]) -> Dict[str,
         "brief_summary": result.get("brief_summary"),
         "gpt_summary": result.get("gpt_summary"),
         "summary_tags": result.get("summary_tags"),
+        "category": result.get("category"),
         "status": "failed" if error else "success",
         "error": error,
     }
@@ -82,6 +83,7 @@ def _upsert_successful_items(items: List[Dict[str, Any]], mode: str) -> int:
             gpt_summary=item.get("gpt_summary"),
             summary_tags=item.get("summary_tags"),
             mode=_db_mode_for_execution(mode),
+            category=item.get("category"),
         )
         upserted += 1
     return upserted
