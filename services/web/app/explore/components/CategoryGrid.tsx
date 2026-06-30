@@ -29,8 +29,7 @@ export default function CategoryGrid({ selected, onSelect }: CategoryGridProps) 
             aria-pressed={active}
             className={`flex flex-col items-start gap-2 rounded-2xl border p-4 text-left transition ${
               active ? 'border-primary-2 bg-primary-1' : 'border-gray-1 bg-white hover:bg-primary-1'
-            }`}
-          >
+            }`}>
             <span className="material-symbols-outlined text-[26px] text-primary-3">{meta.icon}</span>
             <span className="text-[15px] font-bold text-primary-3">{meta.label}</span>
             <span className="text-[13px] text-gray-2">{count.toLocaleString()}건</span>
