@@ -24,7 +24,7 @@ def test_build_batch_request_rows_structure():
 
 def test_parse_output_jsonl_line_success():
     summary = BatchStructuredSummary(
-        brief_summary="요약", gpt_summary="상세", tags=["a", "b", "c", "d", "e"]
+        brief_summary="요약", gpt_summary="상세", tags=["a", "b", "c", "d", "e"], category="경제·세금"
     )
     content = summary.model_dump_json(by_alias=True)
     line = json.dumps({
@@ -81,7 +81,7 @@ def test_build_bill_summary_update_omits_summary_tags_when_column_absent():
 def test_apply_batch_results_success_and_partial_failure():
     """성공 라인과 실패 라인이 섞인 JSONL에서 각각 올바르게 처리되는지 확인."""
     summary = BatchStructuredSummary(
-        brief_summary="요약", gpt_summary="상세", tags=["a", "b", "c", "d", "e"]
+        brief_summary="요약", gpt_summary="상세", tags=["a", "b", "c", "d", "e"], category="경제·세금"
     )
     success_line = json.dumps({
         "custom_id": "B001",

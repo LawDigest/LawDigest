@@ -11,6 +11,7 @@ from lawdigest_ai.processor.providers.openai_batch import (
     BatchStructuredSummary,
     _build_prompt_for_bill,
 )
+from lawdigest_ai.processor.category_taxonomy import category_label_to_code
 from lawdigest_ai.processor.providers.types import (
     BatchProviderBase,
     BatchProviderJobState,
@@ -229,4 +230,5 @@ class GeminiBatchProvider(BatchProviderBase):
             gpt_summary=parsed.gpt_summary,
             tags=parsed.tags,
             error=None,
+            category=category_label_to_code(parsed.category),
         )

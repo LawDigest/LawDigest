@@ -21,7 +21,8 @@ def test_summarizer_processes_unsummarized():
     mock_result = StructuredBillSummary(
         brief_summary="요약 제목",
         gpt_summary="상세 요약 내용",
-        tags=["세금", "부동산", "의회", "법안", "개정"]
+        tags=["세금", "부동산", "의회", "법안", "개정"],
+        category="경제·세금",
     )
     with patch.object(AISummarizer, "_summarize_one", return_value=mock_result):
         summarizer = AISummarizer()
@@ -34,6 +35,7 @@ def test_summarizer_processes_unsummarized():
         result = summarizer.AI_structured_summarize(df)
     assert result.iloc[0]["brief_summary"] == "요약 제목"
     assert result.iloc[0]["gpt_summary"] == "상세 요약 내용"
+    assert result.iloc[0]["category"] == "economy"
 
 
 def test_pydantic_ai_summarizer_reuses_batch_prompt():
@@ -49,7 +51,8 @@ def test_pydantic_ai_summarizer_reuses_batch_prompt():
     })
 
     assert "다음 법안 정보를 보고 JSON으로만 응답하세요." in prompt
-    assert "키는 briefSummary, gptSummary, tags 세 개만 포함해야 합니다." in prompt
+    assert "키는 briefSummary, gptSummary, tags, category 네 개만 포함해야 합니다." in prompt
+    assert "category는 아래 17개 분야" in prompt
     assert "기존 DB 스타일의 긴 제목형 요약" in prompt
     assert "[핵심 변경 목적/수단]을/를 위한 [정확한 bill_name]" in prompt
     assert "입력 payload의 bill_name과 같은 법안명으로 끝나야 합니다." in prompt

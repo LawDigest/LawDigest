@@ -35,6 +35,7 @@ from lawdigest_ai.processor.providers.openai_batch import (
     BatchStructuredSummary,
     _build_prompt_for_bill,
 )
+from lawdigest_ai.processor.category_taxonomy import category_label_to_code
 
 
 CliProviderName = Literal["gemini", "codex", "claude"]
@@ -113,7 +114,7 @@ class GeminiCliSummarizer:
             "위 요청은 기존 API 기반 요약과 같은 프롬프트입니다.\n"
             "응답은 Pydantic structured output 계약과 같은 아래 JSON Schema를 반드시 준수하세요.\n"
             "JSON 객체 외의 설명, 마크다운, 코드펜스는 출력하지 마세요.\n"
-            "키는 briefSummary, gptSummary, tags 세 개만 허용됩니다.\n"
+            "키는 briefSummary, gptSummary, tags, category 네 개만 허용됩니다.\n"
             "brief_summary/gpt_summary 같은 snake_case 키를 사용하지 마세요.\n"
             f"{schema}"
         )
@@ -407,6 +408,7 @@ class GeminiCliSummarizer:
                     df_bills.loc[idx, "brief_summary"] = result.brief_summary
                     df_bills.loc[idx, "gpt_summary"] = result.gpt_summary
                     df_bills.loc[idx, "summary_tags"] = json.dumps(result.tags, ensure_ascii=False)
+                    df_bills.loc[idx, "category"] = category_label_to_code(result.category)
                     success += 1
                     if generation is not None:
                         generation.update(output={"bill_id": bill_id})

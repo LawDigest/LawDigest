@@ -168,6 +168,7 @@ def test_parse_output_line_reads_text_parts_and_validates_shared_schema():
         brief_summary="요약",
         gpt_summary="상세",
         tags=["태그1", "태그2", "태그3", "태그4", "태그5"],
+        category="경제·세금",
     ).model_dump_json(by_alias=True)
     split_at = len(summary) // 2
     line = json.dumps(
@@ -207,6 +208,7 @@ def test_parse_output_line_supports_raw_success_shape_without_key():
         brief_summary="원시 요약",
         gpt_summary="원시 상세",
         tags=["원시1", "원시2", "원시3", "원시4", "원시5"],
+        category="경제·세금",
     ).model_dump_json(by_alias=True)
     line = json.dumps(
         {
@@ -241,11 +243,13 @@ def test_parse_output_lines_maps_raw_success_rows_to_expected_bill_ids():
         brief_summary="첫 번째 요약",
         gpt_summary="첫 번째 상세",
         tags=["태그1", "태그2", "태그3", "태그4", "태그5"],
+        category="경제·세금",
     ).model_dump_json(by_alias=True)
     summary_two = BatchStructuredSummary(
         brief_summary="두 번째 요약",
         gpt_summary="두 번째 상세",
         tags=["태그6", "태그7", "태그8", "태그9", "태그10"],
+        category="경제·세금",
     ).model_dump_json(by_alias=True)
     output_jsonl = "\n".join(
         [

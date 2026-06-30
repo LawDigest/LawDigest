@@ -16,6 +16,7 @@ def test_gemini_cli_summarizer_processes_unsummarized():
                     "briefSummary": "요약 제목",
                     "gptSummary": "상세 요약 내용",
                     "tags": ["세금", "부동산", "의회", "법안", "개정"],
+                    "category": "경제·세금",
                 },
                 ensure_ascii=False,
             )
@@ -50,6 +51,7 @@ def test_gemini_cli_summarizer_processes_unsummarized():
 
     assert result.iloc[0]["brief_summary"] == "요약 제목"
     assert result.iloc[0]["gpt_summary"] == "상세 요약 내용"
+    assert result.iloc[0]["category"] == "economy"
 
 
 def test_gemini_cli_summarizer_records_failures():
@@ -85,6 +87,7 @@ def test_gemini_cli_summarizer_falls_back_to_codex_on_primary_failure():
             "briefSummary": "Codex 대체 제목",
             "gptSummary": "Codex 대체 상세",
             "tags": ["대체", "요약", "CLI", "장애", "복구"],
+            "category": "정치·행정",
         },
         ensure_ascii=False,
     )
@@ -136,7 +139,9 @@ def test_gemini_cli_summarizer_reuses_api_prompt_and_schema():
     )
 
     assert "다음 법안 정보를 보고 JSON으로만 응답하세요." in prompt
-    assert "키는 briefSummary, gptSummary, tags 세 개만 포함해야 합니다." in prompt
+    assert "키는 briefSummary, gptSummary, tags, category 네 개만 포함해야 합니다." in prompt
+    assert "category는 아래 17개 분야" in prompt
+    assert "키는 briefSummary, gptSummary, tags, category 네 개만 허용됩니다." in prompt
     assert "기존 DB 스타일의 긴 제목형 요약" in prompt
     assert "[핵심 변경 목적/수단]을/를 위한 [정확한 bill_name]" in prompt
     assert "입력 payload의 bill_name과 같은 법안명으로 끝나야 합니다." in prompt
@@ -204,6 +209,7 @@ def test_cli_summarizer_runs_provider_headless_command(provider, expected_tokens
             "briefSummary": "CLI 제목",
             "gptSummary": "CLI 상세",
             "tags": ["정책", "법안", "국회", "개정", "제도"],
+            "category": "정치·행정",
         },
         ensure_ascii=False,
     )

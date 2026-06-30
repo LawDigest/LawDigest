@@ -19,6 +19,11 @@ from lawdigest_ai.processor.providers.types import (
     BatchProviderParseResult,
     ProviderName,
 )
+from lawdigest_ai.processor.category_taxonomy import (
+    CategoryLabel,
+    build_category_prompt_block,
+    category_label_to_code,
+)
 
 
 class BatchStructuredSummary(BaseModel):
@@ -33,6 +38,10 @@ class BatchStructuredSummary(BaseModel):
     )
     gpt_summary: str = Field(alias="gptSummary")
     tags: List[str] = Field(alias="tags", min_length=5, max_length=5)
+    category: CategoryLabel = Field(
+        alias="category",
+        description="법안 내용에 가장 부합하는 17개 생활영역 분야 라벨 중 정확히 1개.",
+    )
 
 
 def _build_prompt_for_bill(row: Dict[str, Any]) -> str:
@@ -51,7 +60,7 @@ def _build_prompt_for_bill(row: Dict[str, Any]) -> str:
     }
     return (
         "다음 법안 정보를 보고 JSON으로만 응답하세요.\n"
-        "키는 briefSummary, gptSummary, tags 세 개만 포함해야 합니다.\n"
+        "키는 briefSummary, gptSummary, tags, category 네 개만 포함해야 합니다.\n"
         "briefSummary는 기존 DB 스타일의 긴 제목형 요약으로 작성하세요.\n"
         "briefSummary 형식은 가능한 한 '[핵심 변경 목적/수단]을/를 위한 [정확한 bill_name]' 구조를 따르세요.\n"
         "briefSummary는 반드시 입력 payload의 bill_name과 같은 법안명으로 끝나야 합니다.\n"
@@ -63,7 +72,8 @@ def _build_prompt_for_bill(row: Dict[str, Any]) -> str:
         f"2) 다음 줄부터 {SUMMARY_LIST_GUIDELINE}\n"
         "3) 마지막에 한 단락으로 '이 법안의 취지는 ...' 형태의 종결 문단을 추가\n"
         "각 항목은 한 문장으로 핵심만 기술하고, 전체는 JSON 문자열에 그대로 담겨도 무방하게 작성하세요.\n"
-        "tags는 중복 없는 한국어 태그 정확히 5개입니다.\n\n"
+        "tags는 중복 없는 한국어 태그 정확히 5개입니다.\n"
+        f"{build_category_prompt_block()}\n\n"
         f"{json.dumps(payload, ensure_ascii=False)}"
     )
 
@@ -280,4 +290,5 @@ class OpenAIBatchProvider(BatchProviderBase):
             gpt_summary=parsed.gpt_summary,
             tags=parsed.tags,
             error=None,
+            category=category_label_to_code(parsed.category),
         )

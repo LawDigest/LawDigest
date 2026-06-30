@@ -148,8 +148,8 @@ def test_openai_batch_provider_build_request_rows_matches_current_openai_shape()
     schema = json_schema["schema"]
     assert schema["type"] == "object"
     assert schema["additionalProperties"] is False
-    assert set(schema["required"]) == {"briefSummary", "gptSummary", "tags"}
-    assert set(schema["properties"]) == {"briefSummary", "gptSummary", "tags"}
+    assert set(schema["required"]) == {"briefSummary", "gptSummary", "tags", "category"}
+    assert set(schema["properties"]) == {"briefSummary", "gptSummary", "tags", "category"}
 
 
 def test_submit_batches_routes_to_requested_provider(tmp_path):
