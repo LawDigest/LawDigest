@@ -118,6 +118,78 @@ def test_ai_summary_uses_gemini_cli_realtime_command(tmp_path):
     assert result["status"] == "success"
 
 
+def test_ai_summary_chunks_requested_limit_to_max_five(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    output_path = tmp_path / "summary.json"
+    chunk_results = [
+        {
+            "stats": {
+                "target_count": 5,
+                "processed_count": 5,
+                "success_count": 5,
+                "failure_count": 0,
+                "db_upserted_count": 5,
+                "token_usage_available_count": 5,
+                "usage_totals": {"input_tokens": 100, "output_tokens": 10},
+            }
+        },
+        {
+            "stats": {
+                "target_count": 5,
+                "processed_count": 5,
+                "success_count": 4,
+                "failure_count": 1,
+                "db_upserted_count": 4,
+                "token_usage_available_count": 5,
+                "usage_totals": {"input_tokens": 200, "output_tokens": 20},
+            }
+        },
+        {
+            "stats": {
+                "target_count": 2,
+                "processed_count": 2,
+                "success_count": 2,
+                "failure_count": 0,
+                "db_upserted_count": 2,
+                "token_usage_available_count": 2,
+                "usage_totals": {"input_tokens": 30, "output_tokens": 3},
+            }
+        },
+    ]
+
+    with patch(
+        "lawdigest_ai.processor.gemini_repair_pipeline.run_gemini_repair_pipeline",
+        side_effect=chunk_results,
+    ) as run_repair:
+        result = PipelineRuntime(log_dir=tmp_path).run_ai_summary(
+            mode="dry_run",
+            cli_provider="codex",
+            limit=12,
+            batch_size=10,
+            output_path=str(output_path),
+        )
+
+    assert [call.kwargs["limit"] for call in run_repair.call_args_list] == [5, 5, 2]
+    assert [call.kwargs["batch_size"] for call in run_repair.call_args_list] == [5, 5, 2]
+    assert [call.kwargs["output_path"] for call in run_repair.call_args_list] == [
+        str(tmp_path / "summary.part001.json"),
+        str(tmp_path / "summary.part002.json"),
+        str(tmp_path / "summary.part003.json"),
+    ]
+    step_result = result["steps"][0]["result"]
+    assert step_result["requested_limit"] == 12
+    assert step_result["total_limit"] == 12
+    assert step_result["chunk_size"] == 5
+    assert step_result["max_chunk_size"] == 5
+    assert step_result["stats"]["processed_count"] == 12
+    assert step_result["stats"]["success_count"] == 11
+    assert step_result["stats"]["db_upserted_count"] == 11
+    assert step_result["stats"]["usage_totals"] == {"input_tokens": 330, "output_tokens": 33}
+    saved = json.loads(output_path.read_text(encoding="utf-8"))
+    assert saved["stats"]["processed_count"] == 12
+
+
 def test_bill_agent_report_delegates_to_agentic_report_runtime(tmp_path):
     from lawdigest_data.runtime.pipeline import PipelineRuntime
 
@@ -261,6 +333,21 @@ def test_bill_agent_report_fails_when_all_agent_reports_fail(tmp_path):
             raise AssertionError("모든 리포트가 실패했는데 파이프라인이 성공하면 안 됩니다.")
 
 
+def test_bill_search_rebuild_delegates_to_search_document_service(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    manager = MagicMock()
+    manager.rebuild_bill_search_documents.return_value = {"rebuilt": 3}
+
+    with patch("lawdigest_data.runtime.pipeline._build_workflow_manager", return_value=manager):
+        result = PipelineRuntime(log_dir=tmp_path).run_bill_search_rebuild(mode="dry_run", limit=3)
+
+    manager.rebuild_bill_search_documents.assert_called_once_with(limit=3)
+    assert result["command"] == "bill.search_rebuild"
+    assert result["steps"][0]["step"] == "rebuild_bill_search_documents"
+    assert result["status"] == "success"
+
+
 def test_cli_dispatches_bill_ingest(tmp_path):
     from lawdigest_data.runtime.cli import main
 
@@ -321,6 +408,36 @@ def test_cli_dispatches_ai_summary(tmp_path):
     )
 
 
+def test_cli_dispatches_ai_summary_with_codex_default(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_ai_summary.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "ai-summary",
+            "--mode",
+            "dry_run",
+            "--total-limit",
+            "1",
+            "--batch-size",
+            "1",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_ai_summary.assert_called_once_with(
+        mode="dry_run",
+        cli_provider="codex",
+        limit=1,
+        batch_size=1,
+        output_path="/tmp/lawdigest_ai_summary_results.json",
+        stop_on_error=False,
+        read_mode=None,
+        target_mode="missing",
+    )
+
+
 def test_cli_dispatches_bill_agent_report(tmp_path):
     from lawdigest_data.runtime.cli import main
 
@@ -355,6 +472,28 @@ def test_cli_dispatches_bill_agent_report(tmp_path):
         five_hour_usage_before=None,
         five_hour_usage_after=None,
         inspection=False,
+    )
+
+
+def test_cli_dispatches_bill_search_rebuild(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_bill_search_rebuild.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "bill-search-rebuild",
+            "--mode",
+            "dry_run",
+            "--limit",
+            "25",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_bill_search_rebuild.assert_called_once_with(
+        mode="dry_run",
+        limit=25,
     )
 
 

@@ -505,7 +505,9 @@ class DataFetcher:
             member_row = member_rows[0] if member_rows else {}
 
             summary_row = client.fetch_bill_summary(bill_no) if bill_no else {}
+            summary_row = summary_row or {}
             lifecycle_row = client.fetch_bill_lifecycle(bill_no) if bill_no else {}
+            lifecycle_row = lifecycle_row or {}
 
             hydrated_rows.append(
                 {

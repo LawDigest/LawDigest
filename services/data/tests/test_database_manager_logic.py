@@ -20,12 +20,14 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             {
                 "bill_id": "BILL1",
                 "bill_name": "Test Bill 1",
+                "summary": "Summary 1",
                 "public_proposer_ids": ["EJ001", "EJ002"],
                 "rst_proposer_ids": ["EJ001"]
             },
             {
                 "bill_id": "BILL2",
                 "bill_name": "Test Bill 2",
+                "summary": "Summary 2",
                 "public_proposer_ids": [],
                 "rst_proposer_ids": []
             }
@@ -59,6 +61,10 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             # First call should be Bill upsert
             args, _ = self.cursor.executemany.call_args_list[0]
             self.assertIn("INSERT INTO Bill", args[0])
+            self.assertIn("created_date", args[0])
+            self.assertIn("modified_date", args[0])
+            self.assertIn("NOW()", args[0])
+            self.assertIn("created_date = COALESCE(Bill.created_date, new.created_date)", args[0])
             expected_bills = [
                 {
                     **bills_data[0],
@@ -102,6 +108,7 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             {
                 "bill_id": "BILL1",
                 "bill_name": "Test Bill 1",
+                "summary": "Summary 1",
                 "summary_tags": '["태그"]',
                 "public_proposer_ids": [],
                 "rst_proposer_ids": [],
@@ -129,6 +136,7 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             {
                 "bill_id": "BILL-GOV",
                 "bill_name": "정부 제출 법안",
+                "summary": "정부 제출 법안 요약",
                 "proposer_kind": "GOVERNMENT",
                 "public_proposer_ids": [],
                 "rst_proposer_ids": [],
@@ -149,6 +157,24 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "GOVERNMENT"):
                 self.db_manager.insert_bill_info(bills_data)
 
+            self.cursor.executemany.assert_not_called()
+
+    def test_insert_bill_info_fails_before_transaction_when_summary_is_missing(self):
+        bills_data = [
+            {
+                "bill_id": "BILL-NO-SUMMARY",
+                "bill_name": "요약 없는 법안",
+                "summary": " ",
+                "public_proposer_ids": [],
+                "rst_proposer_ids": [],
+            }
+        ]
+
+        with patch.object(self.db_manager, "transaction") as mock_transaction:
+            with self.assertRaisesRegex(ValueError, "Bill.summary is required"):
+                self.db_manager.insert_bill_info(bills_data)
+
+            mock_transaction.assert_not_called()
             self.cursor.executemany.assert_not_called()
 
     def test_link_proposers_ignores_empty_and_nan_ids(self):
@@ -180,6 +206,45 @@ class TestDatabaseManagerLogic(unittest.TestCase):
         query, params = self.cursor.executemany.call_args.args
         self.assertIn("INSERT INTO BillAlternative", query)
         self.assertEqual(params, [("ALT-1", "ORG-1")])
+
+    def test_fetch_bill_search_document_candidates_selects_missing_or_stale_ready_bills(self):
+        with patch.object(self.db_manager, "transaction") as mock_transaction:
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+            self.cursor.fetchall.return_value = [{"bill_id": "BILL-1"}]
+
+            rows = self.db_manager.fetch_bill_search_document_candidates(limit=50)
+
+        self.assertEqual(rows, [{"bill_id": "BILL-1"}])
+        query, params = self.cursor.execute.call_args.args
+        self.assertIn("LEFT JOIN BillSearchDocument", query)
+        self.assertIn("b.ingest_status = 'READY'", query)
+        self.assertIn("bsd.bill_id IS NULL", query)
+        self.assertIn("COALESCE(b.modified_date, b.created_date) IS NOT NULL", query)
+        self.assertEqual(params, (50,))
+
+    def test_upsert_bill_search_documents_uses_replace_semantics(self):
+        documents = [
+            {
+                "bill_id": "BILL-1",
+                "bill_name_text": "법안명",
+                "brief_summary_text": "짧은 요약",
+                "gpt_summary_text": "AI 요약",
+                "raw_summary_text": "원문 요약",
+                "search_text": "법안명 짧은 요약 AI 요약 원문 요약",
+                "source_modified_date": "2026-06-27 10:00:00",
+            }
+        ]
+
+        with patch.object(self.db_manager, "transaction") as mock_transaction:
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+
+            count = self.db_manager.upsert_bill_search_documents(documents)
+
+        self.assertEqual(count, 1)
+        query, params = self.cursor.executemany.call_args.args
+        self.assertIn("INSERT INTO BillSearchDocument", query)
+        self.assertIn("ON DUPLICATE KEY UPDATE", query)
+        self.assertEqual(params, documents)
 
     def test_update_bill_stage(self):
         """Test update_bill_stage filters duplicates and batches updates"""

@@ -19,3 +19,5 @@ def test_bill_search_query_filters_ready_only():
     ).read_text(encoding="utf-8")
 
     assert "ingest_status = 'READY'" in source
+    assert "BillSearchDocument" in source
+    assert "match(bsd.search_text)" in source

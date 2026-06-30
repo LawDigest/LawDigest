@@ -2,9 +2,9 @@ import sys
 import os
 import pytest
 
-# 프로젝트 루트 디렉토리의 src 폴더를 sys.path에 추가
-# 이를 통해 테스트 파일에서 src 패키지 내부의 모듈을 바로 임포트할 수 있습니다.
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
+# 프로젝트 루트 디렉토리의 src 폴더를 최우선으로 추가합니다.
+# 워크트리 테스트가 다른 체크아웃의 설치본을 가져오지 않도록 합니다.
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src')))
 
 
 def pytest_addoption(parser):

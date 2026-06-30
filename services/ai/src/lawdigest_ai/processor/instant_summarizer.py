@@ -51,7 +51,7 @@ def summarize_single_bill_with_gemini_cli(
     bill_data: Dict[str, Any],
     output_path: str | None = None,
 ) -> Dict[str, Any]:
-    """단일 법안에 대해 Gemini CLI 기반 요약을 수행하고 결과 dict를 반환합니다."""
+    """단일 법안에 대해 CLI 기반 요약을 수행하고 결과 dict를 반환합니다."""
     df = pd.DataFrame([bill_data])
     summarizer = GeminiCliSummarizer()
     result_df = summarizer.AI_structured_summarize(df)
@@ -80,7 +80,7 @@ def summarize_bills_with_gemini_cli(
     bills: List[Dict[str, Any]],
     output_path: str | None = None,
 ) -> List[Dict[str, Any]]:
-    """복수의 법안에 대해 Gemini CLI 기반 요약을 수행하고 결과 리스트를 반환합니다."""
+    """복수의 법안에 대해 CLI 기반 요약을 수행하고 결과 리스트를 반환합니다."""
     df = pd.DataFrame(bills)
     summarizer = GeminiCliSummarizer()
     result_df = summarizer.AI_structured_summarize(df)

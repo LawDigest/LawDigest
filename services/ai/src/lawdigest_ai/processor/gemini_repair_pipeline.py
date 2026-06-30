@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
@@ -12,7 +13,11 @@ from lawdigest_ai.processor.gemini_cli_summarizer import build_cli_summarizer
 from lawdigest_ai.observability import trace_generation, trace_span
 
 
-DEFAULT_OUTPUT_PATH = "/tmp/gemini_ai_summary_results.json"
+DEFAULT_OUTPUT_PATH = "/tmp/lawdigest_ai_summary_results.json"
+
+
+def _print_progress(message: str) -> None:
+    print(f"[cli-summary-repair] {message}", flush=True)
 
 
 def _write_json_output(payload: Dict[str, Any], output_path: str) -> None:
@@ -90,7 +95,11 @@ def _fetch_latest_bills(mode: str, limit: int, read_mode: str | None = None) -> 
         conn.close()
 
 
-def _normalize_item(row: Dict[str, Any], failure_map: Dict[str, str]) -> Dict[str, Any]:
+def _normalize_item(
+    row: Dict[str, Any],
+    failure_map: Dict[str, str],
+    usage_map: Dict[str, dict[str, int]],
+) -> Dict[str, Any]:
     ai_title = row.get("brief_summary")
     ai_summary = row.get("gpt_summary")
     bill_id = row.get("bill_id")
@@ -99,7 +108,7 @@ def _normalize_item(row: Dict[str, Any], failure_map: Dict[str, str]) -> Dict[st
     if not error and (not ai_title or not ai_summary):
         error = "Gemini 요약 결과에 필수 필드가 비어 있습니다."
 
-    return {
+    item = {
         "bill_id": bill_id,
         "bill_name": row.get("bill_name"),
         "ai_title": ai_title,
@@ -109,23 +118,36 @@ def _normalize_item(row: Dict[str, Any], failure_map: Dict[str, str]) -> Dict[st
         "status": "failed" if error else "success",
         "error": error,
     }
+    usage = usage_map.get(str(bill_id)) if isinstance(usage_map, dict) else None
+    if isinstance(usage, dict):
+        item["usage"] = usage
+    return item
 
 
-def _upsert_successful_items(items: List[Dict[str, Any]], mode: str) -> int:
-    upserted = 0
+def _sum_usage(items: List[Dict[str, Any]]) -> Dict[str, int]:
+    totals: Dict[str, int] = {}
     for item in items:
-        if item["status"] != "success":
+        usage = item.get("usage")
+        if not isinstance(usage, dict):
             continue
-        update_bill_summary(
-            bill_id=str(item["bill_id"]),
-            brief_summary=item.get("ai_title"),
-            gpt_summary=item.get("ai_summary"),
-            summary_tags=item.get("summary_tags"),
-            mode=_db_mode_for_execution(mode),
-            category=item.get("category"),
-        )
-        upserted += 1
-    return upserted
+        for key, value in usage.items():
+            if isinstance(value, int):
+                totals[key] = totals.get(key, 0) + value
+    return totals
+
+
+def _upsert_successful_item(item: Dict[str, Any], mode: str) -> bool:
+    if item["status"] != "success":
+        return False
+    update_bill_summary(
+        bill_id=str(item["bill_id"]),
+        brief_summary=item.get("ai_title"),
+        gpt_summary=item.get("ai_summary"),
+        summary_tags=item.get("summary_tags"),
+        mode=_db_mode_for_execution(mode),
+        category=item.get("category"),
+    )
+    return True
 
 
 def run_gemini_repair_pipeline(
@@ -145,10 +167,11 @@ def run_gemini_repair_pipeline(
     if target_mode not in {"missing", "latest"}:
         raise ValueError("target_mode는 missing 또는 latest 여야 합니다.")
 
+    started_at = time.monotonic()
     resolved_read_mode = _resolve_read_mode(mode, read_mode)
-    print(f"[gemini-repair] Current Mode: {mode}")
-    print(
-        f"[gemini-repair] limit={limit}, batch_size={batch_size}, "
+    _print_progress(f"start mode={mode}")
+    _print_progress(
+        f"config limit={limit}, batch_size={batch_size}, "
         f"stop_on_error={stop_on_error}, read_mode={resolved_read_mode}, target_mode={target_mode}"
     )
 
@@ -166,6 +189,8 @@ def run_gemini_repair_pipeline(
         },
     ) as root_span:
         targets = fetcher(mode=mode, limit=limit, read_mode=read_mode)
+        total_batches = (len(targets) + batch_size - 1) // batch_size if targets else 0
+        _print_progress(f"loaded targets={len(targets)}, batches={total_batches}")
 
         if target_mode == "latest" and targets:
             for target in targets:
@@ -174,12 +199,19 @@ def run_gemini_repair_pipeline(
 
         summarizer = build_cli_summarizer(cli_provider)
         items = []
-        success_items = []
+        db_upserted_count = 0
 
         for start in range(0, len(targets), batch_size):
             batch = targets[start:start + batch_size]
             if not batch:
                 continue
+            batch_number = (start // batch_size) + 1
+            batch_started_at = time.monotonic()
+            batch_ids = [str(row.get("bill_id")) for row in batch if row.get("bill_id") is not None]
+            _print_progress(
+                f"batch {batch_number}/{total_batches} start "
+                f"items={len(batch)}, processed={len(items)}/{len(targets)}, bill_ids={','.join(batch_ids)}"
+            )
 
             with trace_generation(
                 root_span,
@@ -197,13 +229,29 @@ def run_gemini_repair_pipeline(
                 }
 
                 for row in result_df.to_dict("records"):
-                    item = _normalize_item(row, failure_map)
+                    item = _normalize_item(row, failure_map, summarizer.usage_by_bill_id)
                     items.append(item)
                     if item["status"] == "success":
-                        success_items.append(item)
+                        if mode != "dry_run" and _upsert_successful_item(item, mode):
+                            db_upserted_count += 1
+                            _print_progress(
+                                f"db upsert item done bill_id={item['bill_id']} "
+                                f"upserted={db_upserted_count}"
+                            )
+
+                usage_totals = _sum_usage(items)
+                _print_progress(
+                    f"batch {batch_number}/{total_batches} done "
+                    f"elapsed={time.monotonic() - batch_started_at:.1f}s, "
+                    f"processed={len(items)}/{len(targets)}, "
+                    f"success={sum(1 for item in items if item['status'] == 'success')}, "
+                    f"failure={sum(1 for item in items if item['status'] == 'failed')}, "
+                    f"input_tokens={usage_totals.get('input_tokens', 0)}, "
+                    f"output_tokens={usage_totals.get('output_tokens', 0)}"
+                )
 
                 if stop_on_error and failure_map:
-                    print("[gemini-repair] stop_on_error=True, batch failure detected.")
+                    _print_progress("stop_on_error=True, batch failure detected")
                     if generation is not None:
                         generation.update(status_message="batch failed and stop_on_error enabled")
                     break
@@ -222,28 +270,34 @@ def run_gemini_repair_pipeline(
             "processed_count": len(items),
             "success_count": sum(1 for item in items if item["status"] == "success"),
             "failure_count": sum(1 for item in items if item["status"] == "failed"),
-            "db_upserted_count": 0,
+            "db_upserted_count": db_upserted_count,
+            "token_usage_available_count": sum(1 for item in items if isinstance(item.get("usage"), dict)),
+            "usage_totals": _sum_usage(items),
         },
         "items": items,
         "output_path": output_path,
     }
 
-    _write_json_output(report, output_path)
-
     if report["stats"]["target_count"] > 0 and report["stats"]["success_count"] == 0:
-        raise RuntimeError(f"Gemini 요약이 모두 실패했습니다. 산출물: {output_path}")
+        _write_json_output(report, output_path)
+        raise RuntimeError(f"CLI 요약이 모두 실패했습니다. 산출물: {output_path}")
 
     if stop_on_error and report["stats"]["failure_count"] > 0:
-        raise RuntimeError(f"Gemini 요약 실패가 발생해 실행을 중단했습니다. 산출물: {output_path}")
+        _write_json_output(report, output_path)
+        raise RuntimeError(f"CLI 요약 실패가 발생해 실행을 중단했습니다. 산출물: {output_path}")
 
-    if mode != "dry_run":
-        report["stats"]["db_upserted_count"] = _upsert_successful_items(success_items, mode)
+    if mode == "dry_run":
+        _print_progress("db upsert skipped dry_run")
 
-    print(
-        "[gemini-repair] completed "
+    _write_json_output(report, output_path)
+    _print_progress(f"wrote output={output_path}")
+
+    _print_progress(
+        "completed "
         f"targets={report['stats']['target_count']} "
         f"success={report['stats']['success_count']} "
         f"failure={report['stats']['failure_count']} "
-        f"upserted={report['stats']['db_upserted_count']}"
+        f"upserted={report['stats']['db_upserted_count']} "
+        f"elapsed={time.monotonic() - started_at:.1f}s"
     )
     return report
