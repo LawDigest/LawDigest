@@ -1,35 +1,29 @@
 'use client';
 
-import { Suspense, useState } from 'react';
-import { getCategoryMeta } from '@/config/categories';
-import CategoryGrid from './CategoryGrid';
-import CategoryBills from './CategoryBills';
+import { useState } from 'react';
+import ExploreSidebar from './ExploreSidebar';
+import ExploreSubTabs from './ExploreSubTabs';
+import FieldPanel from './FieldPanel';
+import AssemblyPanel from './AssemblyPanel';
+import StatsPanel from './StatsPanel';
+import { ExploreTab } from './tabs';
 
 export default function ExploreBoard() {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [tab, setTab] = useState<ExploreTab>('field');
 
   return (
-    <section className="flex w-full flex-col gap-6 px-4 py-5">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-[20px] font-bold text-primary-3">분야별 탐색</h1>
-        <p className="text-[14px] text-gray-2">관심 있는 생활 분야를 골라 관련 법안을 살펴보세요.</p>
-      </header>
+    <div className="w-full lg:flex lg:gap-8 lg:px-6 lg:pt-6">
+      <ExploreSidebar active={tab} onChange={setTab} />
 
-      <CategoryGrid selected={selected} onSelect={setSelected} />
+      <div className="min-w-0 lg:flex-1">
+        <ExploreSubTabs active={tab} onChange={setTab} />
 
-      {selected && (
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[22px] text-primary-3">
-              {getCategoryMeta(selected).icon}
-            </span>
-            <h2 className="text-[17px] font-bold text-primary-3">{getCategoryMeta(selected).label}</h2>
-          </div>
-          <Suspense fallback={<div className="py-10 text-center text-[14px] text-gray-2">법안을 불러오는 중…</div>}>
-            <CategoryBills key={selected} category={selected} />
-          </Suspense>
-        </section>
-      )}
-    </section>
+        <main className="px-4 pb-28 pt-4 md:px-6 md:pb-16 lg:px-0 lg:pt-0">
+          {tab === 'field' && <FieldPanel />}
+          {tab === 'assembly' && <AssemblyPanel />}
+          {tab === 'stats' && <StatsPanel />}
+        </main>
+      </div>
+    </div>
   );
 }

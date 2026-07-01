@@ -1,6 +1,7 @@
 package com.everyones.lawmaking.facade;
 
 import com.everyones.lawmaking.common.dto.CategoryCountDto;
+import com.everyones.lawmaking.common.dto.TrendingKeywordDto;
 import com.everyones.lawmaking.common.dto.PartyVoteDto;
 import com.everyones.lawmaking.common.dto.VoteResultResponse;
 import com.everyones.lawmaking.common.dto.bill.BillDto;
@@ -131,6 +132,10 @@ public class BillFacade {
     @Transactional(readOnly = true)
     public List<CategoryCountDto> getCategoryCounts() {
         return billService.getCategoryCounts();
+    }
+    @Transactional(readOnly = true)
+    public List<TrendingKeywordDto> getTrendingKeywords(int size) {
+        return billService.getTrendingKeywords(size);
     }
     public CountDto getBookmarkedBillCount() {
         var userId = AuthenticationUtil.getUserId();

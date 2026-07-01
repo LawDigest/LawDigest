@@ -1,3 +1,9 @@
 export { default as ExploreBoard } from './ExploreBoard';
+export { default as ExploreSidebar } from './ExploreSidebar';
+export { default as ExploreSubTabs } from './ExploreSubTabs';
+export { default as FieldPanel } from './FieldPanel';
+export { default as AssemblyPanel } from './AssemblyPanel';
+export { default as StatsPanel } from './StatsPanel';
+export { default as TrendingKeywords } from './TrendingKeywords';
 export { default as CategoryGrid } from './CategoryGrid';
 export { default as CategoryBills } from './CategoryBills';

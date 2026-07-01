@@ -1,6 +1,7 @@
 package com.everyones.lawmaking.controller;
 
 import com.everyones.lawmaking.common.dto.CategoryCountDto;
+import com.everyones.lawmaking.common.dto.TrendingKeywordDto;
 import com.everyones.lawmaking.common.dto.bill.BillDto;
 import com.everyones.lawmaking.common.dto.response.BillDetailResponse;
 import com.everyones.lawmaking.common.dto.response.BillLikeResponse;
@@ -99,6 +100,18 @@ public class BillController {
     @GetMapping("/categories")
     public BaseResponse<List<CategoryCountDto>> getCategoryCounts() {
         return BaseResponse.ok(billFacade.getCategoryCounts());
+    }
+
+    @Operation(summary = "인기 키워드 조회", description = "법안 요약 태그(summary_tags)에서 상위 N개 인기 키워드를 빈도순으로 가져옵니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+    })
+    @GetMapping("/trending-keywords")
+    public BaseResponse<List<TrendingKeywordDto>> getTrendingKeywords(
+            @Parameter(example = "20", description = "가져올 키워드 개수입니다.")
+            @RequestParam(name = "size", defaultValue = "20") int size
+    ) {
+        return BaseResponse.ok(billFacade.getTrendingKeywords(size));
     }
 
     @Operation(summary = "분야별 법안 목록 조회", description = "특정 분야(category)에 속한 법안을 페이지 단위로 가져옵니다.")

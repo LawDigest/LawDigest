@@ -49,6 +49,14 @@ public class BillService {
         return billRepository.countByCategory();
     }
 
+    public List<TrendingKeywordDto> getTrendingKeywords(int size) {
+        return billRepository.findTopTrendingKeywords(size).stream()
+                .map(row -> new TrendingKeywordDto(
+                        (String) row[0],
+                        ((Number) row[1]).longValue()))
+                .toList();
+    }
+
     public BillDetailResponse getBillWithDetail(String billId) {
         var bill = billRepository.findBillById(billId)
                 .orElseThrow(() -> new BillException.BillNotFound(Map.of(BILL_ID_KEY_STRING, billId)));

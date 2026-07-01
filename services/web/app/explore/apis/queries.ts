@@ -1,12 +1,18 @@
 'use client';
 
 import { useQuery, useSuspenseInfiniteQuery } from '@tanstack/react-query';
-import { getBillsByCategory, getCategoryCounts } from './apis';
+import { getBillsByCategory, getCategoryCounts, getTrendingKeywords } from './apis';
 
 export const useGetCategoryCounts = () =>
   useQuery({
     queryKey: ['/bill/categories'],
     queryFn: () => getCategoryCounts(),
+  });
+
+export const useGetTrendingKeywords = (size = 20) =>
+  useQuery({
+    queryKey: ['/bill/trending-keywords', size],
+    queryFn: () => getTrendingKeywords(size),
   });
 
 export const useGetBillsByCategory = (category: string) =>

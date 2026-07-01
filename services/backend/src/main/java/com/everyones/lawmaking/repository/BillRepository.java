@@ -160,4 +160,15 @@ public interface BillRepository extends JpaRepository<Bill, String>, BillReposit
             "and b.ingestStatus = com.everyones.lawmaking.domain.entity.IngestStatusType.READY")
     BillStateCountResponse findStateCount(@Param("currentAssemblyNumber") int currentAssemblyNumber);
 
+    @Query(value = "SELECT jt.tag AS keyword, COUNT(*) AS cnt " +
+            "FROM Bill b, " +
+            "JSON_TABLE(b.summary_tags, '$[*]' COLUMNS (tag VARCHAR(255) PATH '$')) jt " +
+            "WHERE b.summary_tags IS NOT NULL " +
+            "AND b.ingest_status = 'READY' " +
+            "AND jt.tag IS NOT NULL AND jt.tag <> '' " +
+            "GROUP BY jt.tag " +
+            "ORDER BY cnt DESC, keyword " +
+            "LIMIT :size", nativeQuery = true)
+    List<Object[]> findTopTrendingKeywords(@Param("size") int size);
+
 }
