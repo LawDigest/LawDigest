@@ -52,6 +52,42 @@ export const getCongressmanList = (page: number, partyId?: number | null) =>
     params: { page, size: 20, ...(partyId ? { party_id: partyId } : {}) },
   });
 
+export interface StatisticsOverview {
+  total_count: number;
+  passed_count: number;
+  pending_count: number;
+  pass_rate: number;
+}
+
+export interface StatisticsStage {
+  receipt_count: number;
+  committee_count: number;
+  plenary_count: number;
+  promulgated_count: number;
+}
+
+export interface PartyBillCount {
+  party_id: number;
+  party_name: string;
+  count: number;
+}
+
+export interface MonthlyTrend {
+  month: string;
+  count: number;
+}
+
+export const getStatisticsOverview = () => http.get<StatisticsOverview>({ url: '/statistics/overview' });
+
+export const getStatisticsStage = () => http.get<StatisticsStage>({ url: '/statistics/stage' });
+
+export const getStatisticsByParty = () => http.get<PartyBillCount[]>({ url: '/statistics/by-party' });
+
+export const getStatisticsByCategory = () => http.get<CategoryCount[]>({ url: '/statistics/by-category' });
+
+export const getStatisticsTrend = (months = 6) =>
+  http.get<MonthlyTrend[]>({ url: '/statistics/trend', params: { months } });
+
 export const getBillsByCategory = (category: string, page: number) =>
   http.get<FeedResponse>({
     url: '/bill/category',

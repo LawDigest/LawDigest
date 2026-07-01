@@ -7,6 +7,11 @@ import {
   getCongressmanList,
   getCongressmanRanking,
   getParliamentaryParties,
+  getStatisticsByCategory,
+  getStatisticsByParty,
+  getStatisticsOverview,
+  getStatisticsStage,
+  getStatisticsTrend,
   getTrendingKeywords,
 } from './apis';
 
@@ -45,6 +50,21 @@ export const useGetCongressmanList = (partyId?: number | null) =>
       return last_page ? undefined : page_number + 1;
     },
   });
+
+export const useGetStatisticsOverview = () =>
+  useQuery({ queryKey: ['/statistics/overview'], queryFn: () => getStatisticsOverview() });
+
+export const useGetStatisticsStage = () =>
+  useQuery({ queryKey: ['/statistics/stage'], queryFn: () => getStatisticsStage() });
+
+export const useGetStatisticsByParty = () =>
+  useQuery({ queryKey: ['/statistics/by-party'], queryFn: () => getStatisticsByParty() });
+
+export const useGetStatisticsByCategory = () =>
+  useQuery({ queryKey: ['/statistics/by-category'], queryFn: () => getStatisticsByCategory() });
+
+export const useGetStatisticsTrend = (months = 6) =>
+  useQuery({ queryKey: ['/statistics/trend', months], queryFn: () => getStatisticsTrend(months) });
 
 export const useGetBillsByCategory = (category: string) =>
   useSuspenseInfiniteQuery({
