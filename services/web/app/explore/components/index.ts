@@ -12,3 +12,8 @@ export { default as SeatDistribution } from './SeatDistribution';
 export { default as MemberRanking } from './MemberRanking';
 export { default as MemberList } from './MemberList';
 export { default as PartyList } from './PartyList';
+export { default as StatsOverview } from './StatsOverview';
+export { default as StatsStageFunnel } from './StatsStageFunnel';
+export { default as StatsPartyBars } from './StatsPartyBars';
+export { default as StatsCategoryDonut } from './StatsCategoryDonut';
+export { default as StatsTrend } from './StatsTrend';
