@@ -3,7 +3,6 @@ import IconMyPage from './MyPage';
 import IconNavBorder from './NavBorder';
 import IconFollowing from './Following';
 import IconTimeline from './Timeline';
-import IconElection from './Election';
 import IconExplore from './Explore';
 
-export { IconHome, IconMyPage, IconNavBorder, IconFollowing, IconTimeline, IconElection, IconExplore };
+export { IconHome, IconMyPage, IconNavBorder, IconFollowing, IconTimeline, IconExplore };

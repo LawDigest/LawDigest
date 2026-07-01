@@ -1,6 +1,5 @@
 export * from './common';
 export * from './bill';
-export * from './election';
 export * from './congressman';
 export * from './party';
 export * from './user';
