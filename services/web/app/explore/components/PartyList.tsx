@@ -1,0 +1,39 @@
+'use client';
+
+import Link from 'next/link';
+import { Avatar } from '@nextui-org/avatar';
+import { getPartyColor } from '@/constants/party';
+import { useGetParliamentaryParties } from '../apis';
+
+/** 정당 탭 — 원내 정당 목록(소속 의원 수 순). 각 항목은 정당 상세로 이동. */
+export default function PartyList() {
+  const { data, isLoading } = useGetParliamentaryParties();
+  const parties = [...(data?.data ?? [])].sort((a, b) => b.congressman_count - a.congressman_count);
+
+  if (isLoading) {
+    return <div className="py-10 text-center text-[14px] text-gray-2">정당을 불러오는 중…</div>;
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+      {parties.map((party) => (
+        <Link
+          key={party.party_id}
+          href={`/party/${party.party_id}`}
+          className="flex items-center gap-3 rounded-2xl border border-gray-1 bg-white p-3.5 shadow-sm transition-colors hover:bg-primary-1 dark:border-dark-l dark:bg-dark-b dark:hover:bg-dark-l">
+          <Avatar
+            src={party.party_image_url}
+            alt={party.party_name}
+            className="h-11 w-11 shrink-0 bg-white ring-2"
+            style={{ '--tw-ring-color': getPartyColor(party.party_name) } as React.CSSProperties}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-bold text-primary-3 dark:text-gray-0.5">{party.party_name}</p>
+            <p className="mt-0.5 text-[12px] text-gray-2">소속 의원 {party.congressman_count.toLocaleString()}명</p>
+          </div>
+          <span className="material-symbols-outlined text-[20px] text-gray-2">chevron_right</span>
+        </Link>
+      ))}
+    </div>
+  );
+}

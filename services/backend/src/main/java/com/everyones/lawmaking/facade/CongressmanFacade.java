@@ -1,8 +1,11 @@
 package com.everyones.lawmaking.facade;
 
+import com.everyones.lawmaking.common.dto.CongressmanRankingDto;
+import com.everyones.lawmaking.common.dto.response.CongressmanListResponse;
 import com.everyones.lawmaking.common.dto.response.CongressmanResponse;
 import com.everyones.lawmaking.common.dto.response.LikingCongressmanResponse;
 import com.everyones.lawmaking.service.CongressmanService;
+import org.springframework.data.domain.Pageable;
 import com.everyones.lawmaking.service.LikeService;
 import com.everyones.lawmaking.service.RepresentativeProposerService;
 import com.everyones.lawmaking.service.BillProposerService;
@@ -20,6 +23,14 @@ public class CongressmanFacade {
     private final LikeService likeService;
     private final RepresentativeProposerService representativeProposerService;
     private final BillProposerService billProposerService;
+
+    public List<CongressmanRankingDto> getCongressmanRanking(int size) {
+        return congressmanService.getCongressmanRanking(size);
+    }
+
+    public CongressmanListResponse getCongressmanList(Long partyId, Pageable pageable) {
+        return congressmanService.getCongressmanList(partyId, pageable);
+    }
 
     public CongressmanResponse getCongressman(String congressmanId) {
         var congressman = congressmanService.getCongressman(congressmanId);

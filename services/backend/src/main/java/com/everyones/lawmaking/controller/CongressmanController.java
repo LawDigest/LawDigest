@@ -1,8 +1,11 @@
 package com.everyones.lawmaking.controller;
 
+import com.everyones.lawmaking.common.dto.CongressmanRankingDto;
 import com.everyones.lawmaking.common.dto.response.BillListResponse;
 import com.everyones.lawmaking.common.dto.response.CongressmanLikeResponse;
+import com.everyones.lawmaking.common.dto.response.CongressmanListResponse;
 import com.everyones.lawmaking.common.dto.response.CongressmanResponse;
+import java.util.List;
 import com.everyones.lawmaking.facade.CongressmanFacade;
 import com.everyones.lawmaking.facade.BillFacade;
 import com.everyones.lawmaking.facade.LikeFacade;
@@ -32,6 +35,33 @@ public class CongressmanController {
     private final CongressmanFacade congressmanFacade;
     private final BillFacade billFacade;
     private final LikeFacade likeFacade;
+
+    @Operation(summary = "의원 발의 랭킹 조회", description = "현직 의원을 대표발의 건수 내림차순으로 상위 N명 가져옵니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+    })
+    @GetMapping("/ranking")
+    public BaseResponse<List<CongressmanRankingDto>> getCongressmanRanking(
+            @Parameter(example = "3", description = "가져올 의원 수입니다.")
+            @RequestParam(name = "size", defaultValue = "3") int size) {
+        return BaseResponse.ok(congressmanFacade.getCongressmanRanking(size));
+    }
+
+    @Operation(summary = "의원 목록 조회", description = "현직 의원을 대표발의 건수 내림차순으로 페이지 단위로 가져옵니다. party_id로 정당 필터링이 가능합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+    })
+    @GetMapping("/list")
+    public BaseResponse<CongressmanListResponse> getCongressmanList(
+            @Parameter(example = "1", description = "정당 Id입니다. 생략하면 전체 의원을 조회합니다.")
+            @RequestParam(name = "party_id", required = false) Long partyId,
+            @Parameter(example = "0", description = "스크롤할 때마다 page값을 0에서 1씩 늘려주면 됩니다.")
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @Parameter(example = "20", description = "한번에 가져올 데이터 크기를 의미합니다.")
+            @RequestParam(name = "size", defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return BaseResponse.ok(congressmanFacade.getCongressmanList(partyId, pageable));
+    }
 
     @Operation(summary = "의원 상세 조회", description = "의원 상세페이지에 들어갈 데이터를 가져옵니다.")
     @ApiResponses(value = {
