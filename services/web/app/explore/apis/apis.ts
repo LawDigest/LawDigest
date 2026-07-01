@@ -6,7 +6,15 @@ export interface CategoryCount {
   count: number;
 }
 
+export interface TrendingKeyword {
+  keyword: string;
+  count: number;
+}
+
 export const getCategoryCounts = () => http.get<CategoryCount[]>({ url: '/bill/categories' });
+
+export const getTrendingKeywords = (size = 20) =>
+  http.get<TrendingKeyword[]>({ url: '/bill/trending-keywords', params: { size } });
 
 export const getBillsByCategory = (category: string, page: number) =>
   http.get<FeedResponse>({
