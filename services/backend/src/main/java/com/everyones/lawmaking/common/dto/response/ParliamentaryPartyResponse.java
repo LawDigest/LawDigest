@@ -21,4 +21,13 @@ public class ParliamentaryPartyResponse {
         this.partyImageUrl = partyImageUrl;
         this.congressmanCount = congressmanCount;
     }
+
+    /** 제22대 의석수 = 지역구 + 비례대표 의석 (Party 엔티티의 사전 집계 컬럼 기반). */
+    public ParliamentaryPartyResponse(long partyId, String partyName, String partyImageUrl,
+                                      int districtCongressmanCount, int proportionalCongressmanCount) {
+        this.partyId = partyId;
+        this.partyName = partyName;
+        this.partyImageUrl = partyImageUrl;
+        this.congressmanCount = (long) (districtCongressmanCount + proportionalCongressmanCount);
+    }
 }
