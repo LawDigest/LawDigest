@@ -36,10 +36,11 @@ public interface PartyRepository extends JpaRepository<Party, Long> {
     List<Party> findPartyByBillId(@Param("billId") String billId);
 
     Optional<Party> findPartyByName(String partyName);
-    @Query("SELECT new com.everyones.lawmaking.common.dto.response.ParliamentaryPartyResponse(p.id, p.name, p.partyImageUrl, COUNT(c)) " +
+    @Query("SELECT new com.everyones.lawmaking.common.dto.response.ParliamentaryPartyResponse(" +
+            "p.id, p.name, p.partyImageUrl, " +
+            "p.districtCongressmanCount, p.proportionalCongressmanCount) " +
             "FROM Party p " +
-            "JOIN p.congressmanList c GROUP BY p " +
-            "having p.isParliamentary = true ")
+            "WHERE p.isParliamentary = true ")
     List<ParliamentaryPartyResponse> findByIsParliamentary(boolean isParliamentary);
 
 }
