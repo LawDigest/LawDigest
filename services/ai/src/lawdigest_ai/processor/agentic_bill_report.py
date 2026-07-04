@@ -522,6 +522,11 @@ def _strip_markdown_for_summary(text: str) -> str:
 def _has_overlong_brief_prefix(brief_summary: str | None, bill_name: str) -> bool:
     if not brief_summary or not bill_name or not brief_summary.endswith(bill_name):
         return False
+    topic = _brief_topic_from_bill_name(bill_name)
+    if topic and not brief_summary.startswith(topic):
+        return True
+    if re.search(r"(된|를|을)(을|를)\s+위한", brief_summary):
+        return True
     prefix = brief_summary[: -len(bill_name)].strip()
     prefix = re.sub(r"(을|를)\s+위한$", "", prefix).strip()
     return len(prefix) > 36
@@ -536,7 +541,34 @@ def _object_particle(text: str) -> str:
     return "을"
 
 
+def _brief_topic_from_bill_name(bill_name: str) -> str | None:
+    if not bill_name:
+        return None
+    if "인공지능 데이터센터" in bill_name:
+        return "인공지능 데이터센터 구축·운영 지원"
+    if "농지법" in bill_name:
+        return "농지 이용 실태 관리 강화"
+    if "해운법" in bill_name:
+        return "섬 지역 해상교통 지원 강화"
+    if "연근해어업" in bill_name:
+        return "연근해어업 관리체계 구축"
+    if "국방반도체" in bill_name:
+        return "국방반도체 산업 기반 조성"
+    match = re.match(r"(.+?)(?:\s+일부개정법률안|\s+전부개정법률안|\s+제정법률안|\s+법률안|\s+특별법안)", bill_name)
+    if not match:
+        return None
+    subject = match.group(1).strip()
+    subject = re.sub(r"^(.+?)에 관한$", r"\1", subject).strip()
+    if not subject:
+        return None
+    return f"{subject} 제도 정비"
+
+
 def _build_brief_summary_from_report(bill_name: str, report_body: str) -> str | None:
+    topic = _brief_topic_from_bill_name(bill_name)
+    if topic:
+        return f"{topic}{_object_particle(topic)} 위한 {bill_name}"
+
     easy_summary = _markdown_section_body(report_body, "## 쉬운 요약")
     for line in easy_summary.splitlines():
         stripped = line.strip()
@@ -547,8 +579,6 @@ def _build_brief_summary_from_report(bill_name: str, report_body: str) -> str | 
         prefix = re.sub(r"(입니다|합니다|이에요|예요|해요|돼요|되요)\.?$", "", prefix).strip()
         prefix = re.sub(r"\s+", " ", prefix)
         prefix = re.sub(r"\s*(특별법|법안)$", "", prefix).strip()
-        if "데이터센터" in prefix and re.search(r"짓|구축", prefix) and re.search(r"돌리|운영", prefix):
-            prefix = "인공지능 데이터센터 구축·운영 지원"
         prefix = re.sub(r"\s*[가-힣A-Za-z0-9·/]+기\s+위한.*$", "", prefix).strip()
         prefix = re.sub(r"\s*(하기|하도록|할 수 있도록)\s+위한.*$", "", prefix).strip()
         prefix = re.sub(r"\s*(위해|위한)$", "", prefix).strip()

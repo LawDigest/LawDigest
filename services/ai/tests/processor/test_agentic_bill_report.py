@@ -1219,6 +1219,52 @@ def test_agentic_report_rebuilds_overlong_brief_summary_prefix():
     assert payload["brief_summary"].endswith(bill_name)
 
 
+def test_agentic_report_rebuilds_brief_summary_without_bad_particles():
+    from lawdigest_ai.processor.agentic_bill_report import _build_db_summary_payload
+
+    cases = [
+        (
+            "농지법 일부개정법률안(대안)",
+            "농지의 실제 이용 상태를 더 잘 파악하고, 방치된 농지를 정리하게 해요.",
+            "농지 이용 실태 관리 강화를 위한 농지법 일부개정법률안(대안)",
+        ),
+        (
+            "해운법 일부개정법률안(대안)",
+            "섬 주민이 끊기지 않게 배를 이용할 수 있도록 지원해요.",
+            "섬 지역 해상교통 지원 강화를 위한 해운법 일부개정법률안(대안)",
+        ),
+        (
+            "지속가능한 연근해어업 발전법안(대안)",
+            "연근해에서 잡고 기르는 어업을 오래 이어갈 수 있게 관리체계를 만들어요.",
+            "연근해어업 관리체계 구축을 위한 지속가능한 연근해어업 발전법안(대안)",
+        ),
+    ]
+
+    malformed_briefs = {
+        "농지법 일부개정법률안(대안)": "농지의 실제 이용 상태를 더 잘 파악하고, 방치된을 위한 농지법 일부개정법률안(대안)",
+        "해운법 일부개정법률안(대안)": "섬 주민이 끊기지 않게 배를을 위한 해운법 일부개정법률안(대안)",
+        "지속가능한 연근해어업 발전법안(대안)": (
+            "불법어업 예방을 위한 어업활동 보고 의무화 및 통합관리시스템 구축을 위한 "
+            "지속가능한 연근해어업 발전법안(대안)"
+        ),
+    }
+
+    for bill_name, first_bullet, expected in cases:
+        payload = _build_db_summary_payload(
+            bill={
+                "bill_id": "PRC_CASE",
+                "bill_name": bill_name,
+                "brief_summary": malformed_briefs[bill_name],
+                "summary_tags": None,
+            },
+            report_body=f"## 쉬운 요약\n- {first_bullet}\n\n## 주요 내용\n### 1) 변화\n본문",
+        )
+
+        assert payload["brief_summary"] == expected
+        assert "된을 위한" not in payload["brief_summary"]
+        assert "를을 위한" not in payload["brief_summary"]
+
+
 def test_run_agentic_bill_reports_upserts_successful_items(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent, run_agentic_bill_reports
 
