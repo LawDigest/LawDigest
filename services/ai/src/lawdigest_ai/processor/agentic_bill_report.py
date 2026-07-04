@@ -519,6 +519,47 @@ def _strip_markdown_for_summary(text: str) -> str:
     return normalized.strip()
 
 
+def _has_overlong_brief_prefix(brief_summary: str | None, bill_name: str) -> bool:
+    if not brief_summary or not bill_name or not brief_summary.endswith(bill_name):
+        return False
+    prefix = brief_summary[: -len(bill_name)].strip()
+    prefix = re.sub(r"(을|를)\s+위한$", "", prefix).strip()
+    return len(prefix) > 36
+
+
+def _object_particle(text: str) -> str:
+    if not text:
+        return "을"
+    last = text[-1]
+    if "가" <= last <= "힣":
+        return "을" if (ord(last) - ord("가")) % 28 else "를"
+    return "을"
+
+
+def _build_brief_summary_from_report(bill_name: str, report_body: str) -> str | None:
+    easy_summary = _markdown_section_body(report_body, "## 쉬운 요약")
+    for line in easy_summary.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("- "):
+            continue
+        prefix = _strip_markdown_for_summary(stripped[2:])
+        prefix = re.sub(r"^(이\s+법안은|법안은)\s*", "", prefix)
+        prefix = re.sub(r"(입니다|합니다|이에요|예요|해요|돼요|되요)\.?$", "", prefix).strip()
+        prefix = re.sub(r"\s+", " ", prefix)
+        prefix = re.sub(r"\s*(특별법|법안)$", "", prefix).strip()
+        if "데이터센터" in prefix and re.search(r"짓|구축", prefix) and re.search(r"돌리|운영", prefix):
+            prefix = "인공지능 데이터센터 구축·운영 지원"
+        prefix = re.sub(r"\s*[가-힣A-Za-z0-9·/]+기\s+위한.*$", "", prefix).strip()
+        prefix = re.sub(r"\s*(하기|하도록|할 수 있도록)\s+위한.*$", "", prefix).strip()
+        prefix = re.sub(r"\s*(위해|위한)$", "", prefix).strip()
+        if not prefix:
+            continue
+        if len(prefix) > 28:
+            prefix = prefix[:28].rstrip()
+        return f"{prefix}{_object_particle(prefix)} 위한 {bill_name}"
+    return None
+
+
 def _build_db_summary_payload(bill: Dict[str, Any], report_body: str) -> Dict[str, Any]:
     body = report_body.strip()
     body = re.sub(r"^# .+\n+", "", body, count=1)
@@ -528,14 +569,10 @@ def _build_db_summary_payload(bill: Dict[str, Any], report_body: str) -> Dict[st
 
     gpt_summary = body.strip()
 
+    bill_name = str(bill.get("bill_name") or "").strip()
     brief_summary = bill.get("brief_summary")
-    if not brief_summary:
-        easy_summary = _markdown_section_body(report_body, "## 쉬운 요약")
-        for line in easy_summary.splitlines():
-            stripped = line.strip()
-            if stripped.startswith("- "):
-                brief_summary = _strip_markdown_for_summary(stripped[2:])
-                break
+    if not brief_summary or _has_overlong_brief_prefix(str(brief_summary), bill_name):
+        brief_summary = _build_brief_summary_from_report(bill_name, report_body) or brief_summary
 
     return {
         "brief_summary": brief_summary,

@@ -1184,6 +1184,41 @@ def test_agentic_report_builds_db_summary_payload_from_markdown():
     assert "확인한 근거" not in payload["gpt_summary"]
 
 
+def test_agentic_report_rebuilds_overlong_brief_summary_prefix():
+    from lawdigest_ai.processor.agentic_bill_report import _build_db_summary_payload
+
+    bill_name = "인공지능 데이터센터 산업 진흥에 관한 특별법안(대안)"
+    bill = {
+        "bill_id": "PRC_AI_DC",
+        "bill_name": bill_name,
+        "brief_summary": (
+            "인공지능 데이터센터의 신속한 구축과 운영 지원을 위한 행정·재정적 근거를 마련하고 "
+            "인허가 절차 간소화 및 각종 특례를 규정하기 위한 "
+            "인공지능 데이터센터 산업 진흥에 관한 특별법안(대안)"
+        ),
+        "summary_tags": None,
+    }
+    report_body = """
+# 인공지능 데이터센터 산업 진흥에 관한 특별법안(대안)
+
+## 쉬운 요약
+- 인공지능 데이터센터를 **빨리 짓고 안정적으로 돌리기 위한 특별법**이에요.
+- 국가와 지자체가 전력, 용수, 도로, 통신 같은 기반부터 우선 챙기게 해요.
+
+## 주요 내용
+### 1) 빠른 구축 지원
+<mark>인허가를 묶어 처리할 수 있게 해요.</mark>
+""".strip()
+
+    payload = _build_db_summary_payload(bill=bill, report_body=report_body)
+
+    assert payload["brief_summary"] == (
+        "인공지능 데이터센터 구축·운영 지원을 위한 "
+        "인공지능 데이터센터 산업 진흥에 관한 특별법안(대안)"
+    )
+    assert payload["brief_summary"].endswith(bill_name)
+
+
 def test_run_agentic_bill_reports_upserts_successful_items(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent, run_agentic_bill_reports
 
