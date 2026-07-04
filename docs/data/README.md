@@ -26,4 +26,4 @@
 
 - Airflow 관련 파일은 `infra/airflow/DEPRECATED.md`와 함께 legacy reference로만 취급합니다.
 - 신규 법안 파이프라인 기능은 `services/data/src/lawdigest_data/runtime/`에 추가합니다.
-- 신규 AI 요약 표준 경로는 `ai-summary --cli-provider codex`입니다.
+- 신규 AI 요약 표준 경로는 기본 `agent` 엔진의 `ai-summary`입니다.

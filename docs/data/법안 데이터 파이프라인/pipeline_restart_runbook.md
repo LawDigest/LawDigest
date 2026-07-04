@@ -77,25 +77,27 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --age 22
 ```
 
-### 3.3 AI 실시간 요약 (표준)
+### 3.3 AI 요약/리포트 (표준)
 
 ```bash
 PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
   ai-summary \
   --mode dry_run \
-  --cli-provider codex \
+  --read-mode prod \
   --limit 1 \
-  --batch-size 1 \
-  --output-path /tmp/lawdigest-codex-cli-summary.json
+  --target passed \
+  --concurrency 1 \
+  --output-dir /tmp/lawdigest-bill-agent-reports
 ```
 
-이 경로는 Codex CLI headless 실행 결과를 기존 API 배치와 같은 `BatchStructuredSummary` 스키마로 검증합니다. 응답 키는 `briefSummary`, `gptSummary`, `tags`만 허용하고, DB에는 기존 컬럼인 `brief_summary`, `gpt_summary`, `summary_tags`로 반영합니다. Codex CLI 기본 모델은 `gpt-5.4-mini`입니다.
+이 경로는 기본적으로 Codex MCP 에이전트 기반 리포트 생성기를 실행합니다. 에이전트가 국회·법령·통계 MCP를 사용해 Markdown 리포트를 만들고, `prod` 실행에서는 기존 컬럼인 `brief_summary`, `gpt_summary`, `summary_tags`로 반영합니다. 기본 모델은 `gpt-5.4-mini`입니다.
 
 Gemini 보조 경로 smoke 예시:
 
 ```bash
 PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
   ai-summary \
+  --engine cli \
   --mode dry_run \
   --read-mode prod \
   --target-mode latest \
@@ -196,7 +198,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --output-path /tmp/lawdigest-cli-repair.json
 ```
 
-`ai-repair-cli`는 기존 명령 호환용입니다. 신규 운영에서는 `ai-summary --cli-provider codex`를 우선 사용합니다.
+`ai-repair-cli`는 기존 명령 호환용입니다. 신규 운영에서는 기본 `ai-summary` 에이전트 경로를 우선 사용합니다.
 
 사용 가능한 CLI provider:
 

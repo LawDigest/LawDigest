@@ -442,14 +442,45 @@ class PipelineRuntime:
         self,
         *,
         mode: str = "dry_run",
+        engine: str = "agent",
         cli_provider: str = "codex",
         limit: int = 20,
         batch_size: int = 5,
         output_path: str = "/tmp/lawdigest_ai_summary_results.json",
+        output_dir: str = "/tmp/lawdigest-bill-agent-reports",
         stop_on_error: bool = False,
         read_mode: str | None = None,
         target_mode: str = "missing",
+        codex_model: str | None = None,
+        target: str = "passed",
+        concurrency: int = 1,
+        weekly_usage_before: float | None = None,
+        weekly_usage_after: float | None = None,
+        five_hour_usage_before: float | None = None,
+        five_hour_usage_after: float | None = None,
+        inspection: bool = False,
     ) -> Dict[str, Any]:
+        if engine == "agent":
+            return self._run_agentic_bill_report(
+                command="ai.summary",
+                passed_step="generate_agentic_summary_reports",
+                all_step="generate_all_agentic_summary_reports",
+                mode=mode,
+                limit=limit,
+                output_dir=output_dir,
+                read_mode=read_mode,
+                codex_model=codex_model,
+                stop_on_error=stop_on_error,
+                target=target,
+                concurrency=concurrency,
+                weekly_usage_before=weekly_usage_before,
+                weekly_usage_after=weekly_usage_after,
+                five_hour_usage_before=five_hour_usage_before,
+                five_hour_usage_after=five_hour_usage_after,
+                inspection=inspection,
+            )
+        if engine != "cli":
+            raise ValueError("engine은 agent 또는 cli여야 합니다.")
         return self._run_ai_cli_summary(
             command="ai.summary",
             step="summarize_cli_realtime",
@@ -488,9 +519,12 @@ class PipelineRuntime:
             target_mode=target_mode,
         )
 
-    def run_bill_agent_report(
+    def _run_agentic_bill_report(
         self,
         *,
+        command: str,
+        passed_step: str,
+        all_step: str,
         mode: str = "dry_run",
         limit: int = 5,
         output_dir: str = "/tmp/lawdigest-bill-agent-reports",
@@ -547,7 +581,7 @@ class PipelineRuntime:
             self._record_step(
                 run_id,
                 steps,
-                "generate_all_bill_reports" if target == "all" else "generate_passed_bill_reports",
+                all_step if target == "all" else passed_step,
                 report,
             )
             stats = report.get("stats", {})
@@ -555,4 +589,40 @@ class PipelineRuntime:
                 raise RuntimeError("모든 법안 리포트 생성에 실패했습니다.")
             return steps
 
-        return self._run("bill.agent_report", params, execute)
+        return self._run(command, params, execute)
+
+    def run_bill_agent_report(
+        self,
+        *,
+        mode: str = "dry_run",
+        limit: int = 5,
+        output_dir: str = "/tmp/lawdigest-bill-agent-reports",
+        read_mode: str | None = None,
+        codex_model: str | None = None,
+        stop_on_error: bool = False,
+        target: str = "passed",
+        concurrency: int = 1,
+        weekly_usage_before: float | None = None,
+        weekly_usage_after: float | None = None,
+        five_hour_usage_before: float | None = None,
+        five_hour_usage_after: float | None = None,
+        inspection: bool = False,
+    ) -> Dict[str, Any]:
+        return self._run_agentic_bill_report(
+            command="bill.agent_report",
+            passed_step="generate_passed_bill_reports",
+            all_step="generate_all_bill_reports",
+            mode=mode,
+            limit=limit,
+            output_dir=output_dir,
+            read_mode=read_mode,
+            codex_model=codex_model,
+            stop_on_error=stop_on_error,
+            target=target,
+            concurrency=concurrency,
+            weekly_usage_before=weekly_usage_before,
+            weekly_usage_after=weekly_usage_after,
+            five_hour_usage_before=five_hour_usage_before,
+            five_hour_usage_after=five_hour_usage_after,
+            inspection=inspection,
+        )
