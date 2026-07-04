@@ -938,7 +938,19 @@ def _repair_report_body(report_body: str) -> str:
 
         fixed_lines.append(line)
 
-    return "\n".join(fixed_lines).strip() + "\n"
+    repaired = "\n".join(fixed_lines).strip()
+    if "<mark>" not in repaired:
+        for pattern in (
+            r"(?m)^(-\s+[^.\n!?]*\*\*[^*\n]+\*\*[^.\n!?]*[.!?]?요\.)",
+            r"(?m)^([^-\n#][^.\n!?]*\*\*[^*\n]+\*\*[^.\n!?]*[.!?]?요\.)",
+        ):
+            match = re.search(pattern, repaired)
+            if match:
+                sentence = match.group(1)
+                repaired = repaired[: match.start(1)] + f"<mark>{sentence}</mark>" + repaired[match.end(1) :]
+                break
+
+    return repaired + "\n"
 
 
 def _fetch_bill_report_targets(
