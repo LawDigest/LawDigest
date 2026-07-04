@@ -545,15 +545,15 @@ def _brief_topic_from_bill_name(bill_name: str) -> str | None:
     if not bill_name:
         return None
     if "인공지능 데이터센터" in bill_name:
-        return "인공지능 데이터센터 구축·운영 지원"
+        return "전력·용수 기반과 인허가 특례로 인공지능 데이터센터 구축·운영 지원"
     if "농지법" in bill_name:
-        return "농지 이용 실태 관리 강화"
+        return "농지 이용 실태조사와 유휴농지 관리 강화"
     if "해운법" in bill_name:
-        return "섬 지역 해상교통 지원 강화"
+        return "섬 지역 항로 단절 방지와 여객선 운항 지원 강화"
     if "연근해어업" in bill_name:
-        return "연근해어업 관리체계 구축"
+        return "어업활동 보고와 통합관리시스템 기반 연근해어업 관리체계 구축"
     if "국방반도체" in bill_name:
-        return "국방반도체 산업 기반 조성"
+        return "국방반도체 기술·생산 기반 확충과 안정적 공급망 조성"
     match = re.match(r"(.+?)(?:\s+일부개정법률안|\s+전부개정법률안|\s+제정법률안|\s+법률안|\s+특별법안)", bill_name)
     if not match:
         return None
