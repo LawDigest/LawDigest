@@ -4,8 +4,18 @@ import threading
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
 
-def test_agentic_report_prompt_requires_active_mcp_research():
+
+@pytest.fixture(autouse=True)
+def disable_agentic_prefetch_network(monkeypatch):
+    monkeypatch.setattr(
+        "lawdigest_ai.processor.agentic_bill_report._build_open_assembly_client",
+        lambda api_key=None: None,
+    )
+
+
+def test_agentic_report_prompt_uses_prefetched_evidence():
     from lawdigest_ai.processor.agentic_bill_report import build_bill_report_prompt
 
     prompt = build_bill_report_prompt(
@@ -22,17 +32,14 @@ def test_agentic_report_prompt_requires_active_mcp_research():
         }
     )
 
-    assert "Lawdigest가 보유한 법안 후보" in prompt
-    assert "실제 처리결과에 맞게 설명" in prompt
+    assert "deterministic evidence packet" in prompt
+    assert "제공된 evidence 안에서만 사실관계를 사용" in prompt
     assert "이미 통과된 법안" not in prompt
-    assert "MCP 도구를 능동적으로 사용" in prompt
-    assert "open-assembly" in prompt
-    assert "assembly-api" in prompt
-    assert "korean-law" in prompt
-    assert "korean-stats" in prompt
-    assert "법안의 통과 경로" in prompt
-    assert "현행법 및 개정 법령 맥락" in prompt
-    assert "통계청 공식 통계" in prompt
+    assert "MCP 도구를 능동적으로 사용" not in prompt
+    assert "추가 도구 호출, 웹 검색, 셸 명령 실행을 하지 말고" in prompt
+    assert "open_assembly.detail, summary, review, lifecycle" in prompt
+    assert "open_assembly.fetch_bill_detail" in prompt
+    assert "open_assembly.fetch_bill_summary" in prompt
 
 
 def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
@@ -55,13 +62,14 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
     assert "쉬운 요약" in prompt
     assert "쉬운 말로 충분히 설명하는 것" in prompt
     assert "5개 불릿" in prompt
-    assert "복합 개정안은 최종 리포트가 8,000자 안팎" in prompt
+    assert "리포트 모드: deep_report" in prompt
+    assert "6,000~8,000자 안팎" in prompt
     assert "**항목 제목**: 쉬운 설명" in prompt
     assert "**부당한 표시·광고 제한**: 허위·과장 등 소비자를 오도할 수 있는 표현을 규제해요." in prompt
     assert "Lawdigest 요약 개선 제안" not in prompt
     assert "사용한 MCP 도구와 출처" not in prompt
     assert "내부 조사 로그" in prompt
-    assert "MCP 서버명, 도구명, 함수명" in prompt
+    assert "추가 도구 호출" in prompt
     assert "현재 심사 단계" in prompt
     assert "아직 법으로 확정된 건 아니고" not in prompt
     assert "법안의 처리 상태를 요약 첫 문장으로 앞세우지 마세요" in prompt
@@ -107,6 +115,76 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
     assert "target=lstrmRlt" not in prompt
     assert "{{용어:뜻}}" in prompt
     assert "설명하지 않을 용어" in prompt
+
+
+def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import build_bill_report_evidence
+
+    calls = []
+
+    class FakeClient:
+        def fetch_bill_detail(self, bill_id):
+            calls.append(("detail", bill_id))
+            return {"BILL_ID": bill_id, "BILL_NO": "2212345", "BILL_NM": "테스트법안"}
+
+        def fetch_bill_summary(self, bill_no):
+            calls.append(("summary", bill_no))
+            return {"BILL_NO": bill_no, "SUMMARY": "원문 요약"}
+
+        def fetch_bill_lifecycle(self, bill_no):
+            calls.append(("lifecycle", bill_no))
+            return {"BILL_NO": bill_no, "RGS_CONF_RSLT": "원안가결"}
+
+        def fetch_rows(self, endpoint, params, *, all_pages, page_size):
+            calls.append(("rows", endpoint, params, all_pages, page_size))
+            return [{"BILL_NO": params["BILL_NO"], "VOTE_TCNT": 200, "YES_TCNT": 180}]
+
+    monkeypatch.setattr(
+        "lawdigest_ai.processor.agentic_bill_report._build_open_assembly_client",
+        lambda api_key=None: FakeClient(),
+    )
+
+    evidence = build_bill_report_evidence(
+        {
+            "bill_id": "PRC_PREFETCH",
+            "bill_number": "",
+            "bill_name": "테스트법안",
+            "bill_result": "원안가결",
+        }
+    )
+
+    assert evidence["report_mode"] == "deep_report"
+    assert evidence["prefetch_errors"] == []
+    assert evidence["open_assembly"]["detail"]["BILL_NO"] == "2212345"
+    assert evidence["open_assembly"]["summary"]["SUMMARY"] == "원문 요약"
+    assert evidence["open_assembly"]["review"][0]["YES_TCNT"] == 180
+    assert calls == [
+        ("detail", "PRC_PREFETCH"),
+        ("summary", "2212345"),
+        ("lifecycle", "2212345"),
+        ("rows", "BILLJUDGE", {"BILL_NO": "2212345"}, False, 5),
+    ]
+
+
+def test_agentic_report_prompt_summary_mode_is_short_pending_contract():
+    from lawdigest_ai.processor.agentic_bill_report import build_bill_report_prompt
+
+    prompt = build_bill_report_prompt(
+        {
+            "bill_id": "PRC_PENDING",
+            "bill_number": "2219999",
+            "bill_name": "접수 테스트법안",
+            "summary": "막 접수된 법안 요약",
+            "bill_result": "접수",
+            "stage": "소관위접수",
+        },
+        report_mode="summary",
+    )
+
+    assert "리포트 모드: summary" in prompt
+    assert "아직 통과되지 않았거나 막 접수된 법안" in prompt
+    assert "1,500~2,500자 안팎" in prompt
+    assert "6,000~8,000자 안팎" not in prompt
 
 
 def test_agentic_report_validation_rejects_internal_tool_leaks():
@@ -285,6 +363,36 @@ def test_agentic_report_validation_requires_markdown_bullets_for_explanations():
         assert "Markdown 불릿" in str(exc)
     else:
         raise AssertionError("설명 문장이 불릿이 아닌 리포트는 성공하면 안 됩니다.")
+
+
+def test_agentic_report_repair_adds_missing_term_bullets():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 거래 전 정보 확인이에요.</mark>
+
+## 주요 내용
+- 지원 근거: 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 과태료 부과 기준 정비
+
+과태료 기준을 더 분명하게 정해요.
+
+과태료: 규칙을 어겼을 때 내는 금전 제재예요.
+사용자 입장에서는, 어떤 위반에 비용 부담이 생기는지 더 알기 쉬워져요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert "- **지원 근거**: 설명이에요." in repaired
+    assert "- 과태료:" in repaired
+    assert "- 사용자 입장에서는," in repaired
+    _validate_report_body(repaired)
 
 
 def test_agentic_report_validation_ignores_source_section_legal_terms():
@@ -789,14 +897,42 @@ def test_agentic_report_validation_allows_eventually_inside_summary_sentence():
     _validate_report_body(report_body)
 
 
-def test_codex_agent_command_includes_four_mcp_servers(tmp_path, monkeypatch):
+def test_codex_agent_command_omits_mcp_servers_by_default(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    monkeypatch.delenv("APIKEY_billsInfo", raising=False)
+    monkeypatch.delenv("APIKEY_status", raising=False)
+
+    agent = CodexBillReportAgent(workdir="/tmp/lawdigest-agent", model="gpt-5.3-codex-spark")
+    command, stdin_text = agent.build_command(
+        prompt="리포트를 작성하세요.",
+        output_path=str(tmp_path / "report.md"),
+    )
+
+    joined = " ".join(command)
+    assert command[:2] == ["codex", "exec"]
+    assert "--ignore-user-config" in command
+    assert command.count("--disable") == 3
+    assert "plugins" in command
+    assert "apps" in command
+    assert "memories" in command
+    assert "--sandbox" in command
+    assert "read-only" in command
+    assert "--json" in command
+    assert "--output-last-message" in command
+    assert stdin_text == "리포트를 작성하세요."
+    assert "mcp_servers." not in joined
+
+
+def test_codex_agent_command_can_enable_legacy_mcp_servers(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
 
     monkeypatch.setenv("LAW_OC", "law-key")
     monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
     monkeypatch.setenv("KOSIS_API_KEY", "kosis-key")
 
-    agent = CodexBillReportAgent(workdir="/tmp/lawdigest-agent", model="gpt-5.3-codex-spark")
+    agent = CodexBillReportAgent(workdir="/tmp/lawdigest-agent", model="gpt-5.3-codex-spark", enable_mcp=True)
     command, stdin_text = agent.build_command(
         prompt="리포트를 작성하세요.",
         output_path=str(tmp_path / "report.md"),
@@ -833,7 +969,7 @@ def test_codex_agent_command_includes_four_mcp_servers(tmp_path, monkeypatch):
 def test_codex_agent_records_operational_usage_metadata(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
 
-    monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
     output_path = tmp_path / "report.md"
     report_body = (
         "# 테스트법 일부개정법률안\n\n"
@@ -874,7 +1010,7 @@ def test_codex_agent_records_operational_usage_metadata(tmp_path, monkeypatch):
 def test_codex_agent_writes_inspection_artifacts(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
 
-    monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
     output_path = tmp_path / "report.md"
     inspection_dir = tmp_path / "inspection"
     report_body = (
@@ -934,7 +1070,7 @@ def test_codex_agent_requires_assembly_api_key(tmp_path, monkeypatch):
     monkeypatch.delenv("APIKEY_billsInfo", raising=False)
     monkeypatch.delenv("APIKEY_status", raising=False)
 
-    agent = CodexBillReportAgent()
+    agent = CodexBillReportAgent(enable_mcp=True)
     try:
         agent.build_command(prompt="리포트를 작성하세요.", output_path=str(tmp_path / "report.md"))
     except RuntimeError as exc:
@@ -949,7 +1085,7 @@ def test_codex_agent_accepts_existing_bills_info_key(tmp_path, monkeypatch):
     monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
     monkeypatch.setenv("APIKEY_billsInfo", "assembly-key")
 
-    agent = CodexBillReportAgent()
+    agent = CodexBillReportAgent(enable_mcp=True)
     command, _ = agent.build_command(
         prompt="리포트를 작성하세요.",
         output_path=str(tmp_path / "report.md"),
@@ -961,7 +1097,7 @@ def test_codex_agent_accepts_existing_bills_info_key(tmp_path, monkeypatch):
 def test_run_agentic_bill_reports_writes_markdown_artifacts(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
 
-    monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
 
     target = {
         "bill_id": "PRC_TEST",
@@ -1012,7 +1148,7 @@ def test_run_agentic_bill_reports_writes_markdown_artifacts(tmp_path, monkeypatc
 def test_run_agentic_bill_reports_can_target_all_bills(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
 
-    monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
 
     target = {
         "bill_id": "PRC_TEST_ALL",
@@ -1059,7 +1195,7 @@ def test_run_agentic_bill_reports_can_target_all_bills(tmp_path, monkeypatch):
 def test_run_agentic_bill_reports_records_usage_meter_snapshot(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
 
-    monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
 
     target = {
         "bill_id": "PRC_USAGE",
@@ -1109,7 +1245,7 @@ def test_run_agentic_bill_reports_records_usage_meter_snapshot(tmp_path, monkeyp
 def test_run_agentic_bill_reports_runs_codex_sessions_in_parallel(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent, run_agentic_bill_reports
 
-    monkeypatch.setenv("ASSEMBLY_API_KEY", "assembly-key")
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
     targets = [
         {"bill_id": "PRC_PARALLEL_1", "bill_name": "병렬 테스트법 1"},
         {"bill_id": "PRC_PARALLEL_2", "bill_name": "병렬 테스트법 2"},
@@ -1118,7 +1254,7 @@ def test_run_agentic_bill_reports_runs_codex_sessions_in_parallel(tmp_path, monk
     both_started = threading.Event()
     started_count = 0
 
-    def write_report(self, *, bill, output_path, inspection_dir=None):
+    def write_report(self, *, bill, output_path, inspection_dir=None, report_mode="auto"):
         nonlocal started_count
         with lock:
             started_count += 1
@@ -1283,7 +1419,7 @@ def test_run_agentic_bill_reports_upserts_successful_items(tmp_path, monkeypatch
         encoding="utf-8",
     )
 
-    def write_report(self, *, bill, output_path, inspection_dir=None):
+    def write_report(self, *, bill, output_path, inspection_dir=None, report_mode="auto"):
         return {
             "bill_id": bill["bill_id"],
             "bill_name": bill["bill_name"],
@@ -1328,3 +1464,24 @@ def test_fetch_bill_report_targets_uses_null_summary_tags_when_column_absent():
     executed_query = cur.execute.call_args.args[0]
     assert "NULL AS summary_tags" in executed_query
     assert "ORDER BY propose_date DESC, bill_id DESC" in executed_query
+
+
+def test_fetch_bill_report_targets_can_select_pending_bills():
+    from lawdigest_ai.processor.agentic_bill_report import _fetch_bill_report_targets
+
+    conn = MagicMock()
+    cur = conn.cursor.return_value.__enter__.return_value
+    cur.fetchall.return_value = []
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.get_db_connection",
+        return_value=conn,
+    ), patch(
+        "lawdigest_ai.processor.agentic_bill_report.get_bill_table_columns",
+        return_value={"bill_id", "brief_summary", "summary", "summary_tags"},
+    ):
+        _fetch_bill_report_targets(mode="dry_run", limit=1, read_mode="prod", target="pending")
+
+    executed_query = cur.execute.call_args.args[0]
+    assert "NOT (COALESCE(bill_result, '') LIKE" in executed_query
+    assert "COALESCE(bill_result, '') NOT LIKE" in executed_query

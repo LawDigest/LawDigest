@@ -454,6 +454,7 @@ class PipelineRuntime:
         codex_model: str | None = None,
         target: str = "passed",
         concurrency: int = 1,
+        report_mode: str = "auto",
         weekly_usage_before: float | None = None,
         weekly_usage_after: float | None = None,
         five_hour_usage_before: float | None = None,
@@ -473,6 +474,7 @@ class PipelineRuntime:
                 stop_on_error=stop_on_error,
                 target=target,
                 concurrency=concurrency,
+                report_mode=report_mode,
                 weekly_usage_before=weekly_usage_before,
                 weekly_usage_after=weekly_usage_after,
                 five_hour_usage_before=five_hour_usage_before,
@@ -533,6 +535,7 @@ class PipelineRuntime:
         stop_on_error: bool = False,
         target: str = "passed",
         concurrency: int = 1,
+        report_mode: str = "auto",
         weekly_usage_before: float | None = None,
         weekly_usage_after: float | None = None,
         five_hour_usage_before: float | None = None,
@@ -554,6 +557,7 @@ class PipelineRuntime:
             "stop_on_error": stop_on_error,
             "target": target,
             "concurrency": concurrency,
+            "report_mode": report_mode,
             "usage_meter": usage_meter,
             "inspection": inspection,
         }
@@ -571,6 +575,7 @@ class PipelineRuntime:
                 "stop_on_error": stop_on_error,
                 "target": target,
                 "concurrency": concurrency,
+                "report_mode": report_mode,
                 "inspection": inspection,
             }
             if usage_meter is not None:
@@ -578,10 +583,15 @@ class PipelineRuntime:
             report = run_agentic_bill_reports(
                 **report_kwargs,
             )
+            step_name = passed_step
+            if target == "all":
+                step_name = all_step
+            elif target == "pending":
+                step_name = "generate_pending_agentic_summary_reports"
             self._record_step(
                 run_id,
                 steps,
-                all_step if target == "all" else passed_step,
+                step_name,
                 report,
             )
             stats = report.get("stats", {})
@@ -602,6 +612,7 @@ class PipelineRuntime:
         stop_on_error: bool = False,
         target: str = "passed",
         concurrency: int = 1,
+        report_mode: str = "auto",
         weekly_usage_before: float | None = None,
         weekly_usage_after: float | None = None,
         five_hour_usage_before: float | None = None,
@@ -620,6 +631,7 @@ class PipelineRuntime:
             stop_on_error=stop_on_error,
             target=target,
             concurrency=concurrency,
+            report_mode=report_mode,
             weekly_usage_before=weekly_usage_before,
             weekly_usage_after=weekly_usage_after,
             five_hour_usage_before=five_hour_usage_before,

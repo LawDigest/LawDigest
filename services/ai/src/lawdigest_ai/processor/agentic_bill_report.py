@@ -24,6 +24,33 @@ DEFAULT_AGENT_WORKDIR = os.getenv("BILL_AGENT_CODEX_WORKDIR", "/tmp")
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
 PASSED_STAGE_TERMS = ("공포", "본회의 의결")
 EXCLUDED_RESULT_TERMS = ("폐기", "철회", "부결", "임기만료")
+REPORT_MODES = ("auto", "summary", "deep_report")
+TARGETS = ("passed", "pending", "all")
+EFFECTIVE_AGENT_TOOL_AUDIT = {
+    "source_run": "/tmp/lawdigest-bill-agent-reports/default-prod-five-20260704234548",
+    "effective_prefetch": (
+        "open_assembly.fetch_bill_detail",
+        "open_assembly.fetch_bill_summary",
+        "open_assembly.fetch_rows(BILLJUDGE)",
+        "open_assembly.fetch_bill_lifecycle",
+    ),
+    "called_but_excluded_from_default": (
+        "korean-law.search_law",
+        "korean-law.get_law_text",
+        "korean-law.legal_analysis",
+        "korean-law.legal_research",
+        "korean-law.execute_tool",
+        "open-assembly.discover_apis",
+        "web_search",
+        "command_execution",
+    ),
+    "not_effective_in_sample": (
+        "assembly-api.*",
+        "korean-stats.*",
+        "open-assembly.get_bill_proposers",
+        "open-assembly.get_vote_results",
+    ),
+}
 MCP_APPROVED_TOOLS = {
     "korean-stats": (
         "search_statistics",
@@ -187,6 +214,118 @@ def _build_bill_payload(bill: Dict[str, Any]) -> dict[str, Any]:
         "bill_link": bill.get("bill_link"),
         "bill_pdf_url": bill.get("bill_pdf_url"),
     }
+
+
+def _compact_evidence_value(value: Any, *, limit: int = 2500) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        text = re.sub(r"\s+", " ", value).strip()
+        if len(text) > limit:
+            return text[: limit - 1] + "…"
+        return text
+    if isinstance(value, (int, float, bool)):
+        return value
+    return str(value)
+
+
+def _compact_evidence_row(row: dict[str, Any] | None, *, text_limit: int = 2500) -> dict[str, Any]:
+    if not row:
+        return {}
+    compact: dict[str, Any] = {}
+    for key, value in row.items():
+        compact_value = _compact_evidence_value(value, limit=text_limit)
+        if compact_value not in (None, ""):
+            compact[key] = compact_value
+    return compact
+
+
+def _resolve_assembly_api_key() -> str | None:
+    return os.getenv("ASSEMBLY_API_KEY") or os.getenv("APIKEY_billsInfo") or os.getenv("APIKEY_status")
+
+
+def _build_open_assembly_client(api_key: str | None = None) -> Any | None:
+    resolved_api_key = api_key or _resolve_assembly_api_key()
+    if not resolved_api_key:
+        return None
+    try:
+        import requests
+        from lawdigest_data.bills.open_assembly import OpenAssemblyBillClient
+    except Exception:
+        return None
+    return OpenAssemblyBillClient(requests.Session(), resolved_api_key)
+
+
+def _first_text(*values: Any) -> str | None:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return None
+
+
+def _bill_is_passed(bill: dict[str, Any]) -> bool:
+    result = str(bill.get("bill_result") or "")
+    stage = str(bill.get("stage") or "")
+    excluded = any(term in result for term in EXCLUDED_RESULT_TERMS)
+    if excluded:
+        return False
+    return any(term in result for term in PASSED_RESULT_TERMS) or any(term in stage for term in PASSED_STAGE_TERMS)
+
+
+def _resolve_report_mode(report_mode: str, bill: dict[str, Any]) -> str:
+    if report_mode not in REPORT_MODES:
+        raise ValueError("report_mode은 auto, summary, deep_report 중 하나여야 합니다.")
+    if report_mode != "auto":
+        return report_mode
+    return "deep_report" if _bill_is_passed(bill) else "summary"
+
+
+def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto") -> dict[str, Any]:
+    resolved_mode = _resolve_report_mode(report_mode, bill)
+    evidence: dict[str, Any] = {
+        "report_mode": resolved_mode,
+        "db_bill": _build_bill_payload(bill),
+        "prefetch_plan": EFFECTIVE_AGENT_TOOL_AUDIT,
+        "open_assembly": {},
+        "prefetch_errors": [],
+    }
+
+    client = _build_open_assembly_client()
+    if client is None:
+        evidence["prefetch_errors"].append("open_assembly_client_unavailable")
+        return evidence
+
+    bill_id = _first_text(bill.get("bill_id"))
+    bill_no = _first_text(bill.get("bill_number"))
+    try:
+        detail_row = client.fetch_bill_detail(bill_id) if bill_id else None
+        evidence["open_assembly"]["detail"] = _compact_evidence_row(detail_row)
+        bill_no = _first_text(
+            bill_no,
+            detail_row.get("BILL_NO") if isinstance(detail_row, dict) else None,
+        )
+    except Exception as exc:
+        evidence["prefetch_errors"].append(f"fetch_bill_detail_failed: {exc}")
+
+    if not bill_no:
+        return evidence
+
+    for key, fetch in (
+        ("summary", lambda: client.fetch_bill_summary(bill_no)),
+        ("lifecycle", lambda: client.fetch_bill_lifecycle(bill_no)),
+        ("review", lambda: client.fetch_rows("BILLJUDGE", {"BILL_NO": bill_no}, all_pages=False, page_size=5)),
+    ):
+        try:
+            value = fetch()
+            if isinstance(value, list):
+                evidence["open_assembly"][key] = [_compact_evidence_row(row) for row in value[:5]]
+            else:
+                evidence["open_assembly"][key] = _compact_evidence_row(value)
+        except Exception as exc:
+            evidence["prefetch_errors"].append(f"{key}_prefetch_failed: {exc}")
+
+    return evidence
 
 
 def _sanitize_codex_event(event: dict[str, Any]) -> dict[str, Any]:
@@ -412,26 +551,54 @@ def _resolve_read_mode(mode: str, read_mode: str | None) -> str:
     return _db_mode_for_execution(mode)
 
 
-def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
+def build_bill_report_prompt(
+    bill: Dict[str, Any],
+    *,
+    report_mode: str = "auto",
+    evidence: dict[str, Any] | None = None,
+) -> str:
     payload = _build_bill_payload(bill)
     payload_text = json.dumps(payload, ensure_ascii=False, default=str)
     legal_term_context = build_legal_term_glossary_context(payload_text)
+    evidence_payload = evidence or {
+        "report_mode": _resolve_report_mode(report_mode, bill),
+        "db_bill": payload,
+        "prefetch_plan": EFFECTIVE_AGENT_TOOL_AUDIT,
+        "open_assembly": {},
+        "prefetch_errors": ["prefetch_not_run"],
+    }
+    resolved_mode = str(evidence_payload.get("report_mode") or _resolve_report_mode(report_mode, bill))
+    if resolved_mode == "summary":
+        mode_contract = (
+            "리포트 모드: summary\n"
+            "- 이 모드는 아직 통과되지 않았거나 막 접수된 법안을 대상으로 합니다.\n"
+            "- 최종 리포트는 1,500~2,500자 안팎으로 작성하세요.\n"
+            "- 제도가 확정된 것처럼 말하지 말고, 법안이 제안하는 변화와 앞으로 볼 점을 중심으로 설명하세요.\n"
+            "- `## 무엇이 달라지나`는 2~3개 변화 묶음으로 충분합니다.\n"
+        )
+    else:
+        mode_contract = (
+            "리포트 모드: deep_report\n"
+            "- 이 모드는 가결·공포·본회의 의결된 법안을 대상으로 합니다.\n"
+            "- 여러 제도가 함께 바뀌는 복합 개정안은 최종 리포트가 6,000~8,000자 안팎이 되도록 근거, 영향, 예외를 충분히 설명하세요.\n"
+            "- `## 무엇이 달라지나`는 가능하면 4~6개 변화 묶음으로 나누세요.\n"
+        )
     return (
         "당신은 Lawdigest의 법안 리포트 작성자입니다.\n"
-        "아래 입력은 Lawdigest가 보유한 법안 후보입니다. MCP 도구를 능동적으로 사용해 사실관계를 확인하고, "
-        "통과 여부와 현재 상태는 실제 처리결과에 맞게 설명하되, 출력은 내부 조사 로그가 아니라 "
-        "사용자에게 보여줄 최종 법안 리포트여야 합니다.\n\n"
-        "조사 원칙:\n"
-        "- open-assembly와 assembly-api로 법안명, 의안번호, 처리결과, 법안의 통과 경로, 위원회, 표결 정보를 확인하세요.\n"
-        "- korean-law로 현행법 및 개정 법령 맥락, 관련 조문, 법령 인용 검증, 시점 비교를 확인하세요.\n"
-        "- korean-stats는 정책 배경 설명에 직접 도움이 되는 공식 통계가 있을 때만 사용하세요.\n"
-        "- 도구 결과가 입력과 다르면 도구 결과를 우선하되, 불확실한 내용은 단정하지 마세요.\n\n"
+        "아래 입력은 Lawdigest가 사전에 수집한 deterministic evidence packet입니다. "
+        "추가 도구 호출, 웹 검색, 셸 명령 실행을 하지 말고 제공된 evidence 안에서만 사실관계를 사용하세요. "
+        "출력은 내부 조사 로그가 아니라 사용자에게 보여줄 최종 법안 리포트여야 합니다.\n\n"
+        f"{mode_contract}\n"
+        "근거 사용 원칙:\n"
+        "- open_assembly.detail, summary, review, lifecycle에 있는 값과 DB 값을 우선 사용하세요.\n"
+        "- evidence가 비어 있거나 prefetch_errors가 있으면 빈 근거를 지어내지 말고, DB에 있는 원문 요약과 상태값 범위에서만 설명하세요.\n"
+        "- assembly-api, korean-stats, web_search 결과는 기본 evidence에 없으므로 언급하지 마세요.\n"
+        "- 법제처 용어 사전 컨텍스트는 어려운 법률·행정용어를 한 번만 쉽게 풀 때 사용하세요.\n\n"
         "출력 형식:\n"
         "# 법안명\n"
         "## 쉬운 요약\n"
         "- 법안이 무엇을 바꾸는지 5개 불릿으로 설명하세요. 토스 앱처럼 쉬운 말로 충분히 설명하는 것이 목표입니다.\n"
         "- 짧다는 뜻은 문장을 쉽게 쓰는 것이지 정보량을 줄이는 것이 아닙니다.\n"
-        "- 여러 제도가 함께 바뀌는 복합 개정안은 최종 리포트가 8,000자 안팎이 되도록 근거, 영향, 예외를 충분히 설명하세요.\n"
         "- 본회의 표결수, 현재 심사 단계, 공포일 같은 상태값은 프론트엔드 데이터가 따로 보여주므로 요약 본문에 쓰지 마세요.\n"
         "- 법안의 처리 상태를 요약 첫 문장으로 앞세우지 마세요. 미확정 상태 안내처럼 상태를 먼저 말하지 말고, "
         "`소상공인의 정보보호 부담을 줄이기 위한 법률 개정안이에요`처럼 법안이 하려는 일을 먼저 설명하세요.\n"
@@ -496,7 +663,7 @@ def build_bill_report_prompt(bill: Dict[str, Any]) -> str:
         "- 법제처 정의가 없는 용어에는 `{{용어:뜻}}` 표기를 쓰지 마세요.\n"
         "- 최종 출력은 Markdown만 작성하세요.\n\n"
         f"{legal_term_context}\n\n"
-        f"입력 법안 payload:\n{json.dumps(payload, ensure_ascii=False, indent=2, default=str)}"
+        f"입력 evidence packet:\n{json.dumps(evidence_payload, ensure_ascii=False, indent=2, default=str)}"
     )
 
 
@@ -731,6 +898,49 @@ def _validate_report_body(report_body: str) -> None:
         raise RuntimeError("생성 리포트에 어색한 -요 체가 남아 있습니다: " + ", ".join(awkward_matches))
 
 
+def _repair_report_body(report_body: str) -> str:
+    repaired = report_body.replace("원문 요약:", "").replace("용어 설명:", "")
+    repaired = repaired.replace("법령 체계:", "").replace("쉬운 풀이:", "")
+
+    term_labels = ("청문 규정:", "청문 절차:", "청문:", "과태료:", "위임·위탁:")
+    easy_starters = (
+        "쉽게 말하면,",
+        "쉽게 말해,",
+        "한마디로,",
+        "사용자 입장에서는,",
+        "바뀌는 점은,",
+        "실제로는,",
+        "이 말은",
+        "결국",
+    )
+    fixed_lines: list[str] = []
+    in_changes = False
+    for line in repaired.splitlines():
+        stripped = line.strip()
+        if stripped == "## 무엇이 달라지나":
+            in_changes = True
+        elif stripped.startswith("## ") and stripped != "## 무엇이 달라지나":
+            in_changes = False
+
+        if in_changes and stripped:
+            already_bulleted = stripped.startswith("- ")
+            if not already_bulleted and any(stripped.startswith(label) for label in term_labels + easy_starters):
+                indent = line[: len(line) - len(line.lstrip())]
+                fixed_lines.append(f"{indent}- {stripped}")
+                continue
+
+        if stripped.startswith("- ") and ": " in stripped and not re.match(r"- \*\*[^*\n]+\*\*:", stripped):
+            label, rest = stripped[2:].split(": ", 1)
+            if 1 <= len(label) <= 24 and not label.startswith("http"):
+                indent = line[: len(line) - len(line.lstrip())]
+                fixed_lines.append(f"{indent}- **{label}**: {rest}")
+                continue
+
+        fixed_lines.append(line)
+
+    return "\n".join(fixed_lines).strip() + "\n"
+
+
 def _fetch_bill_report_targets(
     mode: str,
     limit: int,
@@ -739,18 +949,20 @@ def _fetch_bill_report_targets(
 ) -> List[Dict[str, Any]]:
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
-    if target not in {"passed", "all"}:
-        raise ValueError("target은 passed 또는 all이어야 합니다.")
+    if target not in TARGETS:
+        raise ValueError("target은 passed, pending, all 중 하나여야 합니다.")
 
     db_mode = _resolve_read_mode(mode, read_mode)
     bill_columns = get_bill_table_columns(mode=db_mode)
     filters = ["summary IS NOT NULL", "summary != ''"]
     params: list[Any] = []
-    if target == "passed":
-        result_filters = " OR ".join(["bill_result LIKE %s" for _ in PASSED_RESULT_TERMS])
-        stage_filters = " OR ".join(["stage LIKE %s" for _ in PASSED_STAGE_TERMS])
+    if target in {"passed", "pending"}:
+        result_filters = " OR ".join(["COALESCE(bill_result, '') LIKE %s" for _ in PASSED_RESULT_TERMS])
+        stage_filters = " OR ".join(["COALESCE(stage, '') LIKE %s" for _ in PASSED_STAGE_TERMS])
+        passed_clause = f"({result_filters} OR {stage_filters})"
         excluded_filters = " AND ".join(["COALESCE(bill_result, '') NOT LIKE %s" for _ in EXCLUDED_RESULT_TERMS])
-        filters.extend([f"({result_filters} OR {stage_filters})", excluded_filters])
+        filters.append(passed_clause if target == "passed" else f"NOT {passed_clause}")
+        filters.append(excluded_filters)
         params.extend([f"%{term}%" for term in PASSED_RESULT_TERMS])
         params.extend([f"%{term}%" for term in PASSED_STAGE_TERMS])
         params.extend([f"%{term}%" for term in EXCLUDED_RESULT_TERMS])
@@ -799,6 +1011,7 @@ class CodexBillReportAgent:
     model: str = DEFAULT_CODEX_MODEL
     timeout_seconds: int = DEFAULT_CODEX_TIMEOUT_SECONDS
     workdir: str = DEFAULT_AGENT_WORKDIR
+    enable_mcp: bool = False
 
     def _mcp_server_config_args(self) -> list[str]:
         assembly_key = os.getenv("ASSEMBLY_API_KEY") or os.getenv("APIKEY_billsInfo") or os.getenv("APIKEY_status")
@@ -867,9 +1080,10 @@ class CodexBillReportAgent:
             self.model,
             "--output-last-message",
             output_path,
-            *self._mcp_server_config_args(),
             "-",
         ]
+        if self.enable_mcp:
+            command[-1:-1] = self._mcp_server_config_args()
         return command, prompt
 
     def write_report(
@@ -878,8 +1092,11 @@ class CodexBillReportAgent:
         bill: Dict[str, Any],
         output_path: str,
         inspection_dir: str | None = None,
+        report_mode: str = "auto",
     ) -> Dict[str, Any]:
-        prompt = build_bill_report_prompt(bill)
+        evidence = build_bill_report_evidence(bill, report_mode=report_mode)
+        resolved_mode = str(evidence.get("report_mode") or _resolve_report_mode(report_mode, bill))
+        prompt = build_bill_report_prompt(bill, report_mode=resolved_mode, evidence=evidence)
         command, stdin_text = self.build_command(prompt=prompt, output_path=output_path)
         report_path = Path(output_path)
         report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -949,11 +1166,25 @@ class CodexBillReportAgent:
                 )
                 details.update(inspection_paths)
             raise BillReportGenerationError("Codex agent report body is empty.", details=details)
+        raw_report_body = report_path.read_text(encoding="utf-8")
+        repaired_report_body = _repair_report_body(raw_report_body)
+        repair_applied = repaired_report_body != raw_report_body.strip() + "\n"
+        if repair_applied:
+            report_path.write_text(repaired_report_body, encoding="utf-8")
         output_bytes = report_path.stat().st_size
         details["output_bytes"] = output_bytes
+        details["report_mode"] = resolved_mode
+        details["prefetch"] = {
+            "plan": EFFECTIVE_AGENT_TOOL_AUDIT["effective_prefetch"],
+            "errors": evidence.get("prefetch_errors") or [],
+        }
+        details["repair_applied"] = repair_applied
         try:
             _validate_report_body(report_path.read_text(encoding="utf-8"))
-            validation = {"status": "passed", "summary": "Markdown 리포트 품질 검증을 통과했습니다."}
+            validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
+            if repair_applied:
+                validation_summary = "Markdown 리포트 형식 cheap repair 후 품질 검증을 통과했습니다."
+            validation = {"status": "passed", "summary": validation_summary}
         except RuntimeError as exc:
             validation = {"status": "failed", "summary": str(exc)}
             if inspection_dir:
@@ -1003,13 +1234,16 @@ def run_agentic_bill_reports(
     usage_meter: dict[str, Any] | None = None,
     concurrency: int = 1,
     inspection: bool = False,
+    report_mode: str = "auto",
 ) -> Dict[str, Any]:
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
-    if target not in {"passed", "all"}:
-        raise ValueError("target은 passed 또는 all이어야 합니다.")
+    if target not in TARGETS:
+        raise ValueError("target은 passed, pending, all 중 하나여야 합니다.")
     if concurrency < 1:
         raise ValueError("concurrency는 1 이상이어야 합니다.")
+    if report_mode not in REPORT_MODES:
+        raise ValueError("report_mode은 auto, summary, deep_report 중 하나여야 합니다.")
 
     targets = _fetch_bill_report_targets(mode=mode, limit=limit, read_mode=read_mode, target=target)
     output_root = Path(output_dir).expanduser().resolve()
@@ -1030,6 +1264,7 @@ def run_agentic_bill_reports(
                 bill=bill,
                 output_path=str(report_path),
                 inspection_dir=str(inspection_dir) if inspection_dir is not None else None,
+                report_mode=report_mode,
             )
         except BillReportGenerationError as exc:
             failed = {
@@ -1105,7 +1340,8 @@ def run_agentic_bill_reports(
         "read_mode": _resolve_read_mode(mode, read_mode),
         "provider": "codex-agent",
         "model": codex_model or DEFAULT_CODEX_MODEL,
-        "target": "all_bills" if target == "all" else "passed_bills",
+        "target": {"all": "all_bills", "pending": "pending_bills"}.get(target, "passed_bills"),
+        "report_mode": report_mode,
         "concurrency": concurrency,
         "inspection": {
             "enabled": inspection,

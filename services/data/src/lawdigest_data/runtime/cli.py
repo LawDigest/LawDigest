@@ -27,7 +27,8 @@ def _add_ai_summary_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--engine", default="agent", choices=["agent", "cli"], help="기본값 agent. cli는 기존 Codex/Gemini CLI 요약 경로")
     parser.add_argument("--output-dir", default="/tmp/lawdigest-bill-agent-reports")
     parser.add_argument("--codex-model")
-    parser.add_argument("--target", default="passed", choices=["passed", "all"])
+    parser.add_argument("--target", default="passed", choices=["passed", "pending", "all"])
+    parser.add_argument("--report-mode", default="auto", choices=["auto", "summary", "deep_report"])
     parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--weekly-usage-before", type=float)
     parser.add_argument("--weekly-usage-after", type=float)
@@ -89,7 +90,8 @@ def build_parser() -> argparse.ArgumentParser:
     agent_report.add_argument("--output-dir", default="/tmp/lawdigest-bill-agent-reports")
     agent_report.add_argument("--read-mode", choices=["test", "prod"])
     agent_report.add_argument("--codex-model")
-    agent_report.add_argument("--target", default="passed", choices=["passed", "all"])
+    agent_report.add_argument("--target", default="passed", choices=["passed", "pending", "all"])
+    agent_report.add_argument("--report-mode", default="auto", choices=["auto", "summary", "deep_report"])
     agent_report.add_argument("--concurrency", type=int, default=1)
     agent_report.add_argument("--weekly-usage-before", type=float)
     agent_report.add_argument("--weekly-usage-after", type=float)
@@ -162,6 +164,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             codex_model=args.codex_model,
             target=args.target,
             concurrency=args.concurrency,
+            report_mode=args.report_mode,
             weekly_usage_before=args.weekly_usage_before,
             weekly_usage_after=args.weekly_usage_after,
             five_hour_usage_before=args.five_hour_usage_before,
@@ -189,6 +192,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             stop_on_error=args.stop_on_error,
             target=args.target,
             concurrency=args.concurrency,
+            report_mode=args.report_mode,
             weekly_usage_before=args.weekly_usage_before,
             weekly_usage_after=args.weekly_usage_after,
             five_hour_usage_before=args.five_hour_usage_before,
