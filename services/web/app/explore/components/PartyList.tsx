@@ -22,7 +22,7 @@ export default function PartyList() {
           href={`/party/${party.party_id}`}
           className="flex items-center gap-3 rounded-2xl border border-gray-1 bg-white p-3.5 shadow-sm transition-colors hover:bg-primary-1 dark:border-dark-l dark:bg-dark-b dark:hover:bg-dark-l">
           <Avatar
-            src={party.party_image_url}
+            src={process.env.NEXT_PUBLIC_IMAGE_URL + party.party_image_url}
             alt={party.party_name}
             className="h-11 w-11 shrink-0 bg-white ring-2"
             style={{ '--tw-ring-color': getPartyColor(party.party_name) } as React.CSSProperties}

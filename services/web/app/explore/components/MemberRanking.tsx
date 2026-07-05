@@ -34,7 +34,7 @@ export default function MemberRanking() {
               {index + 1}
             </span>
             <Avatar
-              src={member.congressman_image_url}
+              src={process.env.NEXT_PUBLIC_IMAGE_URL + member.congressman_image_url}
               alt={member.congressman_name}
               className="mx-auto h-14 w-14 bg-white ring-2"
               style={{ '--tw-ring-color': getPartyColor(member.party_name) } as CSSProperties}
