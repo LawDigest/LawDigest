@@ -465,6 +465,57 @@ def test_agentic_report_repair_adds_missing_term_bullets():
     _validate_report_body(repaired)
 
 
+@pytest.mark.parametrize(
+    ("change_heading", "change_paragraph", "expected_label"),
+    [
+        (
+            "처분 전 의견제출 절차 정비",
+            "처분 전에 청문 절차를 거치도록 해 당사자가 의견을 말할 기회를 더 분명히 해요.",
+            "청문 규정:",
+        ),
+        (
+            "위반 시 금전 제재 기준 정비",
+            "규칙을 어긴 경우 과태료 부과 기준을 더 분명하게 정해요.",
+            "과태료:",
+        ),
+        (
+            "업무 처리 권한 배분 정비",
+            "필요한 업무를 관계 기관에 위임·위탁할 수 있는 근거를 더 분명히 해요.",
+            "위임·위탁:",
+        ),
+    ],
+)
+def test_agentic_report_repair_inserts_required_legal_term_explanations(
+    change_heading,
+    change_paragraph,
+    expected_label,
+):
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = f"""
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 거래 전 정보 확인이에요.</mark>
+
+## 주요 내용
+- **지원 근거**: 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) {change_heading}
+
+{change_paragraph}
+
+- 사용자 입장에서는, 어떤 절차와 책임이 달라지는지 더 알기 쉬워져요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert f"- {expected_label}" in repaired
+    _validate_report_body(repaired)
+
+
 def test_agentic_report_repair_adds_missing_highlight():
     from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
 

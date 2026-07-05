@@ -1326,6 +1326,26 @@ def _repair_report_body(report_body: str) -> str:
     repaired = repaired.replace("법령 체계:", "").replace("쉬운 풀이:", "")
     repaired = re.sub(r"(?m)^(?P<indent>\s*)<mark>\s*-\s*(?P<text>[^<\n]+)</mark>", r"\g<indent>- <mark>\g<text></mark>", repaired)
 
+    term_explanations = (
+        {
+            "trigger": "청문",
+            "labels": ("청문 규정:", "청문 절차:", "청문:"),
+            "insert_label": "청문 규정:",
+            "explanation": "처분을 받기 전에 당사자가 의견을 말하고 반론할 수 있는 절차에요.",
+        },
+        {
+            "trigger": "과태료",
+            "labels": ("과태료:",),
+            "insert_label": "과태료:",
+            "explanation": "행정질서 위반에 부과하는 금전 제재에요.",
+        },
+        {
+            "trigger": "위임·위탁",
+            "labels": ("위임·위탁:",),
+            "insert_label": "위임·위탁:",
+            "explanation": "행정기관의 권한이나 업무 일부를 다른 기관이 맡아 처리하게 하는 방식이에요.",
+        },
+    )
     term_labels = ("청문 규정:", "청문 절차:", "청문:", "과태료:", "위임·위탁:")
     easy_starters = (
         "쉽게 말하면,",
@@ -1363,6 +1383,38 @@ def _repair_report_body(report_body: str) -> str:
         fixed_lines.append(line)
 
     repaired = "\n".join(fixed_lines).strip()
+    changes_body = _markdown_section_body(repaired, "## 무엇이 달라지나")
+    missing_terms = [
+        (str(term["trigger"]), str(term["insert_label"]), str(term["explanation"]))
+        for term in term_explanations
+        if str(term["trigger"]) in changes_body
+        and all(label not in changes_body and f"**{label[:-1]}**:" not in changes_body for label in term["labels"])
+    ]
+    if missing_terms:
+        lines = repaired.splitlines()
+        inserted_terms: set[str] = set()
+        fixed_lines = []
+        in_changes = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped == "## 무엇이 달라지나":
+                in_changes = True
+            elif stripped.startswith("## ") and stripped != "## 무엇이 달라지나":
+                in_changes = False
+
+            fixed_lines.append(line)
+            if not in_changes or stripped.startswith("- "):
+                continue
+
+            for term, label, explanation in missing_terms:
+                if term in inserted_terms or term not in stripped:
+                    continue
+                indent = line[: len(line) - len(line.lstrip())]
+                fixed_lines.append(f"{indent}- {label} {explanation}")
+                inserted_terms.add(term)
+                break
+        repaired = "\n".join(fixed_lines).strip()
+
     if "<mark>" not in repaired:
         for pattern in (
             r"(?m)^(-\s+[^.\n!?]*\*\*[^*\n]+\*\*[^.\n!?]*[.!?]?요\.)",
