@@ -492,6 +492,35 @@ def test_agentic_report_repair_adds_missing_highlight():
     _validate_report_body(repaired)
 
 
+def test_agentic_report_repair_moves_bullet_marker_outside_highlight():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+- **거래 전 정보 확인**을 더 쉽게 만들기 위한 법률 개정안이에요.
+<mark>- 핵심 변화는 **거래 전 정보 확인**이 쉬워지는 점이에요.</mark>
+
+## 주요 내용
+- **지원 근거**: 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 정보 제공 기준 정비
+
+거래 전 단계에서 **정보 제공 기준**을 더 분명하게 해요.
+
+- 사용자가 확인해야 할 내용을 더 빨리 볼 수 있어요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert "<mark>-" not in repaired
+    assert "- <mark>핵심 변화는 **거래 전 정보 확인**이 쉬워지는 점이에요.</mark>" in repaired
+    _validate_report_body(repaired)
+
+
 def test_agentic_report_repair_adds_missing_bold_keyword():
     from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
 

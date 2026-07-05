@@ -1324,6 +1324,7 @@ def _validate_report_body(report_body: str) -> None:
 def _repair_report_body(report_body: str) -> str:
     repaired = report_body.replace("원문 요약:", "").replace("용어 설명:", "")
     repaired = repaired.replace("법령 체계:", "").replace("쉬운 풀이:", "")
+    repaired = re.sub(r"(?m)^(?P<indent>\s*)<mark>\s*-\s*(?P<text>[^<\n]+)</mark>", r"\g<indent>- <mark>\g<text></mark>", repaired)
 
     term_labels = ("청문 규정:", "청문 절차:", "청문:", "과태료:", "위임·위탁:")
     easy_starters = (
