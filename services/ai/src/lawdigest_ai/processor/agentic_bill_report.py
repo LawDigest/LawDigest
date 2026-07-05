@@ -34,7 +34,8 @@ EFFECTIVE_AGENT_TOOL_AUDIT = {
         "open_assembly.fetch_bill_detail",
         "open_assembly.fetch_bill_summary",
         "open_assembly.fetch_rows(BILLJUDGE)",
-        "open_assembly.fetch_bill_lifecycle",
+        "law.go.kr.search_current_law",
+        "law.go.kr.fetch_current_law_articles",
     ),
     "called_but_excluded_from_default": (
         "korean-law.search_law",
@@ -266,6 +267,170 @@ def _first_text(*values: Any) -> str | None:
     return None
 
 
+def _split_proposal_summary(summary_text: str | None) -> dict[str, Any]:
+    text = re.sub(r"\s+", " ", str(summary_text or "")).strip()
+    if not text:
+        return {}
+    normalized = re.sub(r"^제안이유\s*및\s*주요내용\s*", "", text).strip()
+    return {
+        "proposal_reason_and_major_content": _compact_evidence_value(normalized, limit=6000),
+        "raw_heading": "제안이유 및 주요내용" if normalized != text else None,
+    }
+
+
+def _extract_target_law_names(bill_name: str | None) -> list[str]:
+    name = str(bill_name or "").strip()
+    if not name:
+        return []
+    patterns = (
+        r"(.+?법)\s+일부개정법률안",
+        r"(.+?법)\s+전부개정법률안",
+        r"(.+?법)\s+폐지법률안",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, name)
+        if match:
+            return [match.group(1).strip()]
+    if name.endswith("법안") and "개정" not in name:
+        return []
+    return []
+
+
+def _article_ref_to_jo(article_ref: str) -> str | None:
+    match = re.search(r"제\s*(\d+)\s*조(?:의\s*(\d+))?", article_ref)
+    if not match:
+        return None
+    article = int(match.group(1))
+    branch = int(match.group(2) or 0)
+    return f"{article:04d}{branch:02d}"
+
+
+def _extract_article_refs(*texts: Any, limit: int = 8) -> list[dict[str, str]]:
+    refs: list[dict[str, str]] = []
+    seen: set[str] = set()
+    combined = " ".join(str(text or "") for text in texts)
+    for match in re.finditer(r"제\s*\d+\s*조(?:의\s*\d+)?", combined):
+        label = re.sub(r"\s+", "", match.group(0))
+        if label in seen:
+            continue
+        jo = _article_ref_to_jo(label)
+        if jo:
+            refs.append({"label": label, "JO": jo})
+            seen.add(label)
+        if len(refs) >= limit:
+            break
+    return refs
+
+
+def _find_first_nested(value: Any, keys: tuple[str, ...]) -> Any:
+    if isinstance(value, dict):
+        for key in keys:
+            if key in value:
+                return value[key]
+        for nested in value.values():
+            found = _find_first_nested(nested, keys)
+            if found is not None:
+                return found
+    if isinstance(value, list):
+        for item in value:
+            found = _find_first_nested(item, keys)
+            if found is not None:
+                return found
+    return None
+
+
+def _as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    return [value]
+
+
+def _build_law_api_client() -> Any | None:
+    oc = os.getenv("LAW_OC")
+    if not oc:
+        return None
+    try:
+        import requests
+    except Exception:
+        return None
+    return requests.Session(), oc
+
+
+def _search_current_law(law_name: str, *, client: Any | None = None) -> dict[str, Any]:
+    session_and_oc = client or _build_law_api_client()
+    if session_and_oc is None:
+        return {"law_name": law_name, "status": "law_api_unavailable"}
+    session, oc = session_and_oc
+    response = session.get(
+        "https://www.law.go.kr/DRF/lawSearch.do",
+        params={"OC": oc, "target": "law", "type": "JSON", "query": law_name, "display": 3},
+        timeout=20,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    rows = _as_list(_find_first_nested(payload, ("law", "법령", "법령검색")))
+    candidates: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        law_title = _first_text(row.get("법령명한글"), row.get("법령명_한글"), row.get("법령명"))
+        if not law_title:
+            continue
+        candidates.append({
+            "law_name": law_title,
+            "law_id": _first_text(row.get("법령ID"), row.get("ID")),
+            "mst": _first_text(row.get("법령일련번호"), row.get("MST"), row.get("lsi_seq")),
+            "promulgation_date": _first_text(row.get("공포일자")),
+            "effective_date": _first_text(row.get("시행일자")),
+        })
+    return {"law_name": law_name, "status": "found" if candidates else "not_found", "candidates": candidates[:3]}
+
+
+def _fetch_current_law_article(mst: str | None, article_ref: dict[str, str], *, client: Any | None = None) -> dict[str, Any]:
+    if not mst:
+        return {**article_ref, "status": "missing_law_mst"}
+    session_and_oc = client or _build_law_api_client()
+    if session_and_oc is None:
+        return {**article_ref, "status": "law_api_unavailable"}
+    session, oc = session_and_oc
+    response = session.get(
+        "https://www.law.go.kr/DRF/lawService.do",
+        params={"OC": oc, "target": "lawjosub", "type": "JSON", "MST": mst, "JO": article_ref["JO"]},
+        timeout=20,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    article_text = _find_first_nested(payload, ("조문내용", "조문내용문자열", "조문"))
+    return {
+        **article_ref,
+        "status": "found" if article_text else "not_found",
+        "text": _compact_evidence_value(article_text, limit=1800),
+    }
+
+
+def _row_matches_bill(row: dict[str, Any], *, bill_id: str | None, bill_no: str | None) -> bool:
+    row_bill_id = _first_text(row.get("BILL_ID"), row.get("bill_id"))
+    row_bill_no = _first_text(row.get("BILL_NO"), row.get("bill_no"))
+    if bill_id and row_bill_id:
+        return row_bill_id == bill_id
+    if bill_no and row_bill_no:
+        return row_bill_no == bill_no
+    return False
+
+
+def _build_cost_estimate_evidence(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    keywords = ("비용추계", "재정", "예산", "미첨부", "첨부", "소요비용", "재원")
+    matches: list[dict[str, Any]] = []
+    for row in rows:
+        for key, value in row.items():
+            text = str(value or "").strip()
+            if text and any(keyword in text for keyword in keywords):
+                matches.append({"field": key, "text": _compact_evidence_value(text, limit=1200)})
+    return {"status": "found" if matches else "not_found", "matches": matches[:8]}
+
+
 def _bill_is_passed(bill: dict[str, Any]) -> bool:
     result = str(bill.get("bill_result") or "")
     stage = str(bill.get("stage") or "")
@@ -288,6 +453,10 @@ def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto
         "db_bill": _build_bill_payload(bill),
         "prefetch_plan": EFFECTIVE_AGENT_TOOL_AUDIT,
         "open_assembly": {},
+        "bill_text": {},
+        "current_law": {},
+        "committee_materials": {},
+        "cost_estimate": {},
         "prefetch_errors": [],
     }
 
@@ -311,19 +480,83 @@ def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto
     if not bill_no:
         return evidence
 
-    for key, fetch in (
-        ("summary", lambda: client.fetch_bill_summary(bill_no)),
-        ("lifecycle", lambda: client.fetch_bill_lifecycle(bill_no)),
-        ("review", lambda: client.fetch_rows("BILLJUDGE", {"BILL_NO": bill_no}, all_pages=False, page_size=5)),
-    ):
+    summary_row: dict[str, Any] | None = None
+    try:
+        summary_row = client.fetch_bill_summary(bill_no)
+        evidence["open_assembly"]["summary"] = _compact_evidence_row(summary_row)
+    except Exception as exc:
+        evidence["prefetch_errors"].append(f"summary_prefetch_failed: {exc}")
+
+    summary_text = _first_text(
+        summary_row.get("SUMMARY") if isinstance(summary_row, dict) else None,
+        bill.get("summary"),
+    )
+    target_law_names = _extract_target_law_names(_first_text(bill.get("bill_name"), detail_row.get("BILL_NM") if isinstance(detail_row, dict) else None))
+    article_refs = _extract_article_refs(summary_text)
+    evidence["bill_text"] = {
+        **_split_proposal_summary(summary_text),
+        "target_law_names": target_law_names,
+        "mentioned_articles": article_refs,
+        "bill_pdf_url": _first_text(
+            bill.get("bill_pdf_url"),
+            detail_row.get("BILL_PDF_URL") if isinstance(detail_row, dict) else None,
+            detail_row.get("PDF_LINK_URL") if isinstance(detail_row, dict) else None,
+        ),
+        "bill_link": _first_text(
+            bill.get("bill_link"),
+            detail_row.get("LINK_URL") if isinstance(detail_row, dict) else None,
+        ),
+    }
+
+    law_client = _build_law_api_client()
+    current_law_items: list[dict[str, Any]] = []
+    for law_name in target_law_names[:2]:
         try:
-            value = fetch()
-            if isinstance(value, list):
-                evidence["open_assembly"][key] = [_compact_evidence_row(row) for row in value[:5]]
-            else:
-                evidence["open_assembly"][key] = _compact_evidence_row(value)
+            law_search = _search_current_law(law_name, client=law_client)
+            candidates = law_search.get("candidates") if isinstance(law_search, dict) else None
+            mst = None
+            if isinstance(candidates, list) and candidates:
+                mst = candidates[0].get("mst")
+            articles = [
+                _fetch_current_law_article(str(mst) if mst else None, article_ref, client=law_client)
+                for article_ref in article_refs[:5]
+            ]
+            current_law_items.append({**law_search, "articles": articles})
         except Exception as exc:
-            evidence["prefetch_errors"].append(f"{key}_prefetch_failed: {exc}")
+            evidence["prefetch_errors"].append(f"current_law_prefetch_failed: {law_name}: {exc}")
+            current_law_items.append({"law_name": law_name, "status": "failed"})
+    evidence["current_law"] = {
+        "target_law_names": target_law_names,
+        "mentioned_articles": article_refs,
+        "laws": current_law_items,
+    }
+
+    review_rows: list[dict[str, Any]] = []
+    try:
+        raw_review_rows = client.fetch_rows("BILLJUDGE", {"BILL_NO": bill_no}, all_pages=False, page_size=10)
+        review_rows = [
+            _compact_evidence_row(row)
+            for row in raw_review_rows
+            if isinstance(row, dict) and _row_matches_bill(row, bill_id=bill_id, bill_no=bill_no)
+        ][:5]
+        evidence["open_assembly"]["review"] = review_rows
+    except Exception as exc:
+        evidence["prefetch_errors"].append(f"review_prefetch_failed: {exc}")
+
+    evidence["committee_materials"] = {
+        "review_rows": review_rows,
+        "status": "found" if review_rows else "not_found",
+        "note": "BILLJUDGE rows are included only when BILL_ID or BILL_NO matches the target bill.",
+    }
+    evidence["cost_estimate"] = _build_cost_estimate_evidence([
+        row
+        for row in (
+            _compact_evidence_row(detail_row if isinstance(detail_row, dict) else None),
+            _compact_evidence_row(summary_row if isinstance(summary_row, dict) else None),
+            *review_rows,
+        )
+        if row
+    ])
 
     return evidence
 
@@ -581,8 +814,9 @@ def build_bill_report_prompt(
         "출력은 내부 조사 로그가 아니라 사용자에게 보여줄 최종 법안 리포트여야 합니다.\n\n"
         f"{mode_contract}\n"
         "근거 사용 원칙:\n"
-        "- open_assembly.detail, summary, review, lifecycle에 있는 값과 DB 값을 우선 사용하세요.\n"
-        "- evidence가 비어 있거나 prefetch_errors가 있으면 빈 근거를 지어내지 말고, DB에 있는 원문 요약과 상태값 범위에서만 설명하세요.\n"
+        "- bill_text, current_law, committee_materials, cost_estimate, open_assembly.detail, summary, review와 DB 값을 우선 사용하세요.\n"
+        "- lifecycle, 현재 심사 단계, 처리 상태처럼 시간이 지나며 바뀌는 정보는 리포트 본문 근거로 쓰지 마세요.\n"
+        "- evidence가 비어 있거나 prefetch_errors가 있으면 빈 근거를 지어내지 말고, DB에 있는 원문 요약과 법안 기본정보 범위에서만 설명하세요.\n"
         "- assembly-api, korean-stats, web_search 결과는 기본 evidence에 없으므로 언급하지 마세요.\n"
         "- 법제처 용어 사전 컨텍스트는 어려운 법률·행정용어를 한 번만 쉽게 풀 때 사용하세요.\n\n"
         "출력 형식:\n"

@@ -37,9 +37,11 @@ def test_agentic_report_prompt_uses_prefetched_evidence():
     assert "이미 통과된 법안" not in prompt
     assert "MCP 도구를 능동적으로 사용" not in prompt
     assert "추가 도구 호출, 웹 검색, 셸 명령 실행을 하지 말고" in prompt
-    assert "open_assembly.detail, summary, review, lifecycle" in prompt
+    assert "bill_text, current_law, committee_materials, cost_estimate" in prompt
+    assert "lifecycle, 현재 심사 단계, 처리 상태처럼 시간이 지나며 바뀌는 정보" in prompt
     assert "open_assembly.fetch_bill_detail" in prompt
     assert "open_assembly.fetch_bill_summary" in prompt
+    assert "open_assembly.fetch_bill_lifecycle" not in prompt
 
 
 def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
@@ -120,24 +122,37 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
 def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import build_bill_report_evidence
 
+    monkeypatch.delenv("LAW_OC", raising=False)
     calls = []
 
     class FakeClient:
         def fetch_bill_detail(self, bill_id):
             calls.append(("detail", bill_id))
-            return {"BILL_ID": bill_id, "BILL_NO": "2212345", "BILL_NM": "테스트법안"}
+            return {
+                "BILL_ID": bill_id,
+                "BILL_NO": "2212345",
+                "BILL_NM": "테스트법 일부개정법률안",
+                "BILL_PDF_URL": "https://example.test/bill.pdf",
+            }
 
         def fetch_bill_summary(self, bill_no):
             calls.append(("summary", bill_no))
-            return {"BILL_NO": bill_no, "SUMMARY": "원문 요약"}
-
-        def fetch_bill_lifecycle(self, bill_no):
-            calls.append(("lifecycle", bill_no))
-            return {"BILL_NO": bill_no, "RGS_CONF_RSLT": "원안가결"}
+            return {
+                "BILL_NO": bill_no,
+                "SUMMARY": "제안이유 및 주요내용 현행법 제12조를 고쳐 비용추계 미첨부 사유를 명확히 하려는 원문 요약",
+            }
 
         def fetch_rows(self, endpoint, params, *, all_pages, page_size):
             calls.append(("rows", endpoint, params, all_pages, page_size))
-            return [{"BILL_NO": params["BILL_NO"], "VOTE_TCNT": 200, "YES_TCNT": 180}]
+            return [
+                {
+                    "BILL_ID": "PRC_PREFETCH",
+                    "BILL_NO": params["BILL_NO"],
+                    "REPORT_NM": "검토보고서",
+                    "ETC": "비용추계 미첨부 사유서 포함",
+                },
+                {"BILL_ID": "PRC_OTHER", "BILL_NO": "9999999", "REPORT_NM": "다른 법안 검토보고서"},
+            ]
 
     monkeypatch.setattr(
         "lawdigest_ai.processor.agentic_bill_report._build_open_assembly_client",
@@ -148,7 +163,7 @@ def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monk
         {
             "bill_id": "PRC_PREFETCH",
             "bill_number": "",
-            "bill_name": "테스트법안",
+            "bill_name": "테스트법 일부개정법률안",
             "bill_result": "원안가결",
         }
     )
@@ -156,13 +171,27 @@ def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monk
     assert evidence["report_mode"] == "deep_report"
     assert evidence["prefetch_errors"] == []
     assert evidence["open_assembly"]["detail"]["BILL_NO"] == "2212345"
-    assert evidence["open_assembly"]["summary"]["SUMMARY"] == "원문 요약"
-    assert evidence["open_assembly"]["review"][0]["YES_TCNT"] == 180
+    assert "비용추계 미첨부 사유" in evidence["open_assembly"]["summary"]["SUMMARY"]
+    assert "lifecycle" not in evidence["open_assembly"]
+    assert "현행법 제12조" in evidence["bill_text"]["proposal_reason_and_major_content"]
+    assert evidence["bill_text"]["target_law_names"] == ["테스트법"]
+    assert evidence["bill_text"]["mentioned_articles"] == [{"label": "제12조", "JO": "001200"}]
+    assert evidence["current_law"]["target_law_names"] == ["테스트법"]
+    assert evidence["current_law"]["laws"][0]["status"] == "law_api_unavailable"
+    assert evidence["open_assembly"]["review"] == [
+        {
+            "BILL_ID": "PRC_PREFETCH",
+            "BILL_NO": "2212345",
+            "REPORT_NM": "검토보고서",
+            "ETC": "비용추계 미첨부 사유서 포함",
+        }
+    ]
+    assert evidence["committee_materials"]["status"] == "found"
+    assert evidence["cost_estimate"]["status"] == "found"
     assert calls == [
         ("detail", "PRC_PREFETCH"),
         ("summary", "2212345"),
-        ("lifecycle", "2212345"),
-        ("rows", "BILLJUDGE", {"BILL_NO": "2212345"}, False, 5),
+        ("rows", "BILLJUDGE", {"BILL_NO": "2212345"}, False, 10),
     ]
 
 
