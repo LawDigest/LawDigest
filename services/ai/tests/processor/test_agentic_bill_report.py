@@ -187,6 +187,31 @@ def test_agentic_report_prompt_summary_mode_is_short_pending_contract():
     assert "6,000~8,000자 안팎" not in prompt
 
 
+def test_agentic_report_batch_prompt_isolates_bill_reports():
+    from lawdigest_ai.processor.agentic_bill_report import build_bill_report_batch_prompt
+
+    prompt = build_bill_report_batch_prompt([
+        {
+            "bill_id": "PRC_BATCH_1",
+            "bill": {"bill_id": "PRC_BATCH_1", "bill_name": "배치 테스트법안 1"},
+            "report_mode": "summary",
+            "evidence": {"db_bill": {"summary": "첫 번째 근거"}},
+        },
+        {
+            "bill_id": "PRC_BATCH_2",
+            "bill": {"bill_id": "PRC_BATCH_2", "bill_name": "배치 테스트법안 2"},
+            "report_mode": "summary",
+            "evidence": {"db_bill": {"summary": "두 번째 근거"}},
+        },
+    ])
+
+    assert "각 항목은 서로 완전히 독립된 작업" in prompt
+    assert "다른 법안 리포트에 절대 옮기지 마세요" in prompt
+    assert "JSON 객체 하나만 작성하세요" in prompt
+    assert '"reports"' in prompt
+    assert '"report_body"' in prompt
+
+
 def test_agentic_report_validation_rejects_internal_tool_leaks():
     from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
 
@@ -1269,6 +1294,95 @@ def test_run_agentic_bill_reports_records_usage_meter_snapshot(tmp_path, monkeyp
     assert manifest["usage_meter"]["weekly"]["delta_percent"] == -0.5
 
 
+def test_run_agentic_bill_reports_batches_multiple_bills_in_one_session(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    targets = [
+        {
+            "bill_id": "PRC_BATCH_1",
+            "bill_number": "2210001",
+            "bill_name": "배치 테스트법안 1",
+            "summary": "첫 번째 요약",
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+        {
+            "bill_id": "PRC_BATCH_2",
+            "bill_number": "2210002",
+            "bill_name": "배치 테스트법안 2",
+            "summary": "두 번째 요약",
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+    ]
+    report_body_1 = (
+        "# 배치 테스트법안 1\n\n"
+        "## 쉬운 요약\n**첫 번째** 변화예요. <mark>첫 번째 법안만의 변화가 핵심이에요.</mark>\n\n"
+        "## 주요 내용\n- **권한 정비**: 설명이에요.\n\n"
+        "## 무엇이 달라지나\n\n"
+        "### 1) 첫 번째 제도 정비\n\n"
+        "첫 번째 법안 근거만 사용해 제도를 정비해요.\n\n"
+        "- 첫 번째 법안의 사용자 영향을 설명해요.\n"
+    )
+    report_body_2 = (
+        "# 배치 테스트법안 2\n\n"
+        "## 쉬운 요약\n**두 번째** 변화예요. <mark>두 번째 법안만의 변화가 핵심이에요.</mark>\n\n"
+        "## 주요 내용\n- **지원 근거**: 설명이에요.\n\n"
+        "## 무엇이 달라지나\n\n"
+        "### 1) 두 번째 지원 근거 신설\n\n"
+        "두 번째 법안 근거만 사용해 지원 근거를 만들어요.\n\n"
+        "- 두 번째 법안의 사용자 영향을 설명해요.\n"
+    )
+
+    def run_codex(command, **kwargs):
+        output_path = Path(command[command.index("--output-last-message") + 1])
+        output_path.write_text(
+            json.dumps(
+                {
+                    "reports": [
+                        {"bill_id": "PRC_BATCH_1", "report_mode": "summary", "report_body": report_body_1},
+                        {"bill_id": "PRC_BATCH_2", "report_mode": "summary", "report_body": report_body_2},
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        stdout = "\n".join(
+            [
+                '{"type":"thread.started","thread_id":"thread-batch"}',
+                '{"type":"turn.completed","usage":{"input_tokens":101,"cached_input_tokens":7,"output_tokens":9,"reasoning_output_tokens":2}}',
+            ]
+        )
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=targets,
+    ), patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex) as mock_run:
+        result = run_agentic_bill_reports(
+            mode="dry_run",
+            limit=2,
+            output_dir=str(tmp_path),
+            target="pending",
+            report_mode="summary",
+            batch_session_size=2,
+        )
+
+    assert mock_run.call_count == 1
+    assert result["batch_session_size"] == 2
+    assert result["batch_session_count"] == 1
+    assert result["stats"]["success_count"] == 2
+    assert result["stats"]["usage_totals"]["input_tokens"] == 101
+    assert result["stats"]["token_usage_available_count"] == 1
+    assert result["sessions"][0]["usage"]["input_tokens"] == 101
+    assert [item["batch_index"] for item in result["items"]] == [1, 1]
+    assert all(item["usage_shared"] is True for item in result["items"])
+    assert "첫 번째 법안만의 변화" in Path(result["items"][0]["report_path"]).read_text(encoding="utf-8")
+    assert "두 번째 법안만의 변화" in Path(result["items"][1]["report_path"]).read_text(encoding="utf-8")
+
+
 def test_run_agentic_bill_reports_runs_codex_sessions_in_parallel(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent, run_agentic_bill_reports
 
@@ -1306,6 +1420,7 @@ def test_run_agentic_bill_reports_runs_codex_sessions_in_parallel(tmp_path, monk
             limit=2,
             output_dir=str(tmp_path),
             concurrency=2,
+            batch_session_size=1,
         )
 
     assert result["concurrency"] == 2
@@ -1464,6 +1579,7 @@ def test_run_agentic_bill_reports_upserts_successful_items(tmp_path, monkeypatch
             mode="test",
             limit=1,
             output_dir=str(tmp_path),
+            batch_session_size=1,
         )
 
     assert result["stats"]["db_upserted_count"] == 1

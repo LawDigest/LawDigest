@@ -455,6 +455,7 @@ class PipelineRuntime:
         target: str = "passed",
         concurrency: int = 1,
         report_mode: str = "auto",
+        batch_session_size: int = 5,
         weekly_usage_before: float | None = None,
         weekly_usage_after: float | None = None,
         five_hour_usage_before: float | None = None,
@@ -475,6 +476,7 @@ class PipelineRuntime:
                 target=target,
                 concurrency=concurrency,
                 report_mode=report_mode,
+                batch_session_size=batch_session_size,
                 weekly_usage_before=weekly_usage_before,
                 weekly_usage_after=weekly_usage_after,
                 five_hour_usage_before=five_hour_usage_before,
@@ -536,6 +538,7 @@ class PipelineRuntime:
         target: str = "passed",
         concurrency: int = 1,
         report_mode: str = "auto",
+        batch_session_size: int = 5,
         weekly_usage_before: float | None = None,
         weekly_usage_after: float | None = None,
         five_hour_usage_before: float | None = None,
@@ -558,6 +561,7 @@ class PipelineRuntime:
             "target": target,
             "concurrency": concurrency,
             "report_mode": report_mode,
+            "batch_session_size": batch_session_size,
             "usage_meter": usage_meter,
             "inspection": inspection,
         }
@@ -576,6 +580,7 @@ class PipelineRuntime:
                 "target": target,
                 "concurrency": concurrency,
                 "report_mode": report_mode,
+                "batch_session_size": batch_session_size,
                 "inspection": inspection,
             }
             if usage_meter is not None:

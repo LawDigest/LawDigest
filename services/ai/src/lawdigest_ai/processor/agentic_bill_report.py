@@ -20,6 +20,8 @@ DEFAULT_CODEX_MODEL = os.getenv("BILL_AGENT_CODEX_MODEL", "gpt-5.4-mini")
 DEFAULT_CODEX_BIN = os.getenv("CODEX_CLI_BIN", "codex")
 DEFAULT_CODEX_TIMEOUT_SECONDS = int(os.getenv("BILL_AGENT_CODEX_TIMEOUT_SECONDS", "900"))
 DEFAULT_AGENT_WORKDIR = os.getenv("BILL_AGENT_CODEX_WORKDIR", "/tmp")
+DEFAULT_BATCH_SESSION_SIZE = int(os.getenv("BILL_AGENT_BATCH_SESSION_SIZE", "5"))
+MAX_BATCH_SESSION_SIZE = 5
 
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
 PASSED_STAGE_TERMS = ("공포", "본회의 의결")
@@ -667,6 +669,78 @@ def build_bill_report_prompt(
     )
 
 
+def build_bill_report_batch_prompt(batch_items: list[dict[str, Any]]) -> str:
+    return (
+        "당신은 Lawdigest의 법안 리포트 작성자입니다.\n"
+        "아래 batch_items의 각 항목은 서로 완전히 독립된 작업입니다. "
+        "한 법안의 evidence, 표현, 결론, 근거를 다른 법안 리포트에 절대 옮기지 마세요. "
+        "각 report_body는 반드시 같은 객체의 bill_id, bill, evidence만 사용해서 작성하세요.\n\n"
+        "공통 작성 계약:\n"
+        "- 추가 도구 호출, 웹 검색, 셸 명령 실행을 하지 말고 제공된 evidence 안에서만 사실관계를 사용하세요.\n"
+        "- 각 항목의 report_mode가 summary이면 막 접수되었거나 통과되지 않은 법안용 1,500~2,500자 리포트로 작성하세요.\n"
+        "- 각 항목의 report_mode가 deep_report이면 가결·공포·본회의 의결 법안용 6,000~8,000자 리포트로 작성하세요.\n"
+        "- report_body 안의 Markdown 구조와 문체는 단건 리포트 계약을 따르세요.\n"
+        "- report_body에는 `# 법안명`, `## 쉬운 요약`, `## 주요 내용`, `## 왜 나왔나`, "
+        "`## 무엇이 달라지나`, `## 누구에게 영향이 있나`, `## 봐야 할 점`, `## 확인한 근거`를 포함하세요.\n"
+        "- 결론이나 행동 변화처럼 중요한 한 문장에는 `<mark>중요 문장</mark>` 형식으로 하이라이트를 적용하세요.\n"
+        "- 문체는 자연스러운 `-요` 체로 쓰고, `합니다`, `됩니다`, `입니다`, `바뀝니다` 같은 `-니다` 체 종결을 쓰지 마세요.\n\n"
+        "출력 규칙:\n"
+        "- 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.\n"
+        "- reports 배열에는 입력 batch_items와 같은 bill_id를 각각 정확히 한 번씩 넣으세요.\n"
+        "- report_body 값은 Markdown 문자열입니다. JSON 문자열 안의 줄바꿈은 반드시 escape된 줄바꿈으로 표현하세요.\n"
+        "- brief_summary, gpt_summary, tags를 만들지 마세요. DB 저장용 요약은 별도 코드가 report_body에서 생성합니다.\n\n"
+        "출력 스키마:\n"
+        '{"reports":[{"bill_id":"PRC_EXAMPLE","report_mode":"summary","report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}\n\n'
+        f"batch_items:\n{json.dumps(batch_items, ensure_ascii=False, indent=2, default=str)}"
+    )
+
+
+def _extract_json_object(text: str) -> str:
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = re.sub(r"^```(?:json)?\s*", "", stripped)
+        stripped = re.sub(r"\s*```$", "", stripped).strip()
+    if stripped.startswith("{"):
+        return stripped
+    start = stripped.find("{")
+    if start == -1:
+        return stripped
+    decoder = json.JSONDecoder()
+    _, end = decoder.raw_decode(stripped[start:])
+    return stripped[start : start + end]
+
+
+def _parse_batch_report_output(text: str, *, expected_bill_ids: list[str]) -> dict[str, str]:
+    try:
+        payload = json.loads(_extract_json_object(text))
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise BillReportGenerationError(
+            f"Codex batch report output is not valid JSON: {exc}",
+            details={"status": "failed", "expected_bill_ids": expected_bill_ids},
+        ) from exc
+    reports = payload.get("reports") if isinstance(payload, dict) else None
+    if not isinstance(reports, list):
+        raise BillReportGenerationError(
+            "Codex batch report output must contain a reports array.",
+            details={"status": "failed", "expected_bill_ids": expected_bill_ids},
+        )
+    parsed: dict[str, str] = {}
+    for report in reports:
+        if not isinstance(report, dict):
+            continue
+        bill_id = str(report.get("bill_id") or "")
+        report_body = report.get("report_body")
+        if bill_id and isinstance(report_body, str) and report_body.strip():
+            parsed[bill_id] = report_body
+    missing = [bill_id for bill_id in expected_bill_ids if bill_id not in parsed]
+    if missing:
+        raise BillReportGenerationError(
+            "Codex batch report output is missing bill reports: " + ", ".join(missing),
+            details={"status": "failed", "expected_bill_ids": expected_bill_ids, "missing_bill_ids": missing},
+        )
+    return parsed
+
+
 def _markdown_section_body(body: str, heading: str) -> str:
     start = body.find(heading)
     if start == -1:
@@ -1233,6 +1307,171 @@ class CodexBillReportAgent:
             "status": "success",
         }
 
+    def write_reports_batch(
+        self,
+        *,
+        bills: list[dict[str, Any]],
+        output_root: Path,
+        inspection_dir: str | None = None,
+        report_mode: str = "auto",
+        batch_index: int = 1,
+    ) -> dict[str, Any]:
+        batch_items: list[dict[str, Any]] = []
+        evidences: dict[str, dict[str, Any]] = {}
+        for bill in bills:
+            bill_id = str(bill.get("bill_id") or "")
+            evidence = build_bill_report_evidence(bill, report_mode=report_mode)
+            resolved_mode = str(evidence.get("report_mode") or _resolve_report_mode(report_mode, bill))
+            evidences[bill_id] = evidence
+            batch_items.append({
+                "bill_id": bill_id,
+                "bill": _build_bill_payload(bill),
+                "report_mode": resolved_mode,
+                "evidence": evidence,
+            })
+
+        expected_bill_ids = [str(bill.get("bill_id") or "") for bill in bills]
+        prompt = build_bill_report_batch_prompt(batch_items)
+        batch_output_path = output_root / f"batch-session-{batch_index:04d}.json"
+        command, stdin_text = self.build_command(prompt=prompt, output_path=str(batch_output_path))
+        batch_output_path.parent.mkdir(parents=True, exist_ok=True)
+        started_at = datetime.now(timezone.utc)
+        started_perf = time.perf_counter()
+
+        try:
+            proc = subprocess.run(
+                command,
+                input=stdin_text,
+                capture_output=True,
+                text=True,
+                cwd=self.workdir,
+                timeout=self.timeout_seconds,
+            )
+            stdout_text = (proc.stdout or "").strip()
+            stderr_text = (proc.stderr or "").strip()
+            exit_code = proc.returncode
+        finally:
+            finished_at = datetime.now(timezone.utc)
+            duration_seconds = round(time.perf_counter() - started_perf, 3)
+
+        metadata = _parse_codex_json_metadata(stdout_text)
+        session = {
+            "batch_index": batch_index,
+            "bill_ids": expected_bill_ids,
+            "output_path": str(batch_output_path),
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
+            "duration_seconds": duration_seconds,
+            "exit_code": exit_code,
+            **metadata,
+        }
+        if exit_code != 0:
+            error = (stderr_text or stdout_text or "Codex agent failed").strip()
+            failed_items = [
+                {
+                    "bill_id": bill.get("bill_id"),
+                    "bill_name": bill.get("bill_name"),
+                    "status": "failed",
+                    "error": error,
+                    "batch_index": batch_index,
+                    "started_at": started_at.isoformat(),
+                    "finished_at": finished_at.isoformat(),
+                    "duration_seconds": duration_seconds,
+                    "exit_code": exit_code,
+                    "codex_thread_id": metadata.get("codex_thread_id"),
+                    "codex_event_count": metadata.get("codex_event_count"),
+                    "token_usage_available": False,
+                }
+                for bill in bills
+            ]
+            return {"items": failed_items, "session": session}
+
+        output_text = ""
+        if batch_output_path.exists():
+            output_text = batch_output_path.read_text(encoding="utf-8")
+        if not output_text.strip():
+            output_text = stdout_text
+
+        try:
+            reports_by_bill_id = _parse_batch_report_output(output_text, expected_bill_ids=expected_bill_ids)
+        except BillReportGenerationError as exc:
+            failed_items = [
+                {
+                    "bill_id": bill.get("bill_id"),
+                    "bill_name": bill.get("bill_name"),
+                    "status": "failed",
+                    "error": str(exc),
+                    "batch_index": batch_index,
+                    "started_at": started_at.isoformat(),
+                    "finished_at": finished_at.isoformat(),
+                    "duration_seconds": duration_seconds,
+                    "exit_code": exit_code,
+                    "codex_thread_id": metadata.get("codex_thread_id"),
+                    "codex_event_count": metadata.get("codex_event_count"),
+                    "token_usage_available": False,
+                }
+                for bill in bills
+            ]
+            return {"items": failed_items, "session": session}
+
+        completed_items: list[dict[str, Any]] = []
+        for bill in bills:
+            bill_id = str(bill.get("bill_id") or "")
+            report_path = output_root / f"{_slugify_bill_id(bill_id)}.md"
+            details = {
+                "bill_id": bill.get("bill_id"),
+                "bill_name": bill.get("bill_name"),
+                "report_path": str(report_path),
+                "started_at": started_at.isoformat(),
+                "finished_at": finished_at.isoformat(),
+                "duration_seconds": duration_seconds,
+                "exit_code": exit_code,
+                "batch_index": batch_index,
+                "codex_thread_id": metadata.get("codex_thread_id"),
+                "codex_event_count": metadata.get("codex_event_count"),
+                "token_usage_available": False,
+                "usage_shared": True,
+                "report_mode": str(evidences.get(bill_id, {}).get("report_mode") or _resolve_report_mode(report_mode, bill)),
+                "prefetch": {
+                    "plan": EFFECTIVE_AGENT_TOOL_AUDIT["effective_prefetch"],
+                    "errors": evidences.get(bill_id, {}).get("prefetch_errors") or [],
+                },
+            }
+            validation = {"status": "not_run", "summary": "Markdown 검증을 실행하지 않았습니다."}
+            try:
+                raw_report_body = reports_by_bill_id[bill_id]
+                repaired_report_body = _repair_report_body(raw_report_body)
+                repair_applied = repaired_report_body != raw_report_body.strip() + "\n"
+                report_path.write_text(repaired_report_body, encoding="utf-8")
+                details["output_bytes"] = report_path.stat().st_size
+                details["repair_applied"] = repair_applied
+                _validate_report_body(report_path.read_text(encoding="utf-8"))
+                validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
+                if repair_applied:
+                    validation_summary = "Markdown 리포트 형식 cheap repair 후 품질 검증을 통과했습니다."
+                validation = {"status": "passed", "summary": validation_summary}
+                status_item = {**details, "status": "success"}
+            except Exception as exc:
+                validation = {"status": "failed", "summary": str(exc)}
+                status_item = {**details, "status": "failed", "error": str(exc)}
+
+            if inspection_dir:
+                inspection_paths = _write_inspection_artifacts(
+                    inspection_dir=Path(inspection_dir),
+                    bill=bill,
+                    prompt=prompt,
+                    command=command,
+                    stdout_text=stdout_text,
+                    stderr_text=stderr_text,
+                    report_path=report_path,
+                    details=details,
+                    validation=validation,
+                )
+                status_item.update(inspection_paths)
+            completed_items.append(status_item)
+
+        return {"items": completed_items, "session": session}
+
 
 def run_agentic_bill_reports(
     *,
@@ -1247,6 +1486,7 @@ def run_agentic_bill_reports(
     concurrency: int = 1,
     inspection: bool = False,
     report_mode: str = "auto",
+    batch_session_size: int = DEFAULT_BATCH_SESSION_SIZE,
 ) -> Dict[str, Any]:
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
@@ -1256,6 +1496,10 @@ def run_agentic_bill_reports(
         raise ValueError("concurrency는 1 이상이어야 합니다.")
     if report_mode not in REPORT_MODES:
         raise ValueError("report_mode은 auto, summary, deep_report 중 하나여야 합니다.")
+    if batch_session_size < 1:
+        raise ValueError("batch_session_size는 1 이상이어야 합니다.")
+    if batch_session_size > MAX_BATCH_SESSION_SIZE:
+        raise ValueError(f"batch_session_size는 {MAX_BATCH_SESSION_SIZE} 이하여야 합니다.")
 
     targets = _fetch_bill_report_targets(mode=mode, limit=limit, read_mode=read_mode, target=target)
     output_root = Path(output_dir).expanduser().resolve()
@@ -1265,6 +1509,7 @@ def run_agentic_bill_reports(
         inspection_dir.mkdir(parents=True, exist_ok=True)
     agent = CodexBillReportAgent(model=codex_model or DEFAULT_CODEX_MODEL)
     items: list[dict[str, Any] | None] = [None] * len(targets)
+    sessions: list[dict[str, Any]] = []
     started_at = datetime.now(timezone.utc)
     started_perf = time.perf_counter()
 
@@ -1299,7 +1544,47 @@ def run_agentic_bill_reports(
                 raise
             return index, failed
 
-    if targets and concurrency > 1:
+    def generate_batch(start_index: int, bills: list[dict[str, Any]], batch_index: int) -> None:
+        try:
+            batch_result = agent.write_reports_batch(
+                bills=bills,
+                output_root=output_root,
+                inspection_dir=str(inspection_dir) if inspection_dir is not None else None,
+                report_mode=report_mode,
+                batch_index=batch_index,
+            )
+        except Exception as exc:
+            if stop_on_error:
+                raise
+            batch_result = {
+                "items": [
+                    {
+                        "bill_id": bill.get("bill_id"),
+                        "bill_name": bill.get("bill_name"),
+                        "report_path": str(output_root / f"{_slugify_bill_id(bill.get('bill_id'))}.md"),
+                        "status": "failed",
+                        "error": str(exc),
+                        "batch_index": batch_index,
+                    }
+                    for bill in bills
+                ],
+                "session": {
+                    "batch_index": batch_index,
+                    "bill_ids": [str(bill.get("bill_id") or "") for bill in bills],
+                    "token_usage_available": False,
+                },
+            }
+        sessions.append(batch_result["session"])
+        for offset, item in enumerate(batch_result["items"]):
+            items[start_index + offset] = item
+        if stop_on_error and any(item.get("status") == "failed" for item in batch_result["items"]):
+            first_failed = next(item for item in batch_result["items"] if item.get("status") == "failed")
+            raise BillReportGenerationError(str(first_failed.get("error") or "batch failed"), details=first_failed)
+
+    if targets and batch_session_size > 1 and len(targets) > 1:
+        for batch_index, start_index in enumerate(range(0, len(targets), batch_session_size), start=1):
+            generate_batch(start_index, targets[start_index : start_index + batch_session_size], batch_index)
+    elif targets and concurrency > 1:
         with ThreadPoolExecutor(max_workers=min(concurrency, len(targets))) as executor:
             futures = [executor.submit(generate_one, index, bill) for index, bill in enumerate(targets)]
             for future in as_completed(futures):
@@ -1316,6 +1601,13 @@ def run_agentic_bill_reports(
     usage_totals: dict[str, int] = {}
     for item in completed_items:
         usage = item.get("usage")
+        if not isinstance(usage, dict):
+            continue
+        for key, value in usage.items():
+            if isinstance(value, int):
+                usage_totals[key] = usage_totals.get(key, 0) + value
+    for session in sessions:
+        usage = session.get("usage")
         if not isinstance(usage, dict):
             continue
         for key, value in usage.items():
@@ -1355,6 +1647,8 @@ def run_agentic_bill_reports(
         "target": {"all": "all_bills", "pending": "pending_bills"}.get(target, "passed_bills"),
         "report_mode": report_mode,
         "concurrency": concurrency,
+        "batch_session_size": batch_session_size,
+        "batch_session_count": len(sessions) if batch_session_size > 1 else len(completed_items),
         "inspection": {
             "enabled": inspection,
             "output_dir": str(inspection_dir) if inspection_dir is not None else None,
@@ -1369,11 +1663,15 @@ def run_agentic_bill_reports(
             "success_count": sum(1 for item in completed_items if item["status"] == "success"),
             "failure_count": sum(1 for item in completed_items if item["status"] == "failed"),
             "total_duration_seconds": total_duration_seconds,
-            "token_usage_available_count": sum(1 for item in completed_items if item.get("token_usage_available")),
+            "token_usage_available_count": (
+                sum(1 for item in completed_items if item.get("token_usage_available"))
+                + sum(1 for session in sessions if session.get("token_usage_available"))
+            ),
             "usage_totals": usage_totals,
             "db_upserted_count": db_upserted_count,
         },
         "items": completed_items,
+        "sessions": sessions,
     }
     normalized_usage_meter = _normalize_usage_meter(usage_meter)
     if normalized_usage_meter is not None:
