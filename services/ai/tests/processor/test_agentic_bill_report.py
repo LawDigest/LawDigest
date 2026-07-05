@@ -210,6 +210,8 @@ def test_agentic_report_batch_prompt_isolates_bill_reports():
     assert "JSON 객체 하나만 작성하세요" in prompt
     assert '"reports"' in prompt
     assert '"report_body"' in prompt
+    assert "### 1) 제목" in prompt
+    assert "일반 문단이나 하이라이트 한 문장만으로 끝내지 마세요" in prompt
 
 
 def test_agentic_report_validation_rejects_internal_tool_leaks():
