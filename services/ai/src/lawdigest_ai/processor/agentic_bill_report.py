@@ -278,9 +278,7 @@ def _bill_is_passed(bill: dict[str, Any]) -> bool:
 def _resolve_report_mode(report_mode: str, bill: dict[str, Any]) -> str:
     if report_mode not in REPORT_MODES:
         raise ValueError("report_mode은 auto, summary, deep_report 중 하나여야 합니다.")
-    if report_mode != "auto":
-        return report_mode
-    return "deep_report" if _bill_is_passed(bill) else "summary"
+    return "deep_report"
 
 
 def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto") -> dict[str, Any]:
@@ -569,22 +567,13 @@ def build_bill_report_prompt(
         "open_assembly": {},
         "prefetch_errors": ["prefetch_not_run"],
     }
-    resolved_mode = str(evidence_payload.get("report_mode") or _resolve_report_mode(report_mode, bill))
-    if resolved_mode == "summary":
-        mode_contract = (
-            "리포트 모드: summary\n"
-            "- 이 모드는 아직 통과되지 않았거나 막 접수된 법안을 대상으로 합니다.\n"
-            "- 최종 리포트는 1,500~2,500자 안팎으로 작성하세요.\n"
-            "- 제도가 확정된 것처럼 말하지 말고, 법안이 제안하는 변화와 앞으로 볼 점을 중심으로 설명하세요.\n"
-            "- `## 무엇이 달라지나`는 2~3개 변화 묶음으로 충분합니다.\n"
-        )
-    else:
-        mode_contract = (
-            "리포트 모드: deep_report\n"
-            "- 이 모드는 가결·공포·본회의 의결된 법안을 대상으로 합니다.\n"
-            "- 여러 제도가 함께 바뀌는 복합 개정안은 최종 리포트가 6,000~8,000자 안팎이 되도록 근거, 영향, 예외를 충분히 설명하세요.\n"
-            "- `## 무엇이 달라지나`는 가능하면 4~6개 변화 묶음으로 나누세요.\n"
-        )
+    mode_contract = (
+        "리포트 모드: deep_report\n"
+        "- 모든 법안은 처리 상태와 관계없이 긴 버전 리포트로 작성합니다.\n"
+        "- 아직 통과되지 않았거나 막 접수된 법안은 제도가 확정된 것처럼 말하지 말고, 법안이 제안하는 변화와 앞으로 볼 점을 중심으로 설명하세요.\n"
+        "- 여러 제도가 함께 바뀌는 복합 개정안은 최종 리포트가 6,000~8,000자 안팎이 되도록 근거, 영향, 예외를 충분히 설명하세요.\n"
+        "- `## 무엇이 달라지나`는 가능하면 4~6개 변화 묶음으로 나누세요.\n"
+    )
     return (
         "당신은 Lawdigest의 법안 리포트 작성자입니다.\n"
         "아래 입력은 Lawdigest가 사전에 수집한 deterministic evidence packet입니다. "
@@ -677,8 +666,9 @@ def build_bill_report_batch_prompt(batch_items: list[dict[str, Any]]) -> str:
         "각 report_body는 반드시 같은 객체의 bill_id, bill, evidence만 사용해서 작성하세요.\n\n"
         "공통 작성 계약:\n"
         "- 추가 도구 호출, 웹 검색, 셸 명령 실행을 하지 말고 제공된 evidence 안에서만 사실관계를 사용하세요.\n"
-        "- 각 항목의 report_mode가 summary이면 막 접수되었거나 통과되지 않은 법안용 1,500~2,500자 리포트로 작성하세요.\n"
-        "- 각 항목의 report_mode가 deep_report이면 가결·공포·본회의 의결 법안용 6,000~8,000자 리포트로 작성하세요.\n"
+        "- 각 항목은 처리 상태와 관계없이 deep_report 긴 버전으로 작성하세요.\n"
+        "- 아직 통과되지 않았거나 막 접수된 법안은 제도가 확정된 것처럼 말하지 말고, 법안이 제안하는 변화와 앞으로 볼 점을 중심으로 설명하세요.\n"
+        "- 최종 리포트는 6,000~8,000자 안팎이 되도록 근거, 영향, 예외를 충분히 설명하세요.\n"
         "- report_body 안의 Markdown 구조와 문체는 단건 리포트 계약을 따르세요.\n"
         "- report_body에는 `# 법안명`, `## 쉬운 요약`, `## 주요 내용`, `## 왜 나왔나`, "
         "`## 무엇이 달라지나`, `## 누구에게 영향이 있나`, `## 봐야 할 점`, `## 확인한 근거`를 포함하세요.\n"
@@ -694,7 +684,7 @@ def build_bill_report_batch_prompt(batch_items: list[dict[str, Any]]) -> str:
         "- report_body 값은 Markdown 문자열입니다. JSON 문자열 안의 줄바꿈은 반드시 escape된 줄바꿈으로 표현하세요.\n"
         "- brief_summary, gpt_summary, tags를 만들지 마세요. DB 저장용 요약은 별도 코드가 report_body에서 생성합니다.\n\n"
         "출력 스키마:\n"
-        '{"reports":[{"bill_id":"PRC_EXAMPLE","report_mode":"summary","report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}\n\n'
+        '{"reports":[{"bill_id":"PRC_EXAMPLE","report_mode":"deep_report","report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}\n\n'
         f"batch_items:\n{json.dumps(batch_items, ensure_ascii=False, indent=2, default=str)}"
     )
 

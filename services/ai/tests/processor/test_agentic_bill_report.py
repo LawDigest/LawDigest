@@ -166,7 +166,7 @@ def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monk
     ]
 
 
-def test_agentic_report_prompt_summary_mode_is_short_pending_contract():
+def test_agentic_report_prompt_summary_mode_aliases_to_deep_report_contract():
     from lawdigest_ai.processor.agentic_bill_report import build_bill_report_prompt
 
     prompt = build_bill_report_prompt(
@@ -181,10 +181,11 @@ def test_agentic_report_prompt_summary_mode_is_short_pending_contract():
         report_mode="summary",
     )
 
-    assert "리포트 모드: summary" in prompt
+    assert "리포트 모드: deep_report" in prompt
+    assert "모든 법안은 처리 상태와 관계없이 긴 버전 리포트" in prompt
     assert "아직 통과되지 않았거나 막 접수된 법안" in prompt
-    assert "1,500~2,500자 안팎" in prompt
-    assert "6,000~8,000자 안팎" not in prompt
+    assert "1,500~2,500자 안팎" not in prompt
+    assert "6,000~8,000자 안팎" in prompt
 
 
 def test_agentic_report_batch_prompt_isolates_bill_reports():
@@ -194,13 +195,13 @@ def test_agentic_report_batch_prompt_isolates_bill_reports():
         {
             "bill_id": "PRC_BATCH_1",
             "bill": {"bill_id": "PRC_BATCH_1", "bill_name": "배치 테스트법안 1"},
-            "report_mode": "summary",
+            "report_mode": "deep_report",
             "evidence": {"db_bill": {"summary": "첫 번째 근거"}},
         },
         {
             "bill_id": "PRC_BATCH_2",
             "bill": {"bill_id": "PRC_BATCH_2", "bill_name": "배치 테스트법안 2"},
-            "report_mode": "summary",
+            "report_mode": "deep_report",
             "evidence": {"db_bill": {"summary": "두 번째 근거"}},
         },
     ])
@@ -210,6 +211,7 @@ def test_agentic_report_batch_prompt_isolates_bill_reports():
     assert "JSON 객체 하나만 작성하세요" in prompt
     assert '"reports"' in prompt
     assert '"report_body"' in prompt
+    assert "처리 상태와 관계없이 deep_report 긴 버전" in prompt
     assert "### 1) 제목" in prompt
     assert "일반 문단이나 하이라이트 한 문장만으로 끝내지 마세요" in prompt
 
@@ -1371,8 +1373,8 @@ def test_run_agentic_bill_reports_batches_multiple_bills_in_one_session(tmp_path
             json.dumps(
                 {
                     "reports": [
-                        {"bill_id": "PRC_BATCH_1", "report_mode": "summary", "report_body": report_body_1},
-                        {"bill_id": "PRC_BATCH_2", "report_mode": "summary", "report_body": report_body_2},
+                        {"bill_id": "PRC_BATCH_1", "report_mode": "deep_report", "report_body": report_body_1},
+                        {"bill_id": "PRC_BATCH_2", "report_mode": "deep_report", "report_body": report_body_2},
                     ]
                 },
                 ensure_ascii=False,
@@ -1396,7 +1398,7 @@ def test_run_agentic_bill_reports_batches_multiple_bills_in_one_session(tmp_path
             limit=2,
             output_dir=str(tmp_path),
             target="pending",
-            report_mode="summary",
+            report_mode="deep_report",
             batch_session_size=2,
         )
 
@@ -1408,6 +1410,7 @@ def test_run_agentic_bill_reports_batches_multiple_bills_in_one_session(tmp_path
     assert result["stats"]["token_usage_available_count"] == 1
     assert result["sessions"][0]["usage"]["input_tokens"] == 101
     assert [item["batch_index"] for item in result["items"]] == [1, 1]
+    assert [item["report_mode"] for item in result["items"]] == ["deep_report", "deep_report"]
     assert all(item["usage_shared"] is True for item in result["items"])
     assert "첫 번째 법안만의 변화" in Path(result["items"][0]["report_path"]).read_text(encoding="utf-8")
     assert "두 번째 법안만의 변화" in Path(result["items"][1]["report_path"]).read_text(encoding="utf-8")
