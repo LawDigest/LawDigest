@@ -1025,7 +1025,7 @@ def test_codex_agent_command_omits_mcp_servers_by_default(tmp_path, monkeypatch)
 
     joined = " ".join(command)
     assert command[:2] == ["codex", "exec"]
-    assert "--ignore-user-config" in command
+    assert "--ignore-user-config" not in command
     assert command.count("--disable") == 3
     assert "plugins" in command
     assert "apps" in command
@@ -1053,10 +1053,42 @@ def test_codex_agent_uses_dedicated_codex_home(tmp_path, monkeypatch):
 
     assert env["CODEX_HOME"] == str(report_home)
     assert not (report_home / "AGENTS.md").exists()
+    assert (report_home / "config.toml").exists()
     for filename in CODEX_AUTH_FILES:
         target = report_home / filename
         assert target.is_symlink()
         assert target.resolve() == (source_home / filename).resolve()
+
+
+def test_codex_agent_disables_external_skills_but_keeps_report_skills(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
+
+    home = tmp_path / "home"
+    workdir = tmp_path / "repo"
+    report_home = tmp_path / "report-codex"
+    external_skill = home / ".agents" / "skills" / "external-skill" / "SKILL.md"
+    legacy_skill = home / ".codex" / "superpowers" / "skills" / "legacy-skill" / "SKILL.md"
+    repo_skill = workdir / ".codex" / "skills" / "repo-skill" / "SKILL.md"
+    system_skill = report_home / "skills" / ".system" / "system-skill" / "SKILL.md"
+    report_skill = report_home / "skills" / "bill-report-skill" / "SKILL.md"
+    future_system_skill = report_home / "skills" / ".system" / "openai-docs" / "SKILL.md"
+    for skill in (external_skill, legacy_skill, repo_skill, system_skill, report_skill):
+        skill.parent.mkdir(parents=True, exist_ok=True)
+        skill.write_text("---\nname: test\ndescription: test\n---\n", encoding="utf-8")
+    (workdir / ".git").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.delenv("CODEX_HOME", raising=False)
+
+    agent = CodexBillReportAgent(codex_home=str(report_home), workdir=str(workdir))
+    agent.build_environment()
+
+    config = (report_home / "config.toml").read_text(encoding="utf-8")
+    assert str(external_skill.resolve()) in config
+    assert str(legacy_skill.resolve()) in config
+    assert str(repo_skill.resolve()) in config
+    assert str(system_skill.resolve()) in config
+    assert str(future_system_skill.resolve()) in config
+    assert str(report_skill.resolve()) not in config
 
 
 def test_codex_agent_passes_dedicated_codex_home_to_subprocess(tmp_path, monkeypatch):
@@ -1107,7 +1139,7 @@ def test_codex_agent_command_can_enable_legacy_mcp_servers(tmp_path, monkeypatch
 
     joined = " ".join(command)
     assert command[:2] == ["codex", "exec"]
-    assert "--ignore-user-config" in command
+    assert "--ignore-user-config" not in command
     assert command.count("--disable") == 3
     assert "plugins" in command
     assert "apps" in command

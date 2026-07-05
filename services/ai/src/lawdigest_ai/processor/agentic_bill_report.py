@@ -20,10 +20,13 @@ DEFAULT_CODEX_MODEL = os.getenv("BILL_AGENT_CODEX_MODEL", "gpt-5.4-mini")
 DEFAULT_CODEX_BIN = os.getenv("CODEX_CLI_BIN", "codex")
 DEFAULT_CODEX_TIMEOUT_SECONDS = int(os.getenv("BILL_AGENT_CODEX_TIMEOUT_SECONDS", "900"))
 DEFAULT_AGENT_WORKDIR = os.getenv("BILL_AGENT_CODEX_WORKDIR", "/tmp")
-DEFAULT_CODEX_HOME = os.getenv("BILL_AGENT_CODEX_HOME", "/tmp/lawdigest-codex-home")
+DEFAULT_CODEX_HOME = os.getenv("BILL_AGENT_CODEX_HOME", "/home/ubuntu/.codex-report")
 DEFAULT_BATCH_SESSION_SIZE = int(os.getenv("BILL_AGENT_BATCH_SESSION_SIZE", "5"))
 MAX_BATCH_SESSION_SIZE = 5
 CODEX_AUTH_FILES = ("auth.json", ".credentials.json", "installation_id")
+CODEX_SYSTEM_SKILL_NAMES = ("imagegen", "openai-docs", "plugin-creator", "skill-creator", "skill-installer")
+REPORT_CODEX_CONFIG_BEGIN = "# BEGIN Lawdigest bill report agent managed skills"
+REPORT_CODEX_CONFIG_END = "# END Lawdigest bill report agent managed skills"
 
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
 PASSED_STAGE_TERMS = ("공포", "본회의 의결")
@@ -156,6 +159,83 @@ def _toml_inline_table(values: dict[str, str]) -> str:
     if not values:
         return "{}"
     return "{ " + ", ".join(f"{key} = {_toml_string(value)}" for key, value in values.items()) + " }"
+
+
+def _is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve().relative_to(parent.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def _iter_skill_files(root: Path) -> list[Path]:
+    if not root.exists():
+        return []
+    return sorted(path for path in root.glob("*/SKILL.md") if path.is_file())
+
+
+def _discover_skills_to_disable(*, codex_home: Path, workdir: str) -> list[Path]:
+    roots: list[Path] = [
+        Path.home() / ".agents" / "skills",
+        Path.home() / ".codex" / "skills",
+        Path.home() / ".codex" / "superpowers" / "skills",
+        Path("/etc/codex/skills"),
+        codex_home / "skills" / ".system",
+    ]
+
+    current = Path(workdir).expanduser().resolve()
+    for directory in (current, *current.parents):
+        roots.append(directory / ".agents" / "skills")
+        roots.append(directory / ".codex" / "skills")
+        if (directory / ".git").exists():
+            break
+
+    disabled: dict[str, Path] = {}
+    report_skill_root = codex_home / "skills"
+    for root in roots:
+        for skill_file in _iter_skill_files(root.expanduser()):
+            if _is_relative_to(skill_file, report_skill_root) and not _is_relative_to(
+                skill_file, report_skill_root / ".system"
+            ):
+                continue
+            disabled[str(skill_file.resolve())] = skill_file.resolve()
+    for skill_name in CODEX_SYSTEM_SKILL_NAMES:
+        skill_file = (report_skill_root / ".system" / skill_name / "SKILL.md").resolve()
+        disabled[str(skill_file)] = skill_file
+    return list(disabled.values())
+
+
+def _build_report_codex_config_block(disabled_skill_files: list[Path]) -> str:
+    lines = [REPORT_CODEX_CONFIG_BEGIN]
+    for skill_file in disabled_skill_files:
+        lines.extend((
+            "[[skills.config]]",
+            f"path = {_toml_string(str(skill_file))}",
+            "enabled = false",
+            "",
+        ))
+    lines.append(REPORT_CODEX_CONFIG_END)
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def _write_report_codex_config(*, codex_home: Path, workdir: str) -> None:
+    config_path = codex_home / "config.toml"
+    managed_block = _build_report_codex_config_block(
+        _discover_skills_to_disable(codex_home=codex_home, workdir=workdir)
+    )
+    existing = config_path.read_text(encoding="utf-8") if config_path.exists() else ""
+    pattern = re.compile(
+        rf"{re.escape(REPORT_CODEX_CONFIG_BEGIN)}.*?{re.escape(REPORT_CODEX_CONFIG_END)}\n?",
+        re.DOTALL,
+    )
+    if pattern.search(existing):
+        updated = pattern.sub(managed_block, existing)
+    else:
+        separator = "\n" if existing and not existing.endswith("\n") else ""
+        updated = f"{existing}{separator}{managed_block}"
+    if updated != existing:
+        config_path.write_text(updated, encoding="utf-8")
 
 
 def _slugify_bill_id(value: Any) -> str:
@@ -1352,6 +1432,7 @@ class CodexBillReportAgent:
                     continue
                 target.symlink_to(source)
 
+        _write_report_codex_config(codex_home=codex_home, workdir=self.workdir)
         env["CODEX_HOME"] = str(codex_home)
         return env
 
@@ -1403,7 +1484,6 @@ class CodexBillReportAgent:
         command = [
             self.cli_bin,
             "exec",
-            "--ignore-user-config",
             "--disable",
             "plugins",
             "--disable",
