@@ -682,6 +682,7 @@ def build_bill_report_batch_prompt(batch_items: list[dict[str, Any]]) -> str:
         "- report_body 안의 Markdown 구조와 문체는 단건 리포트 계약을 따르세요.\n"
         "- report_body에는 `# 법안명`, `## 쉬운 요약`, `## 주요 내용`, `## 왜 나왔나`, "
         "`## 무엇이 달라지나`, `## 누구에게 영향이 있나`, `## 봐야 할 점`, `## 확인한 근거`를 포함하세요.\n"
+        "- `## 주요 내용`의 각 불릿은 가능하면 `- **항목 제목**: 쉬운 설명` 형식으로 쓰세요.\n"
         "- `## 무엇이 달라지나` 아래는 반드시 `### 1) 제목`, `### 2) 제목`처럼 번호 헤딩으로 변화 묶음을 나누세요.\n"
         "- 번호 헤딩 다음에는 불릿이 아닌 일반 문단으로 조문 변화 요약을 쓰고, 그 아래에 설명 불릿을 붙이세요.\n"
         "- `## 무엇이 달라지나`를 일반 문단이나 하이라이트 한 문장만으로 끝내지 마세요.\n"
@@ -1026,6 +1027,14 @@ def _repair_report_body(report_body: str) -> str:
                 sentence = match.group(1)
                 repaired = repaired[: match.start(1)] + f"<mark>{sentence}</mark>" + repaired[match.end(1) :]
                 break
+
+    if not re.search(r"\*\*[^*\n][^*\n]*\*\*", repaired):
+        repaired = re.sub(
+            r"(?m)^- ([^.\n]{2,24}?)(이라는|라는|을|를|에 대한|에 관한|이 |가 )",
+            r"- **\1**\2",
+            repaired,
+            count=1,
+        )
 
     return repaired + "\n"
 
