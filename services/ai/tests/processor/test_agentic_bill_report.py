@@ -1038,6 +1038,60 @@ def test_codex_agent_command_omits_mcp_servers_by_default(tmp_path, monkeypatch)
     assert "mcp_servers." not in joined
 
 
+def test_codex_agent_uses_dedicated_codex_home(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import CODEX_AUTH_FILES, CodexBillReportAgent
+
+    source_home = tmp_path / "source-codex"
+    report_home = tmp_path / "report-codex"
+    source_home.mkdir()
+    for filename in CODEX_AUTH_FILES:
+        (source_home / filename).write_text(filename, encoding="utf-8")
+    monkeypatch.setenv("CODEX_HOME", str(source_home))
+
+    agent = CodexBillReportAgent(codex_home=str(report_home))
+    env = agent.build_environment()
+
+    assert env["CODEX_HOME"] == str(report_home)
+    assert not (report_home / "AGENTS.md").exists()
+    for filename in CODEX_AUTH_FILES:
+        target = report_home / filename
+        assert target.is_symlink()
+        assert target.resolve() == (source_home / filename).resolve()
+
+
+def test_codex_agent_passes_dedicated_codex_home_to_subprocess(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    report_home = tmp_path / "report-codex"
+    output_path = tmp_path / "report.md"
+    report_body = (
+        "# 테스트법 일부개정법률안\n\n"
+        "## 쉬운 요약\n**본문**이에요. <mark>핵심 변화는 거래 전 정보 확인이에요.</mark>\n\n"
+        "## 주요 내용\n- **권한 정비**: 설명이에요.\n\n"
+        "## 무엇이 달라지나\n\n"
+        "### 1) 허위정보 유포 금지 조문 신설\n\n"
+        "제23조의2를 새로 둬 **허위정보 유포**를 금지해요.\n\n"
+        "- 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.\n"
+    )
+    seen_env = {}
+
+    def run_codex(*args, **kwargs):
+        seen_env.update(kwargs["env"])
+        output_path.write_text(report_body, encoding="utf-8")
+        return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
+
+    agent = CodexBillReportAgent(codex_home=str(report_home))
+    with patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex):
+        result = agent.write_report(
+            bill={"bill_id": "PRC_HOME", "bill_name": "테스트법 일부개정법률안"},
+            output_path=str(output_path),
+        )
+
+    assert result["status"] == "success"
+    assert seen_env["CODEX_HOME"] == str(report_home)
+
+
 def test_codex_agent_command_can_enable_legacy_mcp_servers(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
 

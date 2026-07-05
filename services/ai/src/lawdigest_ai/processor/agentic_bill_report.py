@@ -20,8 +20,10 @@ DEFAULT_CODEX_MODEL = os.getenv("BILL_AGENT_CODEX_MODEL", "gpt-5.4-mini")
 DEFAULT_CODEX_BIN = os.getenv("CODEX_CLI_BIN", "codex")
 DEFAULT_CODEX_TIMEOUT_SECONDS = int(os.getenv("BILL_AGENT_CODEX_TIMEOUT_SECONDS", "900"))
 DEFAULT_AGENT_WORKDIR = os.getenv("BILL_AGENT_CODEX_WORKDIR", "/tmp")
+DEFAULT_CODEX_HOME = os.getenv("BILL_AGENT_CODEX_HOME", "/tmp/lawdigest-codex-home")
 DEFAULT_BATCH_SESSION_SIZE = int(os.getenv("BILL_AGENT_BATCH_SESSION_SIZE", "5"))
 MAX_BATCH_SESSION_SIZE = 5
+CODEX_AUTH_FILES = ("auth.json", ".credentials.json", "installation_id")
 
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
 PASSED_STAGE_TERMS = ("공포", "본회의 의결")
@@ -1333,7 +1335,25 @@ class CodexBillReportAgent:
     model: str = DEFAULT_CODEX_MODEL
     timeout_seconds: int = DEFAULT_CODEX_TIMEOUT_SECONDS
     workdir: str = DEFAULT_AGENT_WORKDIR
+    codex_home: str = DEFAULT_CODEX_HOME
     enable_mcp: bool = False
+
+    def build_environment(self) -> dict[str, str]:
+        env = os.environ.copy()
+        codex_home = Path(self.codex_home).expanduser()
+        codex_home.mkdir(parents=True, exist_ok=True)
+
+        source_home = Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex").expanduser()
+        if source_home.resolve() != codex_home.resolve():
+            for filename in CODEX_AUTH_FILES:
+                source = source_home / filename
+                target = codex_home / filename
+                if not source.exists() or target.exists() or target.is_symlink():
+                    continue
+                target.symlink_to(source)
+
+        env["CODEX_HOME"] = str(codex_home)
+        return env
 
     def _mcp_server_config_args(self) -> list[str]:
         assembly_key = os.getenv("ASSEMBLY_API_KEY") or os.getenv("APIKEY_billsInfo") or os.getenv("APIKEY_status")
@@ -1432,6 +1452,7 @@ class CodexBillReportAgent:
                 capture_output=True,
                 text=True,
                 cwd=self.workdir,
+                env=self.build_environment(),
                 timeout=self.timeout_seconds,
             )
             stdout_text = (proc.stdout or "").strip()
@@ -1581,6 +1602,7 @@ class CodexBillReportAgent:
                 capture_output=True,
                 text=True,
                 cwd=self.workdir,
+                env=self.build_environment(),
                 timeout=self.timeout_seconds,
             )
             stdout_text = (proc.stdout or "").strip()
