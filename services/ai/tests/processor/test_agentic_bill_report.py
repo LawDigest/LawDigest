@@ -15,8 +15,14 @@ def disable_agentic_prefetch_network(monkeypatch):
     )
 
 
+def _model_context(prompt: str) -> str:
+    from lawdigest_ai.processor.agentic_bill_report import REPORT_SKILL_BODY
+
+    return f"{REPORT_SKILL_BODY}\n{prompt}"
+
+
 def test_agentic_report_prompt_uses_prefetched_evidence():
-    from lawdigest_ai.processor.agentic_bill_report import build_bill_report_prompt
+    from lawdigest_ai.processor.agentic_bill_report import REPORT_SKILL_NAME, build_bill_report_prompt
 
     prompt = build_bill_report_prompt(
         {
@@ -31,14 +37,16 @@ def test_agentic_report_prompt_uses_prefetched_evidence():
             "committee": "과학기술정보방송통신위원회",
         }
     )
+    context = _model_context(prompt)
 
+    assert prompt.startswith(f"${REPORT_SKILL_NAME}")
     assert "deterministic evidence packet" in prompt
     assert "제공된 evidence 안에서만 사실관계를 사용" in prompt
     assert "이미 통과된 법안" not in prompt
     assert "MCP 도구를 능동적으로 사용" not in prompt
     assert "추가 도구 호출, 웹 검색, 셸 명령 실행을 하지 말고" in prompt
-    assert "bill_text, current_law, committee_materials, cost_estimate" in prompt
-    assert "lifecycle, 현재 심사 단계, 처리 상태처럼 시간이 지나며 바뀌는 정보" in prompt
+    assert "bill_text, current_law, committee_materials, cost_estimate" in context
+    assert "lifecycle, 현재 심사 단계, 처리 상태처럼 시간이 지나며 바뀌는 정보" in context
     assert "open_assembly.fetch_bill_detail" in prompt
     assert "open_assembly.fetch_bill_summary" in prompt
     assert "open_assembly.fetch_bill_lifecycle" not in prompt
@@ -59,63 +67,63 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
             "stage": "공포",
         }
     )
+    context = _model_context(prompt)
 
     assert "사용자에게 보여줄 최종 법안 리포트" in prompt
-    assert "쉬운 요약" in prompt
-    assert "쉬운 말로 충분히 설명하는 것" in prompt
-    assert "5개 불릿" in prompt
+    assert "쉬운 요약" in context
+    assert "쉬운 말로 충분히 설명" in context
+    assert "5개 불릿" in context
     assert "리포트 모드: deep_report" in prompt
-    assert "6,000~8,000자 안팎" in prompt
-    assert "**항목 제목**: 쉬운 설명" in prompt
-    assert "**부당한 표시·광고 제한**: 허위·과장 등 소비자를 오도할 수 있는 표현을 규제해요." in prompt
+    assert "6,000~8,000자 안팎" in context
+    assert "**항목 제목**: 쉬운 설명" in context
+    assert "**부당한 표시·광고 제한**: 허위·과장 등 소비자를 오도할 수 있는 표현을 규제해요." in context
     assert "Lawdigest 요약 개선 제안" not in prompt
     assert "사용한 MCP 도구와 출처" not in prompt
     assert "내부 조사 로그" in prompt
     assert "추가 도구 호출" in prompt
-    assert "현재 심사 단계" in prompt
+    assert "현재 심사 단계" in context
     assert "아직 법으로 확정된 건 아니고" not in prompt
-    assert "법안의 처리 상태를 요약 첫 문장으로 앞세우지 마세요" in prompt
-    assert "하기 위한 법률 개정안이에요" in prompt
-    assert "청문 규정" in prompt
-    assert "괄호로 끼워 넣지 마세요" in prompt
-    assert "어려운 법률·행정 용어가 있을 때만" in prompt
-    assert "허위정보, 필수정보, 표시·광고처럼 뜻이 바로 드러나는 말" in prompt
-    assert "제23조(청문)" in prompt
-    assert "원문 요약:" in prompt
-    assert "용어 설명:" in prompt
-    assert "법령 체계:" in prompt
-    assert "쉬운 풀이:" in prompt
-    assert "Markdown 불릿" in prompt
-    assert "실제 용어명으로 시작" in prompt
-    assert "청문`이 나오면" in prompt
-    assert "위임·위탁`이 나오면" in prompt
-    assert "과태료`가 나오면" in prompt
-    assert "자연스러운 해요체" in prompt
-    assert "처분을 받기 전에 당사자가 설명하고 반론할 수 있는 절차에요" in prompt
-    assert "쉬운 풀이 불릿" in prompt
-    assert "반복하지 마세요" in prompt
-    assert "고정 접두어 없이" in prompt
-    assert "### 1) 제목" in prompt
-    assert "제목, 원문 요약 문단, 설명/풀이 불릿" in prompt
-    assert "원문 요약 문단은 2문장" in prompt
-    assert "각 변화 묶음마다 2~3개 불릿" in prompt
-    assert "불릿만으로 변화 묶음을 시작하지 마세요" in prompt
-    assert "짧은 명사형 항목명" in prompt
-    assert "허위개발정보 유포를 금지하는 조문 신설" in prompt
-    assert "인터넷 표시·광고의 필수정보와 부당한 표시를 제한" in prompt
-    assert "벌칙·과태료 체계 개정과 집행주체 확충" in prompt
-    assert "허위정보·부당광고 위반 시 제재 강화" in prompt
-    assert "**중요 단어**" in prompt
-    assert "<mark>중요 문장</mark>" in prompt
-    assert "토스 앱처럼 자연스러운 `-요` 체" in prompt
-    assert "`합니다`, `됩니다`, `입니다`" in prompt
-    assert "짧게 쓴다는 이유로 근거, 영향, 예외를 덜어내지 마세요" in prompt
+    assert "처리 상태" in context
+    assert "하기 위한 법률 개정안이에요" in context
+    assert "청문 규정" in context
+    assert "괄호로 끼워 넣지 마세요" in context
+    assert "어려운 법률·행정 용어" in context
+    assert "허위정보, 필수정보, 표시·광고" in context
+    assert "제23조(청문)" in context
+    assert "원문 요약:" in context
+    assert "용어 설명:" in context
+    assert "법령 체계:" in context
+    assert "쉬운 풀이:" in context
+    assert "Markdown 불릿" in context
+    assert "실제 용어명으로 시작" in context
+    assert "원문 요약 문장에 `청문`" in context
+    assert "원문 요약 문장에 `위임·위탁`" in context
+    assert "원문 요약 문장에 `과태료`" in context
+    assert "해요체" in context
+    assert "처분을 받기 전에 당사자가 설명하고 반론할 수 있는 절차에요" in context
+    assert "고정 접두어를 반복하지 마세요" in context
+    assert "고정 접두어 없이" in context
+    assert "### 1) 제목" in context
+    assert "제목, 원문 요약 문단, 설명/풀이 불릿" in context
+    assert "원문 요약 문단은 2문장" in context
+    assert "2~3개 불릿" in context
+    assert "불릿만으로 변화 묶음을 시작하지 마세요" in context
+    assert "짧은 명사형 항목명" in context
+    assert "허위개발정보 유포를 금지하는 조문 신설" in context
+    assert "인터넷 표시·광고의 필수정보와 부당한 표시를 제한" in context
+    assert "벌칙·과태료 체계 개정과 집행주체 확충" in context
+    assert "허위정보·부당광고 위반 시 제재 강화" in context
+    assert "**중요 단어**" in context
+    assert "<mark>중요 문장</mark>" in context
+    assert "자연스러운 `-요` 체" in context
+    assert "`합니다`, `됩니다`, `입니다`, `바뀝니다`" in context
+    assert "짧게 쓴다는 이유로 근거, 영향, 예외를 덜어내지 마세요" in context
     assert "법률·행정용어 풀이 사전" in prompt
     assert "정적 보조 사전" in prompt
     assert "target=lstrm" in prompt
     assert "target=lstrmAI" not in prompt
     assert "target=lstrmRlt" not in prompt
-    assert "{{용어:뜻}}" in prompt
+    assert "{{용어:뜻}}" in context
     assert "설명하지 않을 용어" in prompt
 
 
@@ -196,7 +204,7 @@ def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monk
 
 
 def test_agentic_report_prompt_summary_mode_aliases_to_deep_report_contract():
-    from lawdigest_ai.processor.agentic_bill_report import build_bill_report_prompt
+    from lawdigest_ai.processor.agentic_bill_report import REPORT_SKILL_NAME, build_bill_report_prompt
 
     prompt = build_bill_report_prompt(
         {
@@ -209,16 +217,18 @@ def test_agentic_report_prompt_summary_mode_aliases_to_deep_report_contract():
         },
         report_mode="summary",
     )
+    context = _model_context(prompt)
 
+    assert prompt.startswith(f"${REPORT_SKILL_NAME}")
     assert "리포트 모드: deep_report" in prompt
     assert "모든 법안은 처리 상태와 관계없이 긴 버전 리포트" in prompt
     assert "아직 통과되지 않았거나 막 접수된 법안" in prompt
     assert "1,500~2,500자 안팎" not in prompt
-    assert "6,000~8,000자 안팎" in prompt
+    assert "6,000~8,000자 안팎" in context
 
 
 def test_agentic_report_batch_prompt_isolates_bill_reports():
-    from lawdigest_ai.processor.agentic_bill_report import build_bill_report_batch_prompt
+    from lawdigest_ai.processor.agentic_bill_report import REPORT_SKILL_NAME, build_bill_report_batch_prompt
 
     prompt = build_bill_report_batch_prompt([
         {
@@ -234,15 +244,17 @@ def test_agentic_report_batch_prompt_isolates_bill_reports():
             "evidence": {"db_bill": {"summary": "두 번째 근거"}},
         },
     ])
+    context = _model_context(prompt)
 
+    assert prompt.startswith(f"${REPORT_SKILL_NAME}")
     assert "각 항목은 서로 완전히 독립된 작업" in prompt
     assert "다른 법안 리포트에 절대 옮기지 마세요" in prompt
     assert "JSON 객체 하나만 작성하세요" in prompt
     assert '"reports"' in prompt
     assert '"report_body"' in prompt
     assert "처리 상태와 관계없이 deep_report 긴 버전" in prompt
-    assert "### 1) 제목" in prompt
-    assert "일반 문단이나 하이라이트 한 문장만으로 끝내지 마세요" in prompt
+    assert "### 1) 제목" in context
+    assert "번호 헤딩 다음에는 불릿이 아닌 일반 문단" in context
 
 
 def test_agentic_report_validation_rejects_internal_tool_leaks():
@@ -1039,7 +1051,12 @@ def test_codex_agent_command_omits_mcp_servers_by_default(tmp_path, monkeypatch)
 
 
 def test_codex_agent_uses_dedicated_codex_home(tmp_path, monkeypatch):
-    from lawdigest_ai.processor.agentic_bill_report import CODEX_AUTH_FILES, CodexBillReportAgent
+    from lawdigest_ai.processor.agentic_bill_report import (
+        CODEX_AUTH_FILES,
+        REPORT_SKILL_BODY,
+        REPORT_SKILL_NAME,
+        CodexBillReportAgent,
+    )
 
     source_home = tmp_path / "source-codex"
     report_home = tmp_path / "report-codex"
@@ -1054,6 +1071,7 @@ def test_codex_agent_uses_dedicated_codex_home(tmp_path, monkeypatch):
     assert env["CODEX_HOME"] == str(report_home)
     assert not (report_home / "AGENTS.md").exists()
     assert (report_home / "config.toml").exists()
+    assert (report_home / "skills" / REPORT_SKILL_NAME / "SKILL.md").read_text(encoding="utf-8") == REPORT_SKILL_BODY
     for filename in CODEX_AUTH_FILES:
         target = report_home / filename
         assert target.is_symlink()
@@ -1089,6 +1107,7 @@ def test_codex_agent_disables_external_skills_but_keeps_report_skills(tmp_path, 
     assert str(system_skill.resolve()) in config
     assert str(future_system_skill.resolve()) in config
     assert str(report_skill.resolve()) not in config
+    assert str((report_home / "skills" / "lawdigest-bill-report" / "SKILL.md").resolve()) not in config
 
 
 def test_codex_agent_passes_dedicated_codex_home_to_subprocess(tmp_path, monkeypatch):
