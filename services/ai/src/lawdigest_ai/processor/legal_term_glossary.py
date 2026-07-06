@@ -68,6 +68,12 @@ LEGAL_TERM_CANDIDATE_STOPWORDS = {
     "제안이유",
     "주요내용",
     "현행법",
+    "현행",
+    "개정",
+    "규정",
+    "경우",
+    "내용",
+    "법안",
     "법률안",
     "개정법률안",
 }
@@ -130,24 +136,25 @@ def _strip_particle(value: str) -> str:
     return token
 
 
-def _extract_legal_term_candidates(text: str, *, max_terms: int = 8) -> list[str]:
+def _extract_legal_term_candidates(text: str, *, max_terms: int = 24) -> list[str]:
     normalized = re.sub(r"\s+", " ", text.replace("ㆍ", "·"))
     terms: list[str] = []
     seen: set[str] = set(COMMON_TERMS_WITHOUT_EXPLANATION)
 
     def add(term: str) -> None:
+        term = _strip_particle(term)
         if (
             len(term) < 3
             or term in seen
             or term in LEGAL_TERM_CANDIDATE_STOPWORDS
-            or not any(term.endswith(suffix) for suffix in LEGAL_TERM_CANDIDATE_SUFFIXES)
+            or not re.fullmatch(r"[가-힣][가-힣A-Za-z0-9·]{2,15}", term)
         ):
             return
         seen.add(term)
         terms.append(term)
 
     for token in re.split(r"[^가-힣A-Za-z0-9·]+", normalized):
-        add(_strip_particle(token))
+        add(token)
         if len(terms) >= max_terms:
             break
 

@@ -1017,6 +1017,34 @@ def test_legal_term_glossary_context_extracts_defined_terms_from_bill_text():
     assert "청문 규정: 처분을 받기 전에" not in context
 
 
+def test_legal_term_glossary_context_uses_law_api_as_candidate_filter():
+    from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm
+    from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
+
+    calls = []
+
+    class FakeTermClient:
+        enabled = True
+
+        def lookup_term(self, query):
+            calls.append(query)
+            if query == "결격사유":
+                return LawOpenApiTerm(
+                    term=query,
+                    source="law.go.kr",
+                    definitions=("일정한 자격을 가질 수 없게 하는 법정 사유를 말한다.",),
+                )
+            return None
+
+    context = build_legal_term_glossary_context(
+        "기관 임원의 결격사유와 등록취소 절차를 정비합니다.",
+        term_client=FakeTermClient(),
+    )
+
+    assert "결격사유" in calls
+    assert "결격사유: 뜻=일정한 자격을 가질 수 없게 하는 법정 사유를 말한다." in context
+
+
 def test_legal_term_glossary_context_ignores_api_results_without_definitions():
     from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm
     from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
@@ -1038,17 +1066,22 @@ def test_legal_term_glossary_context_ignores_api_results_without_definitions():
     assert "일상어 연계어" not in context
 
 
-def test_legal_term_glossary_context_skips_api_lookup_without_matched_terms():
+def test_legal_term_glossary_context_skips_obvious_common_terms_in_api_candidates():
     from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
+
+    calls = []
 
     class FakeTermClient:
         enabled = True
 
         def lookup_term(self, query):
-            raise AssertionError(f"unexpected API lookup: {query}")
+            calls.append(query)
+            return None
 
     context = build_legal_term_glossary_context("허위정보 유포를 설명합니다.", term_client=FakeTermClient())
 
+    assert "허위정보" not in calls
+    assert "허위정보 유포" not in calls
     assert "정적 보조 사전" in context
     assert "법제처 API 조회 결과" not in context
     assert "청문 규정: 처분을 받기 전에" in context
