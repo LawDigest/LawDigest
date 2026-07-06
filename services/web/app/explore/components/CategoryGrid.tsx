@@ -36,7 +36,7 @@ export default function CategoryGrid({ selected, onSelect }: CategoryGridProps) 
                 layoutId="explore-category-indicator"
                 className="pointer-events-none absolute -inset-px z-0 rounded-2xl"
                 style={{ border: `1.5px solid ${meta.color}`, backgroundColor: `${meta.color}14` }}
-                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                transition={{ type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.45 }}
               />
             )}
             <span className="material-symbols-outlined relative z-10 text-[26px]" style={{ color: meta.color }}>
