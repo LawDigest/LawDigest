@@ -24,7 +24,8 @@ export default function PartyList() {
         <Link
           key={party.party_id}
           href={`/party/${party.party_id}`}
-          className="flex items-center gap-3 rounded-2xl border border-gray-1 bg-white p-3.5 shadow-sm transition-colors hover:bg-primary-1 dark:border-dark-l dark:bg-dark-b dark:hover:bg-dark-l">
+          style={{ borderColor: getPartyColor(party.party_name) }}
+          className="flex items-center gap-3 rounded-2xl border bg-white p-3.5 shadow-sm transition-colors hover:bg-primary-1 dark:bg-dark-b dark:hover:bg-dark-l">
           {(() => {
             const logoSrc = getPartyLogoSrc(party.party_image_url, isDark);
             return logoSrc ? (
