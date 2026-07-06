@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import clsx from 'clsx';
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { Area, Bar, CartesianGrid, ComposedChart, XAxis, YAxis } from 'recharts';
 import {
   ChartConfig,
   ChartContainer,
@@ -80,15 +80,12 @@ export default function StatsTrendArea() {
         </span>
       }>
       <ChartContainer config={chartConfig} className="aspect-auto h-[220px] w-full">
-        <AreaChart data={points} margin={{ left: 4, right: 12, top: 8 }}>
+        {/* 발의(수천 건)와 가결(수십 건)은 모수 차이가 커서 y축을 분리한다: 발의=좌축 영역, 가결=우축 막대. */}
+        <ComposedChart data={points} margin={{ left: 4, right: 4, top: 8 }}>
           <defs>
             <linearGradient id="fillProposed" x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="var(--color-proposed)" stopOpacity={0.14} />
               <stop offset="95%" stopColor="var(--color-proposed)" stopOpacity={0.02} />
-            </linearGradient>
-            <linearGradient id="fillPassed" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-passed)" stopOpacity={0.45} />
-              <stop offset="95%" stopColor="var(--color-passed)" stopOpacity={0.05} />
             </linearGradient>
           </defs>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -100,7 +97,23 @@ export default function StatsTrendArea() {
             minTickGap={24}
             tickFormatter={(value: string, index: number) => formatMonth(value, index, monthKeys)}
           />
-          <YAxis tickLine={false} axisLine={false} width={36} tickFormatter={(v: number) => v.toLocaleString()} />
+          <YAxis
+            yAxisId="proposed"
+            tickLine={false}
+            axisLine={false}
+            width={36}
+            tickFormatter={(v: number) => v.toLocaleString()}
+          />
+          {hasDetail && (
+            <YAxis
+              yAxisId="passed"
+              orientation="right"
+              tickLine={false}
+              axisLine={false}
+              width={32}
+              tickFormatter={(v: number) => v.toLocaleString()}
+            />
+          )}
           <ChartTooltip
             cursor={{ strokeDasharray: '3 3' }}
             content={
@@ -116,16 +129,10 @@ export default function StatsTrendArea() {
             }
           />
           {hasDetail && (
-            <Area
-              dataKey="passed"
-              type="monotone"
-              fill="url(#fillPassed)"
-              stroke="var(--color-passed)"
-              strokeWidth={2}
-              activeDot={{ r: 4 }}
-            />
+            <Bar yAxisId="passed" dataKey="passed" fill="var(--color-passed)" radius={[3, 3, 0, 0]} maxBarSize={18} />
           )}
           <Area
+            yAxisId="proposed"
             dataKey="proposed"
             type="monotone"
             fill="url(#fillProposed)"
@@ -134,7 +141,7 @@ export default function StatsTrendArea() {
             activeDot={{ r: 4 }}
           />
           {hasDetail && <ChartLegend content={<ChartLegendContent />} />}
-        </AreaChart>
+        </ComposedChart>
       </ChartContainer>
     </StatsCard>
   );
