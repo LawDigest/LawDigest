@@ -1,8 +1,13 @@
 package com.everyones.lawmaking.controller;
 
 import com.everyones.lawmaking.common.dto.CategoryCountDto;
+import com.everyones.lawmaking.common.dto.CategoryPartyCountDto;
+import com.everyones.lawmaking.common.dto.CommitteeCountDto;
+import com.everyones.lawmaking.common.dto.MonthlyTrendDetailDto;
 import com.everyones.lawmaking.common.dto.MonthlyTrendDto;
 import com.everyones.lawmaking.common.dto.PartyBillCountDto;
+import com.everyones.lawmaking.common.dto.PartyPerformanceDto;
+import com.everyones.lawmaking.common.dto.ResultBreakdownDto;
 import com.everyones.lawmaking.common.dto.StatisticsOverviewDto;
 import com.everyones.lawmaking.common.dto.StatisticsStageDto;
 import com.everyones.lawmaking.global.BaseResponse;
@@ -63,5 +68,42 @@ public class StatisticsController {
             @Parameter(example = "6", description = "가져올 개월 수입니다.")
             @RequestParam(name = "months", defaultValue = "6") int months) {
         return BaseResponse.ok(statisticsService.getMonthlyTrend(months));
+    }
+
+    @Operation(summary = "정당별 발의·가결 실적", description = "제22대 정당별 대표발의 수, 가결 수, 가결률을 발의 수 내림차순으로 집계합니다.")
+    @ApiResponses(@ApiResponse(responseCode = "200", description = "조회 성공"))
+    @GetMapping("/party-performance")
+    public BaseResponse<List<PartyPerformanceDto>> getPartyPerformance() {
+        return BaseResponse.ok(statisticsService.getPartyPerformance());
+    }
+
+    @Operation(summary = "월별 발의·가결 추이", description = "제22대 최근 N개월 월별 발의 건수와 그중 가결된 건수를 시간순으로 집계합니다.")
+    @ApiResponses(@ApiResponse(responseCode = "200", description = "조회 성공"))
+    @GetMapping("/trend-detail")
+    public BaseResponse<List<MonthlyTrendDetailDto>> getMonthlyTrendDetail(
+            @Parameter(example = "12", description = "가져올 개월 수입니다.")
+            @RequestParam(name = "months", defaultValue = "12") int months) {
+        return BaseResponse.ok(statisticsService.getMonthlyTrendDetail(months));
+    }
+
+    @Operation(summary = "위원회별 법안 수", description = "제22대 소관 위원회별 법안 수와 가결 수를 내림차순으로 집계합니다.")
+    @ApiResponses(@ApiResponse(responseCode = "200", description = "조회 성공"))
+    @GetMapping("/by-committee")
+    public BaseResponse<List<CommitteeCountDto>> getBillCountByCommittee() {
+        return BaseResponse.ok(statisticsService.getBillCountByCommittee());
+    }
+
+    @Operation(summary = "분야×정당 교차 집계", description = "제22대 분야별로 각 정당의 대표발의 법안 수를 집계합니다.")
+    @ApiResponses(@ApiResponse(responseCode = "200", description = "조회 성공"))
+    @GetMapping("/category-party")
+    public BaseResponse<List<CategoryPartyCountDto>> getCategoryPartyMatrix() {
+        return BaseResponse.ok(statisticsService.getCategoryPartyMatrix());
+    }
+
+    @Operation(summary = "처리 결과 분포", description = "제22대 법안 처리 결과(원안가결/수정가결/대안반영폐기 등)별 건수를 집계합니다. 결과 미정은 '계류'로 내려갑니다.")
+    @ApiResponses(@ApiResponse(responseCode = "200", description = "조회 성공"))
+    @GetMapping("/result-breakdown")
+    public BaseResponse<List<ResultBreakdownDto>> getResultBreakdown() {
+        return BaseResponse.ok(statisticsService.getResultBreakdown());
     }
 }

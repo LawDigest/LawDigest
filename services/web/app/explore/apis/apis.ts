@@ -88,6 +88,50 @@ export const getStatisticsByCategory = () => http.get<CategoryCount[]>({ url: '/
 export const getStatisticsTrend = (months = 6) =>
   http.get<MonthlyTrend[]>({ url: '/statistics/trend', params: { months } });
 
+export interface PartyPerformance {
+  party_id: number;
+  party_name: string;
+  count: number;
+  passed_count: number;
+  pass_rate: number;
+}
+
+export interface MonthlyTrendDetail {
+  month: string;
+  proposed_count: number;
+  passed_count: number;
+}
+
+export interface CommitteeCount {
+  committee: string;
+  count: number;
+  passed_count: number;
+}
+
+export interface CategoryPartyCount {
+  category: string;
+  party_id: number;
+  party_name: string;
+  count: number;
+}
+
+export interface ResultBreakdown {
+  result: string;
+  count: number;
+}
+
+export const getStatisticsPartyPerformance = () =>
+  http.get<PartyPerformance[]>({ url: '/statistics/party-performance' });
+
+export const getStatisticsTrendDetail = (months = 12) =>
+  http.get<MonthlyTrendDetail[]>({ url: '/statistics/trend-detail', params: { months } });
+
+export const getStatisticsByCommittee = () => http.get<CommitteeCount[]>({ url: '/statistics/by-committee' });
+
+export const getStatisticsCategoryParty = () => http.get<CategoryPartyCount[]>({ url: '/statistics/category-party' });
+
+export const getStatisticsResultBreakdown = () => http.get<ResultBreakdown[]>({ url: '/statistics/result-breakdown' });
+
 export const getBillsByCategory = (category: string, page: number) =>
   http.get<FeedResponse>({
     url: '/bill/category',
