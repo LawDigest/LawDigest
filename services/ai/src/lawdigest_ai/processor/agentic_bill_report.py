@@ -1129,6 +1129,17 @@ def _strip_markdown_for_summary(text: str) -> str:
 TERM_TOOLTIP_PATTERN = re.compile(r"\{\{([^:{}\n]+):([^{}\n]+)\}\}")
 
 
+def _dedupe_adjacent_term_tooltips(text: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        return f"{{{{{match.group('term')}:{match.group('definition')}}}}}"
+
+    return re.sub(
+        r"(?P<term>[가-힣A-Za-z0-9·ㆍ()\-/ ]{1,40})\{\{(?P=term):(?P<definition>[^{}\n]+)\}\}",
+        replace,
+        text,
+    )
+
+
 def _has_overlong_brief_prefix(brief_summary: str | None, bill_name: str) -> bool:
     if not brief_summary or not bill_name or not brief_summary.endswith(bill_name):
         return False
@@ -1322,6 +1333,7 @@ def _validate_report_body(report_body: str) -> None:
 def _repair_report_body(report_body: str) -> str:
     repaired = report_body.replace("원문 요약:", "").replace("용어 설명:", "")
     repaired = repaired.replace("법령 체계:", "").replace("쉬운 풀이:", "")
+    repaired = _dedupe_adjacent_term_tooltips(repaired)
     repaired = re.sub(r"(?m)^(?P<indent>\s*)<mark>\s*-\s*(?P<text>[^<\n]+)</mark>", r"\g<indent>- <mark>\g<text></mark>", repaired)
 
     easy_starters = (

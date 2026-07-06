@@ -463,6 +463,35 @@ def test_agentic_report_validation_accepts_dictionary_term_tooltip():
     _validate_report_body(repaired)
 
 
+def test_agentic_report_repair_dedupes_adjacent_same_term_tooltip():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+**공유재산{{공유재산:지방자치단체 소유 재산을 말해요.}} 관리 기준을 정비하기 위한 법률 개정안이에요.**
+<mark>핵심 변화는 {{변상금:무단 점유자에게 부과하는 금액을 말해요.}} 조정 근거가 넓어지는 점이에요.</mark>
+
+## 주요 내용
+- **지원 근거**: 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 금액 조정 근거 정비
+
+공유재산{{공유재산:지방자치단체 소유 재산을 말해요.}}을 주거 목적으로 점유한 경우 예외를 둘 수 있게 해요.
+
+- 사용자 입장에서는, 생활 회복을 막는 부담을 줄일 여지가 생겨요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert "공유재산{{공유재산:" not in repaired
+    assert repaired.count("{{공유재산:") == 2
+    _validate_report_body(repaired)
+
+
 def test_agentic_report_repair_adds_missing_highlight():
     from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
 
