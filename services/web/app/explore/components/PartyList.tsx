@@ -2,7 +2,7 @@
 
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
-import { Avatar } from '@nextui-org/avatar';
+import Image from 'next/image';
 import { getPartyColor } from '@/constants/party';
 import { getPartyLogoSrc } from '@/utils';
 import { useGetParliamentaryParties } from '../apis';
@@ -24,14 +24,29 @@ export default function PartyList() {
         <Link
           key={party.party_id}
           href={`/party/${party.party_id}`}
-          className="flex items-center gap-3 rounded-2xl border border-gray-1 bg-white p-3.5 shadow-sm transition-colors hover:bg-primary-1 dark:border-dark-l dark:bg-dark-b dark:hover:bg-dark-l">
-          <Avatar
-            src={getPartyLogoSrc(party.party_image_url, isDark) ?? undefined}
-            alt={party.party_name}
-            showFallback
-            className="h-11 w-11 shrink-0 bg-white ring-2"
-            style={{ '--tw-ring-color': getPartyColor(party.party_name) } as React.CSSProperties}
-          />
+          style={{ borderColor: getPartyColor(party.party_name) }}
+          className="flex items-center gap-3 rounded-2xl border bg-white p-3.5 shadow-sm transition-colors hover:bg-primary-1 dark:bg-dark-b dark:hover:bg-dark-l">
+          {(() => {
+            const logoSrc = getPartyLogoSrc(party.party_image_url, isDark);
+            return logoSrc ? (
+              // 원형 크롭 없이 전체 로고가 보이도록 object-contain.
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center">
+                <Image
+                  src={logoSrc}
+                  alt={`${party.party_name} 로고`}
+                  width={44}
+                  height={44}
+                  className="h-11 w-11 object-contain"
+                />
+              </span>
+            ) : (
+              <span
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[14px] font-bold text-white"
+                style={{ background: getPartyColor(party.party_name) }}>
+                {party.party_name.trim().charAt(0)}
+              </span>
+            );
+          })()}
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-bold text-primary-3 dark:text-gray-0.5">{party.party_name}</p>
             <p className="mt-0.5 text-[12px] text-gray-2">소속 의원 {party.congressman_count.toLocaleString()}명</p>

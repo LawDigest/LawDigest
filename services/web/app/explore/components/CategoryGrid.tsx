@@ -39,7 +39,13 @@ export default function CategoryGrid({ selected, onSelect }: CategoryGridProps) 
                 layoutId="explore-category-indicator"
                 className="pointer-events-none absolute -inset-px z-0 rounded-2xl"
                 style={{ border: `1.5px solid ${meta.color}`, backgroundColor: `${meta.color}14` }}
-                transition={{ type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.45 }}
+                // 첫 진입(이전 선택 없음): 살짝 확대·페이드로 등장. 카드 간 이동: layout 트윈.
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{
+                  layout: { type: 'tween', ease: [0.22, 1, 0.36, 1], duration: 0.45 },
+                  default: { duration: 0.28, ease: 'easeOut' },
+                }}
               />
             )}
             <span className="material-symbols-outlined relative z-10 text-[26px]" style={{ color: meta.color }}>
