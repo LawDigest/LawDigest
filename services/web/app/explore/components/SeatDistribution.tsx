@@ -20,12 +20,13 @@ const OUTER_R = 46;
 const RECT_PAD_X = 5;
 const RECT_PAD_Y = 5;
 
-// 좌석 이동을 부드럽게: 완만한 ease-in-out + 인덱스 기반 미세 stagger로 흐르듯 이동.
+// 좌석 이동과 패널 폭 전환(CSS)을 같은 duration·easing으로 맞춰 한 번의 애니메이션처럼 보이게 한다.
+const DOT_DURATION = 0.7;
 const dotTransition = (index: number) => ({
   type: 'tween' as const,
   ease: [0.4, 0, 0.2, 1] as const,
-  duration: 0.7,
-  delay: Math.min(index * 0.0009, 0.32),
+  duration: DOT_DURATION,
+  delay: Math.min(index * 0.0005, 0.16),
 });
 
 /** 제22대 국회 의석 분포 — 기본은 반원 좌석도, 정당 클릭 시 좌석이 직사각형으로 정렬되고 정당 상세가 표시된다. */
@@ -126,9 +127,9 @@ export default function SeatDistribution() {
         </span>
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
+      <div className="flex flex-col md:flex-row md:items-center">
         {/* 좌석 차트 (기본 반원, 포커스 시 왼쪽 직사각형) */}
-        <div ref={chartRef} className="relative md:flex-1" onMouseLeave={() => setHovered(null)}>
+        <div ref={chartRef} className="relative min-w-0 md:flex-1" onMouseLeave={() => setHovered(null)}>
           <svg
             viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
             className="mx-auto block w-full max-w-[420px]"
@@ -211,68 +212,77 @@ export default function SeatDistribution() {
           )}
         </div>
 
-        {/* 포커스 정당 상세 (흰 배경 위 플랫, 모바일 하단 / 데스크톱 우측) */}
-        {focusedParty && (
-          <div className="relative md:w-[38%] md:shrink-0">
-            <button
-              type="button"
-              onClick={() => setFocusedId(null)}
-              aria-label="정당 포커스 해제"
-              className="absolute right-0 top-0 grid h-7 w-7 place-items-center rounded-full text-gray-2 hover:bg-gray-0.5 dark:hover:bg-dark-l">
-              <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
+        {/* 포커스 정당 상세 — 항상 렌더링하고 폭/높이만 CSS로 전환해 차트 축소와 한 번의 애니메이션으로 이어지게 한다. */}
+        <div
+          className={`shrink-0 overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+            focusedParty
+              ? 'mt-3 max-h-[320px] opacity-100 md:mt-0 md:ml-4 md:w-[200px]'
+              : 'mt-0 max-h-0 opacity-0 md:w-0'
+          }`}>
+          <div className="relative w-full md:w-[200px]">
+            {focusedParty && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setFocusedId(null)}
+                  aria-label="정당 포커스 해제"
+                  className="absolute right-0 top-0 grid h-7 w-7 place-items-center rounded-full text-gray-2 hover:bg-gray-0.5 dark:hover:bg-dark-l">
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
 
-            <div className="flex items-center justify-between gap-3 pr-8">
-              <div className="flex min-w-0 items-center gap-2">
-                {(() => {
-                  const logoSrc = getPartyLogoSrc(focusedParty.party_image_url, isDark);
-                  // 가로형 정당 로고는 이름을 포함하므로 원형 크롭 없이 전체 로고만 표시한다.
-                  return logoSrc ? (
-                    <Image
-                      src={logoSrc}
-                      alt={`${focusedParty.party_name} 로고`}
-                      width={104}
-                      height={36}
-                      className="h-9 w-auto max-w-[120px] shrink-0 object-contain object-left"
-                    />
-                  ) : (
-                    <>
-                      <span
-                        className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[13px] font-bold text-white"
-                        style={{ background: getPartyColor(focusedParty.party_name) }}>
-                        {focusedParty.party_name.trim().charAt(0)}
-                      </span>
-                      <span className="truncate text-[14px] font-bold text-primary-3 dark:text-gray-0.5">
-                        {focusedParty.party_name}
-                      </span>
-                    </>
-                  );
-                })()}
-              </div>
-              <div className="text-right">
-                <div className="text-[11px] text-gray-2">의석수</div>
-                <div className="text-[18px] font-extrabold leading-tight text-primary-3 dark:text-gray-0.5">
-                  {focusedParty.congressman_count.toLocaleString()}석
+                <div className="flex items-center justify-between gap-2 pr-8">
+                  <div className="flex min-w-0 items-center gap-2">
+                    {(() => {
+                      const logoSrc = getPartyLogoSrc(focusedParty.party_image_url, isDark);
+                      // 가로형 정당 로고는 이름을 포함하므로 원형 크롭 없이 전체 로고만 표시한다.
+                      return logoSrc ? (
+                        <Image
+                          src={logoSrc}
+                          alt={`${focusedParty.party_name} 로고`}
+                          width={88}
+                          height={32}
+                          className="h-8 w-auto max-w-[88px] shrink-0 object-contain object-left"
+                        />
+                      ) : (
+                        <>
+                          <span
+                            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[13px] font-bold text-white"
+                            style={{ background: getPartyColor(focusedParty.party_name) }}>
+                            {focusedParty.party_name.trim().charAt(0)}
+                          </span>
+                          <span className="truncate text-[14px] font-bold text-primary-3 dark:text-gray-0.5">
+                            {focusedParty.party_name}
+                          </span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[11px] text-gray-2">의석수</div>
+                    <div className="text-[18px] font-extrabold leading-tight text-primary-3 dark:text-gray-0.5">
+                      {focusedParty.congressman_count.toLocaleString()}석
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            <div className="mt-3 flex flex-col gap-2 text-[13px]">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-2">의석 비율</span>
-                <span className="font-bold text-primary-3 dark:text-gray-0.5">
-                  {((focusedParty.congressman_count / total) * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-2">발의 법안</span>
-                <span className="font-bold text-primary-3 dark:text-gray-0.5">
-                  {(billCountById.get(focusedParty.party_id) ?? 0).toLocaleString()}건
-                </span>
-              </div>
-            </div>
+                <div className="mt-3 flex flex-col gap-2 text-[13px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-2">의석 비율</span>
+                    <span className="font-bold text-primary-3 dark:text-gray-0.5">
+                      {((focusedParty.congressman_count / total) * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-2">발의 법안</span>
+                    <span className="font-bold text-primary-3 dark:text-gray-0.5">
+                      {(billCountById.get(focusedParty.party_id) ?? 0).toLocaleString()}건
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {/* 정당 범례 (클릭 시 포커스 토글, hover 시 강조) */}
