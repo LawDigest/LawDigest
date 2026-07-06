@@ -1,8 +1,8 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Avatar } from '@nextui-org/avatar';
 import { useTheme } from 'next-themes';
 import { getPartyColor } from '@/constants/party';
 import { getPartyLogoSrc } from '@/utils';
@@ -218,16 +218,30 @@ export default function SeatDistribution() {
 
             <div className="flex items-center justify-between gap-3 pr-8">
               <div className="flex min-w-0 items-center gap-2">
-                <Avatar
-                  src={getPartyLogoSrc(focusedParty.party_image_url, isDark) ?? undefined}
-                  alt={focusedParty.party_name}
-                  showFallback
-                  className="h-10 w-10 shrink-0 bg-white ring-2"
-                  style={{ '--tw-ring-color': getPartyColor(focusedParty.party_name) } as React.CSSProperties}
-                />
-                <span className="truncate text-[14px] font-bold text-primary-3 dark:text-gray-0.5">
-                  {focusedParty.party_name}
-                </span>
+                {(() => {
+                  const logoSrc = getPartyLogoSrc(focusedParty.party_image_url, isDark);
+                  // 가로형 정당 로고는 이름을 포함하므로 원형 크롭 없이 전체 로고만 표시한다.
+                  return logoSrc ? (
+                    <Image
+                      src={logoSrc}
+                      alt={`${focusedParty.party_name} 로고`}
+                      width={104}
+                      height={36}
+                      className="h-9 w-auto max-w-[120px] shrink-0 object-contain object-left"
+                    />
+                  ) : (
+                    <>
+                      <span
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[13px] font-bold text-white"
+                        style={{ background: getPartyColor(focusedParty.party_name) }}>
+                        {focusedParty.party_name.trim().charAt(0)}
+                      </span>
+                      <span className="truncate text-[14px] font-bold text-primary-3 dark:text-gray-0.5">
+                        {focusedParty.party_name}
+                      </span>
+                    </>
+                  );
+                })()}
               </div>
               <div className="text-right">
                 <div className="text-[11px] text-gray-2">의석수</div>
