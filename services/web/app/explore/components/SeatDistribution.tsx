@@ -20,7 +20,13 @@ const OUTER_R = 46;
 const RECT_PAD_X = 5;
 const RECT_PAD_Y = 5;
 
-const DOT_TRANSITION = { type: 'tween' as const, ease: [0.22, 1, 0.36, 1] as const, duration: 0.5 };
+// 좌석 이동을 부드럽게: 완만한 ease-in-out + 인덱스 기반 미세 stagger로 흐르듯 이동.
+const dotTransition = (index: number) => ({
+  type: 'tween' as const,
+  ease: [0.4, 0, 0.2, 1] as const,
+  duration: 0.7,
+  delay: Math.min(index * 0.0009, 0.32),
+});
 
 /** 제22대 국회 의석 분포 — 기본은 반원 좌석도, 정당 클릭 시 좌석이 직사각형으로 정렬되고 정당 상세가 표시된다. */
 export default function SeatDistribution() {
@@ -137,7 +143,7 @@ export default function SeatDistribution() {
                   key={`${seat.row}-${seat.theta}`}
                   initial={false}
                   animate={{ cx: target.x, cy: target.y, r: isFocused ? rect.r : hemiR, opacity: seatOpacity(partyId) }}
-                  transition={DOT_TRANSITION}
+                  transition={dotTransition(index)}
                   fill={getPartyColor(party?.party_name)}
                   className="cursor-pointer"
                   onMouseEnter={(event) => handleSeatMove(event, partyId)}
