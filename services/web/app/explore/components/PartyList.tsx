@@ -1,12 +1,16 @@
 'use client';
 
+import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import { Avatar } from '@nextui-org/avatar';
 import { getPartyColor } from '@/constants/party';
+import { getPartyLogoSrc } from '@/utils';
 import { useGetParliamentaryParties } from '../apis';
 
 /** 정당 탭 — 원내 정당 목록(소속 의원 수 순). 각 항목은 정당 상세로 이동. */
 export default function PartyList() {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const { data, isLoading } = useGetParliamentaryParties();
   const parties = [...(data?.data ?? [])].sort((a, b) => b.congressman_count - a.congressman_count);
 
@@ -22,8 +26,9 @@ export default function PartyList() {
           href={`/party/${party.party_id}`}
           className="flex items-center gap-3 rounded-2xl border border-gray-1 bg-white p-3.5 shadow-sm transition-colors hover:bg-primary-1 dark:border-dark-l dark:bg-dark-b dark:hover:bg-dark-l">
           <Avatar
-            src={process.env.NEXT_PUBLIC_IMAGE_URL + party.party_image_url}
+            src={getPartyLogoSrc(party.party_image_url, isDark) ?? undefined}
             alt={party.party_name}
+            showFallback
             className="h-11 w-11 shrink-0 bg-white ring-2"
             style={{ '--tw-ring-color': getPartyColor(party.party_name) } as React.CSSProperties}
           />
