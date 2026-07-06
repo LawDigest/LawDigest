@@ -1129,6 +1129,48 @@ def _strip_markdown_for_summary(text: str) -> str:
 TERM_TOOLTIP_PATTERN = re.compile(r"\{\{([^:{}\n]+):([^{}\n]+)\}\}")
 
 
+def _has_final_consonant(text: str) -> bool | None:
+    if not text:
+        return None
+    last = text[-1]
+    if "가" <= last <= "힣":
+        return (ord(last) - ord("가")) % 28 != 0
+    return None
+
+
+def _particle_for_term(term: str, consonant_pair: str, vowel_pair: str) -> str:
+    has_final_consonant = _has_final_consonant(term.strip())
+    if has_final_consonant is None:
+        return consonant_pair
+    return consonant_pair if has_final_consonant else vowel_pair
+
+
+def _repair_term_tooltip_particles(text: str) -> str:
+    particle_pairs = {
+        "을": ("을", "를"),
+        "를": ("을", "를"),
+        "이": ("이", "가"),
+        "가": ("이", "가"),
+        "은": ("은", "는"),
+        "는": ("은", "는"),
+        "과": ("과", "와"),
+        "와": ("과", "와"),
+    }
+
+    def replace(match: re.Match[str]) -> str:
+        term = match.group("term")
+        particle = match.group("particle")
+        consonant_pair, vowel_pair = particle_pairs[particle]
+        repaired_particle = _particle_for_term(term, consonant_pair, vowel_pair)
+        return f"{{{{{term}:{match.group('definition')}}}}}{repaired_particle}"
+
+    return re.sub(
+        r"\{\{(?P<term>[^:{}\n]+):(?P<definition>[^{}\n]+)\}\}(?P<particle>[을를이가은는과와])",
+        replace,
+        text,
+    )
+
+
 def _dedupe_adjacent_term_tooltips(text: str) -> str:
     def replace(match: re.Match[str]) -> str:
         return f"{{{{{match.group('term')}:{match.group('definition')}}}}}"
@@ -1334,6 +1376,7 @@ def _repair_report_body(report_body: str) -> str:
     repaired = report_body.replace("원문 요약:", "").replace("용어 설명:", "")
     repaired = repaired.replace("법령 체계:", "").replace("쉬운 풀이:", "")
     repaired = _dedupe_adjacent_term_tooltips(repaired)
+    repaired = _repair_term_tooltip_particles(repaired)
     repaired = re.sub(r"(?m)^(?P<indent>\s*)<mark>\s*-\s*(?P<text>[^<\n]+)</mark>", r"\g<indent>- <mark>\g<text></mark>", repaired)
 
     easy_starters = (
