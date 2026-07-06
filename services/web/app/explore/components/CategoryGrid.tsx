@@ -29,7 +29,10 @@ export default function CategoryGrid({ selected, onSelect }: CategoryGridProps) 
             key={category}
             onClick={() => onSelect(category)}
             aria-pressed={active}
-            className="relative flex flex-col items-start gap-2 rounded-2xl border border-gray-1 bg-white p-4 text-left shadow-sm transition-colors hover:bg-primary-1 dark:border-dark-l dark:bg-dark-b dark:hover:bg-dark-l">
+            // 활성 카드를 위로 올려 이동 중인 인디케이터가 이웃 카드에 가려지지 않게 한다.
+            className={`relative flex flex-col items-start gap-2 rounded-2xl border border-gray-1 bg-white p-4 text-left shadow-sm transition-colors hover:bg-primary-1 dark:border-dark-l dark:bg-dark-b dark:hover:bg-dark-l ${
+              active ? 'z-10' : ''
+            }`}>
             {active && (
               // 선택 인디케이터: 분야 고유 색의 얇은 테두리 + 옅은 tint. layoutId로 카드 간 이동 애니메이션.
               <motion.span
