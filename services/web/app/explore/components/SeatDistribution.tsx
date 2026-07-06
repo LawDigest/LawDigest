@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Avatar } from '@nextui-org/avatar';
 import { useTheme } from 'next-themes';
 import { getPartyColor } from '@/constants/party';
@@ -15,12 +16,13 @@ const CENTER_X = VIEW_W / 2;
 const CENTER_Y = VIEW_H - 3;
 const OUTER_R = 46;
 
-const seatXY = (radius: number, theta: number) => ({
-  x: CENTER_X + OUTER_R * radius * Math.cos(theta),
-  y: CENTER_Y - OUTER_R * radius * Math.sin(theta),
-});
+// 직사각형(포커스) 배치 영역.
+const RECT_PAD_X = 5;
+const RECT_PAD_Y = 5;
 
-/** 제22대 국회 의석 분포 — 본회의장 좌석을 형상화한 반원형 좌석도(hover 툴팁·클릭 포커스·과반선 포함). */
+const DOT_TRANSITION = { type: 'tween' as const, ease: [0.22, 1, 0.36, 1] as const, duration: 0.5 };
+
+/** 제22대 국회 의석 분포 — 기본은 반원 좌석도, 정당 클릭 시 좌석이 직사각형으로 정렬되고 정당 상세가 표시된다. */
 export default function SeatDistribution() {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -61,26 +63,53 @@ export default function SeatDistribution() {
     return map;
   }, [billStats]);
 
+  // 반원 좌표.
+  const hemiPositions = useMemo(
+    () =>
+      seats.map((seat) => ({
+        x: CENTER_X + OUTER_R * seat.radius * Math.cos(seat.theta),
+        y: CENTER_Y - OUTER_R * seat.radius * Math.sin(seat.theta),
+      })),
+    [seats],
+  );
+
+  // 직사각형(포커스) 좌표 — 정당 순서대로 행 우선 채움.
+  const rect = useMemo(() => {
+    const usableW = VIEW_W - RECT_PAD_X * 2;
+    const usableH = VIEW_H - RECT_PAD_Y * 2;
+    const cols = Math.max(1, Math.round(Math.sqrt(total * (usableW / usableH))));
+    const rows = Math.max(1, Math.ceil(total / cols));
+    const sx = usableW / cols;
+    const sy = usableH / rows;
+    const r = Math.max(0.8, Math.min(sx, sy) * 0.36);
+    const positions = seats.map((_, i) => ({
+      x: RECT_PAD_X + sx * ((i % cols) + 0.5),
+      y: RECT_PAD_Y + sy * (Math.floor(i / cols) + 0.5),
+    }));
+    return { positions, r };
+  }, [seats, total]);
+
   if (total === 0) return null;
 
-  const seatR = Math.max(1, Math.min(1.9, OUTER_R * rowGap * 0.4));
+  const hemiR = Math.max(1, Math.min(1.9, OUTER_R * rowGap * 0.4));
+  const isFocused = focusedId != null;
   const focusedParty = focusedId != null ? partyById.get(focusedId) : undefined;
   const hoveredParty = hovered ? partyById.get(hovered.partyId) : undefined;
-
-  // 과반선: 왼쪽부터 majority번째 좌석의 각도에 방사형 점선을 긋는다.
   const majoritySeat = seats[Math.min(majority, seats.length) - 1];
 
   const handleSeatMove = (event: React.MouseEvent, partyId: number) => {
-    const rect = chartRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setHovered({ partyId, x: event.clientX - rect.left, y: event.clientY - rect.top });
+    const rectBox = chartRef.current?.getBoundingClientRect();
+    if (!rectBox) return;
+    setHovered({ partyId, x: event.clientX - rectBox.left, y: event.clientY - rectBox.top });
   };
 
   const seatOpacity = (partyId: number) => {
-    if (focusedId != null) return partyId === focusedId ? 1 : 0.16;
+    if (isFocused) return partyId === focusedId ? 1 : 0.14;
     if (hovered) return partyId === hovered.partyId ? 1 : 0.4;
     return 1;
   };
+
+  const toggleFocus = (partyId: number) => setFocusedId((prev) => (prev === partyId ? null : partyId));
 
   return (
     <section className="rounded-2xl border border-gray-1 bg-white p-4 shadow-sm dark:border-dark-l dark:bg-dark-b">
@@ -92,7 +121,7 @@ export default function SeatDistribution() {
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        {/* 좌석 차트 */}
+        {/* 좌석 차트 (기본 반원, 포커스 시 왼쪽 직사각형) */}
         <div ref={chartRef} className="relative md:flex-1" onMouseLeave={() => setHovered(null)}>
           <svg
             viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
@@ -102,25 +131,25 @@ export default function SeatDistribution() {
             {seats.map((seat, index) => {
               const partyId = seatPartyIds[index];
               const party = partyById.get(partyId);
-              const { x, y } = seatXY(seat.radius, seat.theta);
+              const target = isFocused ? rect.positions[index] : hemiPositions[index];
               return (
-                <circle
+                <motion.circle
                   key={`${seat.row}-${seat.theta}`}
-                  cx={x}
-                  cy={y}
-                  r={seatR}
+                  initial={false}
+                  animate={{ cx: target.x, cy: target.y, r: isFocused ? rect.r : hemiR, opacity: seatOpacity(partyId) }}
+                  transition={DOT_TRANSITION}
                   fill={getPartyColor(party?.party_name)}
-                  opacity={seatOpacity(partyId)}
-                  className="cursor-pointer transition-opacity duration-200"
+                  className="cursor-pointer"
                   onMouseEnter={(event) => handleSeatMove(event, partyId)}
                   onMouseMove={(event) => handleSeatMove(event, partyId)}
-                  onClick={() => setFocusedId((prev) => (prev === partyId ? null : partyId))}
+                  onClick={() => toggleFocus(partyId)}
                 />
               );
             })}
 
-            {/* 과반선(방사형 점선) */}
-            {majoritySeat &&
+            {/* 과반선(반원 상태에서만) */}
+            {!isFocused &&
+              majoritySeat &&
               (() => {
                 const start = {
                   x: CENTER_X + OUTER_R * 0.34 * Math.cos(majoritySeat.theta),
@@ -156,13 +185,15 @@ export default function SeatDistribution() {
               })()}
           </svg>
 
-          {/* 반원 중앙 재적 수 */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-1 flex flex-col items-center">
-            <span className="text-[20px] font-extrabold leading-none text-primary-3 dark:text-gray-0.5">
-              {total.toLocaleString()}
-            </span>
-            <span className="text-[10px] text-gray-2">재적 의석</span>
-          </div>
+          {/* 반원 중앙 재적 수 (반원 상태에서만) */}
+          {!isFocused && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-1 flex flex-col items-center">
+              <span className="text-[20px] font-extrabold leading-none text-primary-3 dark:text-gray-0.5">
+                {total.toLocaleString()}
+              </span>
+              <span className="text-[10px] text-gray-2">재적 의석</span>
+            </div>
+          )}
 
           {/* hover 툴팁 (좌석 hover 시에만 커서 위치에 표시) */}
           {hoveredParty && hovered && hovered.x >= 0 && (
@@ -174,60 +205,54 @@ export default function SeatDistribution() {
           )}
         </div>
 
-        {/* 포커스 정당 상세 패널 (모바일 하단 / 데스크톱 우측) */}
-        <aside className="md:w-[42%] md:shrink-0">
-          {focusedParty ? (
-            <div className="rounded-xl border border-gray-1 bg-gray-0.5 p-4 dark:border-dark-l dark:bg-dark-l">
-              <div className="flex items-center gap-3">
+        {/* 포커스 정당 상세 (흰 배경 위 플랫, 모바일 하단 / 데스크톱 우측) */}
+        {focusedParty && (
+          <div className="relative md:w-[38%] md:shrink-0">
+            <button
+              type="button"
+              onClick={() => setFocusedId(null)}
+              aria-label="정당 포커스 해제"
+              className="absolute right-0 top-0 grid h-7 w-7 place-items-center rounded-full text-gray-2 hover:bg-gray-0.5 dark:hover:bg-dark-l">
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+
+            <div className="flex items-center justify-between gap-3 pr-8">
+              <div className="flex min-w-0 items-center gap-2">
                 <Avatar
                   src={getPartyLogoSrc(focusedParty.party_image_url, isDark) ?? undefined}
                   alt={focusedParty.party_name}
                   showFallback
-                  className="h-11 w-11 shrink-0 bg-white ring-2"
+                  className="h-10 w-10 shrink-0 bg-white ring-2"
                   style={{ '--tw-ring-color': getPartyColor(focusedParty.party_name) } as React.CSSProperties}
                 />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-bold text-primary-3 dark:text-gray-0.5">
-                    {focusedParty.party_name}
-                  </p>
-                  <p className="text-[12px] text-gray-2">원내 정당</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFocusedId(null)}
-                  aria-label="정당 포커스 해제"
-                  className="grid h-7 w-7 place-items-center rounded-full text-gray-2 hover:bg-gray-1 dark:hover:bg-dark-l">
-                  <span className="material-symbols-outlined text-[18px]">close</span>
-                </button>
+                <span className="truncate text-[14px] font-bold text-primary-3 dark:text-gray-0.5">
+                  {focusedParty.party_name}
+                </span>
               </div>
-
-              <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-white px-1 py-2 dark:bg-dark-b">
-                  <dt className="text-[11px] text-gray-2">의석수</dt>
-                  <dd className="text-[15px] font-bold text-primary-3 dark:text-gray-0.5">
-                    {focusedParty.congressman_count.toLocaleString()}
-                  </dd>
+              <div className="text-right">
+                <div className="text-[11px] text-gray-2">의석수</div>
+                <div className="text-[18px] font-extrabold leading-tight text-primary-3 dark:text-gray-0.5">
+                  {focusedParty.congressman_count.toLocaleString()}석
                 </div>
-                <div className="rounded-lg bg-white px-1 py-2 dark:bg-dark-b">
-                  <dt className="text-[11px] text-gray-2">의석 비율</dt>
-                  <dd className="text-[15px] font-bold text-primary-3 dark:text-gray-0.5">
-                    {((focusedParty.congressman_count / total) * 100).toFixed(1)}%
-                  </dd>
-                </div>
-                <div className="rounded-lg bg-white px-1 py-2 dark:bg-dark-b">
-                  <dt className="text-[11px] text-gray-2">발의 법안</dt>
-                  <dd className="text-[15px] font-bold text-primary-3 dark:text-gray-0.5">
-                    {(billCountById.get(focusedParty.party_id) ?? 0).toLocaleString()}
-                  </dd>
-                </div>
-              </dl>
+              </div>
             </div>
-          ) : (
-            <p className="rounded-xl border border-dashed border-gray-1 px-4 py-6 text-center text-[12px] text-gray-2 dark:border-dark-l">
-              정당을 클릭하면 의석만 강조되고 상세 정보가 표시됩니다.
-            </p>
-          )}
-        </aside>
+
+            <div className="mt-3 flex flex-col gap-2 text-[13px]">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-2">의석 비율</span>
+                <span className="font-bold text-primary-3 dark:text-gray-0.5">
+                  {((focusedParty.congressman_count / total) * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-2">발의 법안</span>
+                <span className="font-bold text-primary-3 dark:text-gray-0.5">
+                  {(billCountById.get(focusedParty.party_id) ?? 0).toLocaleString()}건
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 정당 범례 (클릭 시 포커스 토글, hover 시 강조) */}
@@ -238,7 +263,7 @@ export default function SeatDistribution() {
             <button
               key={party.party_id}
               type="button"
-              onClick={() => setFocusedId((prev) => (prev === party.party_id ? null : party.party_id))}
+              onClick={() => toggleFocus(party.party_id)}
               onMouseEnter={() => setHovered({ partyId: party.party_id, x: -9999, y: -9999 })}
               onMouseLeave={() => setHovered(null)}
               className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors ${
