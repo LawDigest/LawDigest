@@ -182,7 +182,7 @@ def build_legal_term_glossary_context(text: str, term_client: LawOpenApiTermClie
 
     lines = [
         "법률·행정용어 풀이 사전:",
-        "- 설명 불릿은 아래 사전에 있는 어려운 법률·행정용어가 본문에 나올 때만 붙이세요.",
+        "- 아래 사전에 있는 어려운 법률·행정용어가 본문에 나오면 첫 등장 한 번만 `{{용어:뜻}}` 툴팁 표기로 감싸세요.",
     ]
     if api_terms:
         lines.append("- 아래 `법제처 API 조회 결과`는 실제 법제처 Open API 정의 조회 결과입니다.")

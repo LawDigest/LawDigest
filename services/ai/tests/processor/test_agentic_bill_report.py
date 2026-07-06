@@ -86,19 +86,15 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
     assert "처리 상태" in context
     assert "하기 위한 법률 개정안이에요" in context
     assert "청문 규정" in context
-    assert "괄호로 끼워 넣지 마세요" in context
-    assert "어려운 법률·행정 용어" in context
+    assert "괄호 설명이나 설명 불릿으로 끼워 넣지 마세요" in context
+    assert "어려운 법률·행정용어" in context
     assert "허위정보, 필수정보, 표시·광고" in context
     assert "제23조(청문)" in context
     assert "원문 요약:" in context
-    assert "용어 설명:" in context
-    assert "법령 체계:" in context
     assert "쉬운 풀이:" in context
-    assert "Markdown 불릿" in context
-    assert "실제 용어명으로 시작" in context
-    assert "원문 요약 문장에 `청문`" in context
-    assert "원문 요약 문장에 `위임·위탁`" in context
-    assert "원문 요약 문장에 `과태료`" in context
+    assert "{{용어:뜻}}" in context
+    assert "점선 밑줄과 뜻 툴팁" in context
+    assert "설명 불릿으로 끼워 넣지 마세요" in context
     assert "해요체" in context
     assert "처분을 받기 전에 당사자가 설명하고 반론할 수 있는 절차에요" in context
     assert "고정 접두어를 반복하지 마세요" in context
@@ -358,7 +354,7 @@ def test_agentic_report_validation_rejects_easy_explanation_label():
         raise AssertionError("쉬운 풀이 메타 라벨이 섞인 리포트는 성공하면 안 됩니다.")
 
 
-def test_agentic_report_validation_requires_term_explanation_bullets():
+def test_agentic_report_validation_requires_term_tooltip_annotations():
     from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
 
     report_body = """
@@ -378,12 +374,12 @@ def test_agentic_report_validation_requires_term_explanation_bullets():
     try:
         _validate_report_body(report_body)
     except RuntimeError as exc:
-        assert "용어 설명 불릿" in str(exc) or "쉽게 말하면" in str(exc)
+        assert "툴팁 표기" in str(exc) or "쉽게 말하면" in str(exc)
     else:
-        raise AssertionError("용어 설명 불릿이 빠진 리포트는 성공하면 안 됩니다.")
+        raise AssertionError("법령용어 툴팁 표기가 빠진 리포트는 성공하면 안 됩니다.")
 
 
-def test_agentic_report_validation_requires_hearing_term_explanation():
+def test_agentic_report_validation_requires_hearing_term_tooltip():
     from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
 
     report_body = """
@@ -404,12 +400,12 @@ def test_agentic_report_validation_requires_hearing_term_explanation():
     try:
         _validate_report_body(report_body)
     except RuntimeError as exc:
-        assert "청문 용어 설명" in str(exc)
+        assert "툴팁 표기" in str(exc)
     else:
-        raise AssertionError("청문 용어 설명 불릿이 빠진 리포트는 성공하면 안 됩니다.")
+        raise AssertionError("청문 툴팁 표기가 빠진 리포트는 성공하면 안 됩니다.")
 
 
-def test_agentic_report_validation_requires_markdown_bullets_for_explanations():
+def test_agentic_report_validation_rejects_old_term_definition_bullets():
     from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
 
     report_body = """
@@ -430,12 +426,12 @@ def test_agentic_report_validation_requires_markdown_bullets_for_explanations():
     try:
         _validate_report_body(report_body)
     except RuntimeError as exc:
-        assert "Markdown 불릿" in str(exc)
+        assert "툴팁" in str(exc)
     else:
-        raise AssertionError("설명 문장이 불릿이 아닌 리포트는 성공하면 안 됩니다.")
+        raise AssertionError("사전식 용어 설명 불릿은 성공하면 안 됩니다.")
 
 
-def test_agentic_report_repair_adds_missing_term_bullets():
+def test_agentic_report_repair_adds_missing_term_tooltip():
     from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
 
     report_body = """
@@ -453,42 +449,43 @@ def test_agentic_report_repair_adds_missing_term_bullets():
 
 과태료 기준을 더 분명하게 정해요.
 
-과태료: 규칙을 어겼을 때 내는 금전 제재예요.
+- 과태료: 규칙을 어겼을 때 내는 금전 제재예요.
 사용자 입장에서는, 어떤 위반에 비용 부담이 생기는지 더 알기 쉬워져요.
 """.strip()
 
     repaired = _repair_report_body(report_body)
 
     assert "- **지원 근거**: 설명이에요." in repaired
-    assert "- 과태료:" in repaired
+    assert "{{과태료:" in repaired
+    assert "- 과태료:" not in repaired
     assert "- 사용자 입장에서는," in repaired
     _validate_report_body(repaired)
 
 
 @pytest.mark.parametrize(
-    ("change_heading", "change_paragraph", "expected_label"),
+    ("change_heading", "change_paragraph", "expected_token"),
     [
         (
             "처분 전 의견제출 절차 정비",
             "처분 전에 청문 절차를 거치도록 해 당사자가 의견을 말할 기회를 더 분명히 해요.",
-            "청문 규정:",
+            "{{청문 절차:",
         ),
         (
             "위반 시 금전 제재 기준 정비",
             "규칙을 어긴 경우 과태료 부과 기준을 더 분명하게 정해요.",
-            "과태료:",
+            "{{과태료:",
         ),
         (
             "업무 처리 권한 배분 정비",
             "필요한 업무를 관계 기관에 위임·위탁할 수 있는 근거를 더 분명히 해요.",
-            "위임·위탁:",
+            "{{위임·위탁:",
         ),
     ],
 )
-def test_agentic_report_repair_inserts_required_legal_term_explanations(
+def test_agentic_report_repair_inserts_required_legal_term_tooltips(
     change_heading,
     change_paragraph,
-    expected_label,
+    expected_token,
 ):
     from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
 
@@ -512,7 +509,7 @@ def test_agentic_report_repair_inserts_required_legal_term_explanations(
 
     repaired = _repair_report_body(report_body)
 
-    assert f"- {expected_label}" in repaired
+    assert expected_token in repaired
     _validate_report_body(repaired)
 
 
@@ -674,16 +671,15 @@ def test_agentic_report_validation_accepts_numbered_change_heading_format():
 
 ### 2) 신고내용조사 위탁 범위 확대
 
-제25조의3에 제3항을 추가해 신고내용조사 관련 권한 위임·위탁 근거를 넓혀요.
+제25조의3에 제3항을 추가해 신고내용조사 관련 권한 {{위임·위탁:행정기관이 가진 권한이나 업무 일부를 다른 기관이 맡아 처리하게 하는 방식}} 근거를 넓혀요.
 
-- 위임·위탁: 행정기관이 가진 권한이나 업무 일부를 다른 기관이 맡아 처리하게 하는 방식이에요.
 - 지방정부가 신고자료 검증을 더 빠르게 처리할 수 있어요.
 """
 
     _validate_report_body(report_body)
 
 
-def test_agentic_report_validation_accepts_bolded_legal_term_labels():
+def test_agentic_report_validation_accepts_term_tooltips():
     from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
 
     report_body = """
@@ -699,16 +695,14 @@ def test_agentic_report_validation_accepts_bolded_legal_term_labels():
 
 ### 1) 신고내용조사 위탁 범위 확대
 
-제25조의3에 제3항을 추가해 신고내용조사 관련 권한 위임·위탁 근거를 넓혀요.
+제25조의3에 제3항을 추가해 신고내용조사 관련 권한 {{위임·위탁:행정기관이 가진 권한이나 업무 일부를 다른 기관이 맡아 처리하게 하는 방식}} 근거를 넓혀요.
 
-- **위임·위탁**: 행정기관이 가진 권한이나 업무 일부를 다른 기관이 맡아 처리하게 하는 방식이에요.
 - 지방정부가 신고자료 검증을 더 빠르게 처리할 수 있어요.
 
 ### 2) 위반 시 금전 제재 강화
 
-허위정보와 부당광고를 어기면 과태료 부과 대상이 더 분명해져요.
+허위정보와 부당광고를 어기면 {{과태료:행정질서 위반에 부과하는 금전 제재}} 부과 대상이 더 분명해져요.
 
-- **과태료**: 행정질서 위반에 부과하는 금전 제재에요.
 - 반복 위반을 더 빠르게 제재할 수 있어요.
 """
 
@@ -760,9 +754,8 @@ def test_agentic_report_validation_rejects_hard_change_headings():
 
 ### 1) 벌칙·과태료 체계 개정과 집행주체 확충
 
-허위정보와 부당광고를 어기면 **제재**가 더 분명해져요.
+허위정보와 부당광고를 어기면 {{과태료:행정질서 위반에 부과하는 금전 제재}} 등 **제재**가 더 분명해져요.
 
-- 과태료: 행정질서 위반에 부과하는 금전 제재에요.
 - 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.
 """
 
@@ -1064,11 +1057,9 @@ def test_agentic_report_validation_rejects_repeated_easy_explanation_starter():
 - 권한 정비: 필요한 설명입니다.
 
 ## 무엇이 달라지나
-- 기존 제28조는 과태료 부과 근거를 둡니다.
-  - 과태료: 행정질서 위반에 대한 금전 제재입니다.
+- 기존 제28조는 {{과태료:행정질서 위반에 대한 금전 제재}} 부과 근거를 둡니다.
   - 쉽게 말하면, 규칙을 어기면 비용 부담이 생깁니다.
-- 기존 제25조의3은 위임·위탁 범위를 조정합니다.
-  - 위임·위탁: 행정 권한이나 업무 일부를 다른 기관에 맡기는 방식입니다.
+- 기존 제25조의3은 {{위임·위탁:행정 권한이나 업무 일부를 다른 기관에 맡기는 방식}} 범위를 조정합니다.
   - 쉽게 말하면, 처리할 수 있는 기관이 늘어납니다.
 """
 
