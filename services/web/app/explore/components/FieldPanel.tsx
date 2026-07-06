@@ -25,7 +25,7 @@ export default function FieldPanel() {
               {getCategoryMeta(selected).icon}
             </span>
             <h2 className="text-[17px] font-bold text-primary-3 dark:text-gray-0.5">
-              {getCategoryMeta(selected).label} 관심 법안
+              {getCategoryMeta(selected).label} 분야 법안
             </h2>
           </div>
           <Suspense fallback={<div className="py-10 text-center text-[14px] text-gray-2">법안을 불러오는 중…</div>}>
