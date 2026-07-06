@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { getPartyColor } from '@/constants/party';
 import { useGetParliamentaryParties } from '../apis';
 import { buildHemicycle } from '../lib/hemicycle';
+import { getPartySpectrumRank } from '../lib/partyOrder';
 
 const VIEW_W = 100;
 const VIEW_H = 54;
@@ -23,8 +24,14 @@ export default function SeatDistribution() {
   // 좌석 좌표 + 각 좌석에 배정된 정당 색을 계산한다.
   const { seats, rowGap } = useMemo(() => buildHemicycle(total), [total]);
   const seatColors = useMemo(() => {
+    // 좌석은 왼쪽(진보)→오른쪽(보수) 정치 성향 순으로 채운다. 같은 성향이면 의석 많은 정당 먼저.
+    const seating = [...parties].sort(
+      (a, b) =>
+        getPartySpectrumRank(a.party_name) - getPartySpectrumRank(b.party_name) ||
+        b.congressman_count - a.congressman_count,
+    );
     const colors: string[] = [];
-    parties.forEach((party) => {
+    seating.forEach((party) => {
       const color = getPartyColor(party.party_name);
       for (let i = 0; i < party.congressman_count; i += 1) colors.push(color);
     });
