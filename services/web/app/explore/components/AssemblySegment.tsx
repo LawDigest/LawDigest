@@ -18,7 +18,7 @@ export default function AssemblySegment({ active, onChange }: AssemblySegmentPro
     <div
       role="tablist"
       aria-label="국회 하위 세그먼트"
-      className="inline-flex rounded-full bg-gray-0.5 p-1 text-[13px] font-semibold dark:bg-dark-l">
+      className="inline-flex self-start rounded-full bg-gray-0.5 p-1 text-[13px] font-semibold dark:bg-dark-l">
       {SEGMENTS.map(({ key, label }) => {
         const isActive = key === active;
         return (

@@ -6,6 +6,7 @@ import getDateStatus from './getDateStatus';
 import getDDay from './getDDay';
 import convertDateFormat from './convertDateFormat';
 import getPartyLogoSrc from './getPartyLogoSrc';
+import getImageSrc from './getImageSrc';
 import { getGovernmentAdministrationName, isGovernmentBill, isGovernmentProposerKind } from './governmentProposer';
 import { getChairmanProposerInfo, isChairmanBill, isChairmanProposerKind } from './chairmanProposer';
 
@@ -18,6 +19,7 @@ export {
   getDDay,
   convertDateFormat,
   getPartyLogoSrc,
+  getImageSrc,
   getGovernmentAdministrationName,
   isGovernmentBill,
   isGovernmentProposerKind,

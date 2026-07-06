@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Avatar } from '@nextui-org/avatar';
 import { Spinner } from '@nextui-org/spinner';
 import { getPartyColor } from '@/constants/party';
+import { getImageSrc } from '@/utils';
 import { useIntersect } from '@/hooks';
 import { CongressmanRanking, useGetCongressmanList } from '../apis';
 
@@ -41,8 +42,9 @@ export default function MemberList() {
             href={`/congressman/${member.congressman_id}`}
             className="flex items-center gap-3 rounded-2xl border border-gray-1 bg-white p-3.5 shadow-sm transition-colors hover:bg-primary-1 dark:border-dark-l dark:bg-dark-b dark:hover:bg-dark-l">
             <Avatar
-              src={member.congressman_image_url}
+              src={getImageSrc(member.congressman_image_url)}
               alt={member.congressman_name}
+              showFallback
               className="h-12 w-12 shrink-0 bg-white ring-2"
               style={{ '--tw-ring-color': getPartyColor(member.party_name) } as CSSProperties}
             />

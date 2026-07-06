@@ -4,6 +4,7 @@ import { CSSProperties } from 'react';
 import Link from 'next/link';
 import { Avatar } from '@nextui-org/avatar';
 import { getPartyColor } from '@/constants/party';
+import { getImageSrc } from '@/utils';
 import { useGetCongressmanRanking } from '../apis';
 
 const RANK_BADGE = ['bg-primary-3 text-white', 'bg-gray-3 text-white', 'bg-gray-2 text-white'];
@@ -34,8 +35,9 @@ export default function MemberRanking() {
               {index + 1}
             </span>
             <Avatar
-              src={member.congressman_image_url}
+              src={getImageSrc(member.congressman_image_url)}
               alt={member.congressman_name}
+              showFallback
               className="mx-auto h-14 w-14 bg-white ring-2"
               style={{ '--tw-ring-color': getPartyColor(member.party_name) } as CSSProperties}
             />
