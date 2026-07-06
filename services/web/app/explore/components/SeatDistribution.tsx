@@ -127,12 +127,12 @@ export default function SeatDistribution() {
         </span>
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center">
+      <div className="flex flex-col items-center md:flex-row md:items-center md:justify-center">
         {/* 좌석 차트 (기본 반원, 포커스 시 왼쪽 직사각형) */}
-        <div ref={chartRef} className="relative min-w-0 md:flex-1" onMouseLeave={() => setHovered(null)}>
+        <div ref={chartRef} className="relative w-full min-w-0 max-w-[420px]" onMouseLeave={() => setHovered(null)}>
           <svg
             viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-            className="mx-auto block w-full max-w-[420px]"
+            className="block w-full"
             role="img"
             aria-label={`제22대 국회 재적 ${total}석 의석 분포도`}>
             {seats.map((seat, index) => {
@@ -215,13 +215,16 @@ export default function SeatDistribution() {
         {/* 포커스 정당 상세 — 항상 렌더링하고 폭/높이만 CSS로 전환해 차트 축소와 한 번의 애니메이션으로 이어지게 한다. */}
         <div
           className={`shrink-0 overflow-hidden transition-all duration-700 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-            focusedParty
-              ? 'mt-3 max-h-[320px] opacity-100 md:mt-0 md:ml-4 md:w-[200px]'
-              : 'mt-0 max-h-0 opacity-0 md:w-0'
+            focusedParty ? 'mt-3 max-h-[320px] md:mt-0 md:ml-4 md:w-[200px]' : 'mt-0 max-h-0 md:w-0'
           }`}>
-          <div className="relative w-full md:w-[200px]">
+          <div className="w-full md:w-[200px]">
             {focusedParty && (
-              <>
+              <motion.div
+                key={focusedId}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.35, delay: 0.15 }}
+                className="relative">
                 <button
                   type="button"
                   onClick={() => setFocusedId(null)}
@@ -279,7 +282,7 @@ export default function SeatDistribution() {
                     </span>
                   </div>
                 </div>
-              </>
+              </motion.div>
             )}
           </div>
         </div>
