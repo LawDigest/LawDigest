@@ -85,18 +85,16 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
     assert "아직 법으로 확정된 건 아니고" not in prompt
     assert "처리 상태" in context
     assert "하기 위한 법률 개정안이에요" in context
-    assert "청문 규정" in context
     assert "괄호 설명이나 설명 불릿으로 끼워 넣지 마세요" in context
     assert "어려운 법률·행정용어" in context
-    assert "허위정보, 필수정보, 표시·광고" in context
-    assert "제23조(청문)" in context
+    assert "legal_terms.context" in context
     assert "원문 요약:" in context
     assert "쉬운 풀이:" in context
     assert "{{용어:뜻}}" in context
     assert "점선 밑줄과 뜻 툴팁" in context
     assert "설명 불릿으로 끼워 넣지 마세요" in context
     assert "해요체" in context
-    assert "처분을 받기 전에 당사자가 설명하고 반론할 수 있는 절차에요" in context
+    assert "새 용어 정의를 지어내지 마세요" in context
     assert "고정 접두어를 반복하지 마세요" in context
     assert "고정 접두어 없이" in context
     assert "### 1) 제목" in context
@@ -107,8 +105,7 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
     assert "짧은 명사형 항목명" in context
     assert "허위개발정보 유포를 금지하는 조문 신설" in context
     assert "인터넷 표시·광고의 필수정보와 부당한 표시를 제한" in context
-    assert "벌칙·과태료 체계 개정과 집행주체 확충" in context
-    assert "허위정보·부당광고 위반 시 제재 강화" in context
+    assert "행정문서식 표현은 피하고" in context
     assert "**중요 단어**" in context
     assert "<mark>중요 문장</mark>" in context
     assert "자연스러운 `-요` 체" in context
@@ -192,6 +189,7 @@ def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monk
     ]
     assert evidence["committee_materials"]["status"] == "found"
     assert evidence["cost_estimate"]["status"] == "found"
+    assert "법률·행정용어 풀이 사전" in evidence["legal_terms"]["context"]
     assert calls == [
         ("detail", "PRC_PREFETCH"),
         ("summary", "2212345"),
@@ -354,47 +352,26 @@ def test_agentic_report_validation_rejects_easy_explanation_label():
         raise AssertionError("쉬운 풀이 메타 라벨이 섞인 리포트는 성공하면 안 됩니다.")
 
 
-def test_agentic_report_validation_requires_term_tooltip_annotations():
+def test_agentic_report_validation_rejects_malformed_term_tooltip():
     from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
 
     report_body = """
 # 테스트법 일부개정법률안
 
 ## 쉬운 요약
-사용자에게 보여줄 요약입니다.
+**거래 전 정보 확인**을 더 쉽게 만들기 위한 법률 개정안이에요.
+<mark>핵심 변화는 거래 전 확인 절차가 더 분명해지는 점이에요.</mark>
 
 ## 주요 내용
-- 권한 정비: 필요한 설명입니다.
+- **권한 정비**: 필요한 설명이에요.
 
 ## 무엇이 달라지나
-- 기존 법의 제23조는 청문 규정이었으나 새 조항이 추가됩니다.
-  - 사용자 입장에서는, 사후 처분 중심에서 예방 단계 관리로 바뀝니다.
-"""
 
-    try:
-        _validate_report_body(report_body)
-    except RuntimeError as exc:
-        assert "툴팁 표기" in str(exc) or "쉽게 말하면" in str(exc)
-    else:
-        raise AssertionError("법령용어 툴팁 표기가 빠진 리포트는 성공하면 안 됩니다.")
+### 1) 의견 확인 절차 정비
 
+기존 제도는 {{청문:처분 전에 의견을 듣는 절차를 더 분명히 두고 있어요.
 
-def test_agentic_report_validation_requires_hearing_term_tooltip():
-    from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
-
-    report_body = """
-# 테스트법 일부개정법률안
-
-## 쉬운 요약
-사용자에게 보여줄 요약입니다.
-
-## 주요 내용
-- 권한 정비: 필요한 설명입니다.
-
-## 무엇이 달라지나
-- 기존 제23조는 청문 절차를 두는 조항이었지만, 새 규정이 추가됩니다.
-  - 허위정보: 사실과 다르게 거래 조건을 제시한 내용입니다.
-  - 사용자 입장에서는, 거래 전 정보 유통 단계도 관리한다는 뜻입니다.
+- 사용자 입장에서는, 처분 전에 의견을 말할 기회가 더 선명해져요.
 """
 
     try:
@@ -402,36 +379,35 @@ def test_agentic_report_validation_requires_hearing_term_tooltip():
     except RuntimeError as exc:
         assert "툴팁 표기" in str(exc)
     else:
-        raise AssertionError("청문 툴팁 표기가 빠진 리포트는 성공하면 안 됩니다.")
+        raise AssertionError("깨진 툴팁 표기는 성공하면 안 됩니다.")
 
 
-def test_agentic_report_validation_rejects_old_term_definition_bullets():
+def test_agentic_report_validation_does_not_require_hardcoded_term_tooltip():
     from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
 
     report_body = """
 # 테스트법 일부개정법률안
 
 ## 쉬운 요약
-사용자에게 보여줄 요약입니다.
+**거래 전 정보 확인**을 더 쉽게 만들기 위한 법률 개정안이에요.
+<mark>핵심 변화는 과태료 부과 기준이 더 분명해지는 점이에요.</mark>
 
 ## 주요 내용
-- 권한 정비: 필요한 설명입니다.
+- **권한 정비**: 필요한 설명이에요.
 
 ## 무엇이 달라지나
-기존 제28조는 과태료 부과 근거를 둡니다.
-과태료: 행정질서 위반에 대한 금전 제재입니다.
-사용자 입장에서는, 규칙을 어기면 비용 부담이 생깁니다.
+
+### 1) 금전 제재 기준 정비
+
+기존 제도는 과태료 부과 근거를 두고 있었고, 제안안은 적용 기준을 더 분명히 해요.
+
+- 사용자 입장에서는, 어떤 위반에 비용 부담이 생기는지 더 알기 쉬워져요.
 """
 
-    try:
-        _validate_report_body(report_body)
-    except RuntimeError as exc:
-        assert "툴팁" in str(exc)
-    else:
-        raise AssertionError("사전식 용어 설명 불릿은 성공하면 안 됩니다.")
+    _validate_report_body(report_body)
 
 
-def test_agentic_report_repair_adds_missing_term_tooltip():
+def test_agentic_report_repair_does_not_insert_hardcoded_term_tooltip():
     from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
 
     report_body = """
@@ -449,47 +425,21 @@ def test_agentic_report_repair_adds_missing_term_tooltip():
 
 과태료 기준을 더 분명하게 정해요.
 
-- 과태료: 규칙을 어겼을 때 내는 금전 제재예요.
 사용자 입장에서는, 어떤 위반에 비용 부담이 생기는지 더 알기 쉬워져요.
 """.strip()
 
     repaired = _repair_report_body(report_body)
 
     assert "- **지원 근거**: 설명이에요." in repaired
-    assert "{{과태료:" in repaired
-    assert "- 과태료:" not in repaired
+    assert "{{과태료:" not in repaired
     assert "- 사용자 입장에서는," in repaired
     _validate_report_body(repaired)
 
 
-@pytest.mark.parametrize(
-    ("change_heading", "change_paragraph", "expected_token"),
-    [
-        (
-            "처분 전 의견제출 절차 정비",
-            "처분 전에 청문 절차를 거치도록 해 당사자가 의견을 말할 기회를 더 분명히 해요.",
-            "{{청문 절차:",
-        ),
-        (
-            "위반 시 금전 제재 기준 정비",
-            "규칙을 어긴 경우 과태료 부과 기준을 더 분명하게 정해요.",
-            "{{과태료:",
-        ),
-        (
-            "업무 처리 권한 배분 정비",
-            "필요한 업무를 관계 기관에 위임·위탁할 수 있는 근거를 더 분명히 해요.",
-            "{{위임·위탁:",
-        ),
-    ],
-)
-def test_agentic_report_repair_inserts_required_legal_term_tooltips(
-    change_heading,
-    change_paragraph,
-    expected_token,
-):
+def test_agentic_report_validation_accepts_dictionary_term_tooltip():
     from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
 
-    report_body = f"""
+    report_body = """
 # 테스트법 일부개정법률안
 
 ## 쉬운 요약
@@ -500,16 +450,16 @@ def test_agentic_report_repair_inserts_required_legal_term_tooltips(
 
 ## 무엇이 달라지나
 
-### 1) {change_heading}
+### 1) 의견 확인 절차 정비
 
-{change_paragraph}
+처분 전에 {{청문 절차:처분을 하기 전에 당사자의 의견을 듣는 절차}}를 거치도록 해 의견을 말할 기회를 더 분명히 해요.
 
 - 사용자 입장에서는, 어떤 절차와 책임이 달라지는지 더 알기 쉬워져요.
 """.strip()
 
     repaired = _repair_report_body(report_body)
 
-    assert expected_token in repaired
+    assert "{{청문 절차:" in repaired
     _validate_report_body(repaired)
 
 
@@ -912,30 +862,30 @@ def test_agentic_report_validation_rejects_sentence_style_change_headings():
         raise AssertionError("문장형 변화 제목은 성공하면 안 됩니다.")
 
 
-def test_agentic_report_validation_rejects_unnecessary_obvious_term_explanations():
+def test_agentic_report_validation_allows_term_explanation_without_hardcoded_vocab_blocklist():
     from lawdigest_ai.processor.agentic_bill_report import _validate_report_body
 
     report_body = """
 # 테스트법 일부개정법률안
 
 ## 쉬운 요약
-사용자에게 보여줄 요약입니다.
+**거래 전 정보 확인**을 더 쉽게 만들기 위한 법률 개정안이에요.
+<mark>핵심 변화는 정보 유통 단계의 책임이 더 분명해지는 점이에요.</mark>
 
 ## 주요 내용
-- 권한 정비: 필요한 설명입니다.
+- **권한 정비**: 필요한 설명이에요.
 
 ## 무엇이 달라지나
-- 제23조의2를 새로 둬 허위정보 유포를 금지합니다.
-  - 허위정보: 거래를 성사시키기 위해 사실이 아닌 내용으로 유포된 광고·글·영상·이미지를 말합니다.
-  - 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.
+
+### 1) 정보 유통 책임 정비
+
+제23조의2를 새로 둬 **허위정보 유포**를 금지해요.
+
+- 허위정보는 거래를 성사시키기 위해 사실이 아닌 내용으로 유포된 광고·글·영상·이미지를 말해요.
+- 거래 전 단계에서 정보 자체를 더 엄격하게 보겠다는 뜻이에요.
 """
 
-    try:
-        _validate_report_body(report_body)
-    except RuntimeError as exc:
-        assert "불필요한 용어 설명" in str(exc)
-    else:
-        raise AssertionError("뜻이 바로 드러나는 말까지 설명한 리포트는 성공하면 안 됩니다.")
+    _validate_report_body(report_body)
 
 
 def test_legal_term_glossary_context_uses_static_fallback_without_law_open_api(monkeypatch):

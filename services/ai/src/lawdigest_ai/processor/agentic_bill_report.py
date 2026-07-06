@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from lawdigest_ai.db import get_bill_table_columns, get_db_connection, update_bill_summary
-from lawdigest_ai.processor.legal_term_glossary import LEGAL_TERM_GLOSSARY, build_legal_term_glossary_context
+from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
 
 DEFAULT_OUTPUT_DIR = "/tmp/lawdigest-bill-agent-reports"
 DEFAULT_CODEX_MODEL = os.getenv("BILL_AGENT_CODEX_MODEL", "gpt-5.4-mini")
@@ -80,26 +80,26 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 - 제목은 설명문이 아니라 짧은 명사형 항목명으로 쓰세요.
 - 예를 들어 `허위개발정보 유포를 금지하는 조문을 새로 둔다`가 아니라 `허위개발정보 유포를 금지하는 조문 신설`로 쓰세요.
 - `인터넷 표시·광고의 필수정보와 부당한 표시를 제한한다`가 아니라 `인터넷 표시·광고의 필수정보와 부당한 표시를 제한`으로 쓰세요.
-- `벌칙·과태료 체계 개정과 집행주체 확충`처럼 행정문서식 표현은 피하고, `허위정보·부당광고 위반 시 제재 강화`처럼 사용자가 바로 이해하는 말로 풀어 쓰세요.
+- 행정문서식 표현은 피하고, 사용자가 바로 이해하는 변화 제목으로 풀어 쓰세요.
 - 번호 헤딩 다음에는 불릿이 아닌 일반 문단으로 원문 조문 변화의 요약을 1문단 쓰세요. 원문 요약 문단은 2문장으로 쓰세요.
 - 그 아래에 필요한 설명/풀이를 Markdown 불릿(`- ...`)으로 붙이세요. 각 변화 묶음마다 2~3개 불릿을 쓰세요.
 - 불릿만으로 변화 묶음을 시작하지 마세요.
-- 청문 규정, 과태료, 위임·위탁, 조문 체계처럼 일반 사용자가 모를 법한 법률·행정 용어는 괄호 설명이나 설명 불릿으로 끼워 넣지 마세요.
-- `제23조(청문)`처럼 출처식 괄호 표기를 본문에 옮기지 마세요. 본문에 청문을 언급해야 하면 첫 등장 한 번만 `{{청문:뜻}}` 형식으로 감싸세요.
-- 뜻을 알려줘야 하는 법률·행정용어는 첫 등장 한 번만 `{{용어:뜻}}` 형식으로 감싸세요. 이 표기는 화면에서 점선 밑줄과 뜻 툴팁으로 렌더링됩니다.
-- `{{용어:뜻}}` 안의 뜻은 법제처 API 조회 결과나 법률·행정용어 풀이 사전의 정의를 1문장으로 줄여 쓰세요.
+- 일반 사용자가 모를 법한 법률·행정 용어는 괄호 설명이나 설명 불릿으로 끼워 넣지 마세요.
+- 출처식 괄호 표기를 본문에 그대로 옮기지 마세요. 본문에 뜻을 알려줘야 하는 법률·행정용어가 나오면 첫 등장 한 번만 `{{용어:뜻}}` 형식으로 감싸세요.
+- 툴팁 후보와 뜻은 각 evidence의 `legal_terms.context`에 있는 법제처 API 조회 결과나 법률·행정용어 풀이 사전만 사용하세요. 새 용어 정의를 지어내지 마세요.
+- `{{용어:뜻}}` 표기는 화면에서 점선 밑줄과 뜻 툴팁으로 렌더링됩니다.
 - 첫 문장에 `원문 요약:` 같은 메타 라벨을 붙이지 말고 바로 조문 변화 문장을 쓰세요.
 - 쉬운 풀이 불릿도 `쉬운 풀이:` 같은 메타 라벨을 쓰지 마세요.
-- 허위정보, 필수정보, 표시·광고처럼 뜻이 바로 드러나는 말은 `{{용어:뜻}}` 표기를 붙이지 마세요. 그런 경우에는 바로 사용자에게 어떤 변화가 생기는지 쉬운 풀이로 넘어가세요.
+- 뜻이 바로 드러나는 말은 `{{용어:뜻}}` 표기를 붙이지 마세요. 그런 경우에는 바로 사용자에게 어떤 변화가 생기는지 쉬운 풀이로 넘어가세요.
 - 쉬운 풀이 불릿은 사용자에게 말하듯 자연스러운 해요체로 쓰되, `쉽게 말하면,` 같은 고정 접두어를 반복하지 마세요.
 - 쉬운 풀이 불릿은 고정 접두어 없이 바로 풀어 써도 됩니다. 문장 시작은 항목의 내용에 맞게 자연스럽게 바꾸세요.
 - 예:
-  ### 1) 온라인 유통질서 규율 조항군 신설
+  ### 1) 새 관리 절차 신설
 
-  기존 조문 체계에서 제23조는 주로 허가 취소 절차의 청문 규정이었으나, 제안안은 이를 온라인 유통질서 규율 조항군으로 넓힙니다.
+  기존 법은 사후 조치 중심으로 절차를 두고 있었지만, 제안안은 사전에 확인해야 할 관리 절차를 새로 둬요.
 
-  - 여기서 {{청문:처분을 받기 전에 당사자가 의견을 말하고 반론할 수 있는 절차}} 절차가 함께 정리돼요.
-  - 사용자 입장에서는, 문제가 터진 뒤에 벌을 주는 데서 그치지 않고 거래 전에 정보가 맞는지 더 일찍 걸러내겠다는 뜻이에요.
+  - evidence의 법률용어 사전에 뜻이 있는 어려운 용어가 본문에 꼭 필요할 때만 `{{용어:뜻}}`으로 한 번 표시해요.
+  - 사용자 입장에서는, 문제가 생긴 뒤에 대응하는 데서 그치지 않고 앞 단계에서 확인할 내용이 늘어난다는 뜻이에요.
 
 ## 누구에게 영향이 있나
 - 영향을 받는 사람과 기관을 5개 안팎으로 나누어 설명하세요.
@@ -446,6 +446,18 @@ def _compact_evidence_row(row: dict[str, Any] | None, *, text_limit: int = 2500)
     return compact
 
 
+def _append_legal_term_context(evidence: dict[str, Any], *sources: Any) -> dict[str, Any]:
+    source_texts = [
+        json.dumps(source, ensure_ascii=False, default=str) if isinstance(source, (dict, list, tuple)) else str(source or "")
+        for source in sources
+        if source
+    ]
+    evidence["legal_terms"] = {
+        "context": build_legal_term_glossary_context("\n".join(source_texts)),
+    }
+    return evidence
+
+
 def _resolve_assembly_api_key() -> str | None:
     return os.getenv("ASSEMBLY_API_KEY") or os.getenv("APIKEY_billsInfo") or os.getenv("APIKEY_status")
 
@@ -666,7 +678,7 @@ def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto
     client = _build_open_assembly_client()
     if client is None:
         evidence["prefetch_errors"].append("open_assembly_client_unavailable")
-        return evidence
+        return _append_legal_term_context(evidence, evidence["db_bill"])
 
     bill_id = _first_text(bill.get("bill_id"))
     bill_no = _first_text(bill.get("bill_number"))
@@ -681,7 +693,7 @@ def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto
         evidence["prefetch_errors"].append(f"fetch_bill_detail_failed: {exc}")
 
     if not bill_no:
-        return evidence
+        return _append_legal_term_context(evidence, evidence["db_bill"], evidence["open_assembly"])
 
     summary_row: dict[str, Any] | None = None
     try:
@@ -761,7 +773,15 @@ def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto
         if row
     ])
 
-    return evidence
+    return _append_legal_term_context(
+        evidence,
+        evidence["db_bill"],
+        evidence["open_assembly"],
+        evidence["bill_text"],
+        evidence["current_law"],
+        evidence["committee_materials"],
+        evidence["cost_estimate"],
+    )
 
 
 def _sanitize_codex_event(event: dict[str, Any]) -> dict[str, Any]:
@@ -994,8 +1014,6 @@ def build_bill_report_prompt(
     evidence: dict[str, Any] | None = None,
 ) -> str:
     payload = _build_bill_payload(bill)
-    payload_text = json.dumps(payload, ensure_ascii=False, default=str)
-    legal_term_context = build_legal_term_glossary_context(payload_text)
     evidence_payload = evidence or {
         "report_mode": _resolve_report_mode(report_mode, bill),
         "db_bill": payload,
@@ -1003,6 +1021,9 @@ def build_bill_report_prompt(
         "open_assembly": {},
         "prefetch_errors": ["prefetch_not_run"],
     }
+    if not evidence_payload.get("legal_terms"):
+        _append_legal_term_context(evidence_payload, payload)
+    legal_term_context = str(evidence_payload.get("legal_terms", {}).get("context") or "")
     return (
         f"${REPORT_SKILL_NAME}\n\n"
         "작업: 단건 Lawdigest 법안 리포트를 작성하세요.\n"
@@ -1106,58 +1127,6 @@ def _strip_markdown_for_summary(text: str) -> str:
 
 
 TERM_TOOLTIP_PATTERN = re.compile(r"\{\{([^:{}\n]+):([^{}\n]+)\}\}")
-
-
-def _required_term_tooltips() -> tuple[dict[str, Any], ...]:
-    return tuple(
-        {
-            "aliases": entry.aliases or (entry.term,),
-            "definition": entry.definition,
-        }
-        for entry in LEGAL_TERM_GLOSSARY
-        if entry.explain
-    )
-
-
-def _has_term_tooltip(text: str, aliases: tuple[str, ...]) -> bool:
-    labels = {match.group(1).strip() for match in TERM_TOOLTIP_PATTERN.finditer(text)}
-    return any(alias in labels for alias in aliases)
-
-
-def _wrap_required_term_tooltips(report_body: str) -> str:
-    lines = report_body.splitlines()
-
-    for term in _required_term_tooltips():
-        aliases = tuple(sorted(term["aliases"], key=len, reverse=True))
-        changes_body = _markdown_section_body("\n".join(lines), "## 무엇이 달라지나")
-        if not any(alias in changes_body for alias in aliases) or _has_term_tooltip(changes_body, aliases):
-            continue
-
-        for skip_headings in (True, False):
-            in_changes = False
-            inserted = False
-            for index, line in enumerate(lines):
-                stripped = line.strip()
-                if stripped == "## 무엇이 달라지나":
-                    in_changes = True
-                elif stripped.startswith("## ") and stripped != "## 무엇이 달라지나":
-                    in_changes = False
-
-                if not in_changes or "{{" in line or (skip_headings and stripped.startswith("#")):
-                    continue
-
-                for alias in aliases:
-                    if alias not in line:
-                        continue
-                    lines[index] = line.replace(alias, f"{{{{{alias}:{term['definition']}}}}}", 1)
-                    inserted = True
-                    break
-                if inserted:
-                    break
-            if inserted:
-                break
-
-    return "\n".join(lines).strip()
 
 
 def _has_overlong_brief_prefix(brief_summary: str | None, bill_name: str) -> bool:
@@ -1287,33 +1256,10 @@ def _validate_report_body(report_body: str) -> None:
         raise RuntimeError("생성 리포트의 법령용어 툴팁 표기가 올바르지 않습니다.")
 
     changes_body = _markdown_section_body(body, "## 무엇이 달라지나")
-    missing_tooltips = [
-        aliases[0]
-        for term in _required_term_tooltips()
-        for aliases in (tuple(term["aliases"]),)
-        if any(alias in changes_body for alias in aliases) and not _has_term_tooltip(changes_body, aliases)
-    ]
-    if missing_tooltips:
-        raise RuntimeError("생성 리포트에 법령용어 툴팁 표기가 없습니다: " + ", ".join(missing_tooltips))
-
     repeated_starters = ("쉽게 말하면,", "쉽게 말해,", "한마디로,")
     repeated = [starter for starter in repeated_starters if changes_body.count(starter) > 1]
     if repeated:
         raise RuntimeError("생성 리포트의 쉬운 풀이 문장 시작이 반복됩니다: " + ", ".join(repeated))
-
-    old_term_definition_labels = ("청문 규정:", "청문 절차:", "청문:", "과태료:", "위임·위탁:")
-    old_term_definition_bullets = [
-        label
-        for label in old_term_definition_labels
-        if re.search(rf"(?m)^\s*-\s+(\*\*)?{re.escape(label)}", changes_body)
-    ]
-    if old_term_definition_bullets:
-        raise RuntimeError("생성 리포트의 법령용어 설명은 불릿 대신 툴팁 표기여야 합니다: " + ", ".join(old_term_definition_bullets))
-
-    unnecessary_definition_labels = ("허위정보:", "허위정보 유포:", "필수정보:", "표시·광고:")
-    unnecessary_definitions = [label for label in unnecessary_definition_labels if label in changes_body]
-    if unnecessary_definitions:
-        raise RuntimeError("생성 리포트에 불필요한 용어 설명 불릿이 있습니다: " + ", ".join(unnecessary_definitions))
 
     easy_starters = repeated_starters + ("사용자 입장에서는,", "바뀌는 점은,", "실제로는,", "이 말은", "결국")
     unbulleted_easy_starters = [
@@ -1388,7 +1334,6 @@ def _repair_report_body(report_body: str) -> str:
         "이 말은",
         "결국",
     )
-    old_term_definition_labels = ("청문 규정", "청문 절차", "청문", "과태료", "위임·위탁")
     fixed_lines: list[str] = []
     in_changes = False
     for line in repaired.splitlines():
@@ -1400,12 +1345,6 @@ def _repair_report_body(report_body: str) -> str:
 
         if in_changes and stripped:
             already_bulleted = stripped.startswith("- ")
-            old_term_definition = re.match(
-                r"-\s+(\*\*)?(?P<label>[^:*]+)(\*\*)?:\s+",
-                stripped,
-            )
-            if old_term_definition and old_term_definition.group("label") in old_term_definition_labels:
-                continue
             if not already_bulleted and any(stripped.startswith(starter) for starter in easy_starters):
                 indent = line[: len(line) - len(line.lstrip())]
                 fixed_lines.append(f"{indent}- {stripped}")
@@ -1421,7 +1360,6 @@ def _repair_report_body(report_body: str) -> str:
         fixed_lines.append(line)
 
     repaired = "\n".join(fixed_lines).strip()
-    repaired = _wrap_required_term_tooltips(repaired)
 
     if "<mark>" not in repaired:
         for pattern in (
