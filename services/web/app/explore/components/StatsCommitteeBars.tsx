@@ -8,7 +8,7 @@ import StatsCard from './StatsCard';
 const TOP_N = 8;
 
 const chartConfig = {
-  count: { label: '접수 법안', color: '#5C8DEB' },
+  count: { label: '접수 법안', color: '#96BCFA' },
 } satisfies ChartConfig;
 
 /** 소관 위원회별 법안 수 상위 N — 가로 막대. */

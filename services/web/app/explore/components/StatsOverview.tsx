@@ -54,7 +54,7 @@ function PassRateRing({ rate }: { rate: number }) {
         cy="18"
         r={R}
         fill="none"
-        stroke="#0088ff"
+        className="stroke-primary-3 dark:stroke-gray-0.5"
         strokeWidth="4"
         strokeLinecap="round"
         strokeDasharray={C}
@@ -76,10 +76,10 @@ export default function StatsOverview() {
   if (!overview) return null;
 
   const cards = [
-    { label: '총 발의', value: overview.total_count, unit: '건', icon: 'stacks', accent: '#0088ff' },
-    { label: '가결', value: overview.passed_count, unit: '건', icon: 'task_alt', accent: '#16A34A' },
-    { label: '계류 중', value: overview.pending_count, unit: '건', icon: 'hourglass_top', accent: '#F59E0B' },
-    { label: '가결률', value: overview.pass_rate, unit: '%', icon: 'percent', accent: '#0088ff', decimals: 1 },
+    { label: '총 발의', value: overview.total_count, unit: '건', icon: 'stacks' },
+    { label: '가결', value: overview.passed_count, unit: '건', icon: 'task_alt' },
+    { label: '계류 중', value: overview.pending_count, unit: '건', icon: 'hourglass_top' },
+    { label: '가결률', value: overview.pass_rate, unit: '%', icon: 'percent', decimals: 1 },
   ];
 
   return (
@@ -91,12 +91,7 @@ export default function StatsOverview() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.45, delay: i * 0.07, ease: [0.22, 1, 0.36, 1] }}
-          className="relative overflow-hidden rounded-2xl border border-gray-1 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md dark:border-dark-l dark:bg-dark-b">
-          <span
-            className="absolute inset-x-0 top-0 h-[3px] opacity-70"
-            style={{ background: card.accent }}
-            aria-hidden
-          />
+          className="rounded-2xl border border-gray-1 bg-white p-4 shadow-sm dark:border-dark-l dark:bg-dark-b">
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="flex items-center gap-1 text-[12px] text-gray-2">

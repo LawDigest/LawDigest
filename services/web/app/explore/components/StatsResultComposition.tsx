@@ -5,18 +5,21 @@ import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '
 import { useGetStatisticsResultBreakdown } from '../apis';
 import StatsCard from './StatsCard';
 
-/** 알려진 처리 결과별 색. 그 외 결과는 팔레트에서 순서대로 배정한다. */
+/**
+ * 알려진 처리 결과별 색 — 디자인 토큰 기반(Neutral First).
+ * 가결 계열=soft assembly blue, 폐기·철회=회색 사다리, 부결=alert-red, 계류(미결정)=quiet divider.
+ */
 const RESULT_COLORS: Record<string, string> = {
-  원안가결: '#16A34A',
-  수정가결: '#65A30D',
-  대안반영폐기: '#F59E0B',
-  수정안반영폐기: '#D97706',
-  폐기: '#94A3B8',
-  철회: '#DC2626',
-  부결: '#7C3AED',
-  계류: '#96BCFA',
+  원안가결: '#96BCFA',
+  수정가결: '#96BCFA99',
+  대안반영폐기: '#999999',
+  수정안반영폐기: '#99999999',
+  폐기: '#99999966',
+  철회: '#555555',
+  부결: '#E63946',
+  계류: '#E0E0E0',
 };
-const EXTRA_PALETTE = ['#0EA5E9', '#C026D3', '#0D9488', '#475569'];
+const EXTRA_PALETTE = ['#99999980', '#55555580', '#96BCFA80', '#E0E0E080'];
 
 /** 처리 결과 구성 — 100% 스택 단일 막대 + 범례. */
 export default function StatsResultComposition() {

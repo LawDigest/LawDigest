@@ -18,7 +18,7 @@ import StatsCard from './StatsCard';
 const TOP_CATEGORIES = 6;
 const TOP_PARTIES = 4;
 const ETC_KEY = '기타';
-const ETC_COLOR = '#B3B3B3';
+const ETC_COLOR = '#999999';
 
 /** 분야×정당 구성 — 상위 분야별로 정당 스택 세로 막대. */
 export default function StatsCategoryPartyStack() {

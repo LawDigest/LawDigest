@@ -5,12 +5,15 @@ import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '
 import { StatisticsStage, useGetStatisticsStage } from '../apis';
 import StatsCard from './StatsCard';
 
-const STAGES: { key: keyof StatisticsStage; label: string; color: string }[] = [
-  { key: 'receipt_count', label: '접수', color: '#96BCFA' },
-  { key: 'committee_count', label: '위원회 심사', color: '#5C8DEB' },
-  { key: 'plenary_count', label: '본회의 심의', color: '#2D5BC0' },
-  { key: 'promulgated_count', label: '공포', color: '#152484' },
+// Neutral First: soft assembly blue 단색의 불투명도 램프(뒤 단계일수록 진하게).
+const STAGES: { key: keyof StatisticsStage; label: string; opacity: number }[] = [
+  { key: 'receipt_count', label: '접수', opacity: 0.4 },
+  { key: 'committee_count', label: '위원회 심사', opacity: 0.6 },
+  { key: 'plenary_count', label: '본회의 심의', opacity: 0.8 },
+  { key: 'promulgated_count', label: '공포', opacity: 1 },
 ];
+
+const STAGE_BLUE = '#96BCFA';
 
 const chartConfig = {
   count: { label: '도달 건수' },
@@ -24,9 +27,9 @@ export default function StatsStageFunnel() {
   if (!stage) return null;
 
   const base = stage.receipt_count || 1;
-  const rows = STAGES.map(({ key, label, color }) => ({
+  const rows = STAGES.map(({ key, label, opacity }) => ({
     label,
-    color,
+    opacity,
     count: stage[key],
     pct: Math.round((stage[key] / base) * 100),
   }));
@@ -55,7 +58,7 @@ export default function StatsStageFunnel() {
           />
           <Bar dataKey="count" radius={[4, 8, 8, 4]} background={{ fill: 'transparent' }} barSize={26}>
             {rows.map((row) => (
-              <Cell key={row.label} fill={row.color} />
+              <Cell key={row.label} fill={STAGE_BLUE} fillOpacity={row.opacity} />
             ))}
             <LabelList
               dataKey="pct"

@@ -24,7 +24,7 @@ export default function StatsCard({ title, subtitle, icon, delay = 0, className,
       viewport={{ once: true, margin: '-40px' }}
       transition={{ duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
       className={clsx(
-        'rounded-2xl border border-gray-1 bg-white p-4 shadow-sm transition-shadow duration-200 hover:shadow-md dark:border-dark-l dark:bg-dark-b',
+        'rounded-2xl border border-gray-1 bg-white p-4 shadow-sm dark:border-dark-l dark:bg-dark-b',
         className,
       )}>
       <div className="mb-3 flex items-baseline justify-between gap-2">

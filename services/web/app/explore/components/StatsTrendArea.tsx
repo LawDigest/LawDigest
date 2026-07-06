@@ -20,9 +20,10 @@ const PERIODS = [
   { months: 24, label: '전체' },
 ] as const;
 
+// Neutral First: 주 시리즈는 잉크(다크에선 밝은 회색), 보조 시리즈는 soft assembly blue.
 const chartConfig = {
-  proposed: { label: '발의', color: '#0088ff' },
-  passed: { label: '가결', color: '#16A34A' },
+  proposed: { label: '발의', theme: { light: '#191919', dark: '#EBEBEB' } },
+  passed: { label: '가결', color: '#96BCFA' },
 } satisfies ChartConfig;
 
 /** 'YYYY-MM' → '7월' / 연도가 바뀌는 첫 달은 '25년 1월'. */
@@ -71,7 +72,7 @@ export default function StatsTrendArea() {
                 'cursor-pointer rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors duration-200',
                 months === period.months
                   ? 'bg-primary-3 text-white dark:bg-gray-0.5 dark:text-primary-3'
-                  : 'bg-gray-0.5 text-gray-3 hover:bg-gray-1 dark:bg-dark-l dark:text-gray-1',
+                  : 'border border-gray-1 text-gray-2 hover:bg-gray-0.5 dark:border-dark-l dark:hover:bg-dark-l',
               )}>
               {period.label}
             </button>
@@ -82,11 +83,11 @@ export default function StatsTrendArea() {
         <AreaChart data={points} margin={{ left: 4, right: 12, top: 8 }}>
           <defs>
             <linearGradient id="fillProposed" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-proposed)" stopOpacity={0.5} />
-              <stop offset="95%" stopColor="var(--color-proposed)" stopOpacity={0.05} />
+              <stop offset="5%" stopColor="var(--color-proposed)" stopOpacity={0.14} />
+              <stop offset="95%" stopColor="var(--color-proposed)" stopOpacity={0.02} />
             </linearGradient>
             <linearGradient id="fillPassed" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-passed)" stopOpacity={0.5} />
+              <stop offset="5%" stopColor="var(--color-passed)" stopOpacity={0.45} />
               <stop offset="95%" stopColor="var(--color-passed)" stopOpacity={0.05} />
             </linearGradient>
           </defs>
