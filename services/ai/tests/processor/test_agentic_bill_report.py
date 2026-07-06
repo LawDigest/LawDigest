@@ -984,11 +984,41 @@ def test_legal_term_glossary_context_includes_real_api_lookup_results():
 
     context = build_legal_term_glossary_context("청문 규정을 설명합니다.", term_client=FakeTermClient())
 
-    assert "아래 `법제처 API 조회 결과`는 실제 법제처 Open API 정의 조회 결과입니다." in context
-    assert "법제처 API 조회 결과:" in context
+    assert "아래 `법제처 용어사전 조회 결과`" in context
+    assert "법제처 용어사전 조회 결과:" in context
     assert "청문: 뜻=처분 전에 당사자의 의견을 직접 듣고 증거를 조사하는 절차를 말한다." in context
     assert "일상어 연계어" not in context
     assert "청문 규정: 처분을 받기 전에" in context
+
+
+def test_legal_term_glossary_context_prefers_local_dictionary(monkeypatch):
+    from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
+    from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm
+
+    monkeypatch.setattr(
+        "lawdigest_ai.processor.legal_term_glossary._lookup_local_dictionary_terms",
+        lambda terms: [
+            LawOpenApiTerm(
+                term="결격사유",
+                source="lawdigest-local-dictionary",
+                definitions=("로컬 사전에 저장된 결격사유 정의입니다.",),
+            )
+        ],
+    )
+
+    api_calls = []
+
+    class FakeTermClient:
+        enabled = True
+
+        def lookup_term(self, query):
+            api_calls.append(query)
+            return None
+
+    context = build_legal_term_glossary_context("임원의 결격사유를 정비합니다.", term_client=FakeTermClient())
+
+    assert "결격사유" not in api_calls
+    assert "결격사유: 뜻=로컬 사전에 저장된 결격사유 정의입니다." in context
 
 
 def test_legal_term_glossary_context_extracts_defined_terms_from_bill_text():
