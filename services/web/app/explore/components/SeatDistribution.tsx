@@ -102,7 +102,6 @@ export default function SeatDistribution() {
   const isFocused = focusedId != null;
   const focusedParty = focusedId != null ? partyById.get(focusedId) : undefined;
   const hoveredParty = hovered ? partyById.get(hovered.partyId) : undefined;
-  const majoritySeat = seats[Math.min(majority, seats.length) - 1];
 
   const handleSeatMove = (event: React.MouseEvent, partyId: number) => {
     const rectBox = chartRef.current?.getBoundingClientRect();
@@ -153,43 +152,6 @@ export default function SeatDistribution() {
                 />
               );
             })}
-
-            {/* 과반선(반원 상태에서만) */}
-            {!isFocused &&
-              majoritySeat &&
-              (() => {
-                const start = {
-                  x: CENTER_X + OUTER_R * 0.34 * Math.cos(majoritySeat.theta),
-                  y: CENTER_Y - OUTER_R * 0.34 * Math.sin(majoritySeat.theta),
-                };
-                const end = {
-                  x: CENTER_X + (OUTER_R + 4) * Math.cos(majoritySeat.theta),
-                  y: CENTER_Y - (OUTER_R + 4) * Math.sin(majoritySeat.theta),
-                };
-                const anchor = end.x < CENTER_X ? 'end' : 'start';
-                return (
-                  <g>
-                    <line
-                      x1={start.x}
-                      y1={start.y}
-                      x2={end.x}
-                      y2={end.y}
-                      stroke={isDark ? '#9AA0AA' : '#4B5563'}
-                      strokeWidth={0.6}
-                      strokeDasharray="1.4 1.2"
-                    />
-                    <text
-                      x={end.x + (anchor === 'end' ? -1 : 1)}
-                      y={end.y - 0.5}
-                      textAnchor={anchor}
-                      fontSize={3.4}
-                      fontWeight={700}
-                      fill={isDark ? '#C7CBD2' : '#374151'}>
-                      과반 {majority}
-                    </text>
-                  </g>
-                );
-              })()}
           </svg>
 
           {/* 반원 중앙 재적 수 (반원 상태에서만) */}
