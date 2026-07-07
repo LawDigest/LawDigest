@@ -1076,7 +1076,22 @@ def _extract_json_object(text: str) -> str:
     return stripped[start : start + end]
 
 
-def _parse_batch_report_output(text: str, *, expected_bill_ids: list[str]) -> dict[str, str]:
+def _normalize_bill_name_for_match(value: Any) -> str:
+    normalized = re.sub(r"\s+", "", str(value or ""))
+    return normalized.strip()
+
+
+def _extract_report_title(report_body: str) -> str:
+    match = re.search(r"(?m)^#\s+(.+?)\s*$", report_body.strip())
+    return match.group(1).strip() if match else ""
+
+
+def _parse_batch_report_output(
+    text: str,
+    *,
+    expected_bill_ids: list[str],
+    expected_bills: list[dict[str, Any]] | None = None,
+) -> dict[str, str]:
     try:
         payload = json.loads(_extract_json_object(text))
     except (json.JSONDecodeError, ValueError) as exc:
@@ -1091,12 +1106,36 @@ def _parse_batch_report_output(text: str, *, expected_bill_ids: list[str]) -> di
             details={"status": "failed", "expected_bill_ids": expected_bill_ids},
         )
     parsed: dict[str, str] = {}
+    pending_reports: list[tuple[int, str]] = []
+    expected_by_title = {
+        _normalize_bill_name_for_match(bill.get("bill_name")): str(bill.get("bill_id") or "")
+        for bill in (expected_bills or [])
+        if bill.get("bill_id") and bill.get("bill_name")
+    }
+    expected_set = set(expected_bill_ids)
     for report in reports:
         if not isinstance(report, dict):
             continue
         bill_id = str(report.get("bill_id") or "")
         report_body = report.get("report_body")
-        if bill_id and isinstance(report_body, str) and report_body.strip():
+        if not isinstance(report_body, str) or not report_body.strip():
+            continue
+        if bill_id in expected_set and bill_id not in parsed:
+            parsed[bill_id] = report_body
+            continue
+        pending_reports.append((len(parsed) + len(pending_reports), report_body))
+
+    still_pending: list[tuple[int, str]] = []
+    for index, report_body in pending_reports:
+        title_bill_id = expected_by_title.get(_normalize_bill_name_for_match(_extract_report_title(report_body)))
+        if title_bill_id and title_bill_id not in parsed:
+            parsed[title_bill_id] = report_body
+        else:
+            still_pending.append((index, report_body))
+
+    remaining_bill_ids = [bill_id for bill_id in expected_bill_ids if bill_id not in parsed]
+    if still_pending and len(still_pending) == len(remaining_bill_ids):
+        for bill_id, (_, report_body) in zip(remaining_bill_ids, sorted(still_pending, key=lambda item: item[0])):
             parsed[bill_id] = report_body
     return parsed
 
@@ -1764,7 +1803,11 @@ class CodexBillReportAgent:
             output_text = stdout_text
 
         try:
-            reports_by_bill_id = _parse_batch_report_output(output_text, expected_bill_ids=expected_bill_ids)
+            reports_by_bill_id = _parse_batch_report_output(
+                output_text,
+                expected_bill_ids=expected_bill_ids,
+                expected_bills=bills,
+            )
         except BillReportGenerationError as exc:
             failed_items = [
                 {

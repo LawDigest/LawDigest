@@ -1646,6 +1646,90 @@ def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monk
     assert mock_update.call_args.kwargs["bill_id"] == "PRC_PARTIAL_1"
 
 
+def test_run_agentic_bill_reports_repairs_missing_report_bill_id_by_title(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    targets = [
+        {
+            "bill_id": "PRC_REPAIR_1",
+            "bill_number": "2212001",
+            "bill_name": "식별자 복구 테스트법안 1",
+            "summary": "첫 번째 요약",
+            "brief_summary": "기존 첫 번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+        {
+            "bill_id": "PRC_REPAIR_2",
+            "bill_number": "2212002",
+            "bill_name": "식별자 복구 테스트법안 2",
+            "summary": "두 번째 요약",
+            "brief_summary": "기존 두 번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+    ]
+    report_body_1 = (
+        "# 식별자 복구 테스트법안 1\n\n"
+        "## 쉬운 요약\n- 첫 번째 법안은 원래 식별자로 저장돼야 해요.\n\n"
+        "## 주요 내용\n- **지원 근거**: 첫 번째 설명이에요.\n"
+        "\n## 무엇이 달라지나\n\n"
+        "### 1) 지원 근거 신설\n\n"
+        "첫 번째 법안 근거만 사용해 지원 근거를 만들어요.\n"
+    )
+    report_body_2 = (
+        "# 식별자 복구 테스트법안 2\n\n"
+        "## 쉬운 요약\n- 두 번째 법안은 제목으로 식별자를 복구해야 해요.\n\n"
+        "## 주요 내용\n- **관리 절차**: 두 번째 설명이에요.\n"
+        "\n## 무엇이 달라지나\n\n"
+        "### 1) 관리 절차 정비\n\n"
+        "두 번째 법안 근거만 사용해 관리 절차를 정비해요.\n"
+    )
+
+    def run_codex(command, **kwargs):
+        output_path = Path(command[command.index("--output-last-message") + 1])
+        output_path.write_text(
+            json.dumps(
+                {
+                    "reports": [
+                        {"bill_id": "PRC_REPAIR_1", "report_mode": "deep_report", "report_body": report_body_1},
+                        {"bill_id": "", "report_mode": "deep_report", "report_body": report_body_2},
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=targets,
+    ), patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex), patch(
+        "lawdigest_ai.processor.agentic_bill_report.update_bill_summary"
+    ) as mock_update:
+        result = run_agentic_bill_reports(
+            mode="test",
+            limit=2,
+            output_dir=str(tmp_path),
+            target="pending",
+            report_mode="deep_report",
+            batch_session_size=2,
+        )
+
+    assert result["stats"]["success_count"] == 2
+    assert result["stats"]["failure_count"] == 0
+    assert result["stats"]["db_upserted_count"] == 2
+    assert [item["status"] for item in result["items"]] == ["success", "success"]
+    assert [call.kwargs["bill_id"] for call in mock_update.call_args_list] == ["PRC_REPAIR_1", "PRC_REPAIR_2"]
+    assert "두 번째 법안은 제목으로 식별자를 복구해야 해요" in Path(
+        result["items"][1]["report_path"]
+    ).read_text(encoding="utf-8")
+
+
 def test_run_agentic_bill_reports_runs_codex_sessions_in_parallel(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent, run_agentic_bill_reports
 
