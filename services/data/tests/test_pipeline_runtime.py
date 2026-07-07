@@ -582,6 +582,10 @@ def test_cli_dispatches_legal_term_dictionary_sync(tmp_path):
             "50",
             "--max-pages",
             "2",
+            "--start-page",
+            "3",
+            "--max-retries",
+            "2",
             "--limit",
             "20",
         ])
@@ -592,6 +596,8 @@ def test_cli_dispatches_legal_term_dictionary_sync(tmp_path):
         query="결격",
         page_size=50,
         max_pages=2,
+        start_page=3,
+        max_retries=2,
         limit=20,
     )
 
@@ -608,6 +614,8 @@ def test_pipeline_runtime_runs_legal_term_dictionary_sync(tmp_path):
             query="결격",
             page_size=50,
             max_pages=2,
+            start_page=3,
+            max_retries=2,
             limit=20,
         )
 
@@ -616,6 +624,8 @@ def test_pipeline_runtime_runs_legal_term_dictionary_sync(tmp_path):
         query="결격",
         page_size=50,
         max_pages=2,
+        start_page=3,
+        max_retries=2,
         limit=20,
     )
     assert result["status"] == "success"
@@ -625,14 +635,20 @@ def test_pipeline_runtime_runs_legal_term_dictionary_sync(tmp_path):
 def test_legal_term_dictionary_migration_schema():
     from pathlib import Path
 
-    migration_path = (
+    create_migration_path = (
         Path(__file__).resolve().parents[3]
         / "infra/db/migrations/20260706_create_legal_term_dictionary.sql"
     )
-    migration_sql = migration_path.read_text(encoding="utf-8")
+    alter_migration_path = (
+        Path(__file__).resolve().parents[3]
+        / "infra/db/migrations/20260707_extend_legal_term_dictionary_source_term_id.sql"
+    )
+    migration_sql = create_migration_path.read_text(encoding="utf-8")
+    alter_migration_sql = alter_migration_path.read_text(encoding="utf-8")
 
     assert "CREATE TABLE IF NOT EXISTS LegalTermDictionary" in migration_sql
-    assert "source_term_id VARCHAR(64)" in migration_sql
+    assert "source_term_id TEXT" in migration_sql
+    assert "MODIFY COLUMN source_term_id TEXT NULL" in alter_migration_sql
     assert "normalized_term VARCHAR(255) NOT NULL" in migration_sql
     assert "definition TEXT NOT NULL" in migration_sql
     assert "UNIQUE KEY uq_legal_term_dictionary_source_normalized_term" in migration_sql

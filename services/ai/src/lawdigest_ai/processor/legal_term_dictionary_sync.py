@@ -99,12 +99,15 @@ def fetch_legal_term_dictionary_items(
     *,
     query: str,
     page_size: int = 100,
+    start_page: int = 1,
     max_pages: int = 1,
     limit: int | None = None,
     client: LawOpenApiTermClient | None = None,
 ) -> list[dict[str, Any]]:
     if page_size < 1:
         raise ValueError("page_size는 1 이상이어야 합니다.")
+    if start_page < 1:
+        raise ValueError("start_page는 1 이상이어야 합니다.")
     if max_pages < 1:
         raise ValueError("max_pages는 1 이상이어야 합니다.")
     if limit is not None and limit < 1:
@@ -116,7 +119,7 @@ def fetch_legal_term_dictionary_items(
 
     items: list[dict[str, Any]] = []
     seen: set[str] = set()
-    for page in range(1, max_pages + 1):
+    for page in range(start_page, start_page + max_pages):
         rows = term_client.search_legal_dictionary_terms(query, display=page_size, page=page)
         if not rows:
             break
@@ -138,29 +141,94 @@ def run_legal_term_dictionary_sync(
     mode: str = "dry_run",
     query: str = "가",
     page_size: int = 100,
+    start_page: int = 1,
     max_pages: int = 1,
+    max_retries: int = 0,
     limit: int | None = None,
     client: LawOpenApiTermClient | None = None,
 ) -> dict[str, Any]:
     if mode not in {"dry_run", "test", "prod"}:
         raise ValueError("mode는 dry_run, test, prod 중 하나여야 합니다.")
+    if page_size < 1:
+        raise ValueError("page_size는 1 이상이어야 합니다.")
+    if start_page < 1:
+        raise ValueError("start_page는 1 이상이어야 합니다.")
+    if max_pages < 1:
+        raise ValueError("max_pages는 1 이상이어야 합니다.")
+    if max_retries < 0:
+        raise ValueError("max_retries는 0 이상이어야 합니다.")
+    if limit is not None and limit < 1:
+        raise ValueError("limit는 1 이상이어야 합니다.")
 
-    items = fetch_legal_term_dictionary_items(
-        query=query,
-        page_size=page_size,
-        max_pages=max_pages,
-        limit=limit,
-        client=client,
-    )
-    upserted = 0 if mode == "dry_run" else _upsert_dictionary_items(items, mode=mode)
+    term_client = client or LawOpenApiTermClient()
+    if not term_client.enabled:
+        raise RuntimeError("LAW_OC 환경변수가 필요합니다.")
+
+    total_items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    upserted = 0
+    page_results: list[dict[str, Any]] = []
+    failed_pages: list[dict[str, Any]] = []
+
+    for page in range(start_page, start_page + max_pages):
+        rows: list[dict[str, Any]] | None = None
+        error: Exception | None = None
+        attempts = 0
+        for attempt in range(1, max_retries + 2):
+            attempts = attempt
+            try:
+                rows = term_client.search_legal_dictionary_terms(query, display=page_size, page=page)
+                error = None
+                break
+            except Exception as exc:
+                error = exc
+
+        if rows is None:
+            failed_pages.append({"page": page, "attempts": attempts, "error": str(error)})
+            continue
+        if not rows:
+            break
+
+        page_items = []
+        for row in rows:
+            item = _build_dictionary_item(term_client, row)
+            if not item or item["normalized_term"] in seen:
+                continue
+            seen.add(item["normalized_term"])
+            page_items.append(item)
+            total_items.append(item)
+            if limit is not None and len(total_items) >= limit:
+                break
+
+        page_upserted = 0 if mode == "dry_run" else _upsert_dictionary_items(page_items, mode=mode)
+        upserted += page_upserted
+        page_results.append(
+            {
+                "page": page,
+                "rows_count": len(rows),
+                "items_count": len(page_items),
+                "upserted_count": page_upserted,
+                "attempts": attempts,
+            }
+        )
+        if limit is not None and len(total_items) >= limit:
+            break
+        if len(rows) < page_size:
+            break
+
     return {
         "mode": mode,
         "query": query,
         "page_size": page_size,
+        "start_page": start_page,
         "max_pages": max_pages,
+        "max_retries": max_retries,
         "limit": limit,
-        "fetched_count": len(items),
+        "pages_processed": len(page_results),
+        "failed_pages": failed_pages,
+        "page_results": page_results,
+        "fetched_count": len(total_items),
         "upserted_count": upserted,
         "dry_run": mode == "dry_run",
-        "terms": [item["term"] for item in items[:20]],
+        "terms": [item["term"] for item in total_items[:20]],
     }

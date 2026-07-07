@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS LegalTermDictionary (
     term_id BIGINT NOT NULL AUTO_INCREMENT,
     source VARCHAR(32) NOT NULL DEFAULT 'law.go.kr',
-    source_term_id VARCHAR(64) NULL,
+    source_term_id TEXT NULL,
     term VARCHAR(255) NOT NULL,
     normalized_term VARCHAR(255) NOT NULL,
     definition TEXT NOT NULL,

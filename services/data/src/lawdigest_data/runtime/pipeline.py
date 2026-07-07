@@ -251,14 +251,18 @@ class PipelineRuntime:
         mode: str = "dry_run",
         query: str = "가",
         page_size: int = 100,
+        start_page: int = 1,
         max_pages: int = 1,
+        max_retries: int = 0,
         limit: int | None = None,
     ) -> Dict[str, Any]:
         params = {
             "mode": mode,
             "query": query,
             "page_size": page_size,
+            "start_page": start_page,
             "max_pages": max_pages,
+            "max_retries": max_retries,
             "limit": limit,
         }
 
@@ -274,7 +278,9 @@ class PipelineRuntime:
                     mode=mode,
                     query=query,
                     page_size=page_size,
+                    start_page=start_page,
                     max_pages=max_pages,
+                    max_retries=max_retries,
                     limit=limit,
                 ),
             )
