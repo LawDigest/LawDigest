@@ -60,6 +60,15 @@ def build_parser() -> argparse.ArgumentParser:
     search_rebuild.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod", "test_db"])
     search_rebuild.add_argument("--limit", type=int, default=500)
 
+    legal_term_sync = subparsers.add_parser("legal-term-dictionary-sync", help="법제처 법령용어 사전 로컬 동기화")
+    legal_term_sync.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
+    legal_term_sync.add_argument("--query", default="가")
+    legal_term_sync.add_argument("--page-size", type=int, default=100)
+    legal_term_sync.add_argument("--start-page", type=int, default=1)
+    legal_term_sync.add_argument("--max-pages", type=int, default=1)
+    legal_term_sync.add_argument("--max-retries", type=int, default=0)
+    legal_term_sync.add_argument("--limit", type=int)
+
     batch_submit = subparsers.add_parser("ai-batch-submit", help="provider batch 요약 요청 제출")
     batch_submit.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
     batch_submit.add_argument("--provider", default="openai", choices=["openai", "gemini"])
@@ -127,6 +136,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.command == "bill-search-rebuild":
         result = runtime.run_bill_search_rebuild(
             mode=args.mode,
+            limit=args.limit,
+        )
+    elif args.command == "legal-term-dictionary-sync":
+        result = runtime.run_legal_term_dictionary_sync(
+            mode=args.mode,
+            query=args.query,
+            page_size=args.page_size,
+            start_page=args.start_page,
+            max_pages=args.max_pages,
+            max_retries=args.max_retries,
             limit=args.limit,
         )
     elif args.command == "ai-batch-submit":

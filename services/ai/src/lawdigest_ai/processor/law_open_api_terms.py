@@ -104,14 +104,17 @@ class LawOpenApiTermClient:
                     terms.append(term)
         return list(_compact_unique(terms))
 
-    def search_legal_dictionary_terms(self, query: str, *, display: int = 5) -> list[dict[str, Any]]:
+    def search_legal_dictionary_terms(self, query: str, *, display: int = 5, page: int | None = None) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {
+            "target": "lstrm",
+            "query": query,
+            "display": display,
+        }
+        if page is not None:
+            params["page"] = page
         payload = self._get_json(
             "lawSearch.do",
-            {
-                "target": "lstrm",
-                "query": query,
-                "display": display,
-            },
+            params,
         )
         root = payload.get("LsTrmSearch") or {}
         rows = []

@@ -466,6 +466,66 @@ def test_agentic_report_validation_accepts_dictionary_term_tooltip():
     _validate_report_body(repaired)
 
 
+def test_agentic_report_repair_dedupes_adjacent_same_term_tooltip():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+**공유재산{{공유재산:지방자치단체 소유 재산을 말해요.}} 관리 기준을 정비하기 위한 법률 개정안이에요.**
+<mark>핵심 변화는 {{변상금:무단 점유자에게 부과하는 금액을 말해요.}} 조정 근거가 넓어지는 점이에요.</mark>
+
+## 주요 내용
+- **지원 근거**: 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 금액 조정 근거 정비
+
+공유재산{{공유재산:지방자치단체 소유 재산을 말해요.}}을 주거 목적으로 점유한 경우 예외를 둘 수 있게 해요.
+
+- 사용자 입장에서는, 생활 회복을 막는 부담을 줄일 여지가 생겨요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert "공유재산{{공유재산:" not in repaired
+    assert repaired.count("{{공유재산:") == 2
+    _validate_report_body(repaired)
+
+
+def test_agentic_report_repair_fixes_term_tooltip_particles():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+- **공유재산{{공유재산:지방자치단체 소유 재산을 말해요.}}를 주거 목적으로 점유한 취약계층을 더 배려하기 위한 법률 개정안이에요.**
+- <mark>핵심 변화는 변상금{{변상금:무단 점유자에게 부과하는 금액을 말해요.}}를 조정할 수 있는 근거를 넓히는 점이에요.</mark>
+
+## 주요 내용
+- **지원 근거**: 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 금액 조정 근거 정비
+
+공유재산{{공유재산:지방자치단체 소유 재산을 말해요.}}를 주거 목적으로 점유한 경우 예외를 둘 수 있게 해요.
+
+- 사용자 입장에서는, 생활 회복을 막는 부담을 줄일 여지가 생겨요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert "{{공유재산:지방자치단체 소유 재산을 말해요.}}을 주거 목적으로" in repaired
+    assert "{{변상금:무단 점유자에게 부과하는 금액을 말해요.}}을 조정" in repaired
+    assert "공유재산{{공유재산:" not in repaired
+    assert "변상금{{변상금:" not in repaired
+    _validate_report_body(repaired)
+
+
 def test_agentic_report_repair_adds_missing_highlight():
     from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
 
@@ -927,11 +987,41 @@ def test_legal_term_glossary_context_includes_real_api_lookup_results():
 
     context = build_legal_term_glossary_context("청문 규정을 설명합니다.", term_client=FakeTermClient())
 
-    assert "아래 `법제처 API 조회 결과`는 실제 법제처 Open API 정의 조회 결과입니다." in context
-    assert "법제처 API 조회 결과:" in context
+    assert "아래 `법제처 용어사전 조회 결과`" in context
+    assert "법제처 용어사전 조회 결과:" in context
     assert "청문: 뜻=처분 전에 당사자의 의견을 직접 듣고 증거를 조사하는 절차를 말한다." in context
     assert "일상어 연계어" not in context
     assert "청문 규정: 처분을 받기 전에" in context
+
+
+def test_legal_term_glossary_context_prefers_local_dictionary(monkeypatch):
+    from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
+    from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm
+
+    monkeypatch.setattr(
+        "lawdigest_ai.processor.legal_term_glossary._lookup_local_dictionary_terms",
+        lambda terms: [
+            LawOpenApiTerm(
+                term="결격사유",
+                source="lawdigest-local-dictionary",
+                definitions=("로컬 사전에 저장된 결격사유 정의입니다.",),
+            )
+        ],
+    )
+
+    api_calls = []
+
+    class FakeTermClient:
+        enabled = True
+
+        def lookup_term(self, query):
+            api_calls.append(query)
+            return None
+
+    context = build_legal_term_glossary_context("임원의 결격사유를 정비합니다.", term_client=FakeTermClient())
+
+    assert "결격사유" not in api_calls
+    assert "결격사유: 뜻=로컬 사전에 저장된 결격사유 정의입니다." in context
 
 
 def test_legal_term_glossary_context_extracts_defined_terms_from_bill_text():
@@ -960,6 +1050,34 @@ def test_legal_term_glossary_context_extracts_defined_terms_from_bill_text():
     assert "청문 규정: 처분을 받기 전에" not in context
 
 
+def test_legal_term_glossary_context_uses_law_api_as_candidate_filter():
+    from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm
+    from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
+
+    calls = []
+
+    class FakeTermClient:
+        enabled = True
+
+        def lookup_term(self, query):
+            calls.append(query)
+            if query == "결격사유":
+                return LawOpenApiTerm(
+                    term=query,
+                    source="law.go.kr",
+                    definitions=("일정한 자격을 가질 수 없게 하는 법정 사유를 말한다.",),
+                )
+            return None
+
+    context = build_legal_term_glossary_context(
+        "기관 임원의 결격사유와 등록취소 절차를 정비합니다.",
+        term_client=FakeTermClient(),
+    )
+
+    assert "결격사유" in calls
+    assert "결격사유: 뜻=일정한 자격을 가질 수 없게 하는 법정 사유를 말한다." in context
+
+
 def test_legal_term_glossary_context_ignores_api_results_without_definitions():
     from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm
     from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
@@ -981,17 +1099,22 @@ def test_legal_term_glossary_context_ignores_api_results_without_definitions():
     assert "일상어 연계어" not in context
 
 
-def test_legal_term_glossary_context_skips_api_lookup_without_matched_terms():
+def test_legal_term_glossary_context_skips_obvious_common_terms_in_api_candidates():
     from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
+
+    calls = []
 
     class FakeTermClient:
         enabled = True
 
         def lookup_term(self, query):
-            raise AssertionError(f"unexpected API lookup: {query}")
+            calls.append(query)
+            return None
 
     context = build_legal_term_glossary_context("허위정보 유포를 설명합니다.", term_client=FakeTermClient())
 
+    assert "허위정보" not in calls
+    assert "허위정보 유포" not in calls
     assert "정적 보조 사전" in context
     assert "법제처 API 조회 결과" not in context
     assert "청문 규정: 처분을 받기 전에" in context
