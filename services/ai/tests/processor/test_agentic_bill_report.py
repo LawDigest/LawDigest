@@ -527,6 +527,42 @@ def test_agentic_report_repair_keeps_only_first_tooltip_per_term():
     _validate_report_body(repaired)
 
 
+def test_agentic_report_repair_simplifies_hard_change_headings():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+- <mark>핵심 변화는 **숙소 기준**을 더 쉽게 확인하게 하는 점이에요.</mark>
+
+## 주요 내용
+- **숙소 기준**: 안전하지 않은 숙소를 줄이고 필요한 지원을 늘려요.
+
+## 왜 나왔나
+현장에서 기준을 지키기 어려운 경우가 있어서 나온 법안이에요.
+
+## 무엇이 달라지나
+
+### 1) 안전한 숙소 확충 유도
+
+지원 근거를 두어 **안전한 숙소**를 늘리려는 내용이에요.
+
+- 사용자 입장에서는 살 곳의 기준을 더 쉽게 확인할 수 있어요.
+
+### 2) 지역장애인권익옹호기관 확충
+
+지역별로 **도움받을 곳**을 더 가까이 두려는 내용이에요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert "### 1) 안전한 숙소 늘리기" in repaired
+    assert "### 2) 지역장애인권익옹호기관 늘리기" in repaired
+    assert "확충" not in repaired
+    _validate_report_body(repaired)
+
+
 def test_agentic_report_repair_fixes_term_tooltip_particles():
     from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
 
@@ -611,6 +647,32 @@ def test_agentic_report_repair_moves_bullet_marker_outside_highlight():
 
     assert "<mark>-" not in repaired
     assert "- <mark>핵심 변화는 **거래 전 정보 확인**이 쉬워지는 점이에요.</mark>" in repaired
+    _validate_report_body(repaired)
+
+
+def test_agentic_report_repair_converts_html_bold_inside_highlight():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+- <mark><strong>장애인학대</strong> 예방 체계를 더 촘촘하게 만들기 위한 법률 개정안이에요.</mark>
+
+## 주요 내용
+- **지원 근거**: 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 지원 기준 정비
+
+지역에서 **도움받을 곳**을 더 쉽게 찾게 해요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert "<strong>" not in repaired
+    assert "<mark>**장애인학대** 예방 체계를 더 촘촘하게 만들기 위한 법률 개정안이에요.</mark>" in repaired
     _validate_report_body(repaired)
 
 

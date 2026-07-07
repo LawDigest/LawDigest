@@ -1435,6 +1435,8 @@ def _validate_report_body(report_body: str) -> None:
 def _repair_report_body(report_body: str) -> str:
     repaired = report_body.replace("원문 요약:", "").replace("용어 설명:", "")
     repaired = repaired.replace("법령 체계:", "").replace("쉬운 풀이:", "")
+    repaired = re.sub(r"<strong>([^<>\n]+)</strong>", r"**\1**", repaired)
+    repaired = re.sub(r"<b>([^<>\n]+)</b>", r"**\1**", repaired)
     repaired = _dedupe_adjacent_term_tooltips(repaired)
     repaired = _dedupe_repeated_term_tooltips(repaired)
     repaired = _repair_term_tooltip_particles(repaired)
@@ -1465,6 +1467,17 @@ def _repair_report_body(report_body: str) -> str:
                 indent = line[: len(line) - len(line.lstrip())]
                 fixed_lines.append(f"{indent}- {stripped}")
                 continue
+
+        if in_changes and re.match(r"^###\s+\d+\)\s+", stripped):
+            indent = line[: len(line) - len(line.lstrip())]
+            heading = stripped
+            heading = heading.replace("확충 유도", "늘리기")
+            heading = heading.replace("체계 개정", "기준 정리")
+            heading = heading.replace("집행주체", "담당 기관")
+            heading = heading.replace("확충", "늘리기")
+            heading = heading.replace("정교화", "더 분명하게")
+            fixed_lines.append(f"{indent}{heading}")
+            continue
 
         if stripped.startswith("- ") and ": " in stripped and not re.match(r"- \*\*[^*\n]+\*\*:", stripped):
             label, rest = stripped[2:].split(": ", 1)
