@@ -1098,12 +1098,6 @@ def _parse_batch_report_output(text: str, *, expected_bill_ids: list[str]) -> di
         report_body = report.get("report_body")
         if bill_id and isinstance(report_body, str) and report_body.strip():
             parsed[bill_id] = report_body
-    missing = [bill_id for bill_id in expected_bill_ids if bill_id not in parsed]
-    if missing:
-        raise BillReportGenerationError(
-            "Codex batch report output is missing bill reports: " + ", ".join(missing),
-            details={"status": "failed", "expected_bill_ids": expected_bill_ids, "missing_bill_ids": missing},
-        )
     return parsed
 
 
@@ -1816,7 +1810,9 @@ class CodexBillReportAgent:
             }
             validation = {"status": "not_run", "summary": "Markdown 검증을 실행하지 않았습니다."}
             try:
-                raw_report_body = reports_by_bill_id[bill_id]
+                raw_report_body = reports_by_bill_id.get(bill_id)
+                if not raw_report_body:
+                    raise RuntimeError(f"Codex batch report output is missing bill report: {bill_id}")
                 repaired_report_body = _repair_report_body(raw_report_body)
                 repair_applied = repaired_report_body != raw_report_body.strip() + "\n"
                 report_path.write_text(repaired_report_body, encoding="utf-8")

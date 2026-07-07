@@ -1571,6 +1571,81 @@ def test_run_agentic_bill_reports_batches_multiple_bills_in_one_session(tmp_path
     assert "두 번째 법안만의 변화" in Path(result["items"][1]["report_path"]).read_text(encoding="utf-8")
 
 
+def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    targets = [
+        {
+            "bill_id": "PRC_PARTIAL_1",
+            "bill_number": "2211001",
+            "bill_name": "부분 성공 테스트법안 1",
+            "summary": "첫 번째 요약",
+            "brief_summary": "기존 첫 번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+        {
+            "bill_id": "PRC_PARTIAL_2",
+            "bill_number": "2211002",
+            "bill_name": "부분 성공 테스트법안 2",
+            "summary": "두 번째 요약",
+            "brief_summary": "기존 두 번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+    ]
+    report_body = (
+        "# 부분 성공 테스트법안 1\n\n"
+        "## 쉬운 요약\n- 첫 번째 법안은 성공 반영돼야 해요.\n\n"
+        "## 주요 내용\n- **지원 근거**: 설명이에요.\n"
+        "\n## 무엇이 달라지나\n\n"
+        "### 1) 지원 근거 신설\n\n"
+        "첫 번째 법안 근거만 사용해 지원 근거를 만들어요.\n"
+    )
+
+    def run_codex(command, **kwargs):
+        output_path = Path(command[command.index("--output-last-message") + 1])
+        output_path.write_text(
+            json.dumps(
+                {
+                    "reports": [
+                        {"bill_id": "PRC_PARTIAL_1", "report_mode": "deep_report", "report_body": report_body},
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=targets,
+    ), patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex), patch(
+        "lawdigest_ai.processor.agentic_bill_report.update_bill_summary"
+    ) as mock_update:
+        result = run_agentic_bill_reports(
+            mode="test",
+            limit=2,
+            output_dir=str(tmp_path),
+            target="pending",
+            report_mode="deep_report",
+            batch_session_size=2,
+        )
+
+    assert result["stats"]["success_count"] == 1
+    assert result["stats"]["failure_count"] == 1
+    assert result["stats"]["db_upserted_count"] == 1
+    assert result["items"][0]["status"] == "success"
+    assert result["items"][1]["status"] == "failed"
+    assert "missing bill report: PRC_PARTIAL_2" in result["items"][1]["error"]
+    mock_update.assert_called_once()
+    assert mock_update.call_args.kwargs["bill_id"] == "PRC_PARTIAL_1"
+
+
 def test_run_agentic_bill_reports_runs_codex_sessions_in_parallel(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent, run_agentic_bill_reports
 
