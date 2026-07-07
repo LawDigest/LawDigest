@@ -25,11 +25,11 @@ Lawdigest의 AI 가공 파이프라인 코드다. 법안 요약, provider batch 
 
 ```bash
 PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
-  bill-agent-report \
+  ai-summary \
   --mode dry_run \
   --read-mode prod \
   --limit 3 \
-  --target all \
+  --target passed \
   --concurrency 3 \
   --output-dir /tmp/lawdigest-bill-agent-reports
 ```

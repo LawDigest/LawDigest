@@ -88,7 +88,39 @@ def test_ai_cli_repair_delegates_to_existing_provider_runtime(tmp_path):
     assert result["status"] == "success"
 
 
-def test_ai_summary_uses_gemini_cli_realtime_command(tmp_path):
+def test_ai_summary_defaults_to_agentic_report_runtime(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.run_agentic_bill_reports",
+        return_value={"stats": {"success_count": 1}},
+    ) as run_reports:
+        result = PipelineRuntime(log_dir=tmp_path).run_ai_summary(
+            mode="dry_run",
+            limit=1,
+            output_dir="/tmp/reports",
+            read_mode="prod",
+        )
+
+    run_reports.assert_called_once_with(
+        mode="dry_run",
+        limit=1,
+        output_dir="/tmp/reports",
+        read_mode="prod",
+        codex_model=None,
+        stop_on_error=False,
+        target="passed",
+        concurrency=1,
+        report_mode="deep_report",
+        batch_session_size=5,
+        inspection=False,
+    )
+    assert result["command"] == "ai.summary"
+    assert result["steps"][0]["step"] == "generate_agentic_summary_reports"
+    assert result["status"] == "success"
+
+
+def test_ai_summary_can_use_gemini_cli_realtime_command(tmp_path):
     from lawdigest_data.runtime.pipeline import PipelineRuntime
 
     with patch(
@@ -97,6 +129,7 @@ def test_ai_summary_uses_gemini_cli_realtime_command(tmp_path):
     ) as run_repair:
         result = PipelineRuntime(log_dir=tmp_path).run_ai_summary(
             mode="dry_run",
+            engine="cli",
             cli_provider="gemini",
             limit=1,
             batch_size=1,
@@ -164,6 +197,7 @@ def test_ai_summary_chunks_requested_limit_to_max_five(tmp_path):
     ) as run_repair:
         result = PipelineRuntime(log_dir=tmp_path).run_ai_summary(
             mode="dry_run",
+            engine="cli",
             cli_provider="codex",
             limit=12,
             batch_size=10,
@@ -213,6 +247,8 @@ def test_bill_agent_report_delegates_to_agentic_report_runtime(tmp_path):
         stop_on_error=False,
         target="passed",
         concurrency=1,
+        report_mode="deep_report",
+        batch_session_size=5,
         inspection=False,
     )
     assert result["command"] == "bill.agent_report"
@@ -244,6 +280,8 @@ def test_bill_agent_report_can_target_all_bills(tmp_path):
         stop_on_error=False,
         target="all",
         concurrency=1,
+        report_mode="deep_report",
+        batch_session_size=5,
         inspection=False,
     )
     assert result["steps"][0]["step"] == "generate_all_bill_reports"
@@ -275,6 +313,8 @@ def test_bill_agent_report_forwards_usage_meter_snapshot(tmp_path):
         stop_on_error=False,
         target="passed",
         concurrency=1,
+        report_mode="deep_report",
+        batch_session_size=5,
         inspection=False,
         usage_meter={
             "weekly": {"before_percent": 41.2, "after_percent": 40.7},
@@ -307,6 +347,8 @@ def test_bill_agent_report_forwards_inspection_mode(tmp_path):
         stop_on_error=False,
         target="passed",
         concurrency=1,
+        report_mode="deep_report",
+        batch_session_size=5,
         inspection=True,
     )
 
@@ -374,7 +416,7 @@ def test_cli_dispatches_bill_ingest(tmp_path):
     )
 
 
-def test_cli_dispatches_ai_summary(tmp_path):
+def test_cli_dispatches_ai_summary_default_agent(tmp_path):
     from lawdigest_data.runtime.cli import main
 
     with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
@@ -385,30 +427,40 @@ def test_cli_dispatches_ai_summary(tmp_path):
             "ai-summary",
             "--mode",
             "dry_run",
-            "--cli-provider",
-            "gemini",
             "--limit",
             "1",
-            "--batch-size",
-            "1",
-            "--output-path",
-            "/tmp/gemini.json",
+            "--output-dir",
+            "/tmp/reports",
+            "--read-mode",
+            "prod",
         ])
 
     assert exit_code == 0
     Runtime.return_value.run_ai_summary.assert_called_once_with(
         mode="dry_run",
-        cli_provider="gemini",
+        engine="agent",
+        cli_provider="codex",
         limit=1,
-        batch_size=1,
-        output_path="/tmp/gemini.json",
+        batch_size=5,
+        output_path="/tmp/lawdigest_ai_summary_results.json",
+        output_dir="/tmp/reports",
         stop_on_error=False,
-        read_mode=None,
+        read_mode="prod",
         target_mode="missing",
+        codex_model=None,
+        target="passed",
+        concurrency=1,
+        report_mode="deep_report",
+        batch_session_size=5,
+        weekly_usage_before=None,
+        weekly_usage_after=None,
+        five_hour_usage_before=None,
+        five_hour_usage_after=None,
+        inspection=False,
     )
 
 
-def test_cli_dispatches_ai_summary_with_codex_default(tmp_path):
+def test_cli_dispatches_ai_summary_cli_engine_with_codex_default(tmp_path):
     from lawdigest_data.runtime.cli import main
 
     with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
@@ -419,6 +471,8 @@ def test_cli_dispatches_ai_summary_with_codex_default(tmp_path):
             "ai-summary",
             "--mode",
             "dry_run",
+            "--engine",
+            "cli",
             "--total-limit",
             "1",
             "--batch-size",
@@ -428,13 +482,25 @@ def test_cli_dispatches_ai_summary_with_codex_default(tmp_path):
     assert exit_code == 0
     Runtime.return_value.run_ai_summary.assert_called_once_with(
         mode="dry_run",
+        engine="cli",
         cli_provider="codex",
         limit=1,
         batch_size=1,
         output_path="/tmp/lawdigest_ai_summary_results.json",
+        output_dir="/tmp/lawdigest-bill-agent-reports",
         stop_on_error=False,
         read_mode=None,
         target_mode="missing",
+        codex_model=None,
+        target="passed",
+        concurrency=1,
+        report_mode="deep_report",
+        batch_session_size=5,
+        weekly_usage_before=None,
+        weekly_usage_after=None,
+        five_hour_usage_before=None,
+        five_hour_usage_after=None,
+        inspection=False,
     )
 
 
@@ -467,6 +533,8 @@ def test_cli_dispatches_bill_agent_report(tmp_path):
         stop_on_error=False,
         target="passed",
         concurrency=1,
+        report_mode="deep_report",
+        batch_session_size=5,
         weekly_usage_before=None,
         weekly_usage_after=None,
         five_hour_usage_before=None,
@@ -528,6 +596,8 @@ def test_cli_dispatches_bill_agent_report_target_all(tmp_path):
         stop_on_error=False,
         target="all",
         concurrency=1,
+        report_mode="deep_report",
+        batch_session_size=5,
         weekly_usage_before=None,
         weekly_usage_after=None,
         five_hour_usage_before=None,
@@ -569,6 +639,8 @@ def test_cli_dispatches_bill_agent_report_usage_meter(tmp_path):
         stop_on_error=False,
         target="passed",
         concurrency=1,
+        report_mode="deep_report",
+        batch_session_size=5,
         weekly_usage_before=41.2,
         weekly_usage_after=40.7,
         five_hour_usage_before=8.0,
@@ -604,6 +676,8 @@ def test_cli_dispatches_bill_agent_report_concurrency(tmp_path):
         stop_on_error=False,
         target="passed",
         concurrency=3,
+        report_mode="deep_report",
+        batch_session_size=5,
         weekly_usage_before=None,
         weekly_usage_after=None,
         five_hour_usage_before=None,
@@ -638,6 +712,8 @@ def test_cli_dispatches_bill_agent_report_inspection(tmp_path):
         stop_on_error=False,
         target="passed",
         concurrency=1,
+        report_mode="deep_report",
+        batch_session_size=5,
         weekly_usage_before=None,
         weekly_usage_after=None,
         five_hour_usage_before=None,

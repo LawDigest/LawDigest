@@ -11,15 +11,31 @@ def _print_result(result: dict) -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2, default=str))
 
 
-def _add_cli_summary_args(parser: argparse.ArgumentParser) -> None:
+def _add_cli_repair_args(parser: argparse.ArgumentParser, *, limit_default: int = 20) -> None:
     parser.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
     parser.add_argument("--cli-provider", default="codex", choices=["gemini", "codex", "claude"])
-    parser.add_argument("--limit", "--total-limit", dest="limit", type=int, default=20, help="총 처리 요청 건수")
-    parser.add_argument("--batch-size", type=int, default=5, help="한 chunk 처리 건수. ai-summary 계열은 최대 5로 제한")
+    parser.add_argument("--limit", "--total-limit", dest="limit", type=int, default=limit_default, help="총 처리 요청 건수")
+    parser.add_argument("--batch-size", type=int, default=5, help="CLI engine chunk 처리 건수. CLI 요약은 최대 5로 제한")
     parser.add_argument("--output-path", default="/tmp/lawdigest_ai_summary_results.json")
     parser.add_argument("--stop-on-error", action="store_true")
     parser.add_argument("--read-mode", choices=["test", "prod"])
     parser.add_argument("--target-mode", default="missing", choices=["missing", "latest"])
+
+
+def _add_ai_summary_args(parser: argparse.ArgumentParser) -> None:
+    _add_cli_repair_args(parser, limit_default=5)
+    parser.add_argument("--engine", default="agent", choices=["agent", "cli"], help="기본값 agent. cli는 기존 Codex/Gemini CLI 요약 경로")
+    parser.add_argument("--output-dir", default="/tmp/lawdigest-bill-agent-reports")
+    parser.add_argument("--codex-model")
+    parser.add_argument("--target", default="passed", choices=["passed", "pending", "all"])
+    parser.add_argument("--report-mode", default="deep_report", choices=["auto", "summary", "deep_report"])
+    parser.add_argument("--concurrency", type=int, default=1)
+    parser.add_argument("--batch-session-size", type=int, default=5, help="agent 모드 Codex 세션당 법안 수, 최대 5")
+    parser.add_argument("--weekly-usage-before", type=float)
+    parser.add_argument("--weekly-usage-after", type=float)
+    parser.add_argument("--five-hour-usage-before", type=float)
+    parser.add_argument("--five-hour-usage-after", type=float)
+    parser.add_argument("--inspection", action="store_true", help="에이전트 실행 감사용 검사 로그를 함께 저장")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -63,11 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
     native_repair.add_argument("--model")
     native_repair.add_argument("--output-path", default="/tmp/lawdigest_missing_summaries.json")
 
-    realtime_summary = subparsers.add_parser("ai-summary", help="Codex CLI 기반 실시간 결측 요약")
-    _add_cli_summary_args(realtime_summary)
+    realtime_summary = subparsers.add_parser("ai-summary", help="기본 에이전트 기반 법안 요약/리포트 생성")
+    _add_ai_summary_args(realtime_summary)
 
     cli_repair = subparsers.add_parser("ai-repair-cli", help="Gemini/Codex/Claude CLI 기반 결측 요약 복구")
-    _add_cli_summary_args(cli_repair)
+    _add_cli_repair_args(cli_repair)
 
     agent_report = subparsers.add_parser("bill-agent-report", help="Codex MCP 에이전트 기반 법안 종합 리포트")
     agent_report.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
@@ -75,8 +91,10 @@ def build_parser() -> argparse.ArgumentParser:
     agent_report.add_argument("--output-dir", default="/tmp/lawdigest-bill-agent-reports")
     agent_report.add_argument("--read-mode", choices=["test", "prod"])
     agent_report.add_argument("--codex-model")
-    agent_report.add_argument("--target", default="passed", choices=["passed", "all"])
+    agent_report.add_argument("--target", default="passed", choices=["passed", "pending", "all"])
+    agent_report.add_argument("--report-mode", default="deep_report", choices=["auto", "summary", "deep_report"])
     agent_report.add_argument("--concurrency", type=int, default=1)
+    agent_report.add_argument("--batch-session-size", type=int, default=5, help="Codex 세션당 법안 수, 최대 5")
     agent_report.add_argument("--weekly-usage-before", type=float)
     agent_report.add_argument("--weekly-usage-after", type=float)
     agent_report.add_argument("--five-hour-usage-before", type=float)
@@ -136,13 +154,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     elif args.command == "ai-summary":
         result = runtime.run_ai_summary(
             mode=args.mode,
+            engine=args.engine,
             cli_provider=args.cli_provider,
             limit=args.limit,
             batch_size=args.batch_size,
             output_path=args.output_path,
+            output_dir=args.output_dir,
             stop_on_error=args.stop_on_error,
             read_mode=args.read_mode,
             target_mode=args.target_mode,
+            codex_model=args.codex_model,
+            target=args.target,
+            concurrency=args.concurrency,
+            report_mode=args.report_mode,
+            batch_session_size=args.batch_session_size,
+            weekly_usage_before=args.weekly_usage_before,
+            weekly_usage_after=args.weekly_usage_after,
+            five_hour_usage_before=args.five_hour_usage_before,
+            five_hour_usage_after=args.five_hour_usage_after,
+            inspection=args.inspection,
         )
     elif args.command == "ai-repair-cli":
         result = runtime.run_ai_cli_repair(
@@ -165,6 +195,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             stop_on_error=args.stop_on_error,
             target=args.target,
             concurrency=args.concurrency,
+            report_mode=args.report_mode,
+            batch_session_size=args.batch_session_size,
             weekly_usage_before=args.weekly_usage_before,
             weekly_usage_after=args.weekly_usage_after,
             five_hour_usage_before=args.five_hour_usage_before,

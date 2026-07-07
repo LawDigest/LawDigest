@@ -12,8 +12,8 @@
 
 - 표준 실행 경로: `services/data/src/lawdigest_data/runtime`
 - 표준 CLI: `lawdigest-pipeline` 또는 `python -m lawdigest_data.runtime.cli`
-- 표준 AI 요약: Codex CLI 실시간 처리 (`gpt-5.4-mini`)
-- AI 장애 대응: Gemini CLI 또는 Claude CLI 수동 대체
+- 표준 AI 요약: Codex MCP 에이전트 처리 (`gpt-5.4-mini`)
+- AI 장애 대응: 명시적 Codex/Gemini/Claude CLI 복구 경로
 - 실행 이력: append-only JSONL (`pipeline-runs.jsonl`)
 - Airflow: 신규 운영 경로에서 제외, legacy reference로만 보관
 
@@ -120,8 +120,8 @@ python -m lawdigest_data.runtime.cli <command> [options]
 |------|-----------|------|
 | `bill-ingest` | 국회 API 법안 수집, 정제, DB 반영 | 표준 |
 | `bill-status-sync` | 의원, lifecycle, vote 상태 동기화 | 표준 |
-| `bill-agent-report` | Codex MCP 에이전트 기반 통과 법안 종합 리포트 | 선택 심화 |
-| `ai-summary` | Codex CLI 기반 실시간 요약 | 표준 |
+| `ai-summary` | Codex MCP 에이전트 기반 법안 요약/리포트 생성 | 표준 |
+| `bill-agent-report` | Codex MCP 에이전트 기반 법안 종합 리포트 직접 실행 | 명시 실행 |
 | `ai-repair-cli` | CLI 기반 결측 요약 복구 alias | 호환용 |
 | `ai-repair-native` | OpenAI/Gemini API 기반 결측 요약 복구 | fallback |
 | `ai-batch-submit` | OpenAI/Gemini Batch 제출 | legacy fallback |
@@ -221,24 +221,21 @@ sequenceDiagram
     autonumber
     participant CLI as lawdigest-pipeline
     participant Runtime as PipelineRuntime
-    participant Repair as run_gemini_repair_pipeline
+    participant Agent as run_agentic_bill_reports
     participant DB as MySQL Bill
-    participant Codex as Codex CLI
-    participant Gemini as Gemini CLI
-    participant Schema as Pydantic schema
-    participant Output as JSON output
+    participant Codex as Codex Agent
+    participant Output as Markdown/manifest
 
-    CLI->>Runtime: ai-summary --cli-provider codex
-    Runtime->>Repair: summarize_cli_realtime
-    Repair->>DB: 대상 조회<br/>missing 또는 latest
-    loop batch_size 단위
-        Repair->>Codex: headless prompt 실행
-        Codex-->>Schema: JSON text
-        Schema-->>Repair: briefSummary / gptSummary / tags
+    CLI->>Runtime: ai-summary
+    Runtime->>Agent: generate_agentic_summary_reports
+    Agent->>DB: 대상 조회<br/>passed 또는 all
+    loop concurrency 단위
+        Agent->>Codex: MCP 포함 headless agent 실행
+        Codex-->>Output: Markdown report
     end
-    Repair->>Output: result JSON 저장
+    Agent->>Output: manifest JSON 저장
     opt mode != dry_run
-        Repair->>DB: brief_summary / gpt_summary / summary_tags upsert
+        Agent->>DB: brief_summary / gpt_summary / summary_tags upsert
     end
 ```
 
@@ -246,7 +243,8 @@ sequenceDiagram
 
 | Provider | 기본 모델 | 역할 |
 |----------|-----------|------|
-| Codex CLI | `gpt-5.4-mini` | 표준 실시간 요약 |
+| Codex Agent | `gpt-5.4-mini` | 표준 법안 요약/리포트 |
+| Codex CLI | `gpt-5.4-mini` | 명시적 CLI 복구용 |
 | Gemini CLI | `gemini-3-flash-preview` | 수동 비교/복구용 보조 경로 |
 | Claude CLI | 환경변수 지정 | 수동 비교/복구용 보조 경로 |
 
@@ -272,7 +270,7 @@ DB 반영:
 
 ### 4.4 통과 법안 종합 리포트: `bill-agent-report`
 
-`bill-agent-report`는 처리 결과가 `원안가결`, `수정가결`, `가결`이거나 단계가 `공포`, `본회의 의결`인 통과 법안을 대상으로 합니다. `폐기`, `철회`, `부결`, `임기만료` 결과는 기본 대상에서 제외합니다.
+`ai-summary`의 기본 엔진과 `bill-agent-report`는 처리 결과가 `원안가결`, `수정가결`, `가결`이거나 단계가 `공포`, `본회의 의결`인 통과 법안을 대상으로 합니다. `폐기`, `철회`, `부결`, `임기만료` 결과는 기본 대상에서 제외합니다.
 
 이 경로는 일반 대량 요약이 아니라 품질 심화용입니다. Codex CLI를 headless agent로 실행하고 다음 MCP 서버를 주입해 법안별 Markdown 리포트를 생성합니다.
 
@@ -354,8 +352,8 @@ Airflow 관련 파일은 legacy reference입니다.
 
 1. 신규 기능은 `lawdigest_data.runtime`에 추가합니다.
 2. Airflow DAG는 참고용으로만 읽고, 새 운영 경로로 되살리지 않습니다.
-3. 표준 요약은 `ai-summary --cli-provider codex`입니다.
-4. Gemini와 Claude는 수동 비교/복구용 보조 경로로 사용합니다.
+3. 표준 요약은 `ai-summary`의 기본 `agent` 엔진입니다.
+4. 기존 CLI 경로는 `ai-summary --engine cli --cli-provider codex` 또는 `ai-repair-cli`로 명시 실행합니다.
 5. 모든 실행은 `pipeline-runs.jsonl`과 산출물 JSON으로 검증합니다.
 6. 모니터링 사이트는 우선 JSONL 로그를 읽고, 필요 시 DB 테이블로 확장합니다.
 
