@@ -491,7 +491,39 @@ def test_agentic_report_repair_dedupes_adjacent_same_term_tooltip():
     repaired = _repair_report_body(report_body)
 
     assert "공유재산{{공유재산:" not in repaired
-    assert repaired.count("{{공유재산:") == 2
+    assert repaired.count("{{공유재산:") == 1
+    assert "공유재산을 주거 목적으로" in repaired
+    _validate_report_body(repaired)
+
+
+def test_agentic_report_repair_keeps_only_first_tooltip_per_term():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+- <mark>{{인공지능기술:인공지능을 구현하기 위한 기술을 말해요.}}을 쓰는 행정 결정을 설명받기 쉽게 하는 법률 개정안이에요.</mark>
+
+## 주요 내용
+- **설명 기준**: 행정청이 인공지능기술을 쓴 결정을 설명하는 기준을 더 분명하게 해요.
+
+## 왜 나왔나
+행정이 {{인공지능기술:인공지능을 구현하기 위한 기술을 말해요.}}을 쓰면 결과가 빠르게 나오지만 이유를 알기 어려울 수 있어요.
+
+## 무엇이 달라지나
+
+### 1) 설명 요구 기준 정비
+
+행정청이 **설명 기준**을 더 분명하게 마련해요.
+
+- 사용자는 결정 이유를 더 쉽게 확인할 수 있어요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert repaired.count("{{인공지능기술:") == 1
+    assert "행정이 인공지능기술을 쓰면" in repaired
     _validate_report_body(repaired)
 
 

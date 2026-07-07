@@ -1229,6 +1229,19 @@ def _dedupe_adjacent_term_tooltips(text: str) -> str:
     )
 
 
+def _dedupe_repeated_term_tooltips(text: str) -> str:
+    seen: set[str] = set()
+
+    def replace(match: re.Match[str]) -> str:
+        term = match.group(1)
+        if term in seen:
+            return term
+        seen.add(term)
+        return match.group(0)
+
+    return TERM_TOOLTIP_PATTERN.sub(replace, text)
+
+
 def _has_overlong_brief_prefix(brief_summary: str | None, bill_name: str) -> bool:
     if not brief_summary or not bill_name or not brief_summary.endswith(bill_name):
         return False
@@ -1423,6 +1436,7 @@ def _repair_report_body(report_body: str) -> str:
     repaired = report_body.replace("원문 요약:", "").replace("용어 설명:", "")
     repaired = repaired.replace("법령 체계:", "").replace("쉬운 풀이:", "")
     repaired = _dedupe_adjacent_term_tooltips(repaired)
+    repaired = _dedupe_repeated_term_tooltips(repaired)
     repaired = _repair_term_tooltip_particles(repaired)
     repaired = re.sub(r"(?m)^(?P<indent>\s*)<mark>\s*-\s*(?P<text>[^<\n]+)</mark>", r"\g<indent>- <mark>\g<text></mark>", repaired)
 
