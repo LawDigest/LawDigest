@@ -133,12 +133,13 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 
 - batch_items의 각 항목은 서로 완전히 독립된 작업입니다.
 - 한 법안의 evidence, 표현, 결론, 근거를 다른 법안 리포트에 절대 옮기지 마세요.
-- 각 report_body는 반드시 같은 객체의 bill_id, bill, evidence만 사용해서 작성하세요.
+- 각 report_body는 반드시 같은 순서의 batch_items 객체에 들어 있는 bill, evidence만 사용해서 작성하세요.
 - 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.
-- reports 배열에는 입력 batch_items와 같은 bill_id를 각각 정확히 한 번씩 넣으세요.
+- reports 배열은 입력 batch_items와 같은 순서로 report_body만 각각 정확히 한 번씩 넣으세요.
+- 각 report_body의 첫 줄 H1 제목은 해당 batch_items의 bill.bill_name과 같아야 합니다.
 - report_body 값은 Markdown 문자열입니다. JSON 문자열 안의 줄바꿈은 반드시 escape된 줄바꿈으로 표현하세요.
 - brief_summary, gpt_summary, tags를 만들지 마세요. DB 저장용 요약은 별도 코드가 report_body에서 생성합니다.
-- 출력 스키마: `{"reports":[{"bill_id":"PRC_EXAMPLE","report_mode":"deep_report","report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}`
+- 출력 스키마: `{"reports":[{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}`
 """.strip() + "\n"
 
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
@@ -1044,7 +1045,7 @@ def build_bill_report_batch_prompt(batch_items: list[dict[str, Any]]) -> str:
         "작업: Lawdigest 법안 리포트를 배치로 작성하세요.\n"
         "아래 batch_items의 각 항목은 서로 완전히 독립된 작업입니다. "
         "한 법안의 evidence, 표현, 결론, 근거를 다른 법안 리포트에 절대 옮기지 마세요. "
-        "각 report_body는 반드시 같은 객체의 bill_id, bill, evidence만 사용해서 작성하세요.\n\n"
+        "각 report_body는 반드시 같은 순서의 batch_items 객체에 들어 있는 bill, evidence만 사용해서 작성하세요.\n\n"
         "공통 작성 계약:\n"
         "- 추가 도구 호출, 웹 검색, 셸 명령 실행을 하지 말고 제공된 evidence 안에서만 사실관계를 사용하세요.\n"
         "- 각 항목은 처리 상태와 관계없이 deep_report 긴 버전으로 작성하세요.\n"
@@ -1052,11 +1053,12 @@ def build_bill_report_batch_prompt(batch_items: list[dict[str, Any]]) -> str:
         "- report_body 안의 Markdown 구조, 문체, 하이라이트, 용어 설명 방식은 `$lawdigest-bill-report` 스킬 계약을 따르세요.\n\n"
         "출력 규칙:\n"
         "- 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.\n"
-        "- reports 배열에는 입력 batch_items와 같은 bill_id를 각각 정확히 한 번씩 넣으세요.\n"
+        "- reports 배열은 입력 batch_items와 같은 순서로 report_body만 각각 정확히 한 번씩 넣으세요.\n"
+        "- 각 report_body의 첫 줄 H1 제목은 해당 batch_items의 bill.bill_name과 같아야 합니다.\n"
         "- report_body 값은 Markdown 문자열입니다. JSON 문자열 안의 줄바꿈은 반드시 escape된 줄바꿈으로 표현하세요.\n"
         "- brief_summary, gpt_summary, tags를 만들지 마세요. DB 저장용 요약은 별도 코드가 report_body에서 생성합니다.\n\n"
         "출력 스키마:\n"
-        '{"reports":[{"bill_id":"PRC_EXAMPLE","report_mode":"deep_report","report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}\n\n'
+        '{"reports":[{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}\n\n'
         f"batch_items:\n{json.dumps(batch_items, ensure_ascii=False, indent=2, default=str)}"
     )
 
@@ -1107,23 +1109,23 @@ def _parse_batch_report_output(
         )
     parsed: dict[str, str] = {}
     pending_reports: list[tuple[int, str]] = []
+    title_counts: dict[str, int] = {}
+    for bill in expected_bills or []:
+        title_key = _normalize_bill_name_for_match(bill.get("bill_name"))
+        if title_key:
+            title_counts[title_key] = title_counts.get(title_key, 0) + 1
     expected_by_title = {
         _normalize_bill_name_for_match(bill.get("bill_name")): str(bill.get("bill_id") or "")
         for bill in (expected_bills or [])
-        if bill.get("bill_id") and bill.get("bill_name")
+        if bill.get("bill_id") and bill.get("bill_name") and title_counts.get(_normalize_bill_name_for_match(bill.get("bill_name"))) == 1
     }
-    expected_set = set(expected_bill_ids)
-    for report in reports:
+    for report_index, report in enumerate(reports):
         if not isinstance(report, dict):
             continue
-        bill_id = str(report.get("bill_id") or "")
         report_body = report.get("report_body")
         if not isinstance(report_body, str) or not report_body.strip():
             continue
-        if bill_id in expected_set and bill_id not in parsed:
-            parsed[bill_id] = report_body
-            continue
-        pending_reports.append((len(parsed) + len(pending_reports), report_body))
+        pending_reports.append((report_index, report_body))
 
     still_pending: list[tuple[int, str]] = []
     for index, report_body in pending_reports:

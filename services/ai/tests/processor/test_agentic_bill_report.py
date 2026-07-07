@@ -246,7 +246,10 @@ def test_agentic_report_batch_prompt_isolates_bill_reports():
     assert "JSON 객체 하나만 작성하세요" in prompt
     assert '"reports"' in prompt
     assert '"report_body"' in prompt
+    assert '{"reports":[{"report_body"' in prompt
+    assert '"bill_id":"PRC_EXAMPLE"' not in prompt
     assert "처리 상태와 관계없이 deep_report 긴 버전" in prompt
+    assert "같은 순서로 report_body만" in prompt
     assert "### 1) 제목" in context
     assert "번호 헤딩 다음에는 불릿이 아닌 일반 문단" in context
 
@@ -1528,8 +1531,8 @@ def test_run_agentic_bill_reports_batches_multiple_bills_in_one_session(tmp_path
             json.dumps(
                 {
                     "reports": [
-                        {"bill_id": "PRC_BATCH_1", "report_mode": "deep_report", "report_body": report_body_1},
-                        {"bill_id": "PRC_BATCH_2", "report_mode": "deep_report", "report_body": report_body_2},
+                        {"report_body": report_body_1},
+                        {"report_body": report_body_2},
                     ]
                 },
                 ensure_ascii=False,
@@ -1612,7 +1615,7 @@ def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monk
             json.dumps(
                 {
                     "reports": [
-                        {"bill_id": "PRC_PARTIAL_1", "report_mode": "deep_report", "report_body": report_body},
+                        {"report_body": report_body},
                     ]
                 },
                 ensure_ascii=False,
@@ -1646,7 +1649,7 @@ def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monk
     assert mock_update.call_args.kwargs["bill_id"] == "PRC_PARTIAL_1"
 
 
-def test_run_agentic_bill_reports_repairs_missing_report_bill_id_by_title(tmp_path, monkeypatch):
+def test_run_agentic_bill_reports_maps_report_bodies_without_agent_bill_id(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
 
     monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
@@ -1695,8 +1698,8 @@ def test_run_agentic_bill_reports_repairs_missing_report_bill_id_by_title(tmp_pa
             json.dumps(
                 {
                     "reports": [
-                        {"bill_id": "PRC_REPAIR_1", "report_mode": "deep_report", "report_body": report_body_1},
-                        {"bill_id": "", "report_mode": "deep_report", "report_body": report_body_2},
+                        {"report_body": report_body_1},
+                        {"report_body": report_body_2},
                     ]
                 },
                 ensure_ascii=False,
@@ -1728,6 +1731,35 @@ def test_run_agentic_bill_reports_repairs_missing_report_bill_id_by_title(tmp_pa
     assert "두 번째 법안은 제목으로 식별자를 복구해야 해요" in Path(
         result["items"][1]["report_path"]
     ).read_text(encoding="utf-8")
+
+
+def test_batch_report_parser_ignores_agent_bill_id_when_title_matches():
+    from lawdigest_ai.processor.agentic_bill_report import _parse_batch_report_output
+
+    report_body_1 = "# 파이프라인 기준 테스트법안 1\n\n## 쉬운 요약\n- 첫 번째예요.\n\n## 주요 내용\n- **항목**: 설명이에요.\n"
+    report_body_2 = "# 파이프라인 기준 테스트법안 2\n\n## 쉬운 요약\n- 두 번째예요.\n\n## 주요 내용\n- **항목**: 설명이에요.\n"
+
+    parsed = _parse_batch_report_output(
+        json.dumps(
+            {
+                "reports": [
+                    {"bill_id": "WRONG_ID_2", "report_body": report_body_1},
+                    {"bill_id": "WRONG_ID_1", "report_body": report_body_2},
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        expected_bill_ids=["PIPELINE_ID_1", "PIPELINE_ID_2"],
+        expected_bills=[
+            {"bill_id": "PIPELINE_ID_1", "bill_name": "파이프라인 기준 테스트법안 1"},
+            {"bill_id": "PIPELINE_ID_2", "bill_name": "파이프라인 기준 테스트법안 2"},
+        ],
+    )
+
+    assert parsed == {
+        "PIPELINE_ID_1": report_body_1,
+        "PIPELINE_ID_2": report_body_2,
+    }
 
 
 def test_run_agentic_bill_reports_runs_codex_sessions_in_parallel(tmp_path, monkeypatch):
