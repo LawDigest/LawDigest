@@ -1088,6 +1088,18 @@ def _extract_report_title(report_body: str) -> str:
     return match.group(1).strip() if match else ""
 
 
+def _validate_report_title_matches_bill(report_body: str, bill: dict[str, Any]) -> None:
+    expected_title = _normalize_bill_name_for_match(bill.get("bill_name"))
+    if not expected_title:
+        return
+    actual_title = _normalize_bill_name_for_match(_extract_report_title(report_body))
+    if actual_title != expected_title:
+        raise RuntimeError(
+            "생성 리포트 제목이 대상 법안명과 일치하지 않습니다: "
+            f"expected={bill.get('bill_name')}, actual={_extract_report_title(report_body) or '없음'}"
+        )
+
+
 def _parse_batch_report_output(
     text: str,
     *,
@@ -1554,7 +1566,7 @@ class CodexBillReportAgent:
                 args.extend(["-c", f"{prefix}.tools.{tool_name}.approval_mode={_toml_string('approve')}"])
         return args
 
-    def build_command(self, *, prompt: str, output_path: str) -> tuple[list[str], str]:
+    def build_command(self, *, prompt: str, output_path: str, ephemeral: bool = True) -> tuple[list[str], str]:
         command = [
             self.cli_bin,
             "exec",
@@ -1569,7 +1581,33 @@ class CodexBillReportAgent:
             "--cd",
             self.workdir,
             "--skip-git-repo-check",
-            "--ephemeral",
+            "--ignore-rules",
+            "--json",
+            "--model",
+            self.model,
+            "--output-last-message",
+            output_path,
+            "-",
+        ]
+        if ephemeral:
+            command.insert(command.index("--ignore-rules"), "--ephemeral")
+        if self.enable_mcp:
+            command[-1:-1] = self._mcp_server_config_args()
+        return command, prompt
+
+    def build_resume_command(self, *, session_id: str, prompt: str, output_path: str) -> tuple[list[str], str]:
+        command = [
+            self.cli_bin,
+            "exec",
+            "resume",
+            session_id,
+            "--disable",
+            "plugins",
+            "--disable",
+            "apps",
+            "--disable",
+            "memories",
+            "--skip-git-repo-check",
             "--ignore-rules",
             "--json",
             "--model",
@@ -1677,6 +1715,7 @@ class CodexBillReportAgent:
         }
         details["repair_applied"] = repair_applied
         try:
+            _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
             _validate_report_body(report_path.read_text(encoding="utf-8"))
             validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
             if repair_applied:
@@ -1727,113 +1766,77 @@ class CodexBillReportAgent:
         report_mode: str = "auto",
         batch_index: int = 1,
     ) -> dict[str, Any]:
-        batch_items: list[dict[str, Any]] = []
-        evidences: dict[str, dict[str, Any]] = {}
-        for bill in bills:
-            bill_id = str(bill.get("bill_id") or "")
-            evidence = build_bill_report_evidence(bill, report_mode=report_mode)
-            resolved_mode = str(evidence.get("report_mode") or _resolve_report_mode(report_mode, bill))
-            evidences[bill_id] = evidence
-            batch_items.append({
-                "bill_id": bill_id,
-                "bill": _build_bill_payload(bill),
-                "report_mode": resolved_mode,
-                "evidence": evidence,
-            })
-
         expected_bill_ids = [str(bill.get("bill_id") or "") for bill in bills]
-        prompt = build_bill_report_batch_prompt(batch_items)
-        batch_output_path = output_root / f"batch-session-{batch_index:04d}.json"
-        command, stdin_text = self.build_command(prompt=prompt, output_path=str(batch_output_path))
-        batch_output_path.parent.mkdir(parents=True, exist_ok=True)
-        started_at = datetime.now(timezone.utc)
-        started_perf = time.perf_counter()
-
-        try:
-            proc = subprocess.run(
-                command,
-                input=stdin_text,
-                capture_output=True,
-                text=True,
-                cwd=self.workdir,
-                env=self.build_environment(),
-                timeout=self.timeout_seconds,
-            )
-            stdout_text = (proc.stdout or "").strip()
-            stderr_text = (proc.stderr or "").strip()
-            exit_code = proc.returncode
-        finally:
-            finished_at = datetime.now(timezone.utc)
-            duration_seconds = round(time.perf_counter() - started_perf, 3)
-
-        metadata = _parse_codex_json_metadata(stdout_text)
-        session = {
-            "batch_index": batch_index,
-            "bill_ids": expected_bill_ids,
-            "output_path": str(batch_output_path),
-            "started_at": started_at.isoformat(),
-            "finished_at": finished_at.isoformat(),
-            "duration_seconds": duration_seconds,
-            "exit_code": exit_code,
-            **metadata,
-        }
-        if exit_code != 0:
-            error = (stderr_text or stdout_text or "Codex agent failed").strip()
-            failed_items = [
-                {
-                    "bill_id": bill.get("bill_id"),
-                    "bill_name": bill.get("bill_name"),
-                    "status": "failed",
-                    "error": error,
-                    "batch_index": batch_index,
-                    "started_at": started_at.isoformat(),
-                    "finished_at": finished_at.isoformat(),
-                    "duration_seconds": duration_seconds,
-                    "exit_code": exit_code,
-                    "codex_thread_id": metadata.get("codex_thread_id"),
-                    "codex_event_count": metadata.get("codex_event_count"),
-                    "token_usage_available": False,
-                }
-                for bill in bills
-            ]
-            return {"items": failed_items, "session": session}
-
-        output_text = ""
-        if batch_output_path.exists():
-            output_text = batch_output_path.read_text(encoding="utf-8")
-        if not output_text.strip():
-            output_text = stdout_text
-
-        try:
-            reports_by_bill_id = _parse_batch_report_output(
-                output_text,
-                expected_bill_ids=expected_bill_ids,
-                expected_bills=bills,
-            )
-        except BillReportGenerationError as exc:
-            failed_items = [
-                {
-                    "bill_id": bill.get("bill_id"),
-                    "bill_name": bill.get("bill_name"),
-                    "status": "failed",
-                    "error": str(exc),
-                    "batch_index": batch_index,
-                    "started_at": started_at.isoformat(),
-                    "finished_at": finished_at.isoformat(),
-                    "duration_seconds": duration_seconds,
-                    "exit_code": exit_code,
-                    "codex_thread_id": metadata.get("codex_thread_id"),
-                    "codex_event_count": metadata.get("codex_event_count"),
-                    "token_usage_available": False,
-                }
-                for bill in bills
-            ]
-            return {"items": failed_items, "session": session}
-
+        output_root.mkdir(parents=True, exist_ok=True)
+        session_started_at = datetime.now(timezone.utc)
+        session_started_perf = time.perf_counter()
+        session_id: str | None = None
+        session_event_count = 0
+        output_paths: list[str] = []
+        turns: list[dict[str, Any]] = []
         completed_items: list[dict[str, Any]] = []
-        for bill in bills:
+
+        for turn_index, bill in enumerate(bills, start=1):
             bill_id = str(bill.get("bill_id") or "")
             report_path = output_root / f"{_slugify_bill_id(bill_id)}.md"
+            output_paths.append(str(report_path))
+            evidence = build_bill_report_evidence(bill, report_mode=report_mode)
+            resolved_mode = str(evidence.get("report_mode") or _resolve_report_mode(report_mode, bill))
+            prompt = build_bill_report_prompt(bill, report_mode=resolved_mode, evidence=evidence)
+            if turn_index == 1:
+                command, stdin_text = self.build_command(prompt=prompt, output_path=str(report_path), ephemeral=False)
+            elif session_id:
+                command, stdin_text = self.build_resume_command(session_id=session_id, prompt=prompt, output_path=str(report_path))
+            else:
+                details = {
+                    "bill_id": bill.get("bill_id"),
+                    "bill_name": bill.get("bill_name"),
+                    "report_path": str(report_path),
+                    "batch_index": batch_index,
+                    "batch_turn_index": turn_index,
+                    "status": "failed",
+                    "error": "Codex session id is missing; cannot resume batch session.",
+                    "token_usage_available": False,
+                    "report_mode": resolved_mode,
+                    "prefetch": {
+                        "plan": EFFECTIVE_AGENT_TOOL_AUDIT["effective_prefetch"],
+                        "errors": evidence.get("prefetch_errors") or [],
+                    },
+                }
+                completed_items.append(details)
+                turns.append({
+                    "turn_index": turn_index,
+                    "bill_id": bill_id,
+                    "status": "failed",
+                    "error": details["error"],
+                    "output_path": str(report_path),
+                })
+                continue
+
+            started_at = datetime.now(timezone.utc)
+            started_perf = time.perf_counter()
+            try:
+                proc = subprocess.run(
+                    command,
+                    input=stdin_text,
+                    capture_output=True,
+                    text=True,
+                    cwd=self.workdir,
+                    env=self.build_environment(),
+                    timeout=self.timeout_seconds,
+                )
+                stdout_text = (proc.stdout or "").strip()
+                stderr_text = (proc.stderr or "").strip()
+                exit_code = proc.returncode
+            finally:
+                finished_at = datetime.now(timezone.utc)
+                duration_seconds = round(time.perf_counter() - started_perf, 3)
+
+            metadata = _parse_codex_json_metadata(stdout_text)
+            if metadata.get("codex_thread_id"):
+                session_id = str(metadata["codex_thread_id"])
+            turn_thread_id = metadata.get("codex_thread_id") or session_id
+            session_event_count += int(metadata.get("codex_event_count") or 0)
             details = {
                 "bill_id": bill.get("bill_id"),
                 "bill_name": bill.get("bill_name"),
@@ -1843,26 +1846,34 @@ class CodexBillReportAgent:
                 "duration_seconds": duration_seconds,
                 "exit_code": exit_code,
                 "batch_index": batch_index,
-                "codex_thread_id": metadata.get("codex_thread_id"),
+                "batch_turn_index": turn_index,
+                "codex_thread_id": turn_thread_id,
                 "codex_event_count": metadata.get("codex_event_count"),
-                "token_usage_available": False,
-                "usage_shared": True,
-                "report_mode": str(evidences.get(bill_id, {}).get("report_mode") or _resolve_report_mode(report_mode, bill)),
+                "token_usage_available": metadata.get("token_usage_available", False),
+                "usage": metadata.get("usage"),
+                "usage_shared": False,
+                "report_mode": resolved_mode,
                 "prefetch": {
                     "plan": EFFECTIVE_AGENT_TOOL_AUDIT["effective_prefetch"],
-                    "errors": evidences.get(bill_id, {}).get("prefetch_errors") or [],
+                    "errors": evidence.get("prefetch_errors") or [],
                 },
             }
             validation = {"status": "not_run", "summary": "Markdown 검증을 실행하지 않았습니다."}
             try:
-                raw_report_body = reports_by_bill_id.get(bill_id)
-                if not raw_report_body:
-                    raise RuntimeError(f"Codex batch report output is missing bill report: {bill_id}")
+                if exit_code != 0:
+                    raise RuntimeError((stderr_text or stdout_text or "Codex agent failed").strip())
+                if not report_path.exists() and stdout_text:
+                    report_path.write_text(stdout_text, encoding="utf-8")
+                if not report_path.exists():
+                    raise RuntimeError("Codex agent report body is empty.")
+                raw_report_body = report_path.read_text(encoding="utf-8")
                 repaired_report_body = _repair_report_body(raw_report_body)
                 repair_applied = repaired_report_body != raw_report_body.strip() + "\n"
-                report_path.write_text(repaired_report_body, encoding="utf-8")
+                if repair_applied:
+                    report_path.write_text(repaired_report_body, encoding="utf-8")
                 details["output_bytes"] = report_path.stat().st_size
                 details["repair_applied"] = repair_applied
+                _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
                 _validate_report_body(report_path.read_text(encoding="utf-8"))
                 validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
                 if repair_applied:
@@ -1887,7 +1898,35 @@ class CodexBillReportAgent:
                 )
                 status_item.update(inspection_paths)
             completed_items.append(status_item)
+            turns.append({
+                "turn_index": turn_index,
+                "bill_id": bill_id,
+                "status": status_item.get("status"),
+                "error": status_item.get("error"),
+                "output_path": str(report_path),
+                "started_at": started_at.isoformat(),
+                "finished_at": finished_at.isoformat(),
+                "duration_seconds": duration_seconds,
+                "exit_code": exit_code,
+                "codex_event_count": metadata.get("codex_event_count"),
+                "token_usage_available": metadata.get("token_usage_available", False),
+                "usage": metadata.get("usage"),
+            })
 
+        session_finished_at = datetime.now(timezone.utc)
+        session = {
+            "batch_index": batch_index,
+            "bill_ids": expected_bill_ids,
+            "output_paths": output_paths,
+            "started_at": session_started_at.isoformat(),
+            "finished_at": session_finished_at.isoformat(),
+            "duration_seconds": round(time.perf_counter() - session_started_perf, 3),
+            "codex_thread_id": session_id,
+            "codex_event_count": session_event_count,
+            "token_usage_available": False,
+            "turn_count": len(turns),
+            "turns": turns,
+        }
         return {"items": completed_items, "session": session}
 
 

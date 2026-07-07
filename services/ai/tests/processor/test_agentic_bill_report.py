@@ -1074,6 +1074,32 @@ def test_codex_agent_command_omits_mcp_servers_by_default(tmp_path, monkeypatch)
     assert "mcp_servers." not in joined
 
 
+def test_codex_agent_builds_persistent_initial_and_resume_commands(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+
+    agent = CodexBillReportAgent(workdir="/tmp/lawdigest-agent", model="gpt-5.3-codex-spark")
+    initial_command, initial_stdin = agent.build_command(
+        prompt="첫 번째 리포트를 작성하세요.",
+        output_path=str(tmp_path / "first.md"),
+        ephemeral=False,
+    )
+    resume_command, resume_stdin = agent.build_resume_command(
+        session_id="thread-batch",
+        prompt="두 번째 리포트를 작성하세요.",
+        output_path=str(tmp_path / "second.md"),
+    )
+
+    assert initial_command[:2] == ["codex", "exec"]
+    assert "--ephemeral" not in initial_command
+    assert "--output-last-message" in initial_command
+    assert initial_stdin == "첫 번째 리포트를 작성하세요."
+    assert resume_command[:4] == ["codex", "exec", "resume", "thread-batch"]
+    assert "--output-last-message" in resume_command
+    assert resume_stdin == "두 번째 리포트를 작성하세요."
+
+
 def test_codex_agent_uses_dedicated_codex_home(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import (
         CODEX_AUTH_FILES,
@@ -1527,24 +1553,15 @@ def test_run_agentic_bill_reports_batches_multiple_bills_in_one_session(tmp_path
 
     def run_codex(command, **kwargs):
         output_path = Path(command[command.index("--output-last-message") + 1])
-        output_path.write_text(
-            json.dumps(
-                {
-                    "reports": [
-                        {"report_body": report_body_1},
-                        {"report_body": report_body_2},
-                    ]
-                },
-                ensure_ascii=False,
-            ),
-            encoding="utf-8",
-        )
-        stdout = "\n".join(
-            [
-                '{"type":"thread.started","thread_id":"thread-batch"}',
-                '{"type":"turn.completed","usage":{"input_tokens":101,"cached_input_tokens":7,"output_tokens":9,"reasoning_output_tokens":2}}',
-            ]
-        )
+        is_resume = command[:3] == ["codex", "exec", "resume"]
+        output_path.write_text(report_body_2 if is_resume else report_body_1, encoding="utf-8")
+        usage = {"input_tokens": 202, "cached_input_tokens": 17, "output_tokens": 19, "reasoning_output_tokens": 3}
+        if not is_resume:
+            usage = {"input_tokens": 101, "cached_input_tokens": 7, "output_tokens": 9, "reasoning_output_tokens": 2}
+        stdout = "\n".join([
+            '{"type":"thread.started","thread_id":"thread-batch"}',
+            json.dumps({"type": "turn.completed", "usage": usage}),
+        ])
         return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
 
     with patch(
@@ -1560,16 +1577,21 @@ def test_run_agentic_bill_reports_batches_multiple_bills_in_one_session(tmp_path
             batch_session_size=2,
         )
 
-    assert mock_run.call_count == 1
+    assert mock_run.call_count == 2
+    assert mock_run.call_args_list[0].args[0][:2] == ["codex", "exec"]
+    assert "--ephemeral" not in mock_run.call_args_list[0].args[0]
+    assert mock_run.call_args_list[1].args[0][:4] == ["codex", "exec", "resume", "thread-batch"]
     assert result["batch_session_size"] == 2
     assert result["batch_session_count"] == 1
     assert result["stats"]["success_count"] == 2
-    assert result["stats"]["usage_totals"]["input_tokens"] == 101
-    assert result["stats"]["token_usage_available_count"] == 1
-    assert result["sessions"][0]["usage"]["input_tokens"] == 101
+    assert result["stats"]["usage_totals"]["input_tokens"] == 303
+    assert result["stats"]["token_usage_available_count"] == 2
+    assert result["sessions"][0]["turn_count"] == 2
+    assert result["sessions"][0]["codex_thread_id"] == "thread-batch"
     assert [item["batch_index"] for item in result["items"]] == [1, 1]
+    assert [item["batch_turn_index"] for item in result["items"]] == [1, 2]
     assert [item["report_mode"] for item in result["items"]] == ["deep_report", "deep_report"]
-    assert all(item["usage_shared"] is True for item in result["items"])
+    assert all(item["usage_shared"] is False for item in result["items"])
     assert "첫 번째 법안만의 변화" in Path(result["items"][0]["report_path"]).read_text(encoding="utf-8")
     assert "두 번째 법안만의 변화" in Path(result["items"][1]["report_path"]).read_text(encoding="utf-8")
 
@@ -1611,18 +1633,12 @@ def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monk
 
     def run_codex(command, **kwargs):
         output_path = Path(command[command.index("--output-last-message") + 1])
-        output_path.write_text(
-            json.dumps(
-                {
-                    "reports": [
-                        {"report_body": report_body},
-                    ]
-                },
-                ensure_ascii=False,
-            ),
-            encoding="utf-8",
-        )
-        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+        if command[:3] != ["codex", "exec", "resume"]:
+            output_path.write_text(report_body, encoding="utf-8")
+            stdout = '{"type":"thread.started","thread_id":"thread-partial"}'
+        else:
+            stdout = ""
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
 
     with patch(
         "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
@@ -1644,7 +1660,7 @@ def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monk
     assert result["stats"]["db_upserted_count"] == 1
     assert result["items"][0]["status"] == "success"
     assert result["items"][1]["status"] == "failed"
-    assert "missing bill report: PRC_PARTIAL_2" in result["items"][1]["error"]
+    assert "Codex agent report body is empty" in result["items"][1]["error"]
     mock_update.assert_called_once()
     assert mock_update.call_args.kwargs["bill_id"] == "PRC_PARTIAL_1"
 
@@ -1694,19 +1710,13 @@ def test_run_agentic_bill_reports_maps_report_bodies_without_agent_bill_id(tmp_p
 
     def run_codex(command, **kwargs):
         output_path = Path(command[command.index("--output-last-message") + 1])
-        output_path.write_text(
-            json.dumps(
-                {
-                    "reports": [
-                        {"report_body": report_body_1},
-                        {"report_body": report_body_2},
-                    ]
-                },
-                ensure_ascii=False,
-            ),
-            encoding="utf-8",
-        )
-        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+        if command[:3] == ["codex", "exec", "resume"]:
+            output_path.write_text(report_body_2, encoding="utf-8")
+            stdout = '{"type":"thread.started","thread_id":"thread-repair"}'
+        else:
+            output_path.write_text(report_body_1, encoding="utf-8")
+            stdout = '{"type":"thread.started","thread_id":"thread-repair"}'
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
 
     with patch(
         "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
