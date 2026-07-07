@@ -1,3 +1,5 @@
+import importlib
+
 from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTermClient
 
 
@@ -113,3 +115,18 @@ def test_law_open_api_term_client_is_disabled_without_oc():
     client = LawOpenApiTermClient(oc="")
 
     assert client.enabled is False
+
+
+def test_law_open_api_term_client_loads_law_oc_from_airflow_dotenv(tmp_path, monkeypatch):
+    env_path = tmp_path / ".env"
+    env_path.write_text("LAW_OC=law-key-from-env\n", encoding="utf-8")
+    monkeypatch.delenv("LAW_OC", raising=False)
+    monkeypatch.setenv("AIRFLOW_DOTENV_PATH", str(env_path))
+
+    import lawdigest_ai.processor.law_open_api_terms as terms_module
+
+    reloaded = importlib.reload(terms_module)
+
+    client = reloaded.LawOpenApiTermClient()
+    assert client.enabled is True
+    assert client.oc == "law-key-from-env"

@@ -2,12 +2,22 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 import requests
 
 
 LAW_OPEN_API_BASE_URL = "https://www.law.go.kr/DRF"
+
+_AIRFLOW_DOTENV_PATH = os.getenv("AIRFLOW_DOTENV_PATH")
+_DEFAULT_AIRFLOW_DOTENV_PATH = Path(__file__).resolve().parents[5] / "services" / "data" / ".env"
+load_dotenv(
+    dotenv_path=_AIRFLOW_DOTENV_PATH
+    if _AIRFLOW_DOTENV_PATH
+    else str(_DEFAULT_AIRFLOW_DOTENV_PATH),
+)
 
 
 class LawOpenApiTermClientError(RuntimeError):
