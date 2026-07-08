@@ -131,8 +131,13 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 - 볼드체와 하이라이트는 과하게 쓰지 말고, 리포트 전체에서 꼭 필요한 곳에만 쓰세요.
 - 법률·행정용어 툴팁 문법은 직접 쓰지 마세요. 중괄호 기반 툴팁 표기는 파이프라인 검증에서 제거되거나 실패 처리됩니다.
 - 법제처 정의가 있는 용어도 본문에서는 자연스러운 단어로만 쓰세요. 툴팁 표기는 코드가 후처리로 주입합니다.
-- 단건 리포트의 최종 출력은 Markdown만 작성하세요.
-- JSON, `reports`, `report_body` 같은 래퍼로 감싸지 말고 첫 줄을 `# 법안명`으로 시작하세요.
+- 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.
+- `report_body`에는 사용자에게 보여줄 최종 Markdown 리포트만 넣으세요. 첫 줄은 반드시 `# 법안명`으로 시작하세요.
+- `tooltips`에는 법제처 용어 사전 후보 중 본문 문맥에서 일반 독자에게 꼭 필요한 high-confidence 용어만 넣으세요.
+- 후보에 없는 용어를 새로 만들지 마세요. `surface`는 `report_body`에 실제로 등장하는 표현이어야 합니다.
+- `definition`은 참고용이며 최종 툴팁 정의는 파이프라인이 후보 사전 정의로만 주입합니다.
+- `bill_id`, `brief_summary`, `gpt_summary`, `tags`를 만들지 마세요.
+- 출력 스키마: `{"report_body":"# 법안명\n\n## 쉬운 요약\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high"}],"rejected":[]}`
 """.strip() + "\n"
 
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
@@ -1020,6 +1025,7 @@ def build_bill_report_prompt(
     if not evidence_payload.get("legal_terms"):
         _append_legal_term_context(evidence_payload, payload)
     legal_term_context = str(evidence_payload.get("legal_terms", {}).get("context") or "")
+    candidate_terms = [_legal_term_entry_to_dict(entry) for entry in _legal_term_entries_from_evidence(evidence_payload)]
     return (
         f"${REPORT_SKILL_NAME}\n\n"
         "작업: 단건 Lawdigest 법안 리포트를 작성하세요.\n"
@@ -1030,6 +1036,17 @@ def build_bill_report_prompt(
         "- 모든 법안은 처리 상태와 관계없이 긴 버전 리포트로 작성합니다.\n"
         "- 아직 통과되지 않았거나 막 접수된 법안은 제도가 확정된 것처럼 말하지 말고, 법안이 제안하는 변화와 앞으로 볼 점을 중심으로 설명하세요.\n\n"
         f"{legal_term_context}\n\n"
+        "출력 규칙:\n"
+        "- JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.\n"
+        "- report_body 값은 Markdown 문자열입니다. 첫 줄 H1 제목은 bill.bill_name과 같아야 합니다.\n"
+        "- report_body 안에는 툴팁 문법이나 중괄호 표기를 직접 쓰지 마세요.\n"
+        "- tooltips 배열에는 candidate_terms 중 본문 문맥에서 꼭 필요한 high-confidence 용어만 넣으세요.\n"
+        "- 후보에 없는 용어를 새로 만들지 마세요. surface는 report_body에 실제로 등장하는 표현이어야 합니다.\n"
+        "- confidence는 high 또는 low만 사용하세요. 파이프라인은 high만 반영합니다.\n"
+        "- bill_id, brief_summary, gpt_summary, tags를 만들지 마세요.\n\n"
+        "출력 스키마:\n"
+        '{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high"}],"rejected":[{"term":"정확성","reason":"일반어이거나 문맥 정의가 불확실함"}]}\n\n'
+        f"candidate_terms:\n{json.dumps(candidate_terms, ensure_ascii=False, indent=2, default=str)}\n\n"
         f"입력 evidence packet:\n{json.dumps(evidence_payload, ensure_ascii=False, indent=2, default=str)}"
     )
 
@@ -1214,6 +1231,14 @@ class ApprovedLegalTermTooltip:
     confidence: str = "high"
 
 
+@dataclass(frozen=True)
+class ParsedStructuredReport:
+    report_body: str
+    tooltip_decisions: list[ApprovedLegalTermTooltip]
+    tooltip_candidate_count: int
+    structured_output: bool = False
+
+
 def _legal_term_entry_to_dict(entry: LegalTermEntry) -> dict[str, Any]:
     return {
         "term": entry.term,
@@ -1300,6 +1325,9 @@ def _parse_legal_term_tooltip_decisions(
         entry = lookup.get(normalize_legal_term(term)) or lookup.get(normalize_legal_term(surface))
         if entry is None or not is_safe_legal_term_tooltip_entry(entry):
             continue
+        definition = _sanitize_tooltip_definition(entry.definition)
+        if not definition:
+            continue
         if normalize_legal_term(surface) in seen_surfaces:
             continue
         seen_surfaces.add(normalize_legal_term(surface))
@@ -1307,12 +1335,113 @@ def _parse_legal_term_tooltip_decisions(
             ApprovedLegalTermTooltip(
                 term=entry.term,
                 surface=surface,
-                definition=_sanitize_tooltip_definition(entry.definition),
+                definition=definition,
                 reason=str(raw_tooltip.get("reason") or "").strip(),
                 confidence="high",
             )
         )
     return decisions[:5]
+
+
+def _extract_single_report_payload(raw_output: str, *, bill: dict[str, Any]) -> tuple[dict[str, Any] | None, str, bool]:
+    stripped = raw_output.strip()
+    if not stripped.startswith("{") and not stripped.startswith("```"):
+        return None, raw_output, False
+
+    try:
+        payload = json.loads(_extract_json_object(stripped))
+    except (json.JSONDecodeError, ValueError):
+        return None, raw_output, False
+    if not isinstance(payload, dict):
+        return None, raw_output, False
+
+    if isinstance(payload.get("report_body"), str):
+        return payload, str(payload["report_body"]), True
+
+    reports = payload.get("reports")
+    if not isinstance(reports, list):
+        return None, raw_output, False
+
+    selected_report: dict[str, Any] | None = None
+    expected_title = _normalize_bill_name_for_match(bill.get("bill_name"))
+    if expected_title:
+        title_matches = [
+            report
+            for report in reports
+            if isinstance(report, dict)
+            and isinstance(report.get("report_body"), str)
+            and _normalize_bill_name_for_match(_extract_report_title(str(report["report_body"]))) == expected_title
+        ]
+        if len(title_matches) == 1:
+            selected_report = title_matches[0]
+
+    if selected_report is None and len(reports) == 1 and isinstance(reports[0], dict):
+        selected_report = reports[0]
+
+    if selected_report is None or not isinstance(selected_report.get("report_body"), str):
+        return None, _unwrap_single_report_json_output(raw_output, bill=bill), True
+    return selected_report, str(selected_report["report_body"]), True
+
+
+def _parse_structured_report_output(
+    raw_output: str,
+    *,
+    bill: dict[str, Any],
+    evidence: dict[str, Any],
+) -> ParsedStructuredReport:
+    payload, report_body, structured_output = _extract_single_report_payload(raw_output, bill=bill)
+    postprocessed_report_body = _postprocess_report_body(report_body, bill=bill)
+    candidate_entries = [
+        entry
+        for entry in _legal_term_entries_from_evidence(evidence)
+        if _tooltip_candidate_matches_report(entry, postprocessed_report_body)
+    ]
+    raw_tooltips = payload.get("tooltips") if payload is not None else None
+    decisions: list[ApprovedLegalTermTooltip] = []
+    if raw_tooltips is not None:
+        decisions = _parse_legal_term_tooltip_decisions(
+            json.dumps({"tooltips": raw_tooltips}, ensure_ascii=False, default=str),
+            candidate_entries,
+        )
+        report_text = _strip_markdown_for_summary(postprocessed_report_body)
+        decisions = [decision for decision in decisions if decision.surface in report_text]
+
+    return ParsedStructuredReport(
+        report_body=postprocessed_report_body,
+        tooltip_decisions=decisions,
+        tooltip_candidate_count=len(candidate_entries),
+        structured_output=structured_output,
+    )
+
+
+def _apply_structured_report_tooltips(parsed: ParsedStructuredReport) -> str:
+    rendered = _apply_legal_term_tooltip_decisions(parsed.report_body, parsed.tooltip_decisions)
+    return _repair_term_tooltip_particles(rendered).strip() + "\n"
+
+
+def _build_structured_tooltip_details(parsed: ParsedStructuredReport) -> dict[str, Any]:
+    applied_count = len(parsed.tooltip_decisions)
+    if applied_count:
+        status = "passed"
+        reason = "structured_tooltips_applied"
+    elif parsed.tooltip_candidate_count == 0:
+        status = "skipped"
+        reason = "no_matching_candidates"
+    elif not parsed.structured_output:
+        status = "skipped"
+        reason = "legacy_markdown_output"
+    else:
+        status = "passed"
+        reason = "no_high_confidence_tooltips"
+    return {
+        "status": status,
+        "reason": reason,
+        "structured_output": parsed.structured_output,
+        "candidate_count": parsed.tooltip_candidate_count,
+        "applied_count": applied_count,
+        "terms": [decision.term for decision in parsed.tooltip_decisions],
+        "surfaces": [decision.surface for decision in parsed.tooltip_decisions],
+    }
 
 
 def _apply_legal_term_tooltip_decisions(
@@ -1362,34 +1491,16 @@ def _strip_term_tooltips(text: str) -> str:
 def _sanitize_tooltip_definition(definition: str) -> str:
     cleaned = re.sub(r"\s+", " ", definition).strip()
     cleaned = cleaned.replace("{", "").replace("}", "")
-    if len(cleaned) > 120:
-        cleaned = cleaned[:120].rstrip()
-    return cleaned
-
-
-def build_legal_term_tooltip_prompt(
-    *,
-    bill: dict[str, Any],
-    report_body: str,
-    candidate_entries: list[LegalTermEntry],
-) -> str:
-    candidates = [_legal_term_entry_to_dict(entry) for entry in candidate_entries if _tooltip_candidate_matches_report(entry, report_body)]
-    return (
-        "작업: Lawdigest 법안 리포트에 붙일 법률용어 툴팁을 판단하세요.\n"
-        "아래 후보 중 이 법안 문맥에서 일반 독자에게 설명이 꼭 필요한 high-confidence 용어만 고르세요.\n"
-        "후보에 없는 용어를 새로 만들지 마세요. definition은 참고용이며 최종 주입은 파이프라인이 후보 정의로만 처리합니다.\n"
-        "일반어, 동사형 표현, 다른 분야 정의로 보이는 용어는 rejected에 넣거나 생략하세요.\n"
-        "최대 5개까지만 고르세요.\n\n"
-        "출력 규칙:\n"
-        "- JSON 객체 하나만 작성하세요. 코드펜스, 설명문, Markdown을 붙이지 마세요.\n"
-        "- confidence는 high 또는 low만 사용하세요. 파이프라인은 high만 반영합니다.\n"
-        "- surface는 리포트 본문에 실제로 등장하는 표현이어야 합니다.\n\n"
-        "출력 스키마:\n"
-        '{"tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high"}],"rejected":[{"term":"정확성","reason":"일반어이거나 문맥 정의가 불확실함"}]}\n\n'
-        f"bill:\n{json.dumps(_build_bill_payload(bill), ensure_ascii=False, indent=2, default=str)}\n\n"
-        f"candidate_terms:\n{json.dumps(candidates, ensure_ascii=False, indent=2, default=str)}\n\n"
-        f"report_body:\n{report_body}"
-    )
+    without_parentheses = re.sub(r"\([^()]*\)", "", cleaned)
+    candidates = [cleaned, without_parentheses, re.split(r"(?<=[.!?。])\s+", without_parentheses, maxsplit=1)[0]]
+    for candidate in candidates:
+        candidate = re.sub(r"\s+", " ", candidate).strip()
+        candidate = re.sub(r"\s+([,.;:])", r"\1", candidate)
+        if candidate.count("(") != candidate.count(")"):
+            continue
+        if 8 <= len(candidate) <= 90:
+            return candidate
+    return ""
 
 
 def _has_final_consonant(text: str) -> bool | None:
@@ -1728,6 +1839,26 @@ def _repair_report_body(report_body: str) -> str:
     repaired = "\n".join(fixed_lines).strip()
 
     if "<mark>" not in repaired:
+        fixed_lines = []
+        in_easy_summary = False
+        mark_inserted = False
+        for line in repaired.splitlines():
+            stripped = line.strip()
+            if stripped == "## 쉬운 요약":
+                in_easy_summary = True
+            elif stripped.startswith("## "):
+                in_easy_summary = False
+
+            if in_easy_summary and not mark_inserted and stripped.startswith("- "):
+                indent = line[: len(line) - len(line.lstrip())]
+                fixed_lines.append(f"{indent}- <mark>{stripped[2:].strip()}</mark>")
+                mark_inserted = True
+                continue
+            fixed_lines.append(line)
+        if mark_inserted:
+            repaired = "\n".join(fixed_lines)
+
+    if "<mark>" not in repaired:
         for pattern in (
             r"(?m)^(-\s+[^.\n!?]*\*\*[^*\n]+\*\*[^.\n!?]*[.!?]?요\.)",
             r"(?m)^([^-\n#][^.\n!?]*\*\*[^*\n]+\*\*[^.\n!?]*[.!?]?요\.)",
@@ -1735,7 +1866,11 @@ def _repair_report_body(report_body: str) -> str:
             match = re.search(pattern, repaired)
             if match:
                 sentence = match.group(1)
-                repaired = repaired[: match.start(1)] + f"<mark>{sentence}</mark>" + repaired[match.end(1) :]
+                if sentence.startswith("- "):
+                    highlighted = f"- <mark>{sentence[2:].strip()}</mark>"
+                else:
+                    highlighted = f"<mark>{sentence}</mark>"
+                repaired = repaired[: match.start(1)] + highlighted + repaired[match.end(1) :]
                 break
 
     if not re.search(r"\*\*[^*\n][^*\n]*\*\*", repaired):
@@ -1946,103 +2081,6 @@ class CodexBillReportAgent:
             command[-1:-1] = self._mcp_server_config_args()
         return command, prompt
 
-    def _apply_tooltip_turn(
-        self,
-        *,
-        session_id: str | None,
-        bill: dict[str, Any],
-        report_path: Path,
-        evidence: dict[str, Any],
-    ) -> dict[str, Any]:
-        report_body = report_path.read_text(encoding="utf-8")
-        candidate_entries = [
-            entry for entry in _legal_term_entries_from_evidence(evidence) if _tooltip_candidate_matches_report(entry, report_body)
-        ]
-        if not candidate_entries:
-            return {"status": "skipped", "reason": "no_matching_candidates", "applied_count": 0}
-        if not session_id:
-            return {"status": "skipped", "reason": "missing_codex_thread_id", "applied_count": 0}
-
-        tooltip_path = report_path.with_suffix(".tooltips.json")
-        prompt = build_legal_term_tooltip_prompt(bill=bill, report_body=report_body, candidate_entries=candidate_entries)
-        command, stdin_text = self.build_resume_command(
-            session_id=session_id,
-            prompt=prompt,
-            output_path=str(tooltip_path),
-        )
-        started_at = datetime.now(timezone.utc)
-        started_perf = time.perf_counter()
-        try:
-            proc = subprocess.run(
-                command,
-                input=stdin_text,
-                capture_output=True,
-                text=True,
-                cwd=self.workdir,
-                env=self.build_environment(),
-                timeout=self.timeout_seconds,
-            )
-            stdout_text = (proc.stdout or "").strip()
-            stderr_text = (proc.stderr or "").strip()
-            exit_code = proc.returncode
-        except Exception as exc:
-            return {
-                "status": "failed",
-                "reason": str(exc),
-                "applied_count": 0,
-                "started_at": started_at.isoformat(),
-                "finished_at": datetime.now(timezone.utc).isoformat(),
-                "duration_seconds": round(time.perf_counter() - started_perf, 3),
-            }
-
-        finished_at = datetime.now(timezone.utc)
-        metadata = _parse_codex_json_metadata(stdout_text)
-        details: dict[str, Any] = {
-            "status": "not_applied",
-            "output_path": str(tooltip_path),
-            "started_at": started_at.isoformat(),
-            "finished_at": finished_at.isoformat(),
-            "duration_seconds": round(time.perf_counter() - started_perf, 3),
-            "exit_code": exit_code,
-            "codex_thread_id": metadata.get("codex_thread_id") or session_id,
-            "codex_event_count": metadata.get("codex_event_count"),
-            "token_usage_available": metadata.get("token_usage_available", False),
-            "usage": metadata.get("usage"),
-            "candidate_count": len(candidate_entries),
-            "applied_count": 0,
-        }
-        if exit_code != 0:
-            details.update({"status": "failed", "reason": (stderr_text or stdout_text or "Codex tooltip turn failed").strip()})
-            return details
-        if not tooltip_path.exists():
-            details.update({"status": "failed", "reason": "Codex tooltip decision output is empty."})
-            return details
-
-        decisions_text = tooltip_path.read_text(encoding="utf-8")
-        decisions = _parse_legal_term_tooltip_decisions(decisions_text, candidate_entries)
-        if not decisions:
-            details.update({"status": "passed", "reason": "no_high_confidence_tooltips"})
-            return details
-
-        rendered = _apply_legal_term_tooltip_decisions(report_body, decisions)
-        rendered = _repair_term_tooltip_particles(rendered).strip() + "\n"
-        try:
-            _validate_report_body(rendered)
-        except RuntimeError as exc:
-            details.update({"status": "failed", "reason": str(exc)})
-            return details
-
-        report_path.write_text(rendered, encoding="utf-8")
-        details.update(
-            {
-                "status": "passed",
-                "applied_count": len(decisions),
-                "terms": [decision.term for decision in decisions],
-                "surfaces": [decision.surface for decision in decisions],
-            }
-        )
-        return details
-
     def write_report(
         self,
         *,
@@ -2080,7 +2118,6 @@ class CodexBillReportAgent:
             duration_seconds = round(time.perf_counter() - started_perf, 3)
 
         metadata = _parse_codex_json_metadata(stdout_text)
-        session_id = str(metadata["codex_thread_id"]) if metadata.get("codex_thread_id") else None
         details = {
             "bill_id": bill.get("bill_id"),
             "bill_name": bill.get("bill_name"),
@@ -2126,7 +2163,8 @@ class CodexBillReportAgent:
                 details.update(inspection_paths)
             raise BillReportGenerationError("Codex agent report body is empty.", details=details)
         raw_report_body = report_path.read_text(encoding="utf-8")
-        postprocessed_report_body = _postprocess_report_body(raw_report_body, bill=bill)
+        parsed_report = _parse_structured_report_output(raw_report_body, bill=bill, evidence=evidence)
+        postprocessed_report_body = _apply_structured_report_tooltips(parsed_report)
         repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
         if repair_applied:
             report_path.write_text(postprocessed_report_body, encoding="utf-8")
@@ -2138,17 +2176,11 @@ class CodexBillReportAgent:
             "errors": evidence.get("prefetch_errors") or [],
         }
         details["repair_applied"] = repair_applied
+        details["structured_output"] = parsed_report.structured_output
+        details["tooltip"] = _build_structured_tooltip_details(parsed_report)
         try:
             _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
             _validate_report_body(report_path.read_text(encoding="utf-8"))
-            tooltip_details = self._apply_tooltip_turn(
-                session_id=session_id,
-                bill=bill,
-                report_path=report_path,
-                evidence=evidence,
-            )
-            details["tooltip"] = tooltip_details
-            details["output_bytes"] = report_path.stat().st_size
             validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
             if repair_applied:
                 validation_summary = "Markdown 리포트 형식 cheap repair 후 품질 검증을 통과했습니다."
@@ -2300,23 +2332,17 @@ class CodexBillReportAgent:
                 if not report_path.exists():
                     raise RuntimeError("Codex agent report body is empty.")
                 raw_report_body = report_path.read_text(encoding="utf-8")
-                postprocessed_report_body = _postprocess_report_body(raw_report_body, bill=bill)
+                parsed_report = _parse_structured_report_output(raw_report_body, bill=bill, evidence=evidence)
+                postprocessed_report_body = _apply_structured_report_tooltips(parsed_report)
                 repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
                 if repair_applied:
                     report_path.write_text(postprocessed_report_body, encoding="utf-8")
                 details["output_bytes"] = report_path.stat().st_size
                 details["repair_applied"] = repair_applied
+                details["structured_output"] = parsed_report.structured_output
+                details["tooltip"] = _build_structured_tooltip_details(parsed_report)
                 _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
                 _validate_report_body(report_path.read_text(encoding="utf-8"))
-                tooltip_details = self._apply_tooltip_turn(
-                    session_id=session_id,
-                    bill=bill,
-                    report_path=report_path,
-                    evidence=evidence,
-                )
-                details["tooltip"] = tooltip_details
-                details["output_bytes"] = report_path.stat().st_size
-                session_event_count += int(tooltip_details.get("codex_event_count") or 0)
                 validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
                 if repair_applied:
                     validation_summary = "Markdown 리포트 형식 cheap repair 후 품질 검증을 통과했습니다."
