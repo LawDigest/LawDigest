@@ -539,6 +539,7 @@ def test_agentic_report_applies_high_confidence_tooltip_decisions_only():
             ),
             aliases=("불법어업",),
         ),
+        LegalTermEntry(term="생산성", definition="부가가치를 만드는 정도를 말해요.", aliases=("생산성",)),
     ]
     decisions_json = json.dumps(
         {
@@ -564,6 +565,13 @@ def test_agentic_report_applies_high_confidence_tooltip_decisions_only():
                     "reason": "사전 정의가 너무 길면 주입하지 않아야 해요.",
                     "confidence": "high",
                 },
+                {
+                    "term": "생산성",
+                    "surface": "생산성",
+                    "definition": "일반어도 에이전트가 골랐어요.",
+                    "reason": "문맥 정의가 빗나가기 쉬운 일반어예요.",
+                    "confidence": "high",
+                },
             ],
             "rejected": [],
         },
@@ -577,6 +585,7 @@ def test_agentic_report_applies_high_confidence_tooltip_decisions_only():
     assert "에이전트가 바꾼 정의" not in rendered
     assert "{{정확성:" not in rendered
     assert "{{불법어업:" not in rendered
+    assert "{{생산성:" not in rendered
     assert [decision.term for decision in decisions] == ["청문"]
 
 
