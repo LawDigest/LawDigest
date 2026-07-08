@@ -222,7 +222,7 @@ def test_agentic_report_prompt_summary_mode_aliases_to_deep_report_contract():
 
 
 def test_agentic_report_batch_prompt_isolates_bill_reports():
-    from lawdigest_ai.processor.agentic_bill_report import REPORT_SKILL_NAME, build_bill_report_batch_prompt
+    from lawdigest_ai.processor.agentic_bill_report import REPORT_SKILL_BODY, REPORT_SKILL_NAME, build_bill_report_batch_prompt
 
     prompt = build_bill_report_batch_prompt([
         {
@@ -252,6 +252,8 @@ def test_agentic_report_batch_prompt_isolates_bill_reports():
     assert "같은 순서로 report_body만" in prompt
     assert "### 1) 제목" in context
     assert "번호 헤딩 다음에는 불릿이 아닌 일반 문단" in context
+    assert "## 배치 출력" not in REPORT_SKILL_BODY
+    assert "JSON 객체 하나만 작성하세요" not in REPORT_SKILL_BODY
 
 
 def test_agentic_report_validation_rejects_internal_tool_leaks():
@@ -463,6 +465,40 @@ def test_agentic_report_postprocess_injects_tooltip_outside_title():
     postprocessed = _postprocess_report_body(report_body)
 
     assert postprocessed.startswith("# 청문 절차 정비법 일부개정법률안")
+    assert "{{청문" not in postprocessed.splitlines()[0]
+    assert postprocessed.count("{{청문") == 1
+    _validate_report_body(postprocessed)
+
+
+def test_agentic_report_postprocess_unwraps_single_report_json_before_tooltip_injection():
+    from lawdigest_ai.processor.agentic_bill_report import _postprocess_report_body, _validate_report_body
+
+    report_body = """
+# 청문 절차 정비법 일부개정법률안
+
+## 쉬운 요약
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 청문 절차가 더 분명해지는 점이에요.</mark>
+
+## 주요 내용
+- **지원 근거**: 청문 절차를 정비해요.
+
+## 무엇이 달라지나
+
+### 1) 의견 확인 절차 정비
+
+처분 전에 청문 절차를 거치도록 해 의견을 말할 기회를 더 분명히 해요.
+
+- 사용자 입장에서는, 어떤 절차와 책임이 달라지는지 더 알기 쉬워져요.
+""".strip()
+    wrapped = json.dumps({"reports": [{"report_body": report_body}]}, ensure_ascii=False)
+
+    postprocessed = _postprocess_report_body(
+        wrapped,
+        bill={"bill_id": "PRC_JSON_WRAP", "bill_name": "청문 절차 정비법 일부개정법률안"},
+    )
+
+    assert postprocessed.startswith("# 청문 절차 정비법 일부개정법률안")
+    assert not postprocessed.lstrip().startswith("{")
     assert "{{청문" not in postprocessed.splitlines()[0]
     assert postprocessed.count("{{청문") == 1
     _validate_report_body(postprocessed)
@@ -2013,6 +2049,78 @@ def test_run_agentic_bill_reports_maps_report_bodies_without_agent_bill_id(tmp_p
     assert "두 번째 법안은 제목으로 식별자를 복구해야 해요" in Path(
         result["items"][1]["report_path"]
     ).read_text(encoding="utf-8")
+
+
+def test_run_agentic_bill_reports_unwraps_single_report_json_in_batch_turn(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    targets = [
+        {
+            "bill_id": "PRC_JSON_BATCH_1",
+            "bill_number": "2213001",
+            "bill_name": "JSON 복구 테스트법안 1",
+            "summary": "첫 번째 요약",
+            "brief_summary": "기존 첫 번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+        {
+            "bill_id": "PRC_JSON_BATCH_2",
+            "bill_number": "2213002",
+            "bill_name": "JSON 복구 테스트법안 2",
+            "summary": "두 번째 요약",
+            "brief_summary": "기존 두 번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+    ]
+
+    def report_body(title: str, summary: str) -> str:
+        return (
+            f"# {title}\n\n"
+            f"## 쉬운 요약\n- {summary} 리포트가 Markdown으로 저장돼야 해요.\n\n"
+            "## 주요 내용\n- **지원 근거**: 설명이에요.\n"
+            "\n## 무엇이 달라지나\n\n"
+            "### 1) 지원 근거 신설\n\n"
+            f"{summary} 근거만 사용해 지원 근거를 만들어요.\n"
+        )
+
+    def run_codex(command, **kwargs):
+        output_path = Path(command[command.index("--output-last-message") + 1])
+        is_resume = command[:3] == ["codex", "exec", "resume"]
+        body = report_body(
+            "JSON 복구 테스트법안 2" if is_resume else "JSON 복구 테스트법안 1",
+            "두 번째 법안" if is_resume else "첫 번째 법안",
+        )
+        output_path.write_text(json.dumps({"reports": [{"report_body": body}]}, ensure_ascii=False), encoding="utf-8")
+        stdout = '{"type":"thread.started","thread_id":"thread-json-repair"}'
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=targets,
+    ), patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex), patch(
+        "lawdigest_ai.processor.agentic_bill_report.update_bill_summary"
+    ) as mock_update:
+        result = run_agentic_bill_reports(
+            mode="test",
+            limit=2,
+            output_dir=str(tmp_path),
+            target="pending",
+            report_mode="deep_report",
+            batch_session_size=2,
+        )
+
+    assert result["stats"]["success_count"] == 2
+    assert result["stats"]["failure_count"] == 0
+    assert [call.kwargs["bill_id"] for call in mock_update.call_args_list] == ["PRC_JSON_BATCH_1", "PRC_JSON_BATCH_2"]
+    for item in result["items"]:
+        body = Path(item["report_path"]).read_text(encoding="utf-8")
+        assert body.startswith("# JSON 복구 테스트법안")
+        assert not body.lstrip().startswith("{")
 
 
 def test_batch_report_parser_ignores_agent_bill_id_when_title_matches():

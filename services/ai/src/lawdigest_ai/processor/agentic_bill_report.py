@@ -30,7 +30,7 @@ REPORT_CODEX_CONFIG_BEGIN = "# BEGIN Lawdigest bill report agent managed skills"
 REPORT_CODEX_CONFIG_END = "# END Lawdigest bill report agent managed skills"
 REPORT_SKILL_BODY = """---
 name: lawdigest-bill-report
-description: Use for Lawdigest bill report generation from deterministic evidence packets. Trigger when writing a Korean user-facing legislative report for one bill or an isolated batch of bills.
+description: Use for Lawdigest bill report generation from deterministic evidence packets. Trigger when writing a Korean user-facing legislative report for one bill.
 ---
 
 # Lawdigest Bill Report
@@ -126,18 +126,7 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 - 법률·행정용어 툴팁 문법은 직접 쓰지 마세요. 중괄호 기반 툴팁 표기는 파이프라인 검증에서 제거되거나 실패 처리됩니다.
 - 법제처 정의가 있는 용어도 본문에서는 자연스러운 단어로만 쓰세요. 툴팁 표기는 코드가 후처리로 주입합니다.
 - 단건 리포트의 최종 출력은 Markdown만 작성하세요.
-
-## 배치 출력
-
-- batch_items의 각 항목은 서로 완전히 독립된 작업입니다.
-- 한 법안의 evidence, 표현, 결론, 근거를 다른 법안 리포트에 절대 옮기지 마세요.
-- 각 report_body는 반드시 같은 순서의 batch_items 객체에 들어 있는 bill, evidence만 사용해서 작성하세요.
-- 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.
-- reports 배열은 입력 batch_items와 같은 순서로 report_body만 각각 정확히 한 번씩 넣으세요.
-- 각 report_body의 첫 줄 H1 제목은 해당 batch_items의 bill.bill_name과 같아야 합니다.
-- report_body 값은 Markdown 문자열입니다. JSON 문자열 안의 줄바꿈은 반드시 escape된 줄바꿈으로 표현하세요.
-- brief_summary, gpt_summary, tags를 만들지 마세요. DB 저장용 요약은 별도 코드가 report_body에서 생성합니다.
-- 출력 스키마: `{"reports":[{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}`
+- JSON, `reports`, `report_body` 같은 래퍼로 감싸지 말고 첫 줄을 `# 법안명`으로 시작하세요.
 """.strip() + "\n"
 
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
@@ -1152,6 +1141,40 @@ def _parse_batch_report_output(
     return parsed
 
 
+def _unwrap_single_report_json_output(report_body: str, bill: dict[str, Any] | None = None) -> str:
+    stripped = report_body.strip()
+    if not stripped.startswith("{") and not stripped.startswith("```"):
+        return report_body
+
+    try:
+        payload = json.loads(_extract_json_object(stripped))
+    except (json.JSONDecodeError, ValueError):
+        return report_body
+    if not isinstance(payload, dict):
+        return report_body
+
+    reports = payload.get("reports")
+    if reports is None and isinstance(payload.get("report_body"), str):
+        return str(payload["report_body"])
+    if not isinstance(reports, list):
+        return report_body
+
+    expected_bill_id = str((bill or {}).get("bill_id") or "")
+    if expected_bill_id:
+        parsed = _parse_batch_report_output(
+            stripped,
+            expected_bill_ids=[expected_bill_id],
+            expected_bills=[bill or {}],
+        )
+        if expected_bill_id in parsed:
+            return parsed[expected_bill_id]
+
+    if len(reports) == 1 and isinstance(reports[0], dict) and isinstance(reports[0].get("report_body"), str):
+        return str(reports[0]["report_body"])
+
+    raise RuntimeError("단건 리포트 출력이 여러 reports JSON으로 감싸져 있어 대상 법안을 확정할 수 없습니다.")
+
+
 def _markdown_section_body(body: str, heading: str) -> str:
     start = body.find(heading)
     if start == -1:
@@ -1585,8 +1608,9 @@ def _repair_report_body(report_body: str) -> str:
     return repaired + "\n"
 
 
-def _postprocess_report_body(report_body: str) -> str:
-    repaired = _repair_report_body(report_body)
+def _postprocess_report_body(report_body: str, bill: dict[str, Any] | None = None) -> str:
+    unwrapped = _unwrap_single_report_json_output(report_body, bill=bill)
+    repaired = _repair_report_body(unwrapped)
     repaired = _strip_term_tooltips(repaired)
     repaired = _inject_legal_term_tooltips(repaired)
     return repaired.strip() + "\n"
@@ -1864,7 +1888,7 @@ class CodexBillReportAgent:
                 details.update(inspection_paths)
             raise BillReportGenerationError("Codex agent report body is empty.", details=details)
         raw_report_body = report_path.read_text(encoding="utf-8")
-        postprocessed_report_body = _postprocess_report_body(raw_report_body)
+        postprocessed_report_body = _postprocess_report_body(raw_report_body, bill=bill)
         repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
         if repair_applied:
             report_path.write_text(postprocessed_report_body, encoding="utf-8")
@@ -2030,7 +2054,7 @@ class CodexBillReportAgent:
                 if not report_path.exists():
                     raise RuntimeError("Codex agent report body is empty.")
                 raw_report_body = report_path.read_text(encoding="utf-8")
-                postprocessed_report_body = _postprocess_report_body(raw_report_body)
+                postprocessed_report_body = _postprocess_report_body(raw_report_body, bill=bill)
                 repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
                 if repair_applied:
                     report_path.write_text(postprocessed_report_body, encoding="utf-8")
