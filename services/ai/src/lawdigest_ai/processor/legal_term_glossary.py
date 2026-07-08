@@ -14,6 +14,7 @@ class LegalTermEntry:
     definition: str
     aliases: tuple[str, ...] = ()
     explain: bool = True
+    source: str = "static"
 
 
 LAW_OPEN_API_REFERENCES = (
@@ -218,7 +219,11 @@ def _lookup_local_dictionary_terms(terms: list[str], *, mode: str = "prod") -> l
     ]
 
 
-def build_legal_term_glossary_context(text: str, term_client: LawOpenApiTermClient | None = None) -> str:
+def _has_korean_text(value: str) -> bool:
+    return any("가" <= char <= "힣" for char in value)
+
+
+def build_legal_term_tooltip_entries(text: str, term_client: LawOpenApiTermClient | None = None) -> list[LegalTermEntry]:
     direct_matches = _matched_static_entries(text)
     direct_terms = [entry.aliases[0] if entry.aliases else entry.term for entry in direct_matches]
     candidate_terms = [*direct_terms, *_extract_legal_term_candidates(text)]
@@ -228,25 +233,46 @@ def build_legal_term_glossary_context(text: str, term_client: LawOpenApiTermClie
     api_terms = _lookup_law_open_api_terms(api_candidate_terms, term_client)
     dictionary_terms = [*local_terms, *api_terms]
     matched_entries = direct_matches or ([] if dictionary_terms else list(LEGAL_TERM_GLOSSARY))
+    entries: list[LegalTermEntry] = []
+    seen: set[str] = set()
+
+    def add_entry(term: str, definition: str, aliases: tuple[str, ...] = (), source: str = "static") -> None:
+        normalized = normalize_legal_term(term)
+        if not normalized or normalized in seen:
+            return
+        cleaned_definition = re.sub(r"\s+", " ", definition).strip()
+        if not cleaned_definition or not _has_korean_text(cleaned_definition):
+            return
+        seen.add(normalized)
+        entries.append(LegalTermEntry(term=term, definition=cleaned_definition, aliases=aliases or (term,), source=source))
+
+    for item in dictionary_terms:
+        add_entry(item.term, item.definitions[0], source=item.source)
+    for entry in matched_entries:
+        if entry.explain:
+            add_entry(entry.term, entry.definition, entry.aliases, source=entry.source)
+
+    return entries
+
+
+def build_legal_term_glossary_context(text: str, term_client: LawOpenApiTermClient | None = None) -> str:
+    entries = build_legal_term_tooltip_entries(text, term_client=term_client)
 
     lines = [
         "법률·행정용어 풀이 사전:",
-        "- 아래 사전에 있는 어려운 법률·행정용어가 본문에 나오면 첫 등장 한 번만 `{{용어:뜻}}` 툴팁 표기로 감싸세요.",
+        "- 아래 사전은 후처리 파이프라인이 어려운 법률·행정용어 툴팁을 주입할 때 쓰는 근거입니다.",
+        "- 리포트 본문에는 툴팁 표기나 중괄호 문법을 직접 쓰지 마세요. 필요한 용어는 자연스러운 본문 단어로만 쓰세요.",
     ]
-    if dictionary_terms:
+    has_source_dictionary = any(entry.source != "static" for entry in entries)
+    if has_source_dictionary:
         lines.append("- 아래 `법제처 용어사전 조회 결과`는 Lawdigest 로컬 사전 또는 실제 법제처 Open API 정의 조회 결과입니다.")
     else:
         lines.append("- 아래 `정적 보조 사전`은 API 조회 결과가 아니라 Lawdigest가 관리하는 fallback 설명입니다.")
     lines.append("- 법제처 API 참조:")
     lines.extend(f"  - {reference}" for reference in LAW_OPEN_API_REFERENCES)
-    if dictionary_terms:
-        lines.append("- 법제처 용어사전 조회 결과:")
-        for item in dictionary_terms:
-            definitions = item.definitions[0]
-            lines.append(f"  - {item.term}: 뜻={definitions}")
-    if matched_entries:
+    if entries:
         lines.append("- 설명할 용어:")
-        lines.extend(f"  - {entry.term}: {entry.definition}" for entry in matched_entries if entry.explain)
+        lines.extend(f"  - {entry.term}: {entry.definition}" for entry in entries)
     lines.append("- 설명하지 않을 용어:")
     lines.extend(f"  - {term}" for term in COMMON_TERMS_WITHOUT_EXPLANATION)
     return "\n".join(lines)
