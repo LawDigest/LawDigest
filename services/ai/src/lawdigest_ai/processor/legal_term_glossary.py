@@ -3,7 +3,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from lawdigest_ai.db import get_db_connection
 from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm, LawOpenApiTermClient
+from lawdigest_ai.processor.legal_term_dictionary_sync import normalize_legal_term
 
 
 @dataclass(frozen=True)
@@ -68,6 +70,12 @@ LEGAL_TERM_CANDIDATE_STOPWORDS = {
     "제안이유",
     "주요내용",
     "현행법",
+    "현행",
+    "개정",
+    "규정",
+    "경우",
+    "내용",
+    "법안",
     "법률안",
     "개정법률안",
 }
@@ -130,24 +138,25 @@ def _strip_particle(value: str) -> str:
     return token
 
 
-def _extract_legal_term_candidates(text: str, *, max_terms: int = 8) -> list[str]:
+def _extract_legal_term_candidates(text: str, *, max_terms: int = 24) -> list[str]:
     normalized = re.sub(r"\s+", " ", text.replace("ㆍ", "·"))
     terms: list[str] = []
     seen: set[str] = set(COMMON_TERMS_WITHOUT_EXPLANATION)
 
     def add(term: str) -> None:
+        term = _strip_particle(term)
         if (
             len(term) < 3
             or term in seen
             or term in LEGAL_TERM_CANDIDATE_STOPWORDS
-            or not any(term.endswith(suffix) for suffix in LEGAL_TERM_CANDIDATE_SUFFIXES)
+            or not re.fullmatch(r"[가-힣][가-힣A-Za-z0-9·]{2,15}", term)
         ):
             return
         seen.add(term)
         terms.append(term)
 
     for token in re.split(r"[^가-힣A-Za-z0-9·]+", normalized):
-        add(_strip_particle(token))
+        add(token)
         if len(terms) >= max_terms:
             break
 
@@ -173,26 +182,66 @@ def _lookup_law_open_api_terms(
     return results
 
 
+def _lookup_local_dictionary_terms(terms: list[str], *, mode: str = "prod") -> list[LawOpenApiTerm]:
+    normalized_terms = [normalize_legal_term(term) for term in terms]
+    normalized_terms = [term for index, term in enumerate(normalized_terms) if term and term not in normalized_terms[:index]]
+    if not normalized_terms:
+        return []
+
+    placeholders = ", ".join(["%s"] * len(normalized_terms))
+    query = f"""
+        SELECT term, definition
+        FROM LegalTermDictionary
+        WHERE enabled = TRUE
+          AND normalized_term IN ({placeholders})
+        ORDER BY FIELD(normalized_term, {placeholders})
+    """
+    try:
+        conn = get_db_connection(mode=mode)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(query, [*normalized_terms, *normalized_terms])
+                rows = cur.fetchall()
+        finally:
+            conn.close()
+    except Exception:
+        return []
+
+    return [
+        LawOpenApiTerm(
+            term=str(row["term"]),
+            source="lawdigest-local-dictionary",
+            definitions=(str(row["definition"]),),
+        )
+        for row in rows
+        if row.get("term") and row.get("definition")
+    ]
+
+
 def build_legal_term_glossary_context(text: str, term_client: LawOpenApiTermClient | None = None) -> str:
     direct_matches = _matched_static_entries(text)
     direct_terms = [entry.aliases[0] if entry.aliases else entry.term for entry in direct_matches]
     candidate_terms = [*direct_terms, *_extract_legal_term_candidates(text)]
-    api_terms = _lookup_law_open_api_terms(candidate_terms, term_client)
-    matched_entries = direct_matches or ([] if api_terms else list(LEGAL_TERM_GLOSSARY))
+    local_terms = _lookup_local_dictionary_terms(candidate_terms)
+    local_normalized = {normalize_legal_term(item.term) for item in local_terms}
+    api_candidate_terms = [term for term in candidate_terms if normalize_legal_term(term) not in local_normalized]
+    api_terms = _lookup_law_open_api_terms(api_candidate_terms, term_client)
+    dictionary_terms = [*local_terms, *api_terms]
+    matched_entries = direct_matches or ([] if dictionary_terms else list(LEGAL_TERM_GLOSSARY))
 
     lines = [
         "법률·행정용어 풀이 사전:",
         "- 아래 사전에 있는 어려운 법률·행정용어가 본문에 나오면 첫 등장 한 번만 `{{용어:뜻}}` 툴팁 표기로 감싸세요.",
     ]
-    if api_terms:
-        lines.append("- 아래 `법제처 API 조회 결과`는 실제 법제처 Open API 정의 조회 결과입니다.")
+    if dictionary_terms:
+        lines.append("- 아래 `법제처 용어사전 조회 결과`는 Lawdigest 로컬 사전 또는 실제 법제처 Open API 정의 조회 결과입니다.")
     else:
         lines.append("- 아래 `정적 보조 사전`은 API 조회 결과가 아니라 Lawdigest가 관리하는 fallback 설명입니다.")
     lines.append("- 법제처 API 참조:")
     lines.extend(f"  - {reference}" for reference in LAW_OPEN_API_REFERENCES)
-    if api_terms:
-        lines.append("- 법제처 API 조회 결과:")
-        for item in api_terms:
+    if dictionary_terms:
+        lines.append("- 법제처 용어사전 조회 결과:")
+        for item in dictionary_terms:
             definitions = item.definitions[0]
             lines.append(f"  - {item.term}: 뜻={definitions}")
     if matched_entries:

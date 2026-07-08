@@ -565,6 +565,95 @@ def test_cli_dispatches_bill_search_rebuild(tmp_path):
     )
 
 
+def test_cli_dispatches_legal_term_dictionary_sync(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_legal_term_dictionary_sync.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "legal-term-dictionary-sync",
+            "--mode",
+            "dry_run",
+            "--query",
+            "결격",
+            "--page-size",
+            "50",
+            "--max-pages",
+            "2",
+            "--start-page",
+            "3",
+            "--max-retries",
+            "2",
+            "--limit",
+            "20",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_legal_term_dictionary_sync.assert_called_once_with(
+        mode="dry_run",
+        query="결격",
+        page_size=50,
+        max_pages=2,
+        start_page=3,
+        max_retries=2,
+        limit=20,
+    )
+
+
+def test_pipeline_runtime_runs_legal_term_dictionary_sync(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    with patch(
+        "lawdigest_ai.processor.legal_term_dictionary_sync.run_legal_term_dictionary_sync",
+        return_value={"fetched_count": 1, "upserted_count": 0},
+    ) as sync:
+        result = PipelineRuntime(log_dir=tmp_path).run_legal_term_dictionary_sync(
+            mode="dry_run",
+            query="결격",
+            page_size=50,
+            max_pages=2,
+            start_page=3,
+            max_retries=2,
+            limit=20,
+        )
+
+    sync.assert_called_once_with(
+        mode="dry_run",
+        query="결격",
+        page_size=50,
+        max_pages=2,
+        start_page=3,
+        max_retries=2,
+        limit=20,
+    )
+    assert result["status"] == "success"
+    assert result["steps"][0]["step"] == "sync_legal_term_dictionary"
+
+
+def test_legal_term_dictionary_migration_schema():
+    from pathlib import Path
+
+    create_migration_path = (
+        Path(__file__).resolve().parents[3]
+        / "infra/db/migrations/20260706_create_legal_term_dictionary.sql"
+    )
+    alter_migration_path = (
+        Path(__file__).resolve().parents[3]
+        / "infra/db/migrations/20260707_extend_legal_term_dictionary_source_term_id.sql"
+    )
+    migration_sql = create_migration_path.read_text(encoding="utf-8")
+    alter_migration_sql = alter_migration_path.read_text(encoding="utf-8")
+
+    assert "CREATE TABLE IF NOT EXISTS LegalTermDictionary" in migration_sql
+    assert "source_term_id TEXT" in migration_sql
+    assert "MODIFY COLUMN source_term_id TEXT NULL" in alter_migration_sql
+    assert "normalized_term VARCHAR(255) NOT NULL" in migration_sql
+    assert "definition TEXT NOT NULL" in migration_sql
+    assert "UNIQUE KEY uq_legal_term_dictionary_source_normalized_term" in migration_sql
+
+
 def test_cli_dispatches_bill_agent_report_target_all(tmp_path):
     from lawdigest_data.runtime.cli import main
 

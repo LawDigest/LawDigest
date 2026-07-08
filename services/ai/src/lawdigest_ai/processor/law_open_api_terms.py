@@ -2,12 +2,22 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 import requests
 
 
 LAW_OPEN_API_BASE_URL = "https://www.law.go.kr/DRF"
+
+_AIRFLOW_DOTENV_PATH = os.getenv("AIRFLOW_DOTENV_PATH")
+_DEFAULT_AIRFLOW_DOTENV_PATH = Path(__file__).resolve().parents[5] / "services" / "data" / ".env"
+load_dotenv(
+    dotenv_path=_AIRFLOW_DOTENV_PATH
+    if _AIRFLOW_DOTENV_PATH
+    else str(_DEFAULT_AIRFLOW_DOTENV_PATH),
+)
 
 
 class LawOpenApiTermClientError(RuntimeError):
@@ -104,14 +114,17 @@ class LawOpenApiTermClient:
                     terms.append(term)
         return list(_compact_unique(terms))
 
-    def search_legal_dictionary_terms(self, query: str, *, display: int = 5) -> list[dict[str, Any]]:
+    def search_legal_dictionary_terms(self, query: str, *, display: int = 5, page: int | None = None) -> list[dict[str, Any]]:
+        params: dict[str, Any] = {
+            "target": "lstrm",
+            "query": query,
+            "display": display,
+        }
+        if page is not None:
+            params["page"] = page
         payload = self._get_json(
             "lawSearch.do",
-            {
-                "target": "lstrm",
-                "query": query,
-                "display": display,
-            },
+            params,
         )
         root = payload.get("LsTrmSearch") or {}
         rows = []

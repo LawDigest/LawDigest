@@ -133,12 +133,13 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 
 - batch_items의 각 항목은 서로 완전히 독립된 작업입니다.
 - 한 법안의 evidence, 표현, 결론, 근거를 다른 법안 리포트에 절대 옮기지 마세요.
-- 각 report_body는 반드시 같은 객체의 bill_id, bill, evidence만 사용해서 작성하세요.
+- 각 report_body는 반드시 같은 순서의 batch_items 객체에 들어 있는 bill, evidence만 사용해서 작성하세요.
 - 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.
-- reports 배열에는 입력 batch_items와 같은 bill_id를 각각 정확히 한 번씩 넣으세요.
+- reports 배열은 입력 batch_items와 같은 순서로 report_body만 각각 정확히 한 번씩 넣으세요.
+- 각 report_body의 첫 줄 H1 제목은 해당 batch_items의 bill.bill_name과 같아야 합니다.
 - report_body 값은 Markdown 문자열입니다. JSON 문자열 안의 줄바꿈은 반드시 escape된 줄바꿈으로 표현하세요.
 - brief_summary, gpt_summary, tags를 만들지 마세요. DB 저장용 요약은 별도 코드가 report_body에서 생성합니다.
-- 출력 스키마: `{"reports":[{"bill_id":"PRC_EXAMPLE","report_mode":"deep_report","report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}`
+- 출력 스키마: `{"reports":[{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}`
 """.strip() + "\n"
 
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
@@ -1044,7 +1045,7 @@ def build_bill_report_batch_prompt(batch_items: list[dict[str, Any]]) -> str:
         "작업: Lawdigest 법안 리포트를 배치로 작성하세요.\n"
         "아래 batch_items의 각 항목은 서로 완전히 독립된 작업입니다. "
         "한 법안의 evidence, 표현, 결론, 근거를 다른 법안 리포트에 절대 옮기지 마세요. "
-        "각 report_body는 반드시 같은 객체의 bill_id, bill, evidence만 사용해서 작성하세요.\n\n"
+        "각 report_body는 반드시 같은 순서의 batch_items 객체에 들어 있는 bill, evidence만 사용해서 작성하세요.\n\n"
         "공통 작성 계약:\n"
         "- 추가 도구 호출, 웹 검색, 셸 명령 실행을 하지 말고 제공된 evidence 안에서만 사실관계를 사용하세요.\n"
         "- 각 항목은 처리 상태와 관계없이 deep_report 긴 버전으로 작성하세요.\n"
@@ -1052,11 +1053,12 @@ def build_bill_report_batch_prompt(batch_items: list[dict[str, Any]]) -> str:
         "- report_body 안의 Markdown 구조, 문체, 하이라이트, 용어 설명 방식은 `$lawdigest-bill-report` 스킬 계약을 따르세요.\n\n"
         "출력 규칙:\n"
         "- 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.\n"
-        "- reports 배열에는 입력 batch_items와 같은 bill_id를 각각 정확히 한 번씩 넣으세요.\n"
+        "- reports 배열은 입력 batch_items와 같은 순서로 report_body만 각각 정확히 한 번씩 넣으세요.\n"
+        "- 각 report_body의 첫 줄 H1 제목은 해당 batch_items의 bill.bill_name과 같아야 합니다.\n"
         "- report_body 값은 Markdown 문자열입니다. JSON 문자열 안의 줄바꿈은 반드시 escape된 줄바꿈으로 표현하세요.\n"
         "- brief_summary, gpt_summary, tags를 만들지 마세요. DB 저장용 요약은 별도 코드가 report_body에서 생성합니다.\n\n"
         "출력 스키마:\n"
-        '{"reports":[{"bill_id":"PRC_EXAMPLE","report_mode":"deep_report","report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}\n\n'
+        '{"reports":[{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}\n\n'
         f"batch_items:\n{json.dumps(batch_items, ensure_ascii=False, indent=2, default=str)}"
     )
 
@@ -1076,7 +1078,34 @@ def _extract_json_object(text: str) -> str:
     return stripped[start : start + end]
 
 
-def _parse_batch_report_output(text: str, *, expected_bill_ids: list[str]) -> dict[str, str]:
+def _normalize_bill_name_for_match(value: Any) -> str:
+    normalized = re.sub(r"\s+", "", str(value or ""))
+    return normalized.strip()
+
+
+def _extract_report_title(report_body: str) -> str:
+    match = re.search(r"(?m)^#\s+(.+?)\s*$", report_body.strip())
+    return match.group(1).strip() if match else ""
+
+
+def _validate_report_title_matches_bill(report_body: str, bill: dict[str, Any]) -> None:
+    expected_title = _normalize_bill_name_for_match(bill.get("bill_name"))
+    if not expected_title:
+        return
+    actual_title = _normalize_bill_name_for_match(_extract_report_title(report_body))
+    if actual_title != expected_title:
+        raise RuntimeError(
+            "생성 리포트 제목이 대상 법안명과 일치하지 않습니다: "
+            f"expected={bill.get('bill_name')}, actual={_extract_report_title(report_body) or '없음'}"
+        )
+
+
+def _parse_batch_report_output(
+    text: str,
+    *,
+    expected_bill_ids: list[str],
+    expected_bills: list[dict[str, Any]] | None = None,
+) -> dict[str, str]:
     try:
         payload = json.loads(_extract_json_object(text))
     except (json.JSONDecodeError, ValueError) as exc:
@@ -1091,19 +1120,37 @@ def _parse_batch_report_output(text: str, *, expected_bill_ids: list[str]) -> di
             details={"status": "failed", "expected_bill_ids": expected_bill_ids},
         )
     parsed: dict[str, str] = {}
-    for report in reports:
+    pending_reports: list[tuple[int, str]] = []
+    title_counts: dict[str, int] = {}
+    for bill in expected_bills or []:
+        title_key = _normalize_bill_name_for_match(bill.get("bill_name"))
+        if title_key:
+            title_counts[title_key] = title_counts.get(title_key, 0) + 1
+    expected_by_title = {
+        _normalize_bill_name_for_match(bill.get("bill_name")): str(bill.get("bill_id") or "")
+        for bill in (expected_bills or [])
+        if bill.get("bill_id") and bill.get("bill_name") and title_counts.get(_normalize_bill_name_for_match(bill.get("bill_name"))) == 1
+    }
+    for report_index, report in enumerate(reports):
         if not isinstance(report, dict):
             continue
-        bill_id = str(report.get("bill_id") or "")
         report_body = report.get("report_body")
-        if bill_id and isinstance(report_body, str) and report_body.strip():
+        if not isinstance(report_body, str) or not report_body.strip():
+            continue
+        pending_reports.append((report_index, report_body))
+
+    still_pending: list[tuple[int, str]] = []
+    for index, report_body in pending_reports:
+        title_bill_id = expected_by_title.get(_normalize_bill_name_for_match(_extract_report_title(report_body)))
+        if title_bill_id and title_bill_id not in parsed:
+            parsed[title_bill_id] = report_body
+        else:
+            still_pending.append((index, report_body))
+
+    remaining_bill_ids = [bill_id for bill_id in expected_bill_ids if bill_id not in parsed]
+    if still_pending and len(still_pending) == len(remaining_bill_ids):
+        for bill_id, (_, report_body) in zip(remaining_bill_ids, sorted(still_pending, key=lambda item: item[0])):
             parsed[bill_id] = report_body
-    missing = [bill_id for bill_id in expected_bill_ids if bill_id not in parsed]
-    if missing:
-        raise BillReportGenerationError(
-            "Codex batch report output is missing bill reports: " + ", ".join(missing),
-            details={"status": "failed", "expected_bill_ids": expected_bill_ids, "missing_bill_ids": missing},
-        )
     return parsed
 
 
@@ -1127,6 +1174,72 @@ def _strip_markdown_for_summary(text: str) -> str:
 
 
 TERM_TOOLTIP_PATTERN = re.compile(r"\{\{([^:{}\n]+):([^{}\n]+)\}\}")
+
+
+def _has_final_consonant(text: str) -> bool | None:
+    if not text:
+        return None
+    last = text[-1]
+    if "가" <= last <= "힣":
+        return (ord(last) - ord("가")) % 28 != 0
+    return None
+
+
+def _particle_for_term(term: str, consonant_pair: str, vowel_pair: str) -> str:
+    has_final_consonant = _has_final_consonant(term.strip())
+    if has_final_consonant is None:
+        return consonant_pair
+    return consonant_pair if has_final_consonant else vowel_pair
+
+
+def _repair_term_tooltip_particles(text: str) -> str:
+    particle_pairs = {
+        "을": ("을", "를"),
+        "를": ("을", "를"),
+        "이": ("이", "가"),
+        "가": ("이", "가"),
+        "은": ("은", "는"),
+        "는": ("은", "는"),
+        "과": ("과", "와"),
+        "와": ("과", "와"),
+    }
+
+    def replace(match: re.Match[str]) -> str:
+        term = match.group("term")
+        particle = match.group("particle")
+        consonant_pair, vowel_pair = particle_pairs[particle]
+        repaired_particle = _particle_for_term(term, consonant_pair, vowel_pair)
+        return f"{{{{{term}:{match.group('definition')}}}}}{repaired_particle}"
+
+    return re.sub(
+        r"\{\{(?P<term>[^:{}\n]+):(?P<definition>[^{}\n]+)\}\}(?P<particle>[을를이가은는과와])",
+        replace,
+        text,
+    )
+
+
+def _dedupe_adjacent_term_tooltips(text: str) -> str:
+    def replace(match: re.Match[str]) -> str:
+        return f"{{{{{match.group('term')}:{match.group('definition')}}}}}"
+
+    return re.sub(
+        r"(?P<term>[가-힣A-Za-z0-9·ㆍ()\-/ ]{1,40})\{\{(?P=term):(?P<definition>[^{}\n]+)\}\}",
+        replace,
+        text,
+    )
+
+
+def _dedupe_repeated_term_tooltips(text: str) -> str:
+    seen: set[str] = set()
+
+    def replace(match: re.Match[str]) -> str:
+        term = match.group(1)
+        if term in seen:
+            return term
+        seen.add(term)
+        return match.group(0)
+
+    return TERM_TOOLTIP_PATTERN.sub(replace, text)
 
 
 def _has_overlong_brief_prefix(brief_summary: str | None, bill_name: str) -> bool:
@@ -1322,6 +1435,11 @@ def _validate_report_body(report_body: str) -> None:
 def _repair_report_body(report_body: str) -> str:
     repaired = report_body.replace("원문 요약:", "").replace("용어 설명:", "")
     repaired = repaired.replace("법령 체계:", "").replace("쉬운 풀이:", "")
+    repaired = re.sub(r"<strong>([^<>\n]+)</strong>", r"**\1**", repaired)
+    repaired = re.sub(r"<b>([^<>\n]+)</b>", r"**\1**", repaired)
+    repaired = _dedupe_adjacent_term_tooltips(repaired)
+    repaired = _dedupe_repeated_term_tooltips(repaired)
+    repaired = _repair_term_tooltip_particles(repaired)
     repaired = re.sub(r"(?m)^(?P<indent>\s*)<mark>\s*-\s*(?P<text>[^<\n]+)</mark>", r"\g<indent>- <mark>\g<text></mark>", repaired)
 
     easy_starters = (
@@ -1349,6 +1467,17 @@ def _repair_report_body(report_body: str) -> str:
                 indent = line[: len(line) - len(line.lstrip())]
                 fixed_lines.append(f"{indent}- {stripped}")
                 continue
+
+        if in_changes and re.match(r"^###\s+\d+\)\s+", stripped):
+            indent = line[: len(line) - len(line.lstrip())]
+            heading = stripped
+            heading = heading.replace("확충 유도", "늘리기")
+            heading = heading.replace("체계 개정", "기준 정리")
+            heading = heading.replace("집행주체", "담당 기관")
+            heading = heading.replace("확충", "늘리기")
+            heading = heading.replace("정교화", "더 분명하게")
+            fixed_lines.append(f"{indent}{heading}")
+            continue
 
         if stripped.startswith("- ") and ": " in stripped and not re.match(r"- \*\*[^*\n]+\*\*:", stripped):
             label, rest = stripped[2:].split(": ", 1)
@@ -1519,7 +1648,7 @@ class CodexBillReportAgent:
                 args.extend(["-c", f"{prefix}.tools.{tool_name}.approval_mode={_toml_string('approve')}"])
         return args
 
-    def build_command(self, *, prompt: str, output_path: str) -> tuple[list[str], str]:
+    def build_command(self, *, prompt: str, output_path: str, ephemeral: bool = True) -> tuple[list[str], str]:
         command = [
             self.cli_bin,
             "exec",
@@ -1534,7 +1663,33 @@ class CodexBillReportAgent:
             "--cd",
             self.workdir,
             "--skip-git-repo-check",
-            "--ephemeral",
+            "--ignore-rules",
+            "--json",
+            "--model",
+            self.model,
+            "--output-last-message",
+            output_path,
+            "-",
+        ]
+        if ephemeral:
+            command.insert(command.index("--ignore-rules"), "--ephemeral")
+        if self.enable_mcp:
+            command[-1:-1] = self._mcp_server_config_args()
+        return command, prompt
+
+    def build_resume_command(self, *, session_id: str, prompt: str, output_path: str) -> tuple[list[str], str]:
+        command = [
+            self.cli_bin,
+            "exec",
+            "resume",
+            session_id,
+            "--disable",
+            "plugins",
+            "--disable",
+            "apps",
+            "--disable",
+            "memories",
+            "--skip-git-repo-check",
             "--ignore-rules",
             "--json",
             "--model",
@@ -1642,6 +1797,7 @@ class CodexBillReportAgent:
         }
         details["repair_applied"] = repair_applied
         try:
+            _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
             _validate_report_body(report_path.read_text(encoding="utf-8"))
             validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
             if repair_applied:
@@ -1692,109 +1848,77 @@ class CodexBillReportAgent:
         report_mode: str = "auto",
         batch_index: int = 1,
     ) -> dict[str, Any]:
-        batch_items: list[dict[str, Any]] = []
-        evidences: dict[str, dict[str, Any]] = {}
-        for bill in bills:
-            bill_id = str(bill.get("bill_id") or "")
-            evidence = build_bill_report_evidence(bill, report_mode=report_mode)
-            resolved_mode = str(evidence.get("report_mode") or _resolve_report_mode(report_mode, bill))
-            evidences[bill_id] = evidence
-            batch_items.append({
-                "bill_id": bill_id,
-                "bill": _build_bill_payload(bill),
-                "report_mode": resolved_mode,
-                "evidence": evidence,
-            })
-
         expected_bill_ids = [str(bill.get("bill_id") or "") for bill in bills]
-        prompt = build_bill_report_batch_prompt(batch_items)
-        batch_output_path = output_root / f"batch-session-{batch_index:04d}.json"
-        command, stdin_text = self.build_command(prompt=prompt, output_path=str(batch_output_path))
-        batch_output_path.parent.mkdir(parents=True, exist_ok=True)
-        started_at = datetime.now(timezone.utc)
-        started_perf = time.perf_counter()
-
-        try:
-            proc = subprocess.run(
-                command,
-                input=stdin_text,
-                capture_output=True,
-                text=True,
-                cwd=self.workdir,
-                env=self.build_environment(),
-                timeout=self.timeout_seconds,
-            )
-            stdout_text = (proc.stdout or "").strip()
-            stderr_text = (proc.stderr or "").strip()
-            exit_code = proc.returncode
-        finally:
-            finished_at = datetime.now(timezone.utc)
-            duration_seconds = round(time.perf_counter() - started_perf, 3)
-
-        metadata = _parse_codex_json_metadata(stdout_text)
-        session = {
-            "batch_index": batch_index,
-            "bill_ids": expected_bill_ids,
-            "output_path": str(batch_output_path),
-            "started_at": started_at.isoformat(),
-            "finished_at": finished_at.isoformat(),
-            "duration_seconds": duration_seconds,
-            "exit_code": exit_code,
-            **metadata,
-        }
-        if exit_code != 0:
-            error = (stderr_text or stdout_text or "Codex agent failed").strip()
-            failed_items = [
-                {
-                    "bill_id": bill.get("bill_id"),
-                    "bill_name": bill.get("bill_name"),
-                    "status": "failed",
-                    "error": error,
-                    "batch_index": batch_index,
-                    "started_at": started_at.isoformat(),
-                    "finished_at": finished_at.isoformat(),
-                    "duration_seconds": duration_seconds,
-                    "exit_code": exit_code,
-                    "codex_thread_id": metadata.get("codex_thread_id"),
-                    "codex_event_count": metadata.get("codex_event_count"),
-                    "token_usage_available": False,
-                }
-                for bill in bills
-            ]
-            return {"items": failed_items, "session": session}
-
-        output_text = ""
-        if batch_output_path.exists():
-            output_text = batch_output_path.read_text(encoding="utf-8")
-        if not output_text.strip():
-            output_text = stdout_text
-
-        try:
-            reports_by_bill_id = _parse_batch_report_output(output_text, expected_bill_ids=expected_bill_ids)
-        except BillReportGenerationError as exc:
-            failed_items = [
-                {
-                    "bill_id": bill.get("bill_id"),
-                    "bill_name": bill.get("bill_name"),
-                    "status": "failed",
-                    "error": str(exc),
-                    "batch_index": batch_index,
-                    "started_at": started_at.isoformat(),
-                    "finished_at": finished_at.isoformat(),
-                    "duration_seconds": duration_seconds,
-                    "exit_code": exit_code,
-                    "codex_thread_id": metadata.get("codex_thread_id"),
-                    "codex_event_count": metadata.get("codex_event_count"),
-                    "token_usage_available": False,
-                }
-                for bill in bills
-            ]
-            return {"items": failed_items, "session": session}
-
+        output_root.mkdir(parents=True, exist_ok=True)
+        session_started_at = datetime.now(timezone.utc)
+        session_started_perf = time.perf_counter()
+        session_id: str | None = None
+        session_event_count = 0
+        output_paths: list[str] = []
+        turns: list[dict[str, Any]] = []
         completed_items: list[dict[str, Any]] = []
-        for bill in bills:
+
+        for turn_index, bill in enumerate(bills, start=1):
             bill_id = str(bill.get("bill_id") or "")
             report_path = output_root / f"{_slugify_bill_id(bill_id)}.md"
+            output_paths.append(str(report_path))
+            evidence = build_bill_report_evidence(bill, report_mode=report_mode)
+            resolved_mode = str(evidence.get("report_mode") or _resolve_report_mode(report_mode, bill))
+            prompt = build_bill_report_prompt(bill, report_mode=resolved_mode, evidence=evidence)
+            if turn_index == 1:
+                command, stdin_text = self.build_command(prompt=prompt, output_path=str(report_path), ephemeral=False)
+            elif session_id:
+                command, stdin_text = self.build_resume_command(session_id=session_id, prompt=prompt, output_path=str(report_path))
+            else:
+                details = {
+                    "bill_id": bill.get("bill_id"),
+                    "bill_name": bill.get("bill_name"),
+                    "report_path": str(report_path),
+                    "batch_index": batch_index,
+                    "batch_turn_index": turn_index,
+                    "status": "failed",
+                    "error": "Codex session id is missing; cannot resume batch session.",
+                    "token_usage_available": False,
+                    "report_mode": resolved_mode,
+                    "prefetch": {
+                        "plan": EFFECTIVE_AGENT_TOOL_AUDIT["effective_prefetch"],
+                        "errors": evidence.get("prefetch_errors") or [],
+                    },
+                }
+                completed_items.append(details)
+                turns.append({
+                    "turn_index": turn_index,
+                    "bill_id": bill_id,
+                    "status": "failed",
+                    "error": details["error"],
+                    "output_path": str(report_path),
+                })
+                continue
+
+            started_at = datetime.now(timezone.utc)
+            started_perf = time.perf_counter()
+            try:
+                proc = subprocess.run(
+                    command,
+                    input=stdin_text,
+                    capture_output=True,
+                    text=True,
+                    cwd=self.workdir,
+                    env=self.build_environment(),
+                    timeout=self.timeout_seconds,
+                )
+                stdout_text = (proc.stdout or "").strip()
+                stderr_text = (proc.stderr or "").strip()
+                exit_code = proc.returncode
+            finally:
+                finished_at = datetime.now(timezone.utc)
+                duration_seconds = round(time.perf_counter() - started_perf, 3)
+
+            metadata = _parse_codex_json_metadata(stdout_text)
+            if metadata.get("codex_thread_id"):
+                session_id = str(metadata["codex_thread_id"])
+            turn_thread_id = metadata.get("codex_thread_id") or session_id
+            session_event_count += int(metadata.get("codex_event_count") or 0)
             details = {
                 "bill_id": bill.get("bill_id"),
                 "bill_name": bill.get("bill_name"),
@@ -1804,24 +1928,34 @@ class CodexBillReportAgent:
                 "duration_seconds": duration_seconds,
                 "exit_code": exit_code,
                 "batch_index": batch_index,
-                "codex_thread_id": metadata.get("codex_thread_id"),
+                "batch_turn_index": turn_index,
+                "codex_thread_id": turn_thread_id,
                 "codex_event_count": metadata.get("codex_event_count"),
-                "token_usage_available": False,
-                "usage_shared": True,
-                "report_mode": str(evidences.get(bill_id, {}).get("report_mode") or _resolve_report_mode(report_mode, bill)),
+                "token_usage_available": metadata.get("token_usage_available", False),
+                "usage": metadata.get("usage"),
+                "usage_shared": False,
+                "report_mode": resolved_mode,
                 "prefetch": {
                     "plan": EFFECTIVE_AGENT_TOOL_AUDIT["effective_prefetch"],
-                    "errors": evidences.get(bill_id, {}).get("prefetch_errors") or [],
+                    "errors": evidence.get("prefetch_errors") or [],
                 },
             }
             validation = {"status": "not_run", "summary": "Markdown 검증을 실행하지 않았습니다."}
             try:
-                raw_report_body = reports_by_bill_id[bill_id]
+                if exit_code != 0:
+                    raise RuntimeError((stderr_text or stdout_text or "Codex agent failed").strip())
+                if not report_path.exists() and stdout_text:
+                    report_path.write_text(stdout_text, encoding="utf-8")
+                if not report_path.exists():
+                    raise RuntimeError("Codex agent report body is empty.")
+                raw_report_body = report_path.read_text(encoding="utf-8")
                 repaired_report_body = _repair_report_body(raw_report_body)
                 repair_applied = repaired_report_body != raw_report_body.strip() + "\n"
-                report_path.write_text(repaired_report_body, encoding="utf-8")
+                if repair_applied:
+                    report_path.write_text(repaired_report_body, encoding="utf-8")
                 details["output_bytes"] = report_path.stat().st_size
                 details["repair_applied"] = repair_applied
+                _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
                 _validate_report_body(report_path.read_text(encoding="utf-8"))
                 validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
                 if repair_applied:
@@ -1846,7 +1980,35 @@ class CodexBillReportAgent:
                 )
                 status_item.update(inspection_paths)
             completed_items.append(status_item)
+            turns.append({
+                "turn_index": turn_index,
+                "bill_id": bill_id,
+                "status": status_item.get("status"),
+                "error": status_item.get("error"),
+                "output_path": str(report_path),
+                "started_at": started_at.isoformat(),
+                "finished_at": finished_at.isoformat(),
+                "duration_seconds": duration_seconds,
+                "exit_code": exit_code,
+                "codex_event_count": metadata.get("codex_event_count"),
+                "token_usage_available": metadata.get("token_usage_available", False),
+                "usage": metadata.get("usage"),
+            })
 
+        session_finished_at = datetime.now(timezone.utc)
+        session = {
+            "batch_index": batch_index,
+            "bill_ids": expected_bill_ids,
+            "output_paths": output_paths,
+            "started_at": session_started_at.isoformat(),
+            "finished_at": session_finished_at.isoformat(),
+            "duration_seconds": round(time.perf_counter() - session_started_perf, 3),
+            "codex_thread_id": session_id,
+            "codex_event_count": session_event_count,
+            "token_usage_available": False,
+            "turn_count": len(turns),
+            "turns": turns,
+        }
         return {"items": completed_items, "session": session}
 
 

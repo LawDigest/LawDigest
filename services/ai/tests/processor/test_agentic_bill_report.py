@@ -246,7 +246,10 @@ def test_agentic_report_batch_prompt_isolates_bill_reports():
     assert "JSON 객체 하나만 작성하세요" in prompt
     assert '"reports"' in prompt
     assert '"report_body"' in prompt
+    assert '{"reports":[{"report_body"' in prompt
+    assert '"bill_id":"PRC_EXAMPLE"' not in prompt
     assert "처리 상태와 관계없이 deep_report 긴 버전" in prompt
+    assert "같은 순서로 report_body만" in prompt
     assert "### 1) 제목" in context
     assert "번호 헤딩 다음에는 불릿이 아닌 일반 문단" in context
 
@@ -463,6 +466,134 @@ def test_agentic_report_validation_accepts_dictionary_term_tooltip():
     _validate_report_body(repaired)
 
 
+def test_agentic_report_repair_dedupes_adjacent_same_term_tooltip():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+**공유재산{{공유재산:지방자치단체 소유 재산을 말해요.}} 관리 기준을 정비하기 위한 법률 개정안이에요.**
+<mark>핵심 변화는 {{변상금:무단 점유자에게 부과하는 금액을 말해요.}} 조정 근거가 넓어지는 점이에요.</mark>
+
+## 주요 내용
+- **지원 근거**: 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 금액 조정 근거 정비
+
+공유재산{{공유재산:지방자치단체 소유 재산을 말해요.}}을 주거 목적으로 점유한 경우 예외를 둘 수 있게 해요.
+
+- 사용자 입장에서는, 생활 회복을 막는 부담을 줄일 여지가 생겨요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert "공유재산{{공유재산:" not in repaired
+    assert repaired.count("{{공유재산:") == 1
+    assert "공유재산을 주거 목적으로" in repaired
+    _validate_report_body(repaired)
+
+
+def test_agentic_report_repair_keeps_only_first_tooltip_per_term():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+- <mark>{{인공지능기술:인공지능을 구현하기 위한 기술을 말해요.}}을 쓰는 행정 결정을 설명받기 쉽게 하는 법률 개정안이에요.</mark>
+
+## 주요 내용
+- **설명 기준**: 행정청이 인공지능기술을 쓴 결정을 설명하는 기준을 더 분명하게 해요.
+
+## 왜 나왔나
+행정이 {{인공지능기술:인공지능을 구현하기 위한 기술을 말해요.}}을 쓰면 결과가 빠르게 나오지만 이유를 알기 어려울 수 있어요.
+
+## 무엇이 달라지나
+
+### 1) 설명 요구 기준 정비
+
+행정청이 **설명 기준**을 더 분명하게 마련해요.
+
+- 사용자는 결정 이유를 더 쉽게 확인할 수 있어요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert repaired.count("{{인공지능기술:") == 1
+    assert "행정이 인공지능기술을 쓰면" in repaired
+    _validate_report_body(repaired)
+
+
+def test_agentic_report_repair_simplifies_hard_change_headings():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+- <mark>핵심 변화는 **숙소 기준**을 더 쉽게 확인하게 하는 점이에요.</mark>
+
+## 주요 내용
+- **숙소 기준**: 안전하지 않은 숙소를 줄이고 필요한 지원을 늘려요.
+
+## 왜 나왔나
+현장에서 기준을 지키기 어려운 경우가 있어서 나온 법안이에요.
+
+## 무엇이 달라지나
+
+### 1) 안전한 숙소 확충 유도
+
+지원 근거를 두어 **안전한 숙소**를 늘리려는 내용이에요.
+
+- 사용자 입장에서는 살 곳의 기준을 더 쉽게 확인할 수 있어요.
+
+### 2) 지역장애인권익옹호기관 확충
+
+지역별로 **도움받을 곳**을 더 가까이 두려는 내용이에요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert "### 1) 안전한 숙소 늘리기" in repaired
+    assert "### 2) 지역장애인권익옹호기관 늘리기" in repaired
+    assert "확충" not in repaired
+    _validate_report_body(repaired)
+
+
+def test_agentic_report_repair_fixes_term_tooltip_particles():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+- **공유재산{{공유재산:지방자치단체 소유 재산을 말해요.}}를 주거 목적으로 점유한 취약계층을 더 배려하기 위한 법률 개정안이에요.**
+- <mark>핵심 변화는 변상금{{변상금:무단 점유자에게 부과하는 금액을 말해요.}}를 조정할 수 있는 근거를 넓히는 점이에요.</mark>
+
+## 주요 내용
+- **지원 근거**: 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 금액 조정 근거 정비
+
+공유재산{{공유재산:지방자치단체 소유 재산을 말해요.}}를 주거 목적으로 점유한 경우 예외를 둘 수 있게 해요.
+
+- 사용자 입장에서는, 생활 회복을 막는 부담을 줄일 여지가 생겨요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert "{{공유재산:지방자치단체 소유 재산을 말해요.}}을 주거 목적으로" in repaired
+    assert "{{변상금:무단 점유자에게 부과하는 금액을 말해요.}}을 조정" in repaired
+    assert "공유재산{{공유재산:" not in repaired
+    assert "변상금{{변상금:" not in repaired
+    _validate_report_body(repaired)
+
+
 def test_agentic_report_repair_adds_missing_highlight():
     from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
 
@@ -516,6 +647,32 @@ def test_agentic_report_repair_moves_bullet_marker_outside_highlight():
 
     assert "<mark>-" not in repaired
     assert "- <mark>핵심 변화는 **거래 전 정보 확인**이 쉬워지는 점이에요.</mark>" in repaired
+    _validate_report_body(repaired)
+
+
+def test_agentic_report_repair_converts_html_bold_inside_highlight():
+    from lawdigest_ai.processor.agentic_bill_report import _repair_report_body, _validate_report_body
+
+    report_body = """
+# 테스트법 일부개정법률안
+
+## 쉬운 요약
+- <mark><strong>장애인학대</strong> 예방 체계를 더 촘촘하게 만들기 위한 법률 개정안이에요.</mark>
+
+## 주요 내용
+- **지원 근거**: 설명이에요.
+
+## 무엇이 달라지나
+
+### 1) 지원 기준 정비
+
+지역에서 **도움받을 곳**을 더 쉽게 찾게 해요.
+""".strip()
+
+    repaired = _repair_report_body(report_body)
+
+    assert "<strong>" not in repaired
+    assert "<mark>**장애인학대** 예방 체계를 더 촘촘하게 만들기 위한 법률 개정안이에요.</mark>" in repaired
     _validate_report_body(repaired)
 
 
@@ -924,11 +1081,41 @@ def test_legal_term_glossary_context_includes_real_api_lookup_results():
 
     context = build_legal_term_glossary_context("청문 규정을 설명합니다.", term_client=FakeTermClient())
 
-    assert "아래 `법제처 API 조회 결과`는 실제 법제처 Open API 정의 조회 결과입니다." in context
-    assert "법제처 API 조회 결과:" in context
+    assert "아래 `법제처 용어사전 조회 결과`" in context
+    assert "법제처 용어사전 조회 결과:" in context
     assert "청문: 뜻=처분 전에 당사자의 의견을 직접 듣고 증거를 조사하는 절차를 말한다." in context
     assert "일상어 연계어" not in context
     assert "청문 규정: 처분을 받기 전에" in context
+
+
+def test_legal_term_glossary_context_prefers_local_dictionary(monkeypatch):
+    from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
+    from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm
+
+    monkeypatch.setattr(
+        "lawdigest_ai.processor.legal_term_glossary._lookup_local_dictionary_terms",
+        lambda terms: [
+            LawOpenApiTerm(
+                term="결격사유",
+                source="lawdigest-local-dictionary",
+                definitions=("로컬 사전에 저장된 결격사유 정의입니다.",),
+            )
+        ],
+    )
+
+    api_calls = []
+
+    class FakeTermClient:
+        enabled = True
+
+        def lookup_term(self, query):
+            api_calls.append(query)
+            return None
+
+    context = build_legal_term_glossary_context("임원의 결격사유를 정비합니다.", term_client=FakeTermClient())
+
+    assert "결격사유" not in api_calls
+    assert "결격사유: 뜻=로컬 사전에 저장된 결격사유 정의입니다." in context
 
 
 def test_legal_term_glossary_context_extracts_defined_terms_from_bill_text():
@@ -957,6 +1144,34 @@ def test_legal_term_glossary_context_extracts_defined_terms_from_bill_text():
     assert "청문 규정: 처분을 받기 전에" not in context
 
 
+def test_legal_term_glossary_context_uses_law_api_as_candidate_filter():
+    from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm
+    from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
+
+    calls = []
+
+    class FakeTermClient:
+        enabled = True
+
+        def lookup_term(self, query):
+            calls.append(query)
+            if query == "결격사유":
+                return LawOpenApiTerm(
+                    term=query,
+                    source="law.go.kr",
+                    definitions=("일정한 자격을 가질 수 없게 하는 법정 사유를 말한다.",),
+                )
+            return None
+
+    context = build_legal_term_glossary_context(
+        "기관 임원의 결격사유와 등록취소 절차를 정비합니다.",
+        term_client=FakeTermClient(),
+    )
+
+    assert "결격사유" in calls
+    assert "결격사유: 뜻=일정한 자격을 가질 수 없게 하는 법정 사유를 말한다." in context
+
+
 def test_legal_term_glossary_context_ignores_api_results_without_definitions():
     from lawdigest_ai.processor.law_open_api_terms import LawOpenApiTerm
     from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
@@ -978,17 +1193,22 @@ def test_legal_term_glossary_context_ignores_api_results_without_definitions():
     assert "일상어 연계어" not in context
 
 
-def test_legal_term_glossary_context_skips_api_lookup_without_matched_terms():
+def test_legal_term_glossary_context_skips_obvious_common_terms_in_api_candidates():
     from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context
+
+    calls = []
 
     class FakeTermClient:
         enabled = True
 
         def lookup_term(self, query):
-            raise AssertionError(f"unexpected API lookup: {query}")
+            calls.append(query)
+            return None
 
     context = build_legal_term_glossary_context("허위정보 유포를 설명합니다.", term_client=FakeTermClient())
 
+    assert "허위정보" not in calls
+    assert "허위정보 유포" not in calls
     assert "정적 보조 사전" in context
     assert "법제처 API 조회 결과" not in context
     assert "청문 규정: 처분을 받기 전에" in context
@@ -1069,6 +1289,32 @@ def test_codex_agent_command_omits_mcp_servers_by_default(tmp_path, monkeypatch)
     assert "--output-last-message" in command
     assert stdin_text == "리포트를 작성하세요."
     assert "mcp_servers." not in joined
+
+
+def test_codex_agent_builds_persistent_initial_and_resume_commands(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+
+    agent = CodexBillReportAgent(workdir="/tmp/lawdigest-agent", model="gpt-5.3-codex-spark")
+    initial_command, initial_stdin = agent.build_command(
+        prompt="첫 번째 리포트를 작성하세요.",
+        output_path=str(tmp_path / "first.md"),
+        ephemeral=False,
+    )
+    resume_command, resume_stdin = agent.build_resume_command(
+        session_id="thread-batch",
+        prompt="두 번째 리포트를 작성하세요.",
+        output_path=str(tmp_path / "second.md"),
+    )
+
+    assert initial_command[:2] == ["codex", "exec"]
+    assert "--ephemeral" not in initial_command
+    assert "--output-last-message" in initial_command
+    assert initial_stdin == "첫 번째 리포트를 작성하세요."
+    assert resume_command[:4] == ["codex", "exec", "resume", "thread-batch"]
+    assert "--output-last-message" in resume_command
+    assert resume_stdin == "두 번째 리포트를 작성하세요."
 
 
 def test_codex_agent_uses_dedicated_codex_home(tmp_path, monkeypatch):
@@ -1524,24 +1770,15 @@ def test_run_agentic_bill_reports_batches_multiple_bills_in_one_session(tmp_path
 
     def run_codex(command, **kwargs):
         output_path = Path(command[command.index("--output-last-message") + 1])
-        output_path.write_text(
-            json.dumps(
-                {
-                    "reports": [
-                        {"bill_id": "PRC_BATCH_1", "report_mode": "deep_report", "report_body": report_body_1},
-                        {"bill_id": "PRC_BATCH_2", "report_mode": "deep_report", "report_body": report_body_2},
-                    ]
-                },
-                ensure_ascii=False,
-            ),
-            encoding="utf-8",
-        )
-        stdout = "\n".join(
-            [
-                '{"type":"thread.started","thread_id":"thread-batch"}',
-                '{"type":"turn.completed","usage":{"input_tokens":101,"cached_input_tokens":7,"output_tokens":9,"reasoning_output_tokens":2}}',
-            ]
-        )
+        is_resume = command[:3] == ["codex", "exec", "resume"]
+        output_path.write_text(report_body_2 if is_resume else report_body_1, encoding="utf-8")
+        usage = {"input_tokens": 202, "cached_input_tokens": 17, "output_tokens": 19, "reasoning_output_tokens": 3}
+        if not is_resume:
+            usage = {"input_tokens": 101, "cached_input_tokens": 7, "output_tokens": 9, "reasoning_output_tokens": 2}
+        stdout = "\n".join([
+            '{"type":"thread.started","thread_id":"thread-batch"}',
+            json.dumps({"type": "turn.completed", "usage": usage}),
+        ])
         return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
 
     with patch(
@@ -1557,18 +1794,199 @@ def test_run_agentic_bill_reports_batches_multiple_bills_in_one_session(tmp_path
             batch_session_size=2,
         )
 
-    assert mock_run.call_count == 1
+    assert mock_run.call_count == 2
+    assert mock_run.call_args_list[0].args[0][:2] == ["codex", "exec"]
+    assert "--ephemeral" not in mock_run.call_args_list[0].args[0]
+    assert mock_run.call_args_list[1].args[0][:4] == ["codex", "exec", "resume", "thread-batch"]
     assert result["batch_session_size"] == 2
     assert result["batch_session_count"] == 1
     assert result["stats"]["success_count"] == 2
-    assert result["stats"]["usage_totals"]["input_tokens"] == 101
-    assert result["stats"]["token_usage_available_count"] == 1
-    assert result["sessions"][0]["usage"]["input_tokens"] == 101
+    assert result["stats"]["usage_totals"]["input_tokens"] == 303
+    assert result["stats"]["token_usage_available_count"] == 2
+    assert result["sessions"][0]["turn_count"] == 2
+    assert result["sessions"][0]["codex_thread_id"] == "thread-batch"
     assert [item["batch_index"] for item in result["items"]] == [1, 1]
+    assert [item["batch_turn_index"] for item in result["items"]] == [1, 2]
     assert [item["report_mode"] for item in result["items"]] == ["deep_report", "deep_report"]
-    assert all(item["usage_shared"] is True for item in result["items"])
+    assert all(item["usage_shared"] is False for item in result["items"])
     assert "첫 번째 법안만의 변화" in Path(result["items"][0]["report_path"]).read_text(encoding="utf-8")
     assert "두 번째 법안만의 변화" in Path(result["items"][1]["report_path"]).read_text(encoding="utf-8")
+
+
+def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    targets = [
+        {
+            "bill_id": "PRC_PARTIAL_1",
+            "bill_number": "2211001",
+            "bill_name": "부분 성공 테스트법안 1",
+            "summary": "첫 번째 요약",
+            "brief_summary": "기존 첫 번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+        {
+            "bill_id": "PRC_PARTIAL_2",
+            "bill_number": "2211002",
+            "bill_name": "부분 성공 테스트법안 2",
+            "summary": "두 번째 요약",
+            "brief_summary": "기존 두 번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+    ]
+    report_body = (
+        "# 부분 성공 테스트법안 1\n\n"
+        "## 쉬운 요약\n- 첫 번째 법안은 성공 반영돼야 해요.\n\n"
+        "## 주요 내용\n- **지원 근거**: 설명이에요.\n"
+        "\n## 무엇이 달라지나\n\n"
+        "### 1) 지원 근거 신설\n\n"
+        "첫 번째 법안 근거만 사용해 지원 근거를 만들어요.\n"
+    )
+
+    def run_codex(command, **kwargs):
+        output_path = Path(command[command.index("--output-last-message") + 1])
+        if command[:3] != ["codex", "exec", "resume"]:
+            output_path.write_text(report_body, encoding="utf-8")
+            stdout = '{"type":"thread.started","thread_id":"thread-partial"}'
+        else:
+            stdout = ""
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=targets,
+    ), patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex), patch(
+        "lawdigest_ai.processor.agentic_bill_report.update_bill_summary"
+    ) as mock_update:
+        result = run_agentic_bill_reports(
+            mode="test",
+            limit=2,
+            output_dir=str(tmp_path),
+            target="pending",
+            report_mode="deep_report",
+            batch_session_size=2,
+        )
+
+    assert result["stats"]["success_count"] == 1
+    assert result["stats"]["failure_count"] == 1
+    assert result["stats"]["db_upserted_count"] == 1
+    assert result["items"][0]["status"] == "success"
+    assert result["items"][1]["status"] == "failed"
+    assert "Codex agent report body is empty" in result["items"][1]["error"]
+    mock_update.assert_called_once()
+    assert mock_update.call_args.kwargs["bill_id"] == "PRC_PARTIAL_1"
+
+
+def test_run_agentic_bill_reports_maps_report_bodies_without_agent_bill_id(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    targets = [
+        {
+            "bill_id": "PRC_REPAIR_1",
+            "bill_number": "2212001",
+            "bill_name": "식별자 복구 테스트법안 1",
+            "summary": "첫 번째 요약",
+            "brief_summary": "기존 첫 번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+        {
+            "bill_id": "PRC_REPAIR_2",
+            "bill_number": "2212002",
+            "bill_name": "식별자 복구 테스트법안 2",
+            "summary": "두 번째 요약",
+            "brief_summary": "기존 두 번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+    ]
+    report_body_1 = (
+        "# 식별자 복구 테스트법안 1\n\n"
+        "## 쉬운 요약\n- 첫 번째 법안은 원래 식별자로 저장돼야 해요.\n\n"
+        "## 주요 내용\n- **지원 근거**: 첫 번째 설명이에요.\n"
+        "\n## 무엇이 달라지나\n\n"
+        "### 1) 지원 근거 신설\n\n"
+        "첫 번째 법안 근거만 사용해 지원 근거를 만들어요.\n"
+    )
+    report_body_2 = (
+        "# 식별자 복구 테스트법안 2\n\n"
+        "## 쉬운 요약\n- 두 번째 법안은 제목으로 식별자를 복구해야 해요.\n\n"
+        "## 주요 내용\n- **관리 절차**: 두 번째 설명이에요.\n"
+        "\n## 무엇이 달라지나\n\n"
+        "### 1) 관리 절차 정비\n\n"
+        "두 번째 법안 근거만 사용해 관리 절차를 정비해요.\n"
+    )
+
+    def run_codex(command, **kwargs):
+        output_path = Path(command[command.index("--output-last-message") + 1])
+        if command[:3] == ["codex", "exec", "resume"]:
+            output_path.write_text(report_body_2, encoding="utf-8")
+            stdout = '{"type":"thread.started","thread_id":"thread-repair"}'
+        else:
+            output_path.write_text(report_body_1, encoding="utf-8")
+            stdout = '{"type":"thread.started","thread_id":"thread-repair"}'
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=targets,
+    ), patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex), patch(
+        "lawdigest_ai.processor.agentic_bill_report.update_bill_summary"
+    ) as mock_update:
+        result = run_agentic_bill_reports(
+            mode="test",
+            limit=2,
+            output_dir=str(tmp_path),
+            target="pending",
+            report_mode="deep_report",
+            batch_session_size=2,
+        )
+
+    assert result["stats"]["success_count"] == 2
+    assert result["stats"]["failure_count"] == 0
+    assert result["stats"]["db_upserted_count"] == 2
+    assert [item["status"] for item in result["items"]] == ["success", "success"]
+    assert [call.kwargs["bill_id"] for call in mock_update.call_args_list] == ["PRC_REPAIR_1", "PRC_REPAIR_2"]
+    assert "두 번째 법안은 제목으로 식별자를 복구해야 해요" in Path(
+        result["items"][1]["report_path"]
+    ).read_text(encoding="utf-8")
+
+
+def test_batch_report_parser_ignores_agent_bill_id_when_title_matches():
+    from lawdigest_ai.processor.agentic_bill_report import _parse_batch_report_output
+
+    report_body_1 = "# 파이프라인 기준 테스트법안 1\n\n## 쉬운 요약\n- 첫 번째예요.\n\n## 주요 내용\n- **항목**: 설명이에요.\n"
+    report_body_2 = "# 파이프라인 기준 테스트법안 2\n\n## 쉬운 요약\n- 두 번째예요.\n\n## 주요 내용\n- **항목**: 설명이에요.\n"
+
+    parsed = _parse_batch_report_output(
+        json.dumps(
+            {
+                "reports": [
+                    {"bill_id": "WRONG_ID_2", "report_body": report_body_1},
+                    {"bill_id": "WRONG_ID_1", "report_body": report_body_2},
+                ]
+            },
+            ensure_ascii=False,
+        ),
+        expected_bill_ids=["PIPELINE_ID_1", "PIPELINE_ID_2"],
+        expected_bills=[
+            {"bill_id": "PIPELINE_ID_1", "bill_name": "파이프라인 기준 테스트법안 1"},
+            {"bill_id": "PIPELINE_ID_2", "bill_name": "파이프라인 기준 테스트법안 2"},
+        ],
+    )
+
+    assert parsed == {
+        "PIPELINE_ID_1": report_body_1,
+        "PIPELINE_ID_2": report_body_2,
+    }
 
 
 def test_run_agentic_bill_reports_runs_codex_sessions_in_parallel(tmp_path, monkeypatch):

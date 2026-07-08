@@ -245,6 +245,49 @@ class PipelineRuntime:
 
         return self._run("bill.search_rebuild", params, execute)
 
+    def run_legal_term_dictionary_sync(
+        self,
+        *,
+        mode: str = "dry_run",
+        query: str = "가",
+        page_size: int = 100,
+        start_page: int = 1,
+        max_pages: int = 1,
+        max_retries: int = 0,
+        limit: int | None = None,
+    ) -> Dict[str, Any]:
+        params = {
+            "mode": mode,
+            "query": query,
+            "page_size": page_size,
+            "start_page": start_page,
+            "max_pages": max_pages,
+            "max_retries": max_retries,
+            "limit": limit,
+        }
+
+        def execute(run_id: str) -> List[Dict[str, Any]]:
+            from lawdigest_ai.processor.legal_term_dictionary_sync import run_legal_term_dictionary_sync
+
+            steps: List[Dict[str, Any]] = []
+            self._record_step(
+                run_id,
+                steps,
+                "sync_legal_term_dictionary",
+                run_legal_term_dictionary_sync(
+                    mode=mode,
+                    query=query,
+                    page_size=page_size,
+                    start_page=start_page,
+                    max_pages=max_pages,
+                    max_retries=max_retries,
+                    limit=limit,
+                ),
+            )
+            return steps
+
+        return self._run("legal_term.dictionary_sync", params, execute)
+
     def run_ai_batch_submit(
         self,
         *,
