@@ -441,7 +441,7 @@ def test_agentic_report_repair_does_not_insert_hardcoded_term_tooltip():
     _validate_report_body(repaired)
 
 
-def test_agentic_report_postprocess_injects_tooltip_outside_title():
+def test_agentic_report_postprocess_strips_tooltips_without_agent_decision():
     from lawdigest_ai.processor.agentic_bill_report import _postprocess_report_body, _validate_report_body
 
     report_body = """
@@ -466,7 +466,7 @@ def test_agentic_report_postprocess_injects_tooltip_outside_title():
 
     assert postprocessed.startswith("# 청문 절차 정비법 일부개정법률안")
     assert "{{청문" not in postprocessed.splitlines()[0]
-    assert postprocessed.count("{{청문") == 1
+    assert "{{청문" not in postprocessed
     _validate_report_body(postprocessed)
 
 
@@ -499,9 +499,67 @@ def test_agentic_report_postprocess_unwraps_single_report_json_before_tooltip_in
 
     assert postprocessed.startswith("# 청문 절차 정비법 일부개정법률안")
     assert not postprocessed.lstrip().startswith("{")
-    assert "{{청문" not in postprocessed.splitlines()[0]
-    assert postprocessed.count("{{청문") == 1
+    assert "{{청문" not in postprocessed
     _validate_report_body(postprocessed)
+
+
+def test_agentic_report_applies_high_confidence_tooltip_decisions_only():
+    from lawdigest_ai.processor.agentic_bill_report import (
+        _apply_legal_term_tooltip_decisions,
+        _parse_legal_term_tooltip_decisions,
+    )
+    from lawdigest_ai.processor.legal_term_glossary import LegalTermEntry
+
+    report_body = """
+# 청문 절차 정비법 일부개정법률안
+
+## 쉬운 요약
+**사용자**에게 보여줄 요약이에요. <mark>핵심 변화는 청문 절차가 더 분명해지는 점이에요.</mark>
+
+## 주요 내용
+- **지원 근거**: 청문 절차를 정비해요.
+
+## 무엇이 달라지나
+
+### 1) 의견 확인 절차 정비
+
+처분 전에 청문 절차를 거치도록 해 의견을 말할 기회를 더 분명히 해요.
+
+- 사용자 입장에서는, 어떤 절차와 책임이 달라지는지 더 알기 쉬워져요.
+""".strip()
+    candidates = [
+        LegalTermEntry(term="청문", definition="처분 전에 당사자의 의견을 듣는 절차예요.", aliases=("청문", "청문 절차")),
+        LegalTermEntry(term="정확성", definition="위성서비스에서 위치가 맞는 정도를 말해요.", aliases=("정확성",)),
+    ]
+    decisions_json = json.dumps(
+        {
+            "tooltips": [
+                {
+                    "term": "청문",
+                    "surface": "청문 절차",
+                    "definition": "에이전트가 바꾼 정의는 쓰면 안 돼요.",
+                    "reason": "이 법안의 핵심 절차 용어예요.",
+                    "confidence": "high",
+                },
+                {
+                    "term": "정확성",
+                    "surface": "정확성",
+                    "definition": "위성서비스에서 위치가 맞는 정도를 말해요.",
+                    "reason": "일반어라 불확실해요.",
+                    "confidence": "low",
+                },
+            ],
+            "rejected": [],
+        },
+        ensure_ascii=False,
+    )
+
+    decisions = _parse_legal_term_tooltip_decisions(decisions_json, candidates)
+    rendered = _apply_legal_term_tooltip_decisions(report_body, decisions)
+
+    assert "{{청문 절차:처분 전에 당사자의 의견을 듣는 절차예요.}}" in rendered
+    assert "에이전트가 바꾼 정의" not in rendered
+    assert "{{정확성:" not in rendered
 
 
 def test_agentic_report_validation_accepts_dictionary_term_tooltip():
@@ -1352,6 +1410,7 @@ def test_codex_agent_command_omits_mcp_servers_by_default(tmp_path, monkeypatch)
     from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent
 
     monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    monkeypatch.delenv("LAW_OC", raising=False)
     monkeypatch.delenv("APIKEY_billsInfo", raising=False)
     monkeypatch.delenv("APIKEY_status", raising=False)
 
@@ -1810,6 +1869,91 @@ def test_run_agentic_bill_reports_records_usage_meter_snapshot(tmp_path, monkeyp
     }
     manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["usage_meter"]["weekly"]["delta_percent"] == -0.5
+
+
+def test_run_agentic_bill_reports_adds_tooltips_in_second_agent_turn(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    monkeypatch.delenv("LAW_OC", raising=False)
+    monkeypatch.setattr("lawdigest_ai.processor.legal_term_glossary._lookup_local_dictionary_terms", lambda terms: [])
+    targets = [
+        {
+            "bill_id": "PRC_TOOLTIP_TURN",
+            "bill_number": "2210999",
+            "bill_name": "청문 절차 정비법안",
+            "summary": "청문 절차를 더 분명하게 정비합니다.",
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        }
+    ]
+    report_body = (
+        "# 청문 절차 정비법안\n\n"
+        "## 쉬운 요약\n**청문 절차**가 더 분명해져요. <mark>핵심 변화는 의견을 말할 기회를 더 분명히 하는 점이에요.</mark>\n\n"
+        "## 주요 내용\n- **절차 정비**: 청문 절차를 정비해요.\n\n"
+        "## 무엇이 달라지나\n\n"
+        "### 1) 의견 확인 절차 정비\n\n"
+        "처분 전에 청문 절차를 거치도록 해요.\n\n"
+        "- 사용자 입장에서는, 의견을 말할 기회를 더 알기 쉬워져요.\n"
+    )
+
+    def run_codex(command, **kwargs):
+        output_path = Path(command[command.index("--output-last-message") + 1])
+        if command[:3] == ["codex", "exec", "resume"]:
+            assert output_path.name == "PRC_TOOLTIP_TURN.tooltips.json"
+            output_path.write_text(
+                json.dumps(
+                    {
+                        "tooltips": [
+                            {
+                                "term": "청문",
+                                "surface": "청문 절차",
+                                "definition": "이 정의는 후보 정의로 대체돼야 해요.",
+                                "reason": "법안의 핵심 절차 용어예요.",
+                                "confidence": "high",
+                            }
+                        ],
+                        "rejected": [],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+        else:
+            output_path.write_text(report_body, encoding="utf-8")
+            usage = {"input_tokens": 100, "cached_input_tokens": 10, "output_tokens": 20, "reasoning_output_tokens": 5}
+        if command[:3] == ["codex", "exec", "resume"]:
+            usage = {"input_tokens": 30, "cached_input_tokens": 7, "output_tokens": 8, "reasoning_output_tokens": 2}
+        stdout = "\n".join([
+            '{"type":"thread.started","thread_id":"thread-tooltip"}',
+            json.dumps({"type": "turn.completed", "usage": usage}),
+        ])
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=targets,
+    ), patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex) as mock_run:
+        result = run_agentic_bill_reports(
+            mode="dry_run",
+            limit=1,
+            output_dir=str(tmp_path),
+            target="pending",
+            report_mode="deep_report",
+        )
+
+    assert mock_run.call_count == 2
+    assert mock_run.call_args_list[0].args[0][:2] == ["codex", "exec"]
+    assert "--ephemeral" not in mock_run.call_args_list[0].args[0]
+    assert mock_run.call_args_list[1].args[0][:4] == ["codex", "exec", "resume", "thread-tooltip"]
+    assert result["items"][0]["tooltip"]["status"] == "passed"
+    assert result["items"][0]["tooltip"]["applied_count"] == 1
+    assert result["stats"]["usage_totals"]["input_tokens"] == 130
+    assert result["stats"]["usage_totals"]["output_tokens"] == 28
+    assert result["stats"]["token_usage_available_count"] == 2
+    rendered = Path(result["items"][0]["report_path"]).read_text(encoding="utf-8")
+    assert "{{청문 절차:처분을 받기 전에 당사자가 설명하고 반론할 수 있는 절차에요.}}" in rendered
+    assert "이 정의는 후보 정의" not in rendered
 
 
 def test_run_agentic_bill_reports_batches_multiple_bills_in_one_session(tmp_path, monkeypatch):

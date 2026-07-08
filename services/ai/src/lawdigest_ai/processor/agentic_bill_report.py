@@ -13,7 +13,13 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List
 
 from lawdigest_ai.db import get_bill_table_columns, get_db_connection, update_bill_summary
-from lawdigest_ai.processor.legal_term_glossary import build_legal_term_glossary_context, build_legal_term_tooltip_entries
+from lawdigest_ai.processor.legal_term_dictionary_sync import normalize_legal_term
+from lawdigest_ai.processor.legal_term_glossary import (
+    LegalTermEntry,
+    build_legal_term_glossary_context,
+    build_legal_term_tooltip_entries,
+    is_safe_legal_term_tooltip_entry,
+)
 
 DEFAULT_OUTPUT_DIR = "/tmp/lawdigest-bill-agent-reports"
 DEFAULT_CODEX_MODEL = os.getenv("BILL_AGENT_CODEX_MODEL", "gpt-5.4-mini")
@@ -440,8 +446,10 @@ def _append_legal_term_context(evidence: dict[str, Any], *sources: Any) -> dict[
         for source in sources
         if source
     ]
+    entries = build_legal_term_tooltip_entries("\n".join(source_texts))
     evidence["legal_terms"] = {
-        "context": build_legal_term_glossary_context("\n".join(source_texts)),
+        "context": build_legal_term_glossary_context("\n".join(source_texts), entries=entries),
+        "entries": [_legal_term_entry_to_dict(entry) for entry in entries],
     }
     return evidence
 
@@ -1197,6 +1205,154 @@ def _strip_markdown_for_summary(text: str) -> str:
 TERM_TOOLTIP_PATTERN = re.compile(r"\{\{([^:{}\n]+):([^{}\n]+)\}\}")
 
 
+@dataclass(frozen=True)
+class ApprovedLegalTermTooltip:
+    term: str
+    surface: str
+    definition: str
+    reason: str = ""
+    confidence: str = "high"
+
+
+def _legal_term_entry_to_dict(entry: LegalTermEntry) -> dict[str, Any]:
+    return {
+        "term": entry.term,
+        "definition": entry.definition,
+        "aliases": list(entry.aliases),
+        "source": entry.source,
+    }
+
+
+def _legal_term_entry_from_dict(value: Any) -> LegalTermEntry | None:
+    if not isinstance(value, dict):
+        return None
+    term = str(value.get("term") or "").strip()
+    definition = str(value.get("definition") or "").strip()
+    aliases_value = value.get("aliases")
+    aliases = tuple(str(alias).strip() for alias in aliases_value if str(alias or "").strip()) if isinstance(aliases_value, list) else ()
+    source = str(value.get("source") or "unknown")
+    if not term or not definition:
+        return None
+    entry = LegalTermEntry(term=term, definition=definition, aliases=aliases or (term,), source=source)
+    return entry if is_safe_legal_term_tooltip_entry(entry) else None
+
+
+def _legal_term_entries_from_evidence(evidence: dict[str, Any]) -> list[LegalTermEntry]:
+    raw_entries = evidence.get("legal_terms", {}).get("entries")
+    if not isinstance(raw_entries, list):
+        return []
+    entries: list[LegalTermEntry] = []
+    seen: set[str] = set()
+    for raw_entry in raw_entries:
+        entry = _legal_term_entry_from_dict(raw_entry)
+        if entry is None:
+            continue
+        normalized = normalize_legal_term(entry.term)
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        entries.append(entry)
+    return entries
+
+
+def _tooltip_candidate_matches_report(entry: LegalTermEntry, report_body: str) -> bool:
+    body = _strip_markdown_for_summary(report_body)
+    return any(alias and alias in body for alias in (entry.term, *entry.aliases))
+
+
+def _tooltip_candidate_lookup(entries: list[LegalTermEntry]) -> dict[str, LegalTermEntry]:
+    lookup: dict[str, LegalTermEntry] = {}
+    for entry in entries:
+        for alias in (entry.term, *entry.aliases):
+            normalized = normalize_legal_term(alias)
+            if normalized and normalized not in lookup:
+                lookup[normalized] = entry
+    return lookup
+
+
+def _parse_legal_term_tooltip_decisions(
+    decisions_text: str,
+    candidate_entries: list[LegalTermEntry],
+) -> list[ApprovedLegalTermTooltip]:
+    try:
+        payload = json.loads(_extract_json_object(decisions_text))
+    except (json.JSONDecodeError, ValueError):
+        return []
+    if not isinstance(payload, dict):
+        return []
+    raw_tooltips = payload.get("tooltips")
+    if not isinstance(raw_tooltips, list):
+        return []
+
+    lookup = _tooltip_candidate_lookup(candidate_entries)
+    decisions: list[ApprovedLegalTermTooltip] = []
+    seen_surfaces: set[str] = set()
+    for raw_tooltip in raw_tooltips:
+        if not isinstance(raw_tooltip, dict):
+            continue
+        confidence = str(raw_tooltip.get("confidence") or "").strip().lower()
+        if confidence != "high":
+            continue
+        term = str(raw_tooltip.get("term") or "").strip()
+        surface = str(raw_tooltip.get("surface") or term).strip()
+        if not term or not surface or len(surface) > 40:
+            continue
+        entry = lookup.get(normalize_legal_term(term)) or lookup.get(normalize_legal_term(surface))
+        if entry is None or not is_safe_legal_term_tooltip_entry(entry):
+            continue
+        if normalize_legal_term(surface) in seen_surfaces:
+            continue
+        seen_surfaces.add(normalize_legal_term(surface))
+        decisions.append(
+            ApprovedLegalTermTooltip(
+                term=entry.term,
+                surface=surface,
+                definition=_sanitize_tooltip_definition(entry.definition),
+                reason=str(raw_tooltip.get("reason") or "").strip(),
+                confidence="high",
+            )
+        )
+    return decisions[:5]
+
+
+def _apply_legal_term_tooltip_decisions(
+    report_body: str,
+    decisions: list[ApprovedLegalTermTooltip],
+) -> str:
+    if not decisions:
+        return report_body
+
+    used_surfaces: set[str] = set()
+    in_code_fence = False
+    lines: list[str] = []
+    for line in report_body.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith("```"):
+            in_code_fence = not in_code_fence
+            lines.append(line)
+            continue
+        if in_code_fence or stripped.startswith("#"):
+            lines.append(line)
+            continue
+
+        updated_line = line
+        for decision in sorted(decisions, key=lambda item: len(item.surface), reverse=True):
+            normalized_surface = normalize_legal_term(decision.surface)
+            if not normalized_surface or normalized_surface in used_surfaces:
+                continue
+            if decision.surface not in updated_line:
+                continue
+            updated_line = updated_line.replace(
+                decision.surface,
+                f"{{{{{decision.surface}:{decision.definition}}}}}",
+                1,
+            )
+            used_surfaces.add(normalized_surface)
+            break
+        lines.append(updated_line)
+    return "\n".join(lines)
+
+
 def _strip_term_tooltips(text: str) -> str:
     stripped = TERM_TOOLTIP_PATTERN.sub(lambda match: match.group(1), text)
     stripped = re.sub(r"\{\{([^:{}\n]{1,60}):[^{}\n]*(?:\}\})?", r"\1", stripped)
@@ -1211,44 +1367,29 @@ def _sanitize_tooltip_definition(definition: str) -> str:
     return cleaned
 
 
-def _inject_legal_term_tooltips(report_body: str) -> str:
-    entries = build_legal_term_tooltip_entries(_strip_markdown_for_summary(report_body))
-    if not entries:
-        return report_body
-
-    used_normalized_terms: set[str] = set()
-    in_code_fence = False
-    lines: list[str] = []
-    for line in report_body.splitlines():
-        stripped = line.lstrip()
-        if stripped.startswith("```"):
-            in_code_fence = not in_code_fence
-            lines.append(line)
-            continue
-        if in_code_fence or stripped.startswith("#"):
-            lines.append(line)
-            continue
-
-        updated_line = line
-        for entry in entries:
-            aliases = sorted({entry.term, *entry.aliases}, key=len, reverse=True)
-            normalized_aliases = {re.sub(r"\s+", "", alias) for alias in aliases if alias}
-            if not normalized_aliases or used_normalized_terms & normalized_aliases:
-                continue
-            definition = _sanitize_tooltip_definition(entry.definition)
-            if not definition:
-                continue
-            for alias in aliases:
-                if not alias or alias not in updated_line:
-                    continue
-                updated_line = updated_line.replace(alias, f"{{{{{alias}:{definition}}}}}", 1)
-                used_normalized_terms.update(normalized_aliases)
-                break
-            if "{{" in updated_line:
-                break
-
-        lines.append(updated_line)
-    return "\n".join(lines)
+def build_legal_term_tooltip_prompt(
+    *,
+    bill: dict[str, Any],
+    report_body: str,
+    candidate_entries: list[LegalTermEntry],
+) -> str:
+    candidates = [_legal_term_entry_to_dict(entry) for entry in candidate_entries if _tooltip_candidate_matches_report(entry, report_body)]
+    return (
+        "작업: Lawdigest 법안 리포트에 붙일 법률용어 툴팁을 판단하세요.\n"
+        "아래 후보 중 이 법안 문맥에서 일반 독자에게 설명이 꼭 필요한 high-confidence 용어만 고르세요.\n"
+        "후보에 없는 용어를 새로 만들지 마세요. definition은 참고용이며 최종 주입은 파이프라인이 후보 정의로만 처리합니다.\n"
+        "일반어, 동사형 표현, 다른 분야 정의로 보이는 용어는 rejected에 넣거나 생략하세요.\n"
+        "최대 5개까지만 고르세요.\n\n"
+        "출력 규칙:\n"
+        "- JSON 객체 하나만 작성하세요. 코드펜스, 설명문, Markdown을 붙이지 마세요.\n"
+        "- confidence는 high 또는 low만 사용하세요. 파이프라인은 high만 반영합니다.\n"
+        "- surface는 리포트 본문에 실제로 등장하는 표현이어야 합니다.\n\n"
+        "출력 스키마:\n"
+        '{"tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high"}],"rejected":[{"term":"정확성","reason":"일반어이거나 문맥 정의가 불확실함"}]}\n\n'
+        f"bill:\n{json.dumps(_build_bill_payload(bill), ensure_ascii=False, indent=2, default=str)}\n\n"
+        f"candidate_terms:\n{json.dumps(candidates, ensure_ascii=False, indent=2, default=str)}\n\n"
+        f"report_body:\n{report_body}"
+    )
 
 
 def _has_final_consonant(text: str) -> bool | None:
@@ -1612,7 +1753,6 @@ def _postprocess_report_body(report_body: str, bill: dict[str, Any] | None = Non
     unwrapped = _unwrap_single_report_json_output(report_body, bill=bill)
     repaired = _repair_report_body(unwrapped)
     repaired = _strip_term_tooltips(repaired)
-    repaired = _inject_legal_term_tooltips(repaired)
     return repaired.strip() + "\n"
 
 
@@ -1806,6 +1946,103 @@ class CodexBillReportAgent:
             command[-1:-1] = self._mcp_server_config_args()
         return command, prompt
 
+    def _apply_tooltip_turn(
+        self,
+        *,
+        session_id: str | None,
+        bill: dict[str, Any],
+        report_path: Path,
+        evidence: dict[str, Any],
+    ) -> dict[str, Any]:
+        report_body = report_path.read_text(encoding="utf-8")
+        candidate_entries = [
+            entry for entry in _legal_term_entries_from_evidence(evidence) if _tooltip_candidate_matches_report(entry, report_body)
+        ]
+        if not candidate_entries:
+            return {"status": "skipped", "reason": "no_matching_candidates", "applied_count": 0}
+        if not session_id:
+            return {"status": "skipped", "reason": "missing_codex_thread_id", "applied_count": 0}
+
+        tooltip_path = report_path.with_suffix(".tooltips.json")
+        prompt = build_legal_term_tooltip_prompt(bill=bill, report_body=report_body, candidate_entries=candidate_entries)
+        command, stdin_text = self.build_resume_command(
+            session_id=session_id,
+            prompt=prompt,
+            output_path=str(tooltip_path),
+        )
+        started_at = datetime.now(timezone.utc)
+        started_perf = time.perf_counter()
+        try:
+            proc = subprocess.run(
+                command,
+                input=stdin_text,
+                capture_output=True,
+                text=True,
+                cwd=self.workdir,
+                env=self.build_environment(),
+                timeout=self.timeout_seconds,
+            )
+            stdout_text = (proc.stdout or "").strip()
+            stderr_text = (proc.stderr or "").strip()
+            exit_code = proc.returncode
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "reason": str(exc),
+                "applied_count": 0,
+                "started_at": started_at.isoformat(),
+                "finished_at": datetime.now(timezone.utc).isoformat(),
+                "duration_seconds": round(time.perf_counter() - started_perf, 3),
+            }
+
+        finished_at = datetime.now(timezone.utc)
+        metadata = _parse_codex_json_metadata(stdout_text)
+        details: dict[str, Any] = {
+            "status": "not_applied",
+            "output_path": str(tooltip_path),
+            "started_at": started_at.isoformat(),
+            "finished_at": finished_at.isoformat(),
+            "duration_seconds": round(time.perf_counter() - started_perf, 3),
+            "exit_code": exit_code,
+            "codex_thread_id": metadata.get("codex_thread_id") or session_id,
+            "codex_event_count": metadata.get("codex_event_count"),
+            "token_usage_available": metadata.get("token_usage_available", False),
+            "usage": metadata.get("usage"),
+            "candidate_count": len(candidate_entries),
+            "applied_count": 0,
+        }
+        if exit_code != 0:
+            details.update({"status": "failed", "reason": (stderr_text or stdout_text or "Codex tooltip turn failed").strip()})
+            return details
+        if not tooltip_path.exists():
+            details.update({"status": "failed", "reason": "Codex tooltip decision output is empty."})
+            return details
+
+        decisions_text = tooltip_path.read_text(encoding="utf-8")
+        decisions = _parse_legal_term_tooltip_decisions(decisions_text, candidate_entries)
+        if not decisions:
+            details.update({"status": "passed", "reason": "no_high_confidence_tooltips"})
+            return details
+
+        rendered = _apply_legal_term_tooltip_decisions(report_body, decisions)
+        rendered = _repair_term_tooltip_particles(rendered).strip() + "\n"
+        try:
+            _validate_report_body(rendered)
+        except RuntimeError as exc:
+            details.update({"status": "failed", "reason": str(exc)})
+            return details
+
+        report_path.write_text(rendered, encoding="utf-8")
+        details.update(
+            {
+                "status": "passed",
+                "applied_count": len(decisions),
+                "terms": [decision.term for decision in decisions],
+                "surfaces": [decision.surface for decision in decisions],
+            }
+        )
+        return details
+
     def write_report(
         self,
         *,
@@ -1817,7 +2054,7 @@ class CodexBillReportAgent:
         evidence = build_bill_report_evidence(bill, report_mode=report_mode)
         resolved_mode = str(evidence.get("report_mode") or _resolve_report_mode(report_mode, bill))
         prompt = build_bill_report_prompt(bill, report_mode=resolved_mode, evidence=evidence)
-        command, stdin_text = self.build_command(prompt=prompt, output_path=output_path)
+        command, stdin_text = self.build_command(prompt=prompt, output_path=output_path, ephemeral=False)
         report_path = Path(output_path)
         report_path.parent.mkdir(parents=True, exist_ok=True)
         started_at = datetime.now(timezone.utc)
@@ -1843,6 +2080,7 @@ class CodexBillReportAgent:
             duration_seconds = round(time.perf_counter() - started_perf, 3)
 
         metadata = _parse_codex_json_metadata(stdout_text)
+        session_id = str(metadata["codex_thread_id"]) if metadata.get("codex_thread_id") else None
         details = {
             "bill_id": bill.get("bill_id"),
             "bill_name": bill.get("bill_name"),
@@ -1903,6 +2141,14 @@ class CodexBillReportAgent:
         try:
             _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
             _validate_report_body(report_path.read_text(encoding="utf-8"))
+            tooltip_details = self._apply_tooltip_turn(
+                session_id=session_id,
+                bill=bill,
+                report_path=report_path,
+                evidence=evidence,
+            )
+            details["tooltip"] = tooltip_details
+            details["output_bytes"] = report_path.stat().st_size
             validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
             if repair_applied:
                 validation_summary = "Markdown 리포트 형식 cheap repair 후 품질 검증을 통과했습니다."
@@ -2062,6 +2308,15 @@ class CodexBillReportAgent:
                 details["repair_applied"] = repair_applied
                 _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
                 _validate_report_body(report_path.read_text(encoding="utf-8"))
+                tooltip_details = self._apply_tooltip_turn(
+                    session_id=session_id,
+                    bill=bill,
+                    report_path=report_path,
+                    evidence=evidence,
+                )
+                details["tooltip"] = tooltip_details
+                details["output_bytes"] = report_path.stat().st_size
+                session_event_count += int(tooltip_details.get("codex_event_count") or 0)
                 validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
                 if repair_applied:
                     validation_summary = "Markdown 리포트 형식 cheap repair 후 품질 검증을 통과했습니다."
@@ -2100,6 +2355,7 @@ class CodexBillReportAgent:
                 "codex_event_count": metadata.get("codex_event_count"),
                 "token_usage_available": metadata.get("token_usage_available", False),
                 "usage": metadata.get("usage"),
+                "tooltip": status_item.get("tooltip"),
             })
 
         session_finished_at = datetime.now(timezone.utc)
@@ -2265,20 +2521,21 @@ def run_agentic_bill_reports(
     finished_at = datetime.now(timezone.utc)
     total_duration_seconds = round(time.perf_counter() - started_perf, 3)
     usage_totals: dict[str, int] = {}
+
+    def add_usage(usage: Any) -> None:
+        if not isinstance(usage, dict):
+            return
+        for key, value in usage.items():
+            if isinstance(value, int):
+                usage_totals[key] = usage_totals.get(key, 0) + value
+
     for item in completed_items:
-        usage = item.get("usage")
-        if not isinstance(usage, dict):
-            continue
-        for key, value in usage.items():
-            if isinstance(value, int):
-                usage_totals[key] = usage_totals.get(key, 0) + value
+        add_usage(item.get("usage"))
+        tooltip = item.get("tooltip")
+        if isinstance(tooltip, dict):
+            add_usage(tooltip.get("usage"))
     for session in sessions:
-        usage = session.get("usage")
-        if not isinstance(usage, dict):
-            continue
-        for key, value in usage.items():
-            if isinstance(value, int):
-                usage_totals[key] = usage_totals.get(key, 0) + value
+        add_usage(session.get("usage"))
 
     db_upserted_count = sum(1 for item in completed_items if item.get("db_upserted"))
 
@@ -2308,6 +2565,7 @@ def run_agentic_bill_reports(
             "total_duration_seconds": total_duration_seconds,
             "token_usage_available_count": (
                 sum(1 for item in completed_items if item.get("token_usage_available"))
+                + sum(1 for item in completed_items if isinstance(item.get("tooltip"), dict) and item["tooltip"].get("token_usage_available"))
                 + sum(1 for session in sessions if session.get("token_usage_available"))
             ),
             "usage_totals": usage_totals,

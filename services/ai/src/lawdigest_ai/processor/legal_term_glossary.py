@@ -42,6 +42,26 @@ LEGAL_TERM_GLOSSARY = (
 
 COMMON_TERMS_WITHOUT_EXPLANATION = ("허위정보", "허위정보 유포", "필수정보", "표시·광고")
 
+UNSAFE_TOOLTIP_TERMS = {
+    "줄이기",
+    "늘리기",
+    "정확성",
+    "신뢰성",
+    "생산능력",
+    "운영비",
+    "보상금",
+    "관리인",
+    "관할청",
+    "모니터링",
+}
+
+RAW_DEFINITION_MARKERS = (
+    "다음 각 목",
+    "각 목",
+    "각 호",
+    "<삭 제>",
+)
+
 LEGAL_TERM_CANDIDATE_SUFFIXES = (
     "감사",
     "보고서",
@@ -223,6 +243,27 @@ def _has_korean_text(value: str) -> bool:
     return any("가" <= char <= "힣" for char in value)
 
 
+def is_safe_legal_term_tooltip_entry(entry: LegalTermEntry) -> bool:
+    normalized_term = normalize_legal_term(entry.term)
+    if not normalized_term or normalized_term in {normalize_legal_term(term) for term in UNSAFE_TOOLTIP_TERMS}:
+        return False
+    aliases = {entry.term, *entry.aliases}
+    if any(normalize_legal_term(alias) in {normalize_legal_term(term) for term in UNSAFE_TOOLTIP_TERMS} for alias in aliases):
+        return False
+    cleaned_definition = re.sub(r"\s+", " ", entry.definition).strip()
+    if not cleaned_definition or not _has_korean_text(cleaned_definition):
+        return False
+    if len(cleaned_definition) > 160:
+        return False
+    if any(marker in cleaned_definition for marker in RAW_DEFINITION_MARKERS):
+        return False
+    if re.search(r"(^|\s)[가-하]\.", cleaned_definition):
+        return False
+    if re.search(r"제\s*\d+\s*조|제\d+조", cleaned_definition):
+        return False
+    return True
+
+
 def build_legal_term_tooltip_entries(text: str, term_client: LawOpenApiTermClient | None = None) -> list[LegalTermEntry]:
     direct_matches = _matched_static_entries(text)
     direct_terms = [entry.aliases[0] if entry.aliases else entry.term for entry in direct_matches]
@@ -241,10 +282,11 @@ def build_legal_term_tooltip_entries(text: str, term_client: LawOpenApiTermClien
         if not normalized or normalized in seen:
             return
         cleaned_definition = re.sub(r"\s+", " ", definition).strip()
-        if not cleaned_definition or not _has_korean_text(cleaned_definition):
+        entry = LegalTermEntry(term=term, definition=cleaned_definition, aliases=aliases or (term,), source=source)
+        if not is_safe_legal_term_tooltip_entry(entry):
             return
         seen.add(normalized)
-        entries.append(LegalTermEntry(term=term, definition=cleaned_definition, aliases=aliases or (term,), source=source))
+        entries.append(entry)
 
     for item in dictionary_terms:
         add_entry(item.term, item.definitions[0], source=item.source)
@@ -255,9 +297,12 @@ def build_legal_term_tooltip_entries(text: str, term_client: LawOpenApiTermClien
     return entries
 
 
-def build_legal_term_glossary_context(text: str, term_client: LawOpenApiTermClient | None = None) -> str:
-    entries = build_legal_term_tooltip_entries(text, term_client=term_client)
-
+def build_legal_term_glossary_context(
+    text: str,
+    term_client: LawOpenApiTermClient | None = None,
+    entries: list[LegalTermEntry] | None = None,
+) -> str:
+    entries = entries if entries is not None else build_legal_term_tooltip_entries(text, term_client=term_client)
     lines = [
         "법률·행정용어 풀이 사전:",
         "- 아래 사전은 후처리 파이프라인이 어려운 법률·행정용어 툴팁을 주입할 때 쓰는 근거입니다.",
