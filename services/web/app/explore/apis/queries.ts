@@ -8,10 +8,15 @@ import {
   getCongressmanRanking,
   getParliamentaryParties,
   getStatisticsByCategory,
+  getStatisticsByCommittee,
   getStatisticsByParty,
+  getStatisticsCategoryParty,
   getStatisticsOverview,
+  getStatisticsPartyPerformance,
+  getStatisticsResultBreakdown,
   getStatisticsStage,
   getStatisticsTrend,
+  getStatisticsTrendDetail,
   getTrendingKeywords,
 } from './apis';
 
@@ -65,6 +70,42 @@ export const useGetStatisticsByCategory = () =>
 
 export const useGetStatisticsTrend = (months = 6) =>
   useQuery({ queryKey: ['/statistics/trend', months], queryFn: () => getStatisticsTrend(months) });
+
+// 신규 통계 API — 배포 전 백엔드에는 없을 수 있어 재시도 없이 실패시키고, 컴포넌트에서 폴백 처리한다.
+export const useGetStatisticsPartyPerformance = () =>
+  useQuery({
+    queryKey: ['/statistics/party-performance'],
+    queryFn: () => getStatisticsPartyPerformance(),
+    retry: false,
+  });
+
+export const useGetStatisticsTrendDetail = (months = 12) =>
+  useQuery({
+    queryKey: ['/statistics/trend-detail', months],
+    queryFn: () => getStatisticsTrendDetail(months),
+    retry: false,
+  });
+
+export const useGetStatisticsByCommittee = () =>
+  useQuery({
+    queryKey: ['/statistics/by-committee'],
+    queryFn: () => getStatisticsByCommittee(),
+    retry: false,
+  });
+
+export const useGetStatisticsCategoryParty = () =>
+  useQuery({
+    queryKey: ['/statistics/category-party'],
+    queryFn: () => getStatisticsCategoryParty(),
+    retry: false,
+  });
+
+export const useGetStatisticsResultBreakdown = () =>
+  useQuery({
+    queryKey: ['/statistics/result-breakdown'],
+    queryFn: () => getStatisticsResultBreakdown(),
+    retry: false,
+  });
 
 export const useGetBillsByCategory = (category: string) =>
   useSuspenseInfiniteQuery({

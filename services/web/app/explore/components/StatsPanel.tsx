@@ -1,10 +1,13 @@
 'use client';
 
 import StatsOverview from './StatsOverview';
+import StatsTrendArea from './StatsTrendArea';
 import StatsStageFunnel from './StatsStageFunnel';
-import StatsPartyBars from './StatsPartyBars';
+import StatsResultComposition from './StatsResultComposition';
+import StatsPartyPerformance from './StatsPartyPerformance';
 import StatsCategoryDonut from './StatsCategoryDonut';
-import StatsTrend from './StatsTrend';
+import StatsCategoryPartyStack from './StatsCategoryPartyStack';
+import StatsCommitteeBars from './StatsCommitteeBars';
 
 /** 통계 패널 — 제22대 국회 입법 데이터 대시보드. */
 export default function StatsPanel() {
@@ -17,11 +20,15 @@ export default function StatsPanel() {
 
       <StatsOverview />
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+      <StatsTrendArea />
+
+      <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
         <StatsStageFunnel />
-        <StatsPartyBars />
+        <StatsResultComposition />
+        <StatsPartyPerformance />
         <StatsCategoryDonut />
-        <StatsTrend />
+        <StatsCategoryPartyStack />
+        <StatsCommitteeBars />
       </div>
     </div>
   );

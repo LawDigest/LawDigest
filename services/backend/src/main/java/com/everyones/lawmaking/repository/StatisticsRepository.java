@@ -1,7 +1,11 @@
 package com.everyones.lawmaking.repository;
 
 import com.everyones.lawmaking.common.dto.CategoryCountDto;
+import com.everyones.lawmaking.common.dto.CategoryPartyCountDto;
+import com.everyones.lawmaking.common.dto.CommitteeCountDto;
 import com.everyones.lawmaking.common.dto.PartyBillCountDto;
+import com.everyones.lawmaking.common.dto.PartyPerformanceDto;
+import com.everyones.lawmaking.common.dto.ResultBreakdownDto;
 import com.everyones.lawmaking.common.dto.StatisticsOverviewDto;
 import com.everyones.lawmaking.common.dto.StatisticsStageDto;
 import com.everyones.lawmaking.domain.entity.Bill;
@@ -60,4 +64,55 @@ public interface StatisticsRepository extends JpaRepository<Bill, String> {
             "ORDER BY ym DESC " +
             "LIMIT :months", nativeQuery = true)
     List<Object[]> findMonthlyTrend(@Param("assembly") int assembly, @Param("months") int months);
+
+    @Query("SELECT new com.everyones.lawmaking.common.dto.PartyPerformanceDto(" +
+            "rp.party.id, rp.party.name, COUNT(b), " +
+            "SUM(CASE WHEN b.billResult IN ('원안가결', '수정가결') THEN 1 ELSE 0 END)) " +
+            "FROM Bill b JOIN b.representativeProposer rp " +
+            "WHERE b.assemblyNumber = :assembly " +
+            "AND b.ingestStatus = com.everyones.lawmaking.domain.entity.IngestStatusType.READY " +
+            "GROUP BY rp.party.id, rp.party.name " +
+            "ORDER BY COUNT(b) DESC")
+    List<PartyPerformanceDto> findPartyPerformance(@Param("assembly") int assembly);
+
+    @Query(value = "SELECT DATE_FORMAT(b.propose_date, '%Y-%m') AS ym, COUNT(*) AS cnt, " +
+            "SUM(CASE WHEN b.bill_result IN ('원안가결', '수정가결') THEN 1 ELSE 0 END) AS passed " +
+            "FROM Bill b " +
+            "WHERE b.assembly_number = :assembly " +
+            "AND b.ingest_status = 'READY' " +
+            "AND b.propose_date IS NOT NULL " +
+            "GROUP BY ym " +
+            "ORDER BY ym DESC " +
+            "LIMIT :months", nativeQuery = true)
+    List<Object[]> findMonthlyTrendDetail(@Param("assembly") int assembly, @Param("months") int months);
+
+    @Query("SELECT new com.everyones.lawmaking.common.dto.CommitteeCountDto(" +
+            "b.committee, COUNT(b), " +
+            "SUM(CASE WHEN b.billResult IN ('원안가결', '수정가결') THEN 1 ELSE 0 END)) " +
+            "FROM Bill b " +
+            "WHERE b.assemblyNumber = :assembly " +
+            "AND b.ingestStatus = com.everyones.lawmaking.domain.entity.IngestStatusType.READY " +
+            // '본회의'는 위원회가 아니라 심의 단계 값이므로 위원회 집계에서 제외한다.
+            "AND b.committee IS NOT NULL AND b.committee <> '' AND b.committee <> '본회의' " +
+            "GROUP BY b.committee " +
+            "ORDER BY COUNT(b) DESC")
+    List<CommitteeCountDto> findBillCountByCommittee(@Param("assembly") int assembly);
+
+    @Query("SELECT new com.everyones.lawmaking.common.dto.CategoryPartyCountDto(" +
+            "b.category, rp.party.id, rp.party.name, COUNT(b)) " +
+            "FROM Bill b JOIN b.representativeProposer rp " +
+            "WHERE b.assemblyNumber = :assembly " +
+            "AND b.ingestStatus = com.everyones.lawmaking.domain.entity.IngestStatusType.READY " +
+            "AND b.category IS NOT NULL " +
+            "GROUP BY b.category, rp.party.id, rp.party.name " +
+            "ORDER BY COUNT(b) DESC")
+    List<CategoryPartyCountDto> findCategoryPartyMatrix(@Param("assembly") int assembly);
+
+    @Query("SELECT new com.everyones.lawmaking.common.dto.ResultBreakdownDto(b.billResult, COUNT(b)) " +
+            "FROM Bill b " +
+            "WHERE b.assemblyNumber = :assembly " +
+            "AND b.ingestStatus = com.everyones.lawmaking.domain.entity.IngestStatusType.READY " +
+            "GROUP BY b.billResult " +
+            "ORDER BY COUNT(b) DESC")
+    List<ResultBreakdownDto> findResultBreakdown(@Param("assembly") int assembly);
 }
