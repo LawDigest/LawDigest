@@ -4,6 +4,7 @@ import { Bar, BarChart, XAxis, YAxis } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { useGetStatisticsResultBreakdown } from '../apis';
 import StatsCard from './StatsCard';
+import { SkeletonBar } from './StatsSkeleton';
 
 /**
  * 알려진 처리 결과별 색 — 디자인 토큰 기반(Neutral First).
@@ -23,8 +24,21 @@ const EXTRA_PALETTE = ['#99999980', '#55555580', '#96BCFA80', '#E0E0E080'];
 
 /** 처리 결과 구성 — 100% 스택 단일 막대 + 범례. */
 export default function StatsResultComposition() {
-  const { data, isError } = useGetStatisticsResultBreakdown();
+  const { data, isError, isLoading } = useGetStatisticsResultBreakdown();
   const rows = data?.data ?? [];
+
+  if (isLoading) {
+    return (
+      <StatsCard title="처리 결과 구성" icon="data_usage" delay={0.1}>
+        <SkeletonBar className="h-[52px] w-full" />
+        <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
+          {Array.from({ length: 4 }, (_, i) => (
+            <SkeletonBar key={i} className="h-3 w-full" />
+          ))}
+        </div>
+      </StatsCard>
+    );
+  }
 
   // 신규 API 미배포 환경에서는 카드 자체를 숨긴다.
   if (isError || rows.length === 0) return null;

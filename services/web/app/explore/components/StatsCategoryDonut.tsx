@@ -8,6 +8,7 @@ import { getCategoryMeta } from '@/config/categories';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { useGetStatisticsByCategory } from '../apis';
 import StatsCard from './StatsCard';
+import { SkeletonBar } from './StatsSkeleton';
 
 const TOP_N = 6;
 const ETC_COLOR = '#999999';
@@ -18,10 +19,25 @@ const chartConfig = {
 
 /** 분야별 분포 — 호버/범례 선택 시 조각이 확대되는 인터랙티브 도넛. */
 export default function StatsCategoryDonut() {
-  const { data } = useGetStatisticsByCategory();
+  const { data, isLoading } = useGetStatisticsByCategory();
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const raw = useMemo(() => (data?.data ?? []).filter((c) => c.category && c.category !== 'unknown'), [data]);
+
+  if (isLoading) {
+    return (
+      <StatsCard title="분야별 분포" icon="donut_small" delay={0.15}>
+        <div className="flex items-center gap-4">
+          <SkeletonBar className="h-[168px] w-[168px] shrink-0 rounded-full" />
+          <div className="grid flex-1 grid-cols-1 gap-2">
+            {Array.from({ length: 5 }, (_, i) => (
+              <SkeletonBar key={i} className="h-3 w-full" />
+            ))}
+          </div>
+        </div>
+      </StatsCard>
+    );
+  }
 
   const total = raw.reduce((sum, c) => sum + c.count, 0) || 1;
   const top = raw.slice(0, TOP_N);

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/chart';
 import { useGetStatisticsTrend, useGetStatisticsTrendDetail } from '../apis';
 import StatsCard from './StatsCard';
+import { SkeletonBar } from './StatsSkeleton';
 
 const PERIODS = [
   { months: 6, label: '6개월' },
@@ -40,6 +41,7 @@ const formatMonth = (month: string, index: number, all: string[]) => {
 /** 월별 발의·가결 추이 — 기간 전환 가능한 인터랙티브 영역 차트. */
 export default function StatsTrendArea() {
   const [months, setMonths] = useState<number>(12);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const detail = useGetStatisticsTrendDetail(months);
   // 신규 API 미배포 환경 폴백: 기존 /statistics/trend(발의 건수만)로 대체한다.
   const fallback = useGetStatisticsTrend(months);
@@ -50,6 +52,14 @@ export default function StatsTrendArea() {
   const points = hasDetail
     ? detailPoints.map((p) => ({ month: p.month, proposed: p.proposed_count, passed: p.passed_count }))
     : (fallback.data?.data ?? []).map((p) => ({ month: p.month, proposed: p.count }));
+
+  if (points.length === 0 && (detail.isLoading || fallback.isLoading)) {
+    return (
+      <StatsCard title="월별 발의·가결 추이" icon="show_chart" delay={0}>
+        <SkeletonBar className="h-[220px] w-full" />
+      </StatsCard>
+    );
+  }
 
   if (points.length === 0) return null;
 
@@ -129,7 +139,14 @@ export default function StatsTrendArea() {
             }
           />
           {hasDetail && (
-            <Bar yAxisId="passed" dataKey="passed" fill="var(--color-passed)" radius={[3, 3, 0, 0]} maxBarSize={18} />
+            <Bar
+              yAxisId="passed"
+              dataKey="passed"
+              fill="var(--color-passed)"
+              fillOpacity={activeKey && activeKey !== 'passed' ? 0.3 : 1}
+              radius={[3, 3, 0, 0]}
+              maxBarSize={18}
+            />
           )}
           <Area
             yAxisId="proposed"
@@ -138,9 +155,13 @@ export default function StatsTrendArea() {
             fill="url(#fillProposed)"
             stroke="var(--color-proposed)"
             strokeWidth={2}
+            strokeOpacity={activeKey && activeKey !== 'proposed' ? 0.4 : 1}
+            fillOpacity={activeKey && activeKey !== 'proposed' ? 0.4 : 1}
             activeDot={{ r: 4 }}
           />
-          {hasDetail && <ChartLegend content={<ChartLegendContent />} />}
+          {hasDetail && (
+            <ChartLegend content={<ChartLegendContent activeKey={activeKey} onKeyHover={setActiveKey} />} />
+          )}
         </ComposedChart>
       </ChartContainer>
     </StatsCard>

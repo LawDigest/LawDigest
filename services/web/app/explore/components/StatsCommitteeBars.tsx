@@ -4,6 +4,7 @@ import { Bar, BarChart, LabelList, XAxis, YAxis } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { useGetStatisticsByCommittee } from '../apis';
 import StatsCard from './StatsCard';
+import { SkeletonBar } from './StatsSkeleton';
 
 const TOP_N = 8;
 
@@ -13,8 +14,20 @@ const chartConfig = {
 
 /** 소관 위원회별 법안 수 상위 N — 가로 막대. */
 export default function StatsCommitteeBars() {
-  const { data, isError } = useGetStatisticsByCommittee();
+  const { data, isError, isLoading } = useGetStatisticsByCommittee();
   const committees = data?.data ?? [];
+
+  if (isLoading) {
+    return (
+      <StatsCard title="위원회별 접수 현황" icon="account_balance" delay={0.15}>
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 6 }, (_, i) => (
+            <SkeletonBar key={i} className="h-[18px] w-full" />
+          ))}
+        </div>
+      </StatsCard>
+    );
+  }
 
   // 신규 API 미배포 환경에서는 카드 자체를 숨긴다.
   if (isError || committees.length === 0) return null;

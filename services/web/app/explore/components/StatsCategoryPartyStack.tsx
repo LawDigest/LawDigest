@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { getCategoryMeta } from '@/config/categories';
 import { getPartyColor } from '@/constants/party';
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/chart';
 import { useGetStatisticsCategoryParty } from '../apis';
 import StatsCard from './StatsCard';
+import { SkeletonBar } from './StatsSkeleton';
 
 const TOP_CATEGORIES = 6;
 const TOP_PARTIES = 4;
@@ -22,7 +23,8 @@ const ETC_COLOR = '#999999';
 
 /** 분야×정당 구성 — 상위 분야별로 정당 스택 세로 막대. */
 export default function StatsCategoryPartyStack() {
-  const { data, isError } = useGetStatisticsCategoryParty();
+  const { data, isError, isLoading } = useGetStatisticsCategoryParty();
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const cells = useMemo(() => data?.data ?? [], [data]);
 
   const { rows, parties } = useMemo(() => {
@@ -66,6 +68,14 @@ export default function StatsCategoryPartyStack() {
     return { rows: pivoted, parties: topParties };
   }, [cells]);
 
+  if (isLoading) {
+    return (
+      <StatsCard title="분야별 정당 구성" icon="stacked_bar_chart" delay={0.2}>
+        <SkeletonBar className="h-[240px] w-full" />
+      </StatsCard>
+    );
+  }
+
   // 신규 API 미배포 환경에서는 카드 자체를 숨긴다.
   if (isError || rows.length === 0) return null;
 
@@ -99,11 +109,12 @@ export default function StatsCategoryPartyStack() {
               dataKey={key}
               stackId="parties"
               fill={key === ETC_KEY ? ETC_COLOR : getPartyColor(key)}
+              fillOpacity={activeKey && activeKey !== key ? 0.25 : 1}
               radius={i === stackKeys.length - 1 ? [4, 4, 0, 0] : 0}
               maxBarSize={36}
             />
           ))}
-          <ChartLegend content={<ChartLegendContent />} />
+          <ChartLegend content={<ChartLegendContent activeKey={activeKey} onKeyHover={setActiveKey} />} />
         </BarChart>
       </ChartContainer>
     </StatsCard>

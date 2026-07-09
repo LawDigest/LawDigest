@@ -4,6 +4,7 @@ import { Bar, BarChart, Cell, LabelList, XAxis, YAxis } from 'recharts';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { StatisticsStage, useGetStatisticsStage } from '../apis';
 import StatsCard from './StatsCard';
+import { SkeletonBar } from './StatsSkeleton';
 
 // Neutral First: soft assembly blue 단색의 불투명도 램프(뒤 단계일수록 진하게).
 const STAGES: { key: keyof StatisticsStage; label: string; opacity: number }[] = [
@@ -21,8 +22,20 @@ const chartConfig = {
 
 /** 입법 진행 단계 퍼널 — 접수 대비 누적 도달 비율(가로 막대). */
 export default function StatsStageFunnel() {
-  const { data } = useGetStatisticsStage();
+  const { data, isLoading } = useGetStatisticsStage();
   const stage = data?.data;
+
+  if (isLoading) {
+    return (
+      <StatsCard title="입법 진행 단계" icon="filter_alt" delay={0.05}>
+        <div className="flex h-[190px] flex-col justify-between py-1">
+          {STAGES.map(({ key }) => (
+            <SkeletonBar key={key} className="h-7 w-full" />
+          ))}
+        </div>
+      </StatsCard>
+    );
+  }
 
   if (!stage) return null;
 

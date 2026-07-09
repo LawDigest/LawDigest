@@ -260,8 +260,12 @@ const ChartLegendContent = React.forwardRef<
     Pick<RechartsPrimitive.LegendProps, 'payload' | 'verticalAlign'> & {
       hideIcon?: boolean;
       nameKey?: string;
+      /** hover 중인 series key — 지정하면 나머지 항목을 흐리게 표시한다. */
+      activeKey?: string | null;
+      /** legend 항목 hover 시 호출(마우스를 떼면 null). series 하이라이트 연동에 쓴다. */
+      onKeyHover?: (key: string | null) => void;
     }
->(({ className, hideIcon = false, payload, verticalAlign = 'bottom', nameKey }, ref) => {
+>(({ className, hideIcon = false, payload, verticalAlign = 'bottom', nameKey, activeKey, onKeyHover }, ref) => {
   const { config } = useChart();
 
   if (!payload?.length) {
@@ -279,11 +283,18 @@ const ChartLegendContent = React.forwardRef<
       {payload.map((item) => {
         const key = `${nameKey || item.dataKey || 'value'}`;
         const itemConfig = getPayloadConfigFromPayload(config, item, key);
+        const dimmed = Boolean(activeKey) && activeKey !== key;
 
         return (
           <div
             key={item.value}
-            className="flex items-center gap-1.5 text-[11px] text-gray-3 dark:text-gray-1 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-gray-2">
+            onMouseEnter={() => onKeyHover?.(key)}
+            onMouseLeave={() => onKeyHover?.(null)}
+            className={clsx(
+              'flex items-center gap-1.5 text-[11px] text-gray-3 transition-opacity duration-150 dark:text-gray-1 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-gray-2',
+              onKeyHover && 'cursor-pointer',
+              dimmed && 'opacity-40',
+            )}>
             {itemConfig?.icon && !hideIcon ? (
               <itemConfig.icon />
             ) : (

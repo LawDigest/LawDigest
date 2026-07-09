@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { animate, motion, useInView, useReducedMotion } from 'framer-motion';
 import { useGetStatisticsOverview } from '../apis';
+import { SkeletonBar } from './StatsSkeleton';
 
 interface CountUpProps {
   value: number;
@@ -69,9 +70,24 @@ function PassRateRing({ rate }: { rate: number }) {
 
 /** KPI 카드 4종 — 총 발의 / 가결 / 계류 중 / 가결률(링 게이지 포함). */
 export default function StatsOverview() {
-  const { data } = useGetStatisticsOverview();
+  const { data, isLoading } = useGetStatisticsOverview();
   const reduceMotion = useReducedMotion();
   const overview = data?.data;
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="rounded-2xl border border-gray-1 bg-white p-4 shadow-sm dark:border-dark-l dark:bg-dark-b">
+            <SkeletonBar className="h-3 w-14" />
+            <SkeletonBar className="mt-2.5 h-6 w-20" />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   if (!overview) return null;
 

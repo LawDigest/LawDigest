@@ -5,6 +5,7 @@ import { getPartyColor } from '@/constants/party';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { useGetStatisticsByParty, useGetStatisticsPartyPerformance } from '../apis';
 import StatsCard from './StatsCard';
+import { SkeletonBar } from './StatsSkeleton';
 
 const TOP_N = 8;
 
@@ -39,6 +40,18 @@ export default function StatsPartyPerformance() {
         total: p.count,
         passRate: null as number | null,
       }));
+
+  if (rows.length === 0 && (performance.isLoading || fallback.isLoading)) {
+    return (
+      <StatsCard title="정당별 발의·가결" icon="flag" delay={0.1}>
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 6 }, (_, i) => (
+            <SkeletonBar key={i} className="h-[18px] w-full" />
+          ))}
+        </div>
+      </StatsCard>
+    );
+  }
 
   if (rows.length === 0) return null;
 
