@@ -503,7 +503,7 @@ def test_agentic_report_postprocess_unwraps_single_report_json_before_tooltip_in
     _validate_report_body(postprocessed)
 
 
-def test_agentic_report_applies_high_confidence_tooltip_decisions_only():
+def test_agentic_report_applies_high_confidence_high_relevance_tooltip_decisions_only():
     from lawdigest_ai.processor.agentic_bill_report import (
         _apply_legal_term_tooltip_decisions,
         _parse_legal_term_tooltip_decisions,
@@ -550,6 +550,7 @@ def test_agentic_report_applies_high_confidence_tooltip_decisions_only():
                     "definition": "에이전트가 바꾼 정의는 쓰면 안 돼요.",
                     "reason": "이 법안의 핵심 절차 용어예요.",
                     "confidence": "high",
+                    "relevance": "high",
                 },
                 {
                     "term": "정확성",
@@ -557,6 +558,7 @@ def test_agentic_report_applies_high_confidence_tooltip_decisions_only():
                     "definition": "위성서비스에서 위치가 맞는 정도를 말해요.",
                     "reason": "일반어라 불확실해요.",
                     "confidence": "low",
+                    "relevance": "high",
                 },
                 {
                     "term": "불법어업",
@@ -564,6 +566,7 @@ def test_agentic_report_applies_high_confidence_tooltip_decisions_only():
                     "definition": "긴 정의도 에이전트가 골랐어요.",
                     "reason": "사전 정의가 너무 길면 주입하지 않아야 해요.",
                     "confidence": "high",
+                    "relevance": "high",
                 },
                 {
                     "term": "생산성",
@@ -571,6 +574,7 @@ def test_agentic_report_applies_high_confidence_tooltip_decisions_only():
                     "definition": "일반어도 에이전트가 골랐어요.",
                     "reason": "문맥 정의가 빗나가기 쉬운 일반어예요.",
                     "confidence": "high",
+                    "relevance": "low",
                 },
             ],
             "rejected": [],
@@ -589,19 +593,10 @@ def test_agentic_report_applies_high_confidence_tooltip_decisions_only():
     assert [decision.term for decision in decisions] == ["청문"]
 
 
-def test_agentic_report_rejects_semantically_mismatched_tooltip_decisions():
+def test_agentic_report_requires_high_relevance_tooltip_decisions():
     from lawdigest_ai.processor.agentic_bill_report import _parse_legal_term_tooltip_decisions
     from lawdigest_ai.processor.legal_term_glossary import LegalTermEntry
 
-    report_body = """
-# 항공보안법 일부개정법률안(대안)
-
-## 쉬운 요약
-- 항공보안 감독관이 보안사고와 현장점검을 더 분명하게 조사할 수 있게 해요.
-
-## 주요 내용
-- **감독과 조사 권한 보강**: 항공보안 감독관이 공항과 항공기 보안 실태를 확인해요.
-""".strip()
     candidates = [
         LegalTermEntry(
             term="현장점검",
@@ -623,6 +618,7 @@ def test_agentic_report_rejects_semantically_mismatched_tooltip_decisions():
                     "definition": "후보 정의",
                     "reason": "본문에 나온 용어예요.",
                     "confidence": "high",
+                    "relevance": "low",
                 },
                 {
                     "term": "보안사고",
@@ -630,17 +626,14 @@ def test_agentic_report_rejects_semantically_mismatched_tooltip_decisions():
                     "definition": "후보 정의",
                     "reason": "항공보안 문맥과 맞는 용어예요.",
                     "confidence": "high",
+                    "relevance": "high",
                 },
             ]
         },
         ensure_ascii=False,
     )
 
-    decisions = _parse_legal_term_tooltip_decisions(
-        decisions_json,
-        candidates,
-        semantic_context=report_body,
-    )
+    decisions = _parse_legal_term_tooltip_decisions(decisions_json, candidates)
 
     assert [decision.term for decision in decisions] == ["보안사고"]
 
@@ -2012,6 +2005,7 @@ def test_run_agentic_bill_reports_applies_tooltips_from_single_structured_output
                             "definition": "이 정의는 후보 정의로 대체돼야 해요.",
                             "reason": "법안의 핵심 절차 용어예요.",
                             "confidence": "high",
+                            "relevance": "high",
                         }
                     ],
                     "rejected": [],

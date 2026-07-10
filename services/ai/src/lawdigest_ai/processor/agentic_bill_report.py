@@ -133,11 +133,12 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 - 법제처 정의가 있는 용어도 본문에서는 자연스러운 단어로만 쓰세요. 툴팁 표기는 코드가 후처리로 주입합니다.
 - 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.
 - `report_body`에는 사용자에게 보여줄 최종 Markdown 리포트만 넣으세요. 첫 줄은 반드시 `# 법안명`으로 시작하세요.
-- `tooltips`에는 법제처 용어 사전 후보 중 본문 문맥에서 일반 독자에게 꼭 필요한 high-confidence 용어만 넣으세요.
+- `tooltips`에는 법제처 용어 사전 후보 중 본문 문맥에서 일반 독자에게 꼭 필요한 high-confidence, high-relevance 용어만 넣으세요.
 - 후보에 없는 용어를 새로 만들지 마세요. `surface`는 `report_body`에 실제로 등장하는 표현이어야 합니다.
 - `definition`은 참고용이며 최종 툴팁 정의는 파이프라인이 후보 사전 정의로만 주입합니다.
+- `confidence`는 후보 정의 자체를 믿을 수 있는지, `relevance`는 그 정의가 현재 법안 본문 문맥에 맞는지 평가하세요. 둘 다 high일 때만 반영됩니다.
 - `bill_id`, `brief_summary`, `gpt_summary`, `tags`를 만들지 마세요.
-- 출력 스키마: `{"report_body":"# 법안명\n\n## 쉬운 요약\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high"}],"rejected":[]}`
+- 출력 스키마: `{"report_body":"# 법안명\n\n## 쉬운 요약\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high","relevance":"high"}],"rejected":[]}`
 """.strip() + "\n"
 
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
@@ -1040,12 +1041,13 @@ def build_bill_report_prompt(
         "- JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.\n"
         "- report_body 값은 Markdown 문자열입니다. 첫 줄 H1 제목은 bill.bill_name과 같아야 합니다.\n"
         "- report_body 안에는 툴팁 문법이나 중괄호 표기를 직접 쓰지 마세요.\n"
-        "- tooltips 배열에는 candidate_terms 중 본문 문맥에서 꼭 필요한 high-confidence 용어만 넣으세요.\n"
+        "- tooltips 배열에는 candidate_terms 중 본문 문맥에서 꼭 필요한 high-confidence, high-relevance 용어만 넣으세요.\n"
         "- 후보에 없는 용어를 새로 만들지 마세요. surface는 report_body에 실제로 등장하는 표현이어야 합니다.\n"
         "- confidence는 high 또는 low만 사용하세요. 파이프라인은 high만 반영합니다.\n"
+        "- relevance는 high 또는 low만 사용하세요. 후보 정의가 현재 법안 본문 문맥에 맞는 경우에만 high로 두세요. 파이프라인은 high만 반영합니다.\n"
         "- bill_id, brief_summary, gpt_summary, tags를 만들지 마세요.\n\n"
         "출력 스키마:\n"
-        '{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high"}],"rejected":[{"term":"정확성","reason":"일반어이거나 문맥 정의가 불확실함"}]}\n\n'
+        '{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high","relevance":"high"}],"rejected":[{"term":"정확성","reason":"일반어이거나 문맥 정의가 불확실함"}]}\n\n'
         f"candidate_terms:\n{json.dumps(candidate_terms, ensure_ascii=False, indent=2, default=str)}\n\n"
         f"입력 evidence packet:\n{json.dumps(evidence_payload, ensure_ascii=False, indent=2, default=str)}"
     )
@@ -1295,38 +1297,9 @@ def _tooltip_candidate_lookup(entries: list[LegalTermEntry]) -> dict[str, LegalT
     return lookup
 
 
-CONTEXT_BOUND_TOOLTIP_MARKERS = (
-    "총괄기관",
-    "전담기관",
-    "주관기관",
-    "대표협력기관",
-    "조성현황",
-    "운영실적",
-    "사업비",
-    "집행내역",
-)
-
-
-def _tooltip_candidate_semantically_matches(entry: LegalTermEntry, semantic_context: str | None) -> bool:
-    if not semantic_context:
-        return True
-    definition = entry.definition
-    markers = [marker for marker in CONTEXT_BOUND_TOOLTIP_MARKERS if marker in definition]
-    if len(markers) < 2:
-        return True
-    compact_context = re.sub(r"\s+", "", semantic_context)
-    return any(marker in compact_context for marker in markers)
-
-
-def _build_tooltip_semantic_context(report_body: str, evidence: dict[str, Any]) -> str:
-    context_evidence = {key: value for key, value in evidence.items() if key != "legal_terms"}
-    return report_body + "\n" + json.dumps(context_evidence, ensure_ascii=False, default=str)
-
-
 def _parse_legal_term_tooltip_decisions(
     decisions_text: str,
     candidate_entries: list[LegalTermEntry],
-    semantic_context: str | None = None,
 ) -> list[ApprovedLegalTermTooltip]:
     try:
         payload = json.loads(_extract_json_object(decisions_text))
@@ -1347,14 +1320,15 @@ def _parse_legal_term_tooltip_decisions(
         confidence = str(raw_tooltip.get("confidence") or "").strip().lower()
         if confidence != "high":
             continue
+        relevance = str(raw_tooltip.get("relevance") or "").strip().lower()
+        if relevance != "high":
+            continue
         term = str(raw_tooltip.get("term") or "").strip()
         surface = str(raw_tooltip.get("surface") or term).strip()
         if not term or not surface or len(surface) > 40:
             continue
         entry = lookup.get(normalize_legal_term(term)) or lookup.get(normalize_legal_term(surface))
         if entry is None or not is_safe_legal_term_tooltip_entry(entry):
-            continue
-        if not _tooltip_candidate_semantically_matches(entry, semantic_context):
             continue
         definition = _sanitize_tooltip_definition(entry.definition)
         if not definition:
@@ -1433,7 +1407,6 @@ def _parse_structured_report_output(
         decisions = _parse_legal_term_tooltip_decisions(
             json.dumps({"tooltips": raw_tooltips}, ensure_ascii=False, default=str),
             candidate_entries,
-            semantic_context=_build_tooltip_semantic_context(postprocessed_report_body, evidence),
         )
         report_text = _strip_markdown_for_summary(postprocessed_report_body)
         decisions = [decision for decision in decisions if decision.surface in report_text]
