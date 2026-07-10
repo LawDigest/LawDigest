@@ -13,7 +13,7 @@ export default function ExploreSubTabs({ active, onChange }: ExploreSubTabsProps
     <div
       role="tablist"
       aria-label="탐색 하위 탭"
-      className="sticky top-[56px] z-20 flex overflow-x-auto border-b border-divider bg-white px-2 backdrop-blur dark:border-dark-l dark:bg-dark-b scrollbar-hide lg:hidden">
+      className="flex overflow-x-auto border-b border-divider bg-white px-2 backdrop-blur dark:border-dark-l dark:bg-dark-b scrollbar-hide lg:hidden">
       {EXPLORE_TABS.map(({ key, label }) => {
         const isActive = key === active;
         return (
