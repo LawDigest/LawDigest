@@ -134,9 +134,10 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 - 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.
 - `report_body`에는 사용자에게 보여줄 최종 Markdown 리포트만 넣으세요. 첫 줄은 반드시 `# 법안명`으로 시작하세요.
 - `tooltips`에는 법제처 용어 사전 후보 중 본문 문맥에서 일반 독자에게 꼭 필요한 high-confidence, high-relevance 용어만 넣으세요.
-- 후보에 없는 용어를 새로 만들지 마세요. `surface`는 `report_body`에 실제로 등장하는 표현이어야 합니다.
+- 후보에 없는 용어를 새로 만들지 마세요. `surface`는 `report_body`에 실제로 등장하면서 후보 term 또는 aliases와 같은 개념인 표현이어야 합니다.
+- 후보 term이 다른 복합어·기관명·대상명 안에 들어 있다는 이유만으로 `surface`를 넓히지 마세요. 예: `위탁` 후보를 `위탁 의료기관`에 붙이지 마세요.
 - `definition`은 참고용이며 최종 툴팁 정의는 파이프라인이 후보 사전 정의로만 주입합니다.
-- `confidence`는 후보 정의 자체를 믿을 수 있는지, `relevance`는 그 정의가 현재 법안 본문 문맥에 맞는지 평가하세요. 둘 다 high일 때만 반영됩니다.
+- `confidence`는 후보 정의 자체를 믿을 수 있는지, `relevance`는 그 정의가 현재 법안 본문 문맥의 해당 surface와 정확히 같은 개념인지 평가하세요. 둘 다 high일 때만 반영됩니다.
 - `bill_id`, `brief_summary`, `gpt_summary`, `tags`를 만들지 마세요.
 - 출력 스키마: `{"report_body":"# 법안명\n\n## 쉬운 요약\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high","relevance":"high"}],"rejected":[]}`
 """.strip() + "\n"
@@ -1042,9 +1043,10 @@ def build_bill_report_prompt(
         "- report_body 값은 Markdown 문자열입니다. 첫 줄 H1 제목은 bill.bill_name과 같아야 합니다.\n"
         "- report_body 안에는 툴팁 문법이나 중괄호 표기를 직접 쓰지 마세요.\n"
         "- tooltips 배열에는 candidate_terms 중 본문 문맥에서 꼭 필요한 high-confidence, high-relevance 용어만 넣으세요.\n"
-        "- 후보에 없는 용어를 새로 만들지 마세요. surface는 report_body에 실제로 등장하는 표현이어야 합니다.\n"
+        "- 후보에 없는 용어를 새로 만들지 마세요. surface는 report_body에 실제로 등장하면서 후보 term 또는 aliases와 같은 개념인 표현이어야 합니다.\n"
+        "- 후보 term이 다른 복합어·기관명·대상명 안에 들어 있다는 이유만으로 surface를 넓히지 마세요. 예: 위탁 후보를 위탁 의료기관에 붙이지 마세요.\n"
         "- confidence는 high 또는 low만 사용하세요. 파이프라인은 high만 반영합니다.\n"
-        "- relevance는 high 또는 low만 사용하세요. 후보 정의가 현재 법안 본문 문맥에 맞는 경우에만 high로 두세요. 파이프라인은 high만 반영합니다.\n"
+        "- relevance는 high 또는 low만 사용하세요. 후보 정의가 현재 법안 본문 문맥의 해당 surface와 정확히 같은 개념인 경우에만 high로 두세요. 파이프라인은 high만 반영합니다.\n"
         "- bill_id, brief_summary, gpt_summary, tags를 만들지 마세요.\n\n"
         "출력 스키마:\n"
         '{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high","relevance":"high"}],"rejected":[{"term":"정확성","reason":"일반어이거나 문맥 정의가 불확실함"}]}\n\n'
@@ -1297,6 +1299,17 @@ def _tooltip_candidate_lookup(entries: list[LegalTermEntry]) -> dict[str, LegalT
     return lookup
 
 
+def _tooltip_surface_matches_candidate(entry: LegalTermEntry, surface: str) -> bool:
+    normalized_surface = normalize_legal_term(surface)
+    if not normalized_surface:
+        return False
+    return normalized_surface in {
+        normalized
+        for alias in (entry.term, *entry.aliases)
+        if (normalized := normalize_legal_term(alias))
+    }
+
+
 def _parse_legal_term_tooltip_decisions(
     decisions_text: str,
     candidate_entries: list[LegalTermEntry],
@@ -1329,6 +1342,8 @@ def _parse_legal_term_tooltip_decisions(
             continue
         entry = lookup.get(normalize_legal_term(term)) or lookup.get(normalize_legal_term(surface))
         if entry is None or not is_safe_legal_term_tooltip_entry(entry):
+            continue
+        if not _tooltip_surface_matches_candidate(entry, surface):
             continue
         definition = _sanitize_tooltip_definition(entry.definition)
         if not definition:

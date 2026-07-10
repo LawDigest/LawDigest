@@ -638,6 +638,38 @@ def test_agentic_report_requires_high_relevance_tooltip_decisions():
     assert [decision.term for decision in decisions] == ["보안사고"]
 
 
+def test_agentic_report_rejects_tooltip_surface_that_expands_candidate_term():
+    from lawdigest_ai.processor.agentic_bill_report import _parse_legal_term_tooltip_decisions
+    from lawdigest_ai.processor.legal_term_glossary import LegalTermEntry
+
+    candidates = [
+        LegalTermEntry(
+            term="위임·위탁",
+            definition="행정기관의 권한이나 업무 일부를 다른 기관이 맡아 처리하게 하는 방식이에요.",
+            aliases=("위임·위탁", "위탁"),
+        )
+    ]
+    decisions_json = json.dumps(
+        {
+            "tooltips": [
+                {
+                    "term": "위임·위탁",
+                    "surface": "위탁 의료기관",
+                    "definition": "후보 정의",
+                    "reason": "위탁이라는 단어가 들어 있어요.",
+                    "confidence": "high",
+                    "relevance": "high",
+                }
+            ]
+        },
+        ensure_ascii=False,
+    )
+
+    decisions = _parse_legal_term_tooltip_decisions(decisions_json, candidates)
+
+    assert decisions == []
+
+
 def test_agentic_report_repair_inserts_mark_inside_bullet():
     from lawdigest_ai.processor.agentic_bill_report import _repair_report_body
 
