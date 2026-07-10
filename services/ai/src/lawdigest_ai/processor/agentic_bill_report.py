@@ -1295,9 +1295,38 @@ def _tooltip_candidate_lookup(entries: list[LegalTermEntry]) -> dict[str, LegalT
     return lookup
 
 
+CONTEXT_BOUND_TOOLTIP_MARKERS = (
+    "총괄기관",
+    "전담기관",
+    "주관기관",
+    "대표협력기관",
+    "조성현황",
+    "운영실적",
+    "사업비",
+    "집행내역",
+)
+
+
+def _tooltip_candidate_semantically_matches(entry: LegalTermEntry, semantic_context: str | None) -> bool:
+    if not semantic_context:
+        return True
+    definition = entry.definition
+    markers = [marker for marker in CONTEXT_BOUND_TOOLTIP_MARKERS if marker in definition]
+    if len(markers) < 2:
+        return True
+    compact_context = re.sub(r"\s+", "", semantic_context)
+    return any(marker in compact_context for marker in markers)
+
+
+def _build_tooltip_semantic_context(report_body: str, evidence: dict[str, Any]) -> str:
+    context_evidence = {key: value for key, value in evidence.items() if key != "legal_terms"}
+    return report_body + "\n" + json.dumps(context_evidence, ensure_ascii=False, default=str)
+
+
 def _parse_legal_term_tooltip_decisions(
     decisions_text: str,
     candidate_entries: list[LegalTermEntry],
+    semantic_context: str | None = None,
 ) -> list[ApprovedLegalTermTooltip]:
     try:
         payload = json.loads(_extract_json_object(decisions_text))
@@ -1324,6 +1353,8 @@ def _parse_legal_term_tooltip_decisions(
             continue
         entry = lookup.get(normalize_legal_term(term)) or lookup.get(normalize_legal_term(surface))
         if entry is None or not is_safe_legal_term_tooltip_entry(entry):
+            continue
+        if not _tooltip_candidate_semantically_matches(entry, semantic_context):
             continue
         definition = _sanitize_tooltip_definition(entry.definition)
         if not definition:
@@ -1402,6 +1433,7 @@ def _parse_structured_report_output(
         decisions = _parse_legal_term_tooltip_decisions(
             json.dumps({"tooltips": raw_tooltips}, ensure_ascii=False, default=str),
             candidate_entries,
+            semantic_context=_build_tooltip_semantic_context(postprocessed_report_body, evidence),
         )
         report_text = _strip_markdown_for_summary(postprocessed_report_body)
         decisions = [decision for decision in decisions if decision.surface in report_text]

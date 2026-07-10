@@ -589,6 +589,62 @@ def test_agentic_report_applies_high_confidence_tooltip_decisions_only():
     assert [decision.term for decision in decisions] == ["청문"]
 
 
+def test_agentic_report_rejects_semantically_mismatched_tooltip_decisions():
+    from lawdigest_ai.processor.agentic_bill_report import _parse_legal_term_tooltip_decisions
+    from lawdigest_ai.processor.legal_term_glossary import LegalTermEntry
+
+    report_body = """
+# 항공보안법 일부개정법률안(대안)
+
+## 쉬운 요약
+- 항공보안 감독관이 보안사고와 현장점검을 더 분명하게 조사할 수 있게 해요.
+
+## 주요 내용
+- **감독과 조사 권한 보강**: 항공보안 감독관이 공항과 항공기 보안 실태를 확인해요.
+""".strip()
+    candidates = [
+        LegalTermEntry(
+            term="현장점검",
+            definition="총괄기관, 전담기관이 주관기관, 대표협력기관에 대하여 설계ㆍ조성현황, 운영실적, 사업비 집행내역 등을 확인하기 위한 수시 또는 정기점검을 말한다.",
+            aliases=("현장점검",),
+        ),
+        LegalTermEntry(
+            term="보안사고",
+            definition="비밀의 누설, 분실, 보호구역의 침입 및 보호장비의 파괴 등을 말한다.",
+            aliases=("보안사고",),
+        ),
+    ]
+    decisions_json = json.dumps(
+        {
+            "tooltips": [
+                {
+                    "term": "현장점검",
+                    "surface": "현장점검",
+                    "definition": "후보 정의",
+                    "reason": "본문에 나온 용어예요.",
+                    "confidence": "high",
+                },
+                {
+                    "term": "보안사고",
+                    "surface": "보안사고",
+                    "definition": "후보 정의",
+                    "reason": "항공보안 문맥과 맞는 용어예요.",
+                    "confidence": "high",
+                },
+            ]
+        },
+        ensure_ascii=False,
+    )
+
+    decisions = _parse_legal_term_tooltip_decisions(
+        decisions_json,
+        candidates,
+        semantic_context=report_body,
+    )
+
+    assert [decision.term for decision in decisions] == ["보안사고"]
+
+
 def test_agentic_report_repair_inserts_mark_inside_bullet():
     from lawdigest_ai.processor.agentic_bill_report import _repair_report_body
 
