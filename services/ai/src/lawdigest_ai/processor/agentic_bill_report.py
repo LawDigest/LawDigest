@@ -1682,6 +1682,110 @@ def _persist_successful_report_item(*, mode: str, bill: dict[str, Any], item: di
     return True
 
 
+RETRYABLE_REPORT_FAILURE_TYPES = {
+    "codex_exit",
+    "empty_output",
+    "malformed_json",
+    "session_missing",
+    "timeout",
+    "title_mismatch",
+    "validation",
+}
+
+
+def _classify_report_failure(item: dict[str, Any]) -> dict[str, Any]:
+    error = str(item.get("error") or "")
+    lower_error = error.lower()
+    exit_code = item.get("exit_code")
+    if "timed out" in lower_error or "timeout" in lower_error:
+        failure_type = "timeout"
+    elif "report body is empty" in lower_error:
+        failure_type = "empty_output"
+    elif "not valid json" in lower_error or "must contain a reports array" in lower_error:
+        failure_type = "malformed_json"
+    elif "session id is missing" in lower_error:
+        failure_type = "session_missing"
+    elif "제목이 대상 법안명과 일치하지 않습니다" in error:
+        failure_type = "title_mismatch"
+    elif "생성 리포트" in error or "markdown" in lower_error:
+        failure_type = "validation"
+    elif exit_code not in (None, 0):
+        failure_type = "codex_exit"
+    else:
+        failure_type = "unknown"
+    return {
+        "type": failure_type,
+        "retryable": failure_type in RETRYABLE_REPORT_FAILURE_TYPES,
+    }
+
+
+def _qa_generated_report_item(item: dict[str, Any]) -> dict[str, Any]:
+    if item.get("status") != "success":
+        return {"status": "skipped", "issue_count": 0, "issue_codes": []}
+
+    issue_codes: list[str] = []
+    report_path = item.get("report_path")
+    if not report_path or not Path(str(report_path)).exists():
+        issue_codes.append("missing_report_file")
+    else:
+        body = Path(str(report_path)).read_text(encoding="utf-8")
+        stripped = body.strip()
+        if not stripped:
+            issue_codes.append("empty_report_file")
+        if stripped.startswith("{") and ('"report_body"' in stripped or '"tooltips"' in stripped):
+            issue_codes.append("json_wrapper_leftover")
+        tooltip_remainder = TERM_TOOLTIP_PATTERN.sub("", body)
+        if "{{" in tooltip_remainder or "}}" in tooltip_remainder:
+            issue_codes.append("malformed_tooltip_braces")
+        if re.search(r"<mark>\s*-\s*", body):
+            issue_codes.append("broken_mark_bullet")
+        if "json_wrapper_leftover" not in issue_codes and stripped:
+            try:
+                _validate_report_title_matches_bill(body, {"bill_name": item.get("bill_name")})
+            except RuntimeError:
+                issue_codes.append("title_mismatch")
+            try:
+                _validate_report_body(body)
+            except RuntimeError:
+                issue_codes.append("markdown_validation_failed")
+
+    return {
+        "status": "failed" if issue_codes else "passed",
+        "issue_count": len(issue_codes),
+        "issue_codes": issue_codes,
+    }
+
+
+def _build_report_qa_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
+    issues: list[dict[str, Any]] = []
+    issue_code_counts: dict[str, int] = {}
+    checked_count = 0
+    for item in items:
+        qa = _qa_generated_report_item(item)
+        item["qa"] = qa
+        if qa["status"] != "skipped":
+            checked_count += 1
+        if qa["status"] != "failed":
+            continue
+        for code in qa["issue_codes"]:
+            issue_code_counts[code] = issue_code_counts.get(code, 0) + 1
+        issues.append(
+            {
+                "bill_id": item.get("bill_id"),
+                "bill_name": item.get("bill_name"),
+                "report_path": item.get("report_path"),
+                "issue_codes": qa["issue_codes"],
+            }
+        )
+    return {
+        "status": "failed" if issues else "passed",
+        "checked_count": checked_count,
+        "issue_count": len(issues),
+        "issue_code_counts": issue_code_counts,
+        "issues": issues,
+    }
+
+
 def _validate_report_body(report_body: str) -> None:
     body = report_body.strip()
     if not body:
@@ -2163,6 +2267,21 @@ class CodexBillReportAgent:
                 details.update(inspection_paths)
             raise BillReportGenerationError("Codex agent report body is empty.", details=details)
         raw_report_body = report_path.read_text(encoding="utf-8")
+        if not raw_report_body.strip():
+            if inspection_dir:
+                inspection_paths = _write_inspection_artifacts(
+                    inspection_dir=Path(inspection_dir),
+                    bill=bill,
+                    prompt=prompt,
+                    command=command,
+                    stdout_text=stdout_text,
+                    stderr_text=stderr_text,
+                    report_path=report_path,
+                    details=details,
+                    validation=validation,
+                )
+                details.update(inspection_paths)
+            raise BillReportGenerationError("Codex agent report body is empty.", details=details)
         parsed_report = _parse_structured_report_output(raw_report_body, bill=bill, evidence=evidence)
         postprocessed_report_body = _apply_structured_report_tooltips(parsed_report)
         repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
@@ -2332,6 +2451,8 @@ class CodexBillReportAgent:
                 if not report_path.exists():
                     raise RuntimeError("Codex agent report body is empty.")
                 raw_report_body = report_path.read_text(encoding="utf-8")
+                if not raw_report_body.strip():
+                    raise RuntimeError("Codex agent report body is empty.")
                 parsed_report = _parse_structured_report_output(raw_report_body, bill=bill, evidence=evidence)
                 postprocessed_report_body = _apply_structured_report_tooltips(parsed_report)
                 repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
@@ -2415,6 +2536,7 @@ def run_agentic_bill_reports(
     inspection: bool = False,
     report_mode: str = "auto",
     batch_session_size: int = DEFAULT_BATCH_SESSION_SIZE,
+    failure_retry_attempts: int = 0,
 ) -> Dict[str, Any]:
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
@@ -2428,6 +2550,8 @@ def run_agentic_bill_reports(
         raise ValueError("batch_session_size는 1 이상이어야 합니다.")
     if batch_session_size > MAX_BATCH_SESSION_SIZE:
         raise ValueError(f"batch_session_size는 {MAX_BATCH_SESSION_SIZE} 이하여야 합니다.")
+    if failure_retry_attempts < 0:
+        raise ValueError("failure_retry_attempts는 0 이상이어야 합니다.")
 
     targets = _fetch_bill_report_targets(mode=mode, limit=limit, read_mode=read_mode, target=target)
     output_root = Path(output_dir).expanduser().resolve()
@@ -2443,6 +2567,65 @@ def run_agentic_bill_reports(
 
     def persist_successful_item(bill: dict[str, Any], item: dict[str, Any]) -> bool:
         return _persist_successful_report_item(mode=mode, bill=bill, item=item)
+
+    def retry_failed_item(bill: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
+        if failure_retry_attempts < 1:
+            item["failure"] = _classify_report_failure(item)
+            return item
+
+        history: list[dict[str, Any]] = []
+        current_item = item
+        report_path = output_root / f"{_slugify_bill_id(bill.get('bill_id'))}.md"
+        for attempt in range(1, failure_retry_attempts + 1):
+            failure = _classify_report_failure(current_item)
+            current_item["failure"] = failure
+            if not failure["retryable"]:
+                break
+            history.append(
+                {
+                    "attempt": attempt,
+                    "failure_type": failure["type"],
+                    "retryable": failure["retryable"],
+                    "error": current_item.get("error"),
+                }
+            )
+            try:
+                retry_item = agent.write_report(
+                    bill=bill,
+                    output_path=str(report_path),
+                    inspection_dir=str(inspection_dir) if inspection_dir is not None else None,
+                    report_mode=report_mode,
+                )
+                if retry_item.get("status") == "success":
+                    retry_item["db_upserted"] = persist_successful_item(bill, retry_item)
+                retry_item["retry"] = {
+                    "attempt_count": len(history),
+                    "history": history,
+                    "final_status": retry_item.get("status"),
+                }
+                return retry_item
+            except BillReportGenerationError as exc:
+                current_item = {
+                    **exc.details,
+                    "status": "failed",
+                    "error": str(exc),
+                }
+            except Exception as exc:
+                current_item = {
+                    "bill_id": bill.get("bill_id"),
+                    "bill_name": bill.get("bill_name"),
+                    "report_path": str(report_path),
+                    "status": "failed",
+                    "error": str(exc),
+                }
+
+        current_item["failure"] = _classify_report_failure(current_item)
+        current_item["retry"] = {
+            "attempt_count": len(history),
+            "history": history,
+            "final_status": current_item.get("status"),
+        }
+        return current_item
 
     def generate_one(index: int, bill: dict[str, Any]) -> tuple[int, dict[str, Any]]:
         bill_id = bill.get("bill_id")
@@ -2465,7 +2648,7 @@ def run_agentic_bill_reports(
             }
             if stop_on_error:
                 raise
-            return index, failed
+            return index, retry_failed_item(bill, failed)
         except Exception as exc:
             failed = {
                 "bill_id": bill_id,
@@ -2476,7 +2659,7 @@ def run_agentic_bill_reports(
             }
             if stop_on_error:
                 raise
-            return index, failed
+            return index, retry_failed_item(bill, failed)
 
     def generate_batch(start_index: int, bills: list[dict[str, Any]], batch_index: int) -> dict[str, Any]:
         try:
@@ -2510,6 +2693,9 @@ def run_agentic_bill_reports(
                 },
             }
         for offset, item in enumerate(batch_result["items"]):
+            if item.get("status") == "failed" and not stop_on_error:
+                item = retry_failed_item(bills[offset], item)
+                batch_result["items"][offset] = item
             items[start_index + offset] = item
         if stop_on_error and any(item.get("status") == "failed" for item in batch_result["items"]):
             first_failed = next(item for item in batch_result["items"] if item.get("status") == "failed")
@@ -2556,6 +2742,8 @@ def run_agentic_bill_reports(
                 usage_totals[key] = usage_totals.get(key, 0) + value
 
     for item in completed_items:
+        if item.get("status") == "failed" and "failure" not in item:
+            item["failure"] = _classify_report_failure(item)
         add_usage(item.get("usage"))
         tooltip = item.get("tooltip")
         if isinstance(tooltip, dict):
@@ -2564,6 +2752,21 @@ def run_agentic_bill_reports(
         add_usage(session.get("usage"))
 
     db_upserted_count = sum(1 for item in completed_items if item.get("db_upserted"))
+    retry_items = [
+        item
+        for item in completed_items
+        if isinstance(item.get("retry"), dict) and int(item["retry"].get("attempt_count") or 0) > 0
+    ]
+    failure_type_counts: dict[str, int] = {}
+    for item in completed_items:
+        if item.get("status") != "failed":
+            continue
+        failure = item.get("failure")
+        if not isinstance(failure, dict):
+            continue
+        failure_type = str(failure.get("type") or "unknown")
+        failure_type_counts[failure_type] = failure_type_counts.get(failure_type, 0) + 1
+    qa_summary = _build_report_qa_summary(completed_items)
 
     report = {
         "execution_mode": mode,
@@ -2574,6 +2777,7 @@ def run_agentic_bill_reports(
         "report_mode": report_mode,
         "concurrency": concurrency,
         "batch_session_size": batch_session_size,
+        "failure_retry_attempts": failure_retry_attempts,
         "batch_session_count": len(sessions) if batch_session_size > 1 else len(completed_items),
         "inspection": {
             "enabled": inspection,
@@ -2596,7 +2800,12 @@ def run_agentic_bill_reports(
             ),
             "usage_totals": usage_totals,
             "db_upserted_count": db_upserted_count,
+            "retried_item_count": len(retry_items),
+            "retry_success_count": sum(1 for item in retry_items if item.get("status") == "success"),
+            "retry_failure_count": sum(1 for item in retry_items if item.get("status") == "failed"),
+            "failure_type_counts": failure_type_counts,
         },
+        "qa": qa_summary,
         "items": completed_items,
         "sessions": sessions,
     }

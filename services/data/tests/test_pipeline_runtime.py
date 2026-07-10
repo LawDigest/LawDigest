@@ -113,6 +113,7 @@ def test_ai_summary_defaults_to_agentic_report_runtime(tmp_path):
         concurrency=1,
         report_mode="deep_report",
         batch_session_size=5,
+        failure_retry_attempts=1,
         inspection=False,
     )
     assert result["command"] == "ai.summary"
@@ -249,6 +250,7 @@ def test_bill_agent_report_delegates_to_agentic_report_runtime(tmp_path):
         concurrency=1,
         report_mode="deep_report",
         batch_session_size=5,
+        failure_retry_attempts=1,
         inspection=False,
     )
     assert result["command"] == "bill.agent_report"
@@ -282,6 +284,7 @@ def test_bill_agent_report_can_target_all_bills(tmp_path):
         concurrency=1,
         report_mode="deep_report",
         batch_session_size=5,
+        failure_retry_attempts=1,
         inspection=False,
     )
     assert result["steps"][0]["step"] == "generate_all_bill_reports"
@@ -315,6 +318,7 @@ def test_bill_agent_report_forwards_usage_meter_snapshot(tmp_path):
         concurrency=1,
         report_mode="deep_report",
         batch_session_size=5,
+        failure_retry_attempts=1,
         inspection=False,
         usage_meter={
             "weekly": {"before_percent": 41.2, "after_percent": 40.7},
@@ -349,6 +353,7 @@ def test_bill_agent_report_forwards_inspection_mode(tmp_path):
         concurrency=1,
         report_mode="deep_report",
         batch_session_size=5,
+        failure_retry_attempts=1,
         inspection=True,
     )
 
@@ -452,6 +457,7 @@ def test_cli_dispatches_ai_summary_default_agent(tmp_path):
         concurrency=1,
         report_mode="deep_report",
         batch_session_size=5,
+        failure_retry_attempts=1,
         weekly_usage_before=None,
         weekly_usage_after=None,
         five_hour_usage_before=None,
@@ -496,6 +502,7 @@ def test_cli_dispatches_ai_summary_cli_engine_with_codex_default(tmp_path):
         concurrency=1,
         report_mode="deep_report",
         batch_session_size=5,
+        failure_retry_attempts=1,
         weekly_usage_before=None,
         weekly_usage_after=None,
         five_hour_usage_before=None,
@@ -535,6 +542,7 @@ def test_cli_dispatches_bill_agent_report(tmp_path):
         concurrency=1,
         report_mode="deep_report",
         batch_session_size=5,
+        failure_retry_attempts=1,
         weekly_usage_before=None,
         weekly_usage_after=None,
         five_hour_usage_before=None,
@@ -687,6 +695,7 @@ def test_cli_dispatches_bill_agent_report_target_all(tmp_path):
         concurrency=1,
         report_mode="deep_report",
         batch_session_size=5,
+        failure_retry_attempts=1,
         weekly_usage_before=None,
         weekly_usage_after=None,
         five_hour_usage_before=None,
@@ -730,6 +739,7 @@ def test_cli_dispatches_bill_agent_report_usage_meter(tmp_path):
         concurrency=1,
         report_mode="deep_report",
         batch_session_size=5,
+        failure_retry_attempts=1,
         weekly_usage_before=41.2,
         weekly_usage_after=40.7,
         five_hour_usage_before=8.0,
@@ -767,6 +777,7 @@ def test_cli_dispatches_bill_agent_report_concurrency(tmp_path):
         concurrency=3,
         report_mode="deep_report",
         batch_session_size=5,
+        failure_retry_attempts=1,
         weekly_usage_before=None,
         weekly_usage_after=None,
         five_hour_usage_before=None,
@@ -803,6 +814,7 @@ def test_cli_dispatches_bill_agent_report_inspection(tmp_path):
         concurrency=1,
         report_mode="deep_report",
         batch_session_size=5,
+        failure_retry_attempts=1,
         weekly_usage_before=None,
         weekly_usage_after=None,
         five_hour_usage_before=None,

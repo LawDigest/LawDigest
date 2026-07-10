@@ -2159,6 +2159,144 @@ def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monk
     assert mock_update.call_args.kwargs["bill_id"] == "PRC_PARTIAL_1"
 
 
+def test_run_agentic_bill_reports_retries_retryable_batch_failures(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    targets = [
+        {
+            "bill_id": "PRC_RETRY_1",
+            "bill_number": "2211101",
+            "bill_name": "재시도 테스트법안 1",
+            "summary": "첫 번째 요약",
+            "brief_summary": "기존 첫 번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+        {
+            "bill_id": "PRC_RETRY_2",
+            "bill_number": "2211102",
+            "bill_name": "재시도 테스트법안 2",
+            "summary": "두 번째 요약",
+            "brief_summary": "기존 두 번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        },
+    ]
+
+    def report_body(title: str, subject: str) -> str:
+        return (
+            f"# {title}\n\n"
+            f"## 쉬운 요약\n- **{subject}** 리포트예요. <mark>{subject} 법안의 변화만 설명해요.</mark>\n\n"
+            "## 주요 내용\n- **지원 근거**: 설명이에요.\n"
+            "\n## 무엇이 달라지나\n\n"
+            "### 1) 지원 근거 신설\n\n"
+            f"{subject} 근거만 사용해 지원 근거를 만들어요.\n\n"
+            "- 사용자 입장에서는 확인할 지원 절차가 더 분명해져요.\n"
+        )
+
+    upserted_bill_ids: list[str] = []
+
+    def run_codex(command, **kwargs):
+        output_path = Path(command[command.index("--output-last-message") + 1])
+        if command[:3] == ["codex", "exec", "resume"]:
+            output_path.write_text("", encoding="utf-8")
+            stdout = '{"type":"turn.completed"}'
+        elif len(upserted_bill_ids) == 0:
+            output_path.write_text(report_body("재시도 테스트법안 1", "첫 번째"), encoding="utf-8")
+            stdout = '{"type":"thread.started","thread_id":"thread-retry"}'
+        else:
+            output_path.write_text(report_body("재시도 테스트법안 2", "두 번째"), encoding="utf-8")
+            stdout = '{"type":"thread.started","thread_id":"thread-retry-single"}'
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
+
+    def update_summary(**kwargs):
+        upserted_bill_ids.append(kwargs["bill_id"])
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=targets,
+    ), patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex) as mock_run, patch(
+        "lawdigest_ai.processor.agentic_bill_report.update_bill_summary"
+    ) as mock_update:
+        mock_update.side_effect = update_summary
+        result = run_agentic_bill_reports(
+            mode="test",
+            limit=2,
+            output_dir=str(tmp_path),
+            target="pending",
+            report_mode="deep_report",
+            batch_session_size=2,
+            failure_retry_attempts=1,
+        )
+
+    assert mock_run.call_count == 3
+    assert mock_run.call_args_list[1].args[0][:3] == ["codex", "exec", "resume"]
+    assert mock_run.call_args_list[2].args[0][:3] != ["codex", "exec", "resume"]
+    assert result["stats"]["success_count"] == 2
+    assert result["stats"]["failure_count"] == 0
+    assert result["stats"]["retried_item_count"] == 1
+    assert result["stats"]["retry_success_count"] == 1
+    assert result["items"][1]["retry"]["attempt_count"] == 1
+    assert result["items"][1]["retry"]["history"][0]["failure_type"] == "empty_output"
+    assert [call.kwargs["bill_id"] for call in mock_update.call_args_list] == ["PRC_RETRY_1", "PRC_RETRY_2"]
+
+
+def test_run_agentic_bill_reports_records_output_qa_issues(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent, run_agentic_bill_reports
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    target = {
+        "bill_id": "PRC_QA_1",
+        "bill_number": "2211201",
+        "bill_name": "QA 테스트법안",
+        "summary": "QA 요약",
+        "bill_result": "소관위심사",
+        "stage": "위원회 심사",
+    }
+
+    def write_report(self, *, bill, output_path, inspection_dir=None, report_mode="auto"):
+        del self, inspection_dir, report_mode
+        Path(output_path).write_text(
+            json.dumps(
+                {
+                    "report_body": "# QA 테스트법안\n\n## 쉬운 요약\n- **본문**이에요.\n",
+                    "tooltips": [],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        return {
+            "bill_id": bill["bill_id"],
+            "bill_name": bill["bill_name"],
+            "report_path": output_path,
+            "status": "success",
+        }
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=[target],
+    ), patch.object(CodexBillReportAgent, "write_report", write_report):
+        result = run_agentic_bill_reports(
+            mode="dry_run",
+            limit=1,
+            output_dir=str(tmp_path),
+            target="pending",
+            report_mode="deep_report",
+        )
+
+    assert result["stats"]["success_count"] == 1
+    assert result["qa"]["status"] == "failed"
+    assert result["qa"]["issue_count"] == 1
+    assert result["qa"]["issues"][0]["issue_codes"] == ["json_wrapper_leftover"]
+    assert result["items"][0]["qa"]["status"] == "failed"
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["qa"]["issue_count"] == 1
+
+
 def test_run_agentic_bill_reports_maps_report_bodies_without_agent_bill_id(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
 
