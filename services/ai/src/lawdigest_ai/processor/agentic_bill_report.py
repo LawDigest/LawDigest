@@ -570,7 +570,7 @@ def _search_current_law(law_name: str, *, client: Any | None = None) -> dict[str
     session, oc = session_and_oc
     response = session.get(
         "https://www.law.go.kr/DRF/lawSearch.do",
-        params={"OC": oc, "target": "law", "type": "JSON", "query": law_name, "display": 3},
+        params={"OC": oc, "target": "law", "type": "JSON", "query": law_name, "display": 100},
         timeout=20,
     )
     response.raise_for_status()
@@ -590,7 +590,20 @@ def _search_current_law(law_name: str, *, client: Any | None = None) -> dict[str
             "promulgation_date": _first_text(row.get("공포일자")),
             "effective_date": _first_text(row.get("시행일자")),
         })
-    return {"law_name": law_name, "status": "found" if candidates else "not_found", "candidates": candidates[:3]}
+    selected_candidate = _select_current_law_candidate(law_name, candidates)
+    return {
+        "law_name": law_name,
+        "status": "found" if selected_candidate else "not_found",
+        "candidates": [selected_candidate] if selected_candidate else candidates[:3],
+    }
+
+
+def _select_current_law_candidate(law_name: str, candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
+    normalized_law_name = normalize_legal_term(law_name)
+    for candidate in candidates:
+        if normalize_legal_term(str(candidate.get("law_name") or "")) == normalized_law_name:
+            return candidate
+    return None
 
 
 def _fetch_current_law_article(mst: str | None, article_ref: dict[str, str], *, client: Any | None = None) -> dict[str, Any]:
@@ -755,7 +768,8 @@ def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto
             candidates = law_search.get("candidates") if isinstance(law_search, dict) else None
             mst = None
             if isinstance(candidates, list) and candidates:
-                mst = candidates[0].get("mst")
+                candidate = _select_current_law_candidate(law_name, candidates)
+                mst = candidate.get("mst") if candidate else None
             articles = [
                 _fetch_current_law_article(str(mst) if mst else None, article_ref, client=law_client)
                 for article_ref in article_refs[:5]

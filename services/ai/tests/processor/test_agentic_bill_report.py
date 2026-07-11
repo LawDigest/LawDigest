@@ -260,6 +260,103 @@ def test_extract_target_law_names_supports_law_and_formal_law_names(bill_name, e
     assert _extract_target_law_names(bill_name) == expected
 
 
+def test_select_current_law_candidate_requires_exact_normalized_law_name():
+    from lawdigest_ai.processor.agentic_bill_report import _select_current_law_candidate
+
+    candidates = [
+        {"law_name": "지방교부세법", "mst": "wrong"},
+        {"law_name": "지방세법", "mst": "right"},
+    ]
+
+    assert _select_current_law_candidate("지방세법", candidates) == {"law_name": "지방세법", "mst": "right"}
+    assert _select_current_law_candidate(
+        "댐건설·관리 및 주변지역지원 등에 관한 법률",
+        [{"law_name": "댐건설ㆍ관리 및 주변지역지원 등에 관한 법률", "mst": "right"}],
+    ) == {"law_name": "댐건설ㆍ관리 및 주변지역지원 등에 관한 법률", "mst": "right"}
+    assert _select_current_law_candidate("민법", [{"law_name": "난민법", "mst": "wrong"}]) is None
+
+
+def test_build_bill_report_evidence_uses_exact_current_law_candidate(monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import build_bill_report_evidence
+
+    class FakeClient:
+        def fetch_bill_detail(self, bill_id):
+            return {"BILL_ID": bill_id, "BILL_NO": "2212345", "BILL_NM": "지방세법 일부개정법률안"}
+
+        def fetch_bill_summary(self, bill_no):
+            return {"BILL_NO": bill_no, "SUMMARY": "제안이유 및 주요내용 현행법 제12조를 고칩니다."}
+
+        def fetch_rows(self, *args, **kwargs):
+            return []
+
+    fetched_msts = []
+    monkeypatch.setattr(
+        "lawdigest_ai.processor.agentic_bill_report._build_open_assembly_client",
+        lambda api_key=None: FakeClient(),
+    )
+    monkeypatch.setattr(
+        "lawdigest_ai.processor.agentic_bill_report._search_current_law",
+        lambda law_name, client=None: {
+            "law_name": law_name,
+            "status": "found",
+            "candidates": [
+                {"law_name": "지방교부세법", "mst": "wrong"},
+                {"law_name": "지방세법", "mst": "right"},
+            ],
+        },
+    )
+
+    def fetch_article(mst, article_ref, *, client=None):
+        fetched_msts.append(mst)
+        return {**article_ref, "status": "found", "text": "현재 시행 조문"}
+
+    monkeypatch.setattr("lawdigest_ai.processor.agentic_bill_report._fetch_current_law_article", fetch_article)
+
+    evidence = build_bill_report_evidence({"bill_id": "PRC_EXACT_LAW", "bill_name": "지방세법 일부개정법률안"})
+
+    assert fetched_msts == ["right"]
+    assert evidence["current_law"]["laws"][0]["articles"][0]["status"] == "found"
+
+
+def test_search_current_law_keeps_exact_candidate_beyond_initial_search_results():
+    from lawdigest_ai.processor.agentic_bill_report import _search_current_law
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "LawSearch": {
+                    "law": [
+                        {"법령명한글": "지방교부세법", "법령일련번호": "wrong"},
+                        {"법령명한글": "지방세법", "법령일련번호": "right"},
+                    ]
+                }
+            }
+
+    class FakeSession:
+        params = None
+
+        def get(self, url, *, params, timeout):
+            self.params = params
+            return FakeResponse()
+
+    session = FakeSession()
+
+    result = _search_current_law("지방세법", client=(session, "law-oc"))
+
+    assert session.params["display"] == 100
+    assert result["status"] == "found"
+    assert result["candidates"] == [{
+        "law_name": "지방세법",
+        "law_id": None,
+        "mst": "right",
+        "promulgation_date": None,
+        "effective_date": None,
+    }]
+
+
 def test_agentic_report_prompt_uses_source_based_temporal_guidance_and_density_contract():
     from lawdigest_ai.processor.agentic_bill_report import build_bill_report_prompt
 
