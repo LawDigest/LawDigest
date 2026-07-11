@@ -164,9 +164,11 @@ Codex 세션은 `--ignore-user-config`, `--disable plugins`, `--disable apps`, `
 - 열린국회정보에서 법안 상세, 제안이유·주요내용, 위원회 검토 자료를 확인한다.
 - 국가법령정보센터에서 대상 법령과 인용 조문을 확인한다.
 - 수집한 자료와 DB 법안 정보를 deterministic evidence packet으로 묶는다.
+- 제안이유의 법령 설명은 `proposal_baseline`, 법제처 최신 조문은 `current_law_snapshot`으로 기준 시점을 분리한다.
+- 인용 조문 수와 제안이유 길이로 `simple` 또는 `complex` 분량 계약을 붙인다.
 - 생성 에이전트는 추가 도구를 호출하지 않고 제공된 evidence만 사용한다.
 
-출력은 `report_body` 하나를 가진 JSON 객체이며, 그 값만 Markdown 리포트다. 자세한 형식 계약은 [bill-report-agent-prompt-contract.md](./bill-report-agent-prompt-contract.md)를 따른다.
+출력은 Markdown `report_body`와 내부 검증용 `temporal_consistency`를 가진 JSON 객체다. `temporal_consistency.confidence=high`만 성공으로 처리하며, DB에는 `report_body`에서 만든 요약만 저장한다. 자세한 형식 계약은 [bill-report-agent-prompt-contract.md](./bill-report-agent-prompt-contract.md)를 따른다.
 
 ## 9. 법률 용어 풀이
 
@@ -192,7 +194,7 @@ API 정의 조회에 성공하면 후보 정의가 툴팁 판정 프롬프트에
 
 검증 항목:
 
-- `## 쉬운 요약`, `## 주요 내용` 필수 섹션이 있어야 한다.
+- `## 쉬운 요약`, `## 주요 내용`, `## 무엇이 달라지나` 필수 섹션이 있어야 한다.
 - 내부 조사 표현, MCP 서버명, 도구명, 함수명이 본문에 남으면 실패한다.
 - `원문 요약:`, `용어 설명:`, `쉬운 풀이:` 같은 메타 라벨이 남으면 실패한다.
 - `청문`, `과태료`, `위임·위탁` 같은 어려운 용어는 필요한 설명 불릿이 있어야 한다.
@@ -203,8 +205,12 @@ API 정의 조회에 성공하면 후보 정의가 툴팁 판정 프롬프트에
 - 본문 어딘가에 중요 단어 볼드체와 `<mark>...</mark>` 하이라이트가 있어야 한다.
 - `합니다`, `됩니다`, `입니다` 같은 격식체 종결이 남으면 실패한다.
 - `줄어드어요`처럼 어색한 해요체가 남으면 실패한다.
+- raw Markdown 출력은 허용하지 않으며 structured output의 시점 일관성 confidence가 `high`여야 한다.
+- 법제처 최신 시행 조문 조회 상태가 `found`가 아니면 현재 법령 상태를 주장할 수 없다.
+- 통과·공포 법안에서 `현행법`, `현행 조문`을 쓸 때는 `발의 당시`, `개정 전`처럼 기준 시점을 밝혀야 한다.
+- `simple` 법안은 변화 묶음 3개·3,600자, `complex` 법안은 변화 묶음 6개·6,500자를 넘으면 실패한다.
 
-검증 실패 시 해당 항목은 `status: failed`로 manifest에 기록된다. `--stop-on-error`가 켜져 있으면 즉시 중단한다. 리포트 생성 성공은 이후 툴팁 처리 실패로 취소되지 않는다.
+검증 실패 시 해당 항목은 `status: failed`로 manifest에 기록되고, `failure_retry_attempts` 범위에서 해당 법안만 단건 재시도한다. `--stop-on-error`가 켜져 있으면 즉시 중단한다. 리포트 생성 성공은 이후 툴팁 처리 실패로 취소되지 않는다.
 
 ## 11. 산출물
 

@@ -21,6 +21,19 @@ def _model_context(prompt: str) -> str:
     return f"{REPORT_SKILL_BODY}\n{prompt}"
 
 
+def _structured_report_output(report_body: str) -> str:
+    return json.dumps(
+        {
+            "report_body": report_body,
+            "temporal_consistency": {
+                "confidence": "high",
+                "reason": "제공된 시점 근거의 범위 안에서 작성했어요.",
+            },
+        },
+        ensure_ascii=False,
+    )
+
+
 def test_agentic_report_prompt_uses_prefetched_evidence():
     from lawdigest_ai.processor.agentic_bill_report import REPORT_SKILL_NAME, build_bill_report_prompt
 
@@ -74,7 +87,8 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
     assert "쉬운 말로 충분히 설명" in context
     assert "5개 불릿" in context
     assert "리포트 모드: deep_report" in prompt
-    assert "6,000~8,000자 안팎" in context
+    assert "2,200~3,200자" in context
+    assert "3,500~5,500자" in context
     assert "**항목 제목**: 쉬운 설명" in context
     assert "**부당한 표시·광고 제한**: 허위·과장 등 소비자를 오도할 수 있는 표현을 규제해요." in context
     assert "Lawdigest 요약 개선 제안" not in prompt
@@ -167,6 +181,7 @@ def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monk
             "bill_number": "",
             "bill_name": "테스트법 일부개정법률안",
             "bill_result": "원안가결",
+            "propose_date": "2025-04-09",
         }
     )
 
@@ -180,6 +195,22 @@ def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monk
     assert evidence["bill_text"]["mentioned_articles"] == [{"label": "제12조", "JO": "001200"}]
     assert evidence["current_law"]["target_law_names"] == ["테스트법"]
     assert evidence["current_law"]["laws"][0]["status"] == "law_api_unavailable"
+    assert evidence["temporal_context"]["passed"] is True
+    assert evidence["temporal_context"]["proposal_baseline"]["as_of"] == "2025-04-09"
+    assert evidence["temporal_context"]["proposal_baseline"]["source"] == "bill_text.proposal_reason_and_major_content"
+    assert evidence["temporal_context"]["current_law_snapshot"]["source"] == "current_law"
+    assert evidence["temporal_context"]["current_law_snapshot"]["status"] == "not_found"
+    assert evidence["temporal_context"]["current_law_snapshot"]["as_of"] is None
+    assert evidence["report_density"] == {
+        "level": "simple",
+        "article_count": 1,
+        "summary_chars": len(evidence["bill_text"]["proposal_reason_and_major_content"]),
+        "change_sections_target_min": 2,
+        "change_sections_max": 3,
+        "target_chars_min": 2200,
+        "target_chars_max": 3200,
+        "hard_max_chars": 3600,
+    }
     assert evidence["open_assembly"]["review"] == [
         {
             "BILL_ID": "PRC_PREFETCH",
@@ -196,6 +227,195 @@ def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monk
         ("summary", "2212345"),
         ("rows", "BILLJUDGE", {"BILL_NO": "2212345"}, False, 10),
     ]
+
+
+def test_build_report_density_uses_complex_contract_for_multiple_articles():
+    from lawdigest_ai.processor.agentic_bill_report import _build_report_density
+
+    summary = "여러 조문을 함께 고치는 법안"
+    density = _build_report_density(
+        summary,
+        [{"label": "제3조", "JO": "000300"}, {"label": "제8조", "JO": "000800"}],
+    )
+
+    assert density == {
+        "level": "complex",
+        "article_count": 2,
+        "summary_chars": len(summary),
+        "change_sections_target_min": 4,
+        "change_sections_max": 6,
+        "target_chars_min": 3500,
+        "target_chars_max": 5500,
+        "hard_max_chars": 6500,
+    }
+
+
+def test_agentic_report_prompt_requires_temporal_consistency_and_density_contract():
+    from lawdigest_ai.processor.agentic_bill_report import build_bill_report_prompt
+
+    evidence = {
+        "report_mode": "deep_report",
+        "db_bill": {"bill_name": "테스트법 일부개정법률안"},
+        "temporal_context": {
+            "passed": True,
+            "proposal_baseline": {"as_of": "2025-04-09", "source": "bill_text.proposal_reason_and_major_content"},
+            "current_law_snapshot": {"status": "found", "as_of": "2026-07-11", "source": "current_law"},
+        },
+        "report_density": {
+            "level": "simple",
+            "change_sections_target_min": 2,
+            "change_sections_max": 3,
+            "target_chars_min": 2200,
+            "target_chars_max": 3200,
+            "hard_max_chars": 3600,
+        },
+        "prefetch_errors": [],
+    }
+
+    context = _model_context(build_bill_report_prompt(
+        {"bill_id": "PRC_TEMPORAL", "bill_name": "테스트법 일부개정법률안", "bill_result": "원안가결"},
+        evidence=evidence,
+    ))
+
+    assert '"temporal_consistency"' in context
+    assert '"confidence":"high"' in context
+    assert "발의 당시" in context
+    assert "현재 시행 조문" in context
+    assert "2~3개" in context
+    assert "2,200~3,200자" in context
+
+
+def _temporal_validation_evidence(*, level="simple"):
+    return {
+        "temporal_context": {
+            "passed": True,
+            "proposal_baseline": {"as_of": "2025-04-09", "source": "bill_text.proposal_reason_and_major_content"},
+            "current_law_snapshot": {"status": "found", "as_of": "2026-07-11", "source": "current_law"},
+        },
+        "report_density": {
+            "level": level,
+            "change_sections_target_min": 2 if level == "simple" else 4,
+            "change_sections_max": 3 if level == "simple" else 6,
+            "target_chars_min": 2200 if level == "simple" else 3500,
+            "target_chars_max": 3200 if level == "simple" else 5500,
+            "hard_max_chars": 3600 if level == "simple" else 6500,
+        },
+    }
+
+
+def test_report_evidence_validation_requires_high_temporal_confidence():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
+
+    with pytest.raises(RuntimeError, match="시점 일관성 confidence"):
+        _validate_report_against_evidence(
+            "# 테스트법\n\n발의 당시 현행법은 종합만 규정했어요.",
+            bill={"bill_result": "원안가결", "stage": "공포"},
+            evidence=_temporal_validation_evidence(),
+            structured_payload={"temporal_consistency": {"confidence": "low", "reason": "시점이 불분명해요."}},
+        )
+
+
+def test_report_evidence_validation_requires_structured_output():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
+
+    with pytest.raises(RuntimeError, match="structured output"):
+        _validate_report_against_evidence(
+            "# 테스트법\n\n발의 당시 현행법은 종합만 규정했어요.",
+            bill={"bill_result": "원안가결", "stage": "공포"},
+            evidence=_temporal_validation_evidence(),
+            structured_payload=None,
+        )
+
+
+def test_report_evidence_validation_rejects_unqualified_current_law_wording_for_passed_bill():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
+
+    with pytest.raises(RuntimeError, match="시점 기준 없이 현행법"):
+        _validate_report_against_evidence(
+            "# 테스트법\n\n현행법은 관계 기관의 계획을 조정·종합하도록 해요.",
+            bill={"bill_result": "원안가결", "stage": "공포"},
+            evidence=_temporal_validation_evidence(),
+            structured_payload={"temporal_consistency": {"confidence": "high", "reason": "시점을 확인했어요."}},
+        )
+
+
+def test_report_evidence_validation_accepts_qualified_proposal_time_wording():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
+
+    result = _validate_report_against_evidence(
+        "# 테스트법\n\n발의 당시 현행법은 관계 기관의 계획을 종합하도록 했어요.",
+        bill={"bill_result": "원안가결", "stage": "공포"},
+        evidence=_temporal_validation_evidence(),
+        structured_payload={"temporal_consistency": {"confidence": "high", "reason": "발의 당시와 현재를 구분했어요."}},
+    )
+
+    assert result["confidence"] == "high"
+
+
+@pytest.mark.parametrize("qualified_wording", ["발의 당시에는 현행법", "개정 전의 현행 조문"])
+def test_report_evidence_validation_accepts_natural_temporal_qualifiers(qualified_wording):
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
+
+    result = _validate_report_against_evidence(
+        f"# 테스트법\n\n{qualified_wording}이 관계 기관의 계획을 종합하도록 했어요.",
+        bill={"bill_result": "원안가결", "stage": "공포"},
+        evidence=_temporal_validation_evidence(),
+        structured_payload={"temporal_consistency": {"confidence": "high", "reason": "시점을 구분했어요."}},
+    )
+
+    assert result["confidence"] == "high"
+
+
+def test_report_evidence_validation_rejects_current_law_claim_without_snapshot():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
+
+    evidence = _temporal_validation_evidence()
+    evidence["temporal_context"]["current_law_snapshot"] = {
+        "status": "not_found",
+        "as_of": None,
+        "source": "current_law",
+    }
+
+    with pytest.raises(RuntimeError, match="최신 시행 조문 근거 없이"):
+        _validate_report_against_evidence(
+            "# 테스트법\n\n현재 시행 중인 현행법은 관계 기관의 계획을 종합하도록 해요.",
+            bill={"bill_result": "원안가결", "stage": "공포"},
+            evidence=evidence,
+            structured_payload={"temporal_consistency": {"confidence": "high", "reason": "시점을 구분했어요."}},
+        )
+
+
+def test_report_evidence_validation_rejects_too_many_simple_change_sections():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
+
+    report_body = "\n".join([
+        "# 테스트법",
+        "발의 당시 현행법을 기준으로 설명해요.",
+        "### 1) 첫 변화",
+        "### 2) 둘째 변화",
+        "### 3) 셋째 변화",
+        "### 4) 반복 변화",
+    ])
+
+    with pytest.raises(RuntimeError, match="변화 묶음은 3개 이하"):
+        _validate_report_against_evidence(
+            report_body,
+            bill={"bill_result": "원안가결", "stage": "공포"},
+            evidence=_temporal_validation_evidence(),
+            structured_payload={"temporal_consistency": {"confidence": "high", "reason": "시점을 확인했어요."}},
+        )
+
+
+def test_report_evidence_validation_rejects_simple_report_over_hard_maximum():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
+
+    with pytest.raises(RuntimeError, match="3,600자 이하"):
+        _validate_report_against_evidence(
+            "발의 당시 현행법을 기준으로 설명해요." + ("가" * 3600),
+            bill={"bill_result": "원안가결", "stage": "공포"},
+            evidence=_temporal_validation_evidence(),
+            structured_payload={"temporal_consistency": {"confidence": "high", "reason": "시점을 확인했어요."}},
+        )
 
 
 def test_agentic_report_prompt_summary_mode_aliases_to_deep_report_contract():
@@ -219,7 +439,8 @@ def test_agentic_report_prompt_summary_mode_aliases_to_deep_report_contract():
     assert "모든 법안은 처리 상태와 관계없이 긴 버전 리포트" in prompt
     assert "아직 통과되지 않았거나 막 접수된 법안" in prompt
     assert "1,500~2,500자 안팎" not in prompt
-    assert "6,000~8,000자 안팎" in context
+    assert "2,200~3,200자" in context
+    assert "3,500~5,500자" in context
 
 
 def test_agentic_report_batch_prompt_isolates_bill_reports():
@@ -268,6 +489,10 @@ def test_agentic_report_validation_rejects_internal_tool_leaks():
 
 ## 주요 내용
 - **권한 정비**: 필요한 설명이에요.
+
+## 무엇이 달라지나
+### 1) 권한 정비
+권한을 정비해요.
 
 ## 확인한 근거
 - open-assembly `get_bill_detail`
@@ -1667,7 +1892,7 @@ def test_codex_agent_passes_dedicated_codex_home_to_subprocess(tmp_path, monkeyp
 
     def run_codex(*args, **kwargs):
         seen_env.update(kwargs["env"])
-        output_path.write_text(report_body, encoding="utf-8")
+        output_path.write_text(_structured_report_output(report_body), encoding="utf-8")
         return subprocess.CompletedProcess(args=args[0], returncode=0, stdout="", stderr="")
 
     agent = CodexBillReportAgent(codex_home=str(report_home))
@@ -1744,7 +1969,7 @@ def test_codex_agent_records_operational_usage_metadata(tmp_path, monkeypatch):
     )
 
     def run_codex(*args, **kwargs):
-        output_path.write_text(report_body, encoding="utf-8")
+        output_path.write_text(_structured_report_output(report_body), encoding="utf-8")
         return subprocess.CompletedProcess(args=args[0], returncode=0, stdout=stdout, stderr="")
 
     agent = CodexBillReportAgent()
@@ -1789,7 +2014,7 @@ def test_codex_agent_writes_inspection_artifacts(tmp_path, monkeypatch):
     )
 
     def run_codex(*args, **kwargs):
-        output_path.write_text(report_body, encoding="utf-8")
+        output_path.write_text(_structured_report_output(report_body), encoding="utf-8")
         return subprocess.CompletedProcess(args=args[0], returncode=0, stdout=stdout, stderr="")
 
     agent = CodexBillReportAgent()
@@ -1874,7 +2099,7 @@ def test_run_agentic_bill_reports_writes_markdown_artifacts(tmp_path, monkeypatc
         mock_run.return_value = subprocess.CompletedProcess(
             args=["codex"],
             returncode=0,
-            stdout=(
+            stdout=_structured_report_output(
                 "# 테스트법 일부개정법률안\n\n"
                 "## 쉬운 요약\n**본문**이에요. <mark>핵심 변화는 거래 전 정보 확인이에요.</mark>\n\n"
                 "## 주요 내용\n- **권한 정비**: 설명이에요.\n\n"
@@ -1925,7 +2150,7 @@ def test_run_agentic_bill_reports_can_target_all_bills(tmp_path, monkeypatch):
         mock_run.return_value = subprocess.CompletedProcess(
             args=["codex"],
             returncode=0,
-            stdout=(
+            stdout=_structured_report_output(
                 "# 전체대상 테스트법 일부개정법률안\n\n"
                 "## 쉬운 요약\n**본문**이에요. <mark>핵심 변화는 거래 전 정보 확인이에요.</mark>\n\n"
                 "## 주요 내용\n- **권한 정비**: 설명이에요.\n\n"
@@ -2031,6 +2256,10 @@ def test_run_agentic_bill_reports_ignores_legacy_tooltips_in_report_output(tmp_p
             json.dumps(
                 {
                     "report_body": report_body,
+                    "temporal_consistency": {
+                        "confidence": "high",
+                        "reason": "제공된 시점 근거의 범위 안에서 작성했어요.",
+                    },
                     "tooltips": [
                         {
                             "term": "청문",
@@ -2125,7 +2354,10 @@ def test_run_agentic_bill_reports_batches_multiple_bills_in_one_session(tmp_path
     def run_codex(command, **kwargs):
         output_path = Path(command[command.index("--output-last-message") + 1])
         is_resume = command[:3] == ["codex", "exec", "resume"]
-        output_path.write_text(report_body_2 if is_resume else report_body_1, encoding="utf-8")
+        output_path.write_text(
+            _structured_report_output(report_body_2 if is_resume else report_body_1),
+            encoding="utf-8",
+        )
         usage = {"input_tokens": 202, "cached_input_tokens": 17, "output_tokens": 19, "reasoning_output_tokens": 3}
         if not is_resume:
             usage = {"input_tokens": 101, "cached_input_tokens": 7, "output_tokens": 9, "reasoning_output_tokens": 2}
@@ -2206,7 +2438,7 @@ def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monk
     def run_codex(command, **kwargs):
         output_path = Path(command[command.index("--output-last-message") + 1])
         if command[:3] != ["codex", "exec", "resume"]:
-            output_path.write_text(report_body, encoding="utf-8")
+            output_path.write_text(_structured_report_output(report_body), encoding="utf-8")
             stdout = '{"type":"thread.started","thread_id":"thread-partial"}'
         else:
             assert upserted_bill_ids == ["PRC_PARTIAL_1"]
@@ -2288,10 +2520,16 @@ def test_run_agentic_bill_reports_retries_retryable_batch_failures(tmp_path, mon
             output_path.write_text("", encoding="utf-8")
             stdout = '{"type":"turn.completed"}'
         elif len(upserted_bill_ids) == 0:
-            output_path.write_text(report_body("재시도 테스트법안 1", "첫 번째"), encoding="utf-8")
+            output_path.write_text(
+                _structured_report_output(report_body("재시도 테스트법안 1", "첫 번째")),
+                encoding="utf-8",
+            )
             stdout = '{"type":"thread.started","thread_id":"thread-retry"}'
         else:
-            output_path.write_text(report_body("재시도 테스트법안 2", "두 번째"), encoding="utf-8")
+            output_path.write_text(
+                _structured_report_output(report_body("재시도 테스트법안 2", "두 번째")),
+                encoding="utf-8",
+            )
             stdout = '{"type":"thread.started","thread_id":"thread-retry-single"}'
         return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
 
@@ -2426,10 +2664,10 @@ def test_run_agentic_bill_reports_maps_report_bodies_without_agent_bill_id(tmp_p
     def run_codex(command, **kwargs):
         output_path = Path(command[command.index("--output-last-message") + 1])
         if command[:3] == ["codex", "exec", "resume"]:
-            output_path.write_text(report_body_2, encoding="utf-8")
+            output_path.write_text(_structured_report_output(report_body_2), encoding="utf-8")
             stdout = '{"type":"thread.started","thread_id":"thread-repair"}'
         else:
-            output_path.write_text(report_body_1, encoding="utf-8")
+            output_path.write_text(_structured_report_output(report_body_1), encoding="utf-8")
             stdout = '{"type":"thread.started","thread_id":"thread-repair"}'
         return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
 
@@ -2502,7 +2740,23 @@ def test_run_agentic_bill_reports_unwraps_single_report_json_in_batch_turn(tmp_p
             "JSON 복구 테스트법안 2" if is_resume else "JSON 복구 테스트법안 1",
             "두 번째 법안" if is_resume else "첫 번째 법안",
         )
-        output_path.write_text(json.dumps({"reports": [{"report_body": body}]}, ensure_ascii=False), encoding="utf-8")
+        output_path.write_text(
+            json.dumps(
+                {
+                    "reports": [
+                        {
+                            "report_body": body,
+                            "temporal_consistency": {
+                                "confidence": "high",
+                                "reason": "발의 당시와 현재 시행 조문을 구분했어요.",
+                            },
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
         stdout = '{"type":"thread.started","thread_id":"thread-json-repair"}'
         return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
 
@@ -2646,7 +2900,7 @@ def test_run_agentic_bill_reports_runs_batch_sessions_in_parallel(tmp_path, monk
                 raise AssertionError("두 배치 세션이 동시에 시작되지 않았습니다.")
         else:
             thread_id = command[3]
-        output_path.write_text(report_body(output_path), encoding="utf-8")
+        output_path.write_text(_structured_report_output(report_body(output_path)), encoding="utf-8")
         stdout = "\n".join(
             [
                 json.dumps({"type": "thread.started", "thread_id": thread_id}),
