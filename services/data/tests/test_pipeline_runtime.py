@@ -395,6 +395,42 @@ def test_bill_search_rebuild_delegates_to_search_document_service(tmp_path):
     assert result["status"] == "success"
 
 
+def test_bill_agent_tooltip_delegates_to_independent_runtime(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_tooltip.run_agentic_bill_tooltips",
+        return_value={"stats": {"target_count": 1, "success_count": 1, "skipped_count": 0}},
+    ) as run_tooltips:
+        result = PipelineRuntime(log_dir=tmp_path).run_bill_agent_tooltip(
+            mode="dry_run",
+            limit=1,
+            output_dir="/tmp/tooltips",
+            read_mode="prod",
+            source_manifest="/tmp/reports/manifest.json",
+            concurrency=3,
+            batch_session_size=5,
+        )
+
+    run_tooltips.assert_called_once_with(
+        mode="dry_run",
+        limit=1,
+        output_dir="/tmp/tooltips",
+        read_mode="prod",
+        codex_model=None,
+        stop_on_error=False,
+        target="missing",
+        source_manifest="/tmp/reports/manifest.json",
+        concurrency=3,
+        batch_session_size=5,
+        failure_retry_attempts=1,
+        inspection=False,
+    )
+    assert result["command"] == "bill.agent_tooltip"
+    assert result["steps"][0]["step"] == "apply_bill_report_tooltips"
+    assert result["status"] == "success"
+
+
 def test_cli_dispatches_bill_ingest(tmp_path):
     from lawdigest_data.runtime.cli import main
 
@@ -547,6 +583,48 @@ def test_cli_dispatches_bill_agent_report(tmp_path):
         weekly_usage_after=None,
         five_hour_usage_before=None,
         five_hour_usage_after=None,
+        inspection=False,
+    )
+
+
+def test_cli_dispatches_bill_agent_tooltip(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_bill_agent_tooltip.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "bill-agent-tooltip",
+            "--mode",
+            "dry_run",
+            "--limit",
+            "2",
+            "--output-dir",
+            "/tmp/tooltips",
+            "--read-mode",
+            "prod",
+            "--source-manifest",
+            "/tmp/reports/manifest.json",
+            "--concurrency",
+            "3",
+            "--batch-session-size",
+            "5",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_bill_agent_tooltip.assert_called_once_with(
+        mode="dry_run",
+        limit=2,
+        output_dir="/tmp/tooltips",
+        read_mode="prod",
+        codex_model=None,
+        stop_on_error=False,
+        target="missing",
+        source_manifest="/tmp/reports/manifest.json",
+        concurrency=3,
+        batch_session_size=5,
+        failure_retry_attempts=1,
         inspection=False,
     )
 

@@ -16,8 +16,6 @@ from lawdigest_ai.db import get_bill_table_columns, get_db_connection, update_bi
 from lawdigest_ai.processor.legal_term_dictionary_sync import normalize_legal_term
 from lawdigest_ai.processor.legal_term_glossary import (
     LegalTermEntry,
-    build_legal_term_glossary_context,
-    build_legal_term_tooltip_entries,
     is_safe_legal_term_tooltip_entry,
 )
 
@@ -51,7 +49,6 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 - lifecycle, 현재 심사 단계, 처리 상태처럼 시간이 지나며 바뀌는 정보는 리포트 본문 근거로 쓰지 마세요.
 - evidence가 비어 있거나 prefetch_errors가 있으면 빈 근거를 지어내지 말고, DB에 있는 원문 요약과 법안 기본정보 범위에서만 설명하세요.
 - assembly-api, korean-stats, web_search 결과는 기본 evidence에 없으므로 언급하지 마세요.
-- 법제처 용어 사전 컨텍스트는 어려운 법률·행정용어를 한 번만 쉽게 풀 때 사용하세요.
 
 ## 리포트 모드
 
@@ -92,7 +89,7 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 - 불릿만으로 변화 묶음을 시작하지 마세요.
 - 일반 사용자가 모를 법한 법률·행정 용어는 본문에서 자연스럽게 쓰되, 괄호 설명이나 설명 불릿으로 끼워 넣지 마세요.
 - 출처식 괄호 표기를 본문에 그대로 옮기지 마세요. 뜻을 알려줘야 하는 법률·행정용어도 본문에서는 자연스러운 단어로만 쓰세요.
-- 툴팁 문법이나 중괄호 표기는 직접 쓰지 마세요. 법률용어 툴팁은 파이프라인 후처리가 주입합니다.
+- 툴팁 문법이나 중괄호 표기는 직접 쓰지 마세요. 법률용어 툴팁은 리포트 생성이 끝난 뒤 별도 툴팁 과정에서 주입합니다.
 - 첫 문장에 `원문 요약:` 같은 메타 라벨을 붙이지 말고 바로 조문 변화 문장을 쓰세요.
 - 쉬운 풀이 불릿도 `쉬운 풀이:` 같은 메타 라벨을 쓰지 마세요.
 - 뜻이 바로 드러나는 말은 별도 용어 설명을 붙이지 마세요. 바로 사용자에게 어떤 변화가 생기는지 쉬운 풀이로 넘어가세요.
@@ -103,7 +100,7 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 
   기존 법은 사후 조치 중심으로 절차를 두고 있었지만, 제안안은 사전에 확인해야 할 관리 절차를 새로 둬요.
 
-  - evidence의 법률용어 사전에 뜻이 있는 어려운 용어도 본문에서는 자연스러운 단어로만 써요.
+  - 어려운 법률용어도 본문에서는 자연스러운 단어로만 써요.
   - 사용자 입장에서는, 문제가 생긴 뒤에 대응하는 데서 그치지 않고 앞 단계에서 확인할 내용이 늘어난다는 뜻이에요.
 
 ## 누구에게 영향이 있나
@@ -130,16 +127,11 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 - 결론이나 행동 변화처럼 중요한 한 문장에는 `<mark>중요 문장</mark>` 형식으로 하이라이트를 적용하세요.
 - 볼드체와 하이라이트는 과하게 쓰지 말고, 리포트 전체에서 꼭 필요한 곳에만 쓰세요.
 - 법률·행정용어 툴팁 문법은 직접 쓰지 마세요. 중괄호 기반 툴팁 표기는 파이프라인 검증에서 제거되거나 실패 처리됩니다.
-- 법제처 정의가 있는 용어도 본문에서는 자연스러운 단어로만 쓰세요. 툴팁 표기는 코드가 후처리로 주입합니다.
+- 법률용어도 본문에서는 자연스러운 단어로만 쓰세요. 설명이 필요하면 리포트 생성이 끝난 뒤 별도 툴팁 과정이 처리합니다.
 - 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.
 - `report_body`에는 사용자에게 보여줄 최종 Markdown 리포트만 넣으세요. 첫 줄은 반드시 `# 법안명`으로 시작하세요.
-- `tooltips`에는 법제처 용어 사전 후보 중 본문 문맥에서 일반 독자에게 꼭 필요한 high-confidence, high-relevance 용어만 넣으세요.
-- 후보에 없는 용어를 새로 만들지 마세요. `surface`는 `report_body`에 실제로 등장하면서 후보 term 또는 aliases와 같은 개념인 표현이어야 합니다.
-- 후보 term이 다른 복합어·기관명·대상명 안에 들어 있다는 이유만으로 `surface`를 넓히지 마세요. 예: `위탁` 후보를 `위탁 의료기관`에 붙이지 마세요.
-- `definition`은 참고용이며 최종 툴팁 정의는 파이프라인이 후보 사전 정의로만 주입합니다.
-- `confidence`는 후보 정의 자체를 믿을 수 있는지, `relevance`는 그 정의가 현재 법안 본문 문맥의 해당 surface와 정확히 같은 개념인지 평가하세요. 둘 다 high일 때만 반영됩니다.
 - `bill_id`, `brief_summary`, `gpt_summary`, `tags`를 만들지 마세요.
-- 출력 스키마: `{"report_body":"# 법안명\n\n## 쉬운 요약\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high","relevance":"high"}],"rejected":[]}`
+- 출력 스키마: `{"report_body":"# 법안명\n\n## 쉬운 요약\n- ..."}`
 """.strip() + "\n"
 
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
@@ -447,20 +439,6 @@ def _compact_evidence_row(row: dict[str, Any] | None, *, text_limit: int = 2500)
     return compact
 
 
-def _append_legal_term_context(evidence: dict[str, Any], *sources: Any) -> dict[str, Any]:
-    source_texts = [
-        json.dumps(source, ensure_ascii=False, default=str) if isinstance(source, (dict, list, tuple)) else str(source or "")
-        for source in sources
-        if source
-    ]
-    entries = build_legal_term_tooltip_entries("\n".join(source_texts))
-    evidence["legal_terms"] = {
-        "context": build_legal_term_glossary_context("\n".join(source_texts), entries=entries),
-        "entries": [_legal_term_entry_to_dict(entry) for entry in entries],
-    }
-    return evidence
-
-
 def _resolve_assembly_api_key() -> str | None:
     return os.getenv("ASSEMBLY_API_KEY") or os.getenv("APIKEY_billsInfo") or os.getenv("APIKEY_status")
 
@@ -681,7 +659,7 @@ def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto
     client = _build_open_assembly_client()
     if client is None:
         evidence["prefetch_errors"].append("open_assembly_client_unavailable")
-        return _append_legal_term_context(evidence, evidence["db_bill"])
+        return evidence
 
     bill_id = _first_text(bill.get("bill_id"))
     bill_no = _first_text(bill.get("bill_number"))
@@ -696,7 +674,7 @@ def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto
         evidence["prefetch_errors"].append(f"fetch_bill_detail_failed: {exc}")
 
     if not bill_no:
-        return _append_legal_term_context(evidence, evidence["db_bill"], evidence["open_assembly"])
+        return evidence
 
     summary_row: dict[str, Any] | None = None
     try:
@@ -776,15 +754,7 @@ def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto
         if row
     ])
 
-    return _append_legal_term_context(
-        evidence,
-        evidence["db_bill"],
-        evidence["open_assembly"],
-        evidence["bill_text"],
-        evidence["current_law"],
-        evidence["committee_materials"],
-        evidence["cost_estimate"],
-    )
+    return evidence
 
 
 def _sanitize_codex_event(event: dict[str, Any]) -> dict[str, Any]:
@@ -1024,10 +994,6 @@ def build_bill_report_prompt(
         "open_assembly": {},
         "prefetch_errors": ["prefetch_not_run"],
     }
-    if not evidence_payload.get("legal_terms"):
-        _append_legal_term_context(evidence_payload, payload)
-    legal_term_context = str(evidence_payload.get("legal_terms", {}).get("context") or "")
-    candidate_terms = [_legal_term_entry_to_dict(entry) for entry in _legal_term_entries_from_evidence(evidence_payload)]
     return (
         f"${REPORT_SKILL_NAME}\n\n"
         "작업: 단건 Lawdigest 법안 리포트를 작성하세요.\n"
@@ -1037,20 +1003,13 @@ def build_bill_report_prompt(
         "리포트 모드: deep_report\n"
         "- 모든 법안은 처리 상태와 관계없이 긴 버전 리포트로 작성합니다.\n"
         "- 아직 통과되지 않았거나 막 접수된 법안은 제도가 확정된 것처럼 말하지 말고, 법안이 제안하는 변화와 앞으로 볼 점을 중심으로 설명하세요.\n\n"
-        f"{legal_term_context}\n\n"
         "출력 규칙:\n"
         "- JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.\n"
         "- report_body 값은 Markdown 문자열입니다. 첫 줄 H1 제목은 bill.bill_name과 같아야 합니다.\n"
         "- report_body 안에는 툴팁 문법이나 중괄호 표기를 직접 쓰지 마세요.\n"
-        "- tooltips 배열에는 candidate_terms 중 본문 문맥에서 꼭 필요한 high-confidence, high-relevance 용어만 넣으세요.\n"
-        "- 후보에 없는 용어를 새로 만들지 마세요. surface는 report_body에 실제로 등장하면서 후보 term 또는 aliases와 같은 개념인 표현이어야 합니다.\n"
-        "- 후보 term이 다른 복합어·기관명·대상명 안에 들어 있다는 이유만으로 surface를 넓히지 마세요. 예: 위탁 후보를 위탁 의료기관에 붙이지 마세요.\n"
-        "- confidence는 high 또는 low만 사용하세요. 파이프라인은 high만 반영합니다.\n"
-        "- relevance는 high 또는 low만 사용하세요. 후보 정의가 현재 법안 본문 문맥의 해당 surface와 정확히 같은 개념인 경우에만 high로 두세요. 파이프라인은 high만 반영합니다.\n"
         "- bill_id, brief_summary, gpt_summary, tags를 만들지 마세요.\n\n"
         "출력 스키마:\n"
-        '{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high","relevance":"high"}],"rejected":[{"term":"정확성","reason":"일반어이거나 문맥 정의가 불확실함"}]}\n\n'
-        f"candidate_terms:\n{json.dumps(candidate_terms, ensure_ascii=False, indent=2, default=str)}\n\n"
+        '{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}\n\n'
         f"입력 evidence packet:\n{json.dumps(evidence_payload, ensure_ascii=False, indent=2, default=str)}"
     )
 
@@ -1235,60 +1194,6 @@ class ApprovedLegalTermTooltip:
     confidence: str = "high"
 
 
-@dataclass(frozen=True)
-class ParsedStructuredReport:
-    report_body: str
-    tooltip_decisions: list[ApprovedLegalTermTooltip]
-    tooltip_candidate_count: int
-    structured_output: bool = False
-
-
-def _legal_term_entry_to_dict(entry: LegalTermEntry) -> dict[str, Any]:
-    return {
-        "term": entry.term,
-        "definition": entry.definition,
-        "aliases": list(entry.aliases),
-        "source": entry.source,
-    }
-
-
-def _legal_term_entry_from_dict(value: Any) -> LegalTermEntry | None:
-    if not isinstance(value, dict):
-        return None
-    term = str(value.get("term") or "").strip()
-    definition = str(value.get("definition") or "").strip()
-    aliases_value = value.get("aliases")
-    aliases = tuple(str(alias).strip() for alias in aliases_value if str(alias or "").strip()) if isinstance(aliases_value, list) else ()
-    source = str(value.get("source") or "unknown")
-    if not term or not definition:
-        return None
-    entry = LegalTermEntry(term=term, definition=definition, aliases=aliases or (term,), source=source)
-    return entry if is_safe_legal_term_tooltip_entry(entry) else None
-
-
-def _legal_term_entries_from_evidence(evidence: dict[str, Any]) -> list[LegalTermEntry]:
-    raw_entries = evidence.get("legal_terms", {}).get("entries")
-    if not isinstance(raw_entries, list):
-        return []
-    entries: list[LegalTermEntry] = []
-    seen: set[str] = set()
-    for raw_entry in raw_entries:
-        entry = _legal_term_entry_from_dict(raw_entry)
-        if entry is None:
-            continue
-        normalized = normalize_legal_term(entry.term)
-        if not normalized or normalized in seen:
-            continue
-        seen.add(normalized)
-        entries.append(entry)
-    return entries
-
-
-def _tooltip_candidate_matches_report(entry: LegalTermEntry, report_body: str) -> bool:
-    body = _strip_markdown_for_summary(report_body)
-    return any(alias and alias in body for alias in (entry.term, *entry.aliases))
-
-
 def _tooltip_candidate_lookup(entries: list[LegalTermEntry]) -> dict[str, LegalTermEntry]:
     lookup: dict[str, LegalTermEntry] = {}
     for entry in entries:
@@ -1403,65 +1308,9 @@ def _extract_single_report_payload(raw_output: str, *, bill: dict[str, Any]) -> 
     return selected_report, str(selected_report["report_body"]), True
 
 
-def _parse_structured_report_output(
-    raw_output: str,
-    *,
-    bill: dict[str, Any],
-    evidence: dict[str, Any],
-) -> ParsedStructuredReport:
-    payload, report_body, structured_output = _extract_single_report_payload(raw_output, bill=bill)
-    postprocessed_report_body = _postprocess_report_body(report_body, bill=bill)
-    candidate_entries = [
-        entry
-        for entry in _legal_term_entries_from_evidence(evidence)
-        if _tooltip_candidate_matches_report(entry, postprocessed_report_body)
-    ]
-    raw_tooltips = payload.get("tooltips") if payload is not None else None
-    decisions: list[ApprovedLegalTermTooltip] = []
-    if raw_tooltips is not None:
-        decisions = _parse_legal_term_tooltip_decisions(
-            json.dumps({"tooltips": raw_tooltips}, ensure_ascii=False, default=str),
-            candidate_entries,
-        )
-        report_text = _strip_markdown_for_summary(postprocessed_report_body)
-        decisions = [decision for decision in decisions if decision.surface in report_text]
-
-    return ParsedStructuredReport(
-        report_body=postprocessed_report_body,
-        tooltip_decisions=decisions,
-        tooltip_candidate_count=len(candidate_entries),
-        structured_output=structured_output,
-    )
-
-
-def _apply_structured_report_tooltips(parsed: ParsedStructuredReport) -> str:
-    rendered = _apply_legal_term_tooltip_decisions(parsed.report_body, parsed.tooltip_decisions)
-    return _repair_term_tooltip_particles(rendered).strip() + "\n"
-
-
-def _build_structured_tooltip_details(parsed: ParsedStructuredReport) -> dict[str, Any]:
-    applied_count = len(parsed.tooltip_decisions)
-    if applied_count:
-        status = "passed"
-        reason = "structured_tooltips_applied"
-    elif parsed.tooltip_candidate_count == 0:
-        status = "skipped"
-        reason = "no_matching_candidates"
-    elif not parsed.structured_output:
-        status = "skipped"
-        reason = "legacy_markdown_output"
-    else:
-        status = "passed"
-        reason = "no_high_confidence_tooltips"
-    return {
-        "status": status,
-        "reason": reason,
-        "structured_output": parsed.structured_output,
-        "candidate_count": parsed.tooltip_candidate_count,
-        "applied_count": applied_count,
-        "terms": [decision.term for decision in parsed.tooltip_decisions],
-        "surfaces": [decision.surface for decision in parsed.tooltip_decisions],
-    }
+def _parse_report_output(raw_output: str, *, bill: dict[str, Any]) -> tuple[str, bool]:
+    _, report_body, structured_output = _extract_single_report_payload(raw_output, bill=bill)
+    return _postprocess_report_body(report_body, bill=bill), structured_output
 
 
 def _apply_legal_term_tooltip_decisions(
@@ -2302,8 +2151,7 @@ class CodexBillReportAgent:
                 )
                 details.update(inspection_paths)
             raise BillReportGenerationError("Codex agent report body is empty.", details=details)
-        parsed_report = _parse_structured_report_output(raw_report_body, bill=bill, evidence=evidence)
-        postprocessed_report_body = _apply_structured_report_tooltips(parsed_report)
+        postprocessed_report_body, structured_output = _parse_report_output(raw_report_body, bill=bill)
         repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
         if repair_applied:
             report_path.write_text(postprocessed_report_body, encoding="utf-8")
@@ -2315,8 +2163,7 @@ class CodexBillReportAgent:
             "errors": evidence.get("prefetch_errors") or [],
         }
         details["repair_applied"] = repair_applied
-        details["structured_output"] = parsed_report.structured_output
-        details["tooltip"] = _build_structured_tooltip_details(parsed_report)
+        details["structured_output"] = structured_output
         try:
             _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
             _validate_report_body(report_path.read_text(encoding="utf-8"))
@@ -2473,15 +2320,13 @@ class CodexBillReportAgent:
                 raw_report_body = report_path.read_text(encoding="utf-8")
                 if not raw_report_body.strip():
                     raise RuntimeError("Codex agent report body is empty.")
-                parsed_report = _parse_structured_report_output(raw_report_body, bill=bill, evidence=evidence)
-                postprocessed_report_body = _apply_structured_report_tooltips(parsed_report)
+                postprocessed_report_body, structured_output = _parse_report_output(raw_report_body, bill=bill)
                 repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
                 if repair_applied:
                     report_path.write_text(postprocessed_report_body, encoding="utf-8")
                 details["output_bytes"] = report_path.stat().st_size
                 details["repair_applied"] = repair_applied
-                details["structured_output"] = parsed_report.structured_output
-                details["tooltip"] = _build_structured_tooltip_details(parsed_report)
+                details["structured_output"] = structured_output
                 _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
                 _validate_report_body(report_path.read_text(encoding="utf-8"))
                 validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
@@ -2765,9 +2610,6 @@ def run_agentic_bill_reports(
         if item.get("status") == "failed" and "failure" not in item:
             item["failure"] = _classify_report_failure(item)
         add_usage(item.get("usage"))
-        tooltip = item.get("tooltip")
-        if isinstance(tooltip, dict):
-            add_usage(tooltip.get("usage"))
     for session in sessions:
         add_usage(session.get("usage"))
 
@@ -2815,7 +2657,6 @@ def run_agentic_bill_reports(
             "total_duration_seconds": total_duration_seconds,
             "token_usage_available_count": (
                 sum(1 for item in completed_items if item.get("token_usage_available"))
-                + sum(1 for item in completed_items if isinstance(item.get("tooltip"), dict) and item["tooltip"].get("token_usage_available"))
                 + sum(1 for session in sessions if session.get("token_usage_available"))
             ),
             "usage_totals": usage_totals,

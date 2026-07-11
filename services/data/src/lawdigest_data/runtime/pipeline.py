@@ -695,3 +695,48 @@ class PipelineRuntime:
             five_hour_usage_after=five_hour_usage_after,
             inspection=inspection,
         )
+
+    def run_bill_agent_tooltip(
+        self,
+        *,
+        mode: str = "dry_run",
+        limit: int = 5,
+        output_dir: str = "/tmp/lawdigest-bill-agent-tooltips",
+        read_mode: str | None = None,
+        codex_model: str | None = None,
+        stop_on_error: bool = False,
+        target: str = "missing",
+        source_manifest: str | None = None,
+        concurrency: int = 1,
+        batch_session_size: int = 5,
+        failure_retry_attempts: int = 1,
+        inspection: bool = False,
+    ) -> Dict[str, Any]:
+        params = {
+            "mode": mode,
+            "limit": limit,
+            "output_dir": output_dir,
+            "read_mode": read_mode,
+            "codex_model": codex_model,
+            "stop_on_error": stop_on_error,
+            "target": target,
+            "source_manifest": source_manifest,
+            "concurrency": concurrency,
+            "batch_session_size": batch_session_size,
+            "failure_retry_attempts": failure_retry_attempts,
+            "inspection": inspection,
+        }
+
+        def execute(run_id: str) -> List[Dict[str, Any]]:
+            from lawdigest_ai.processor.agentic_bill_tooltip import run_agentic_bill_tooltips
+
+            steps: List[Dict[str, Any]] = []
+            result = run_agentic_bill_tooltips(**params)
+            self._record_step(run_id, steps, "apply_bill_report_tooltips", result)
+            stats = result.get("stats", {})
+            completed_count = int(stats.get("success_count") or 0) + int(stats.get("skipped_count") or 0)
+            if stats.get("target_count", 0) > 0 and completed_count == 0:
+                raise RuntimeError("모든 법안 리포트 툴팁 처리에 실패했습니다.")
+            return steps
+
+        return self._run("bill.agent_tooltip", params, execute)

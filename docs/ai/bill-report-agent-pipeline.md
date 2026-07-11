@@ -2,7 +2,7 @@
 
 작성일: 2026-06-23
 
-이 문서는 현재 구현된 법안 리포트 생성 파이프라인을 설명한다. 예전 문서의 2단계 시각화 JSON 계획과 달리, 지금 운영 가능한 범위는 **Codex 에이전트가 Markdown 리포트를 만들고, 검증을 통과한 결과를 `brief_summary`, `gpt_summary`, `summary_tags` 계약에 맞춰 DB에 반영하는 흐름**이다.
+이 문서는 현재 구현된 법안 리포트 생성 파이프라인을 설명한다. 운영 흐름은 **리포트 생성**과 **법률용어 툴팁 보강**의 두 독립 과정으로 나뉜다. 리포트가 검증을 통과하면 먼저 `brief_summary`, `gpt_summary`, `summary_tags` 계약에 맞춰 DB에 반영하고, 툴팁은 저장된 리포트를 입력으로 별도 실행한다.
 
 ## 1. 목적
 
@@ -24,16 +24,28 @@ PipelineRuntime.run_bill_agent_report
 → Codex 세션이 MCP 서버로 국회·법령·통계 자료 확인
 → Markdown 리포트 파일 생성
 → 리포트 품질 검증
+→ 성공 건별 DB 요약 필드 즉시 업데이트
 → manifest.json 작성
-→ dry_run이 아니면 DB 요약 필드 업데이트
+
+PipelineRuntime.run_bill_agent_tooltip
+→ run_agentic_bill_tooltips
+→ 생성 manifest 또는 DB에서 저장된 리포트 조회
+→ 법률용어 사전 후보 구성
+→ 별도 Codex 세션이 후보의 문맥 적합성 판정
+→ 코드 게이트가 high-confidence, high-relevance, exact surface만 승인
+→ 툴팁 적용본 검증
+→ 성공 건별 DB 요약 필드 업데이트
+→ tooltip-manifest.json 작성
 ```
 
-진입점은 두 곳이다.
+리포트 생성 진입점은 두 곳이다.
 
 - CLI: `services/data/src/lawdigest_data/runtime/cli.py`의 `bill-agent-report`
 - 런타임: `services/data/src/lawdigest_data/runtime/pipeline.py`의 `PipelineRuntime.run_bill_agent_report`
 
 실제 생성 로직은 `services/ai/src/lawdigest_ai/processor/agentic_bill_report.py`에 있다.
+
+툴팁 보강은 CLI `bill-agent-tooltip`, 런타임 `PipelineRuntime.run_bill_agent_tooltip`, 구현 `services/ai/src/lawdigest_ai/processor/agentic_bill_tooltip.py`로 완전히 분리되어 있다.
 
 ## 3. 실행 명령
 
@@ -63,6 +75,20 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --output-dir /tmp/lawdigest-bill-agent-reports
 ```
 
+생성 manifest의 성공 리포트에 툴팁을 별도로 보강하려면 다음 명령을 사용한다.
+
+```bash
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  bill-agent-tooltip \
+  --mode prod \
+  --read-mode prod \
+  --source-manifest /tmp/lawdigest-bill-agent-reports/manifest.json \
+  --limit 50 \
+  --concurrency 10 \
+  --batch-session-size 5 \
+  --output-dir /tmp/lawdigest-bill-agent-tooltips
+```
+
 ## 4. 주요 옵션
 
 | 옵션 | 기본값 | 설명 |
@@ -77,6 +103,8 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
 | `--stop-on-error` | 꺼짐 | 하나라도 실패하면 즉시 중단한다. 기본은 실패 항목을 manifest에 남기고 다음 법안을 계속 처리한다. |
 | `--weekly-usage-before`, `--weekly-usage-after` | 없음 | 주간 사용량 퍼센트 계측값. |
 | `--five-hour-usage-before`, `--five-hour-usage-after` | 없음 | 5시간 사용량 퍼센트 계측값. |
+
+`bill-agent-tooltip`은 추가로 `--source-manifest`, `--target missing|all`, `--batch-session-size`, `--failure-retry-attempts`를 받는다. `--source-manifest`를 주면 생성 manifest의 성공 법안만 처리한다.
 
 ## 5. 환경변수
 
@@ -131,18 +159,18 @@ Codex 세션은 `--ignore-user-config`, `--disable plugins`, `--disable apps`, `
 - `propose_date`, `proposers`
 - `summary`, `bill_link`, `bill_pdf_url`
 
-프롬프트는 에이전트에게 네 가지 조사를 요구한다.
+파이프라인은 프롬프트를 만들기 전에 공식 자료를 다음 범위에서 수집한다.
 
-- `open-assembly`, `assembly-api`로 법안명, 의안번호, 처리결과, 통과 경로, 위원회, 표결 정보를 확인한다.
-- `korean-law`로 현행법, 개정 법령 맥락, 관련 조문, 법령 인용을 확인한다.
-- `korean-stats`는 정책 배경 설명에 직접 도움이 될 때만 쓴다.
-- 입력과 도구 결과가 다르면 도구 결과를 우선하되, 불확실한 내용은 단정하지 않는다.
+- 열린국회정보에서 법안 상세, 제안이유·주요내용, 위원회 검토 자료를 확인한다.
+- 국가법령정보센터에서 대상 법령과 인용 조문을 확인한다.
+- 수집한 자료와 DB 법안 정보를 deterministic evidence packet으로 묶는다.
+- 생성 에이전트는 추가 도구를 호출하지 않고 제공된 evidence만 사용한다.
 
-출력은 Markdown 리포트만 허용한다. 자세한 형식 계약은 [bill-report-agent-prompt-contract.md](./bill-report-agent-prompt-contract.md)를 따른다.
+출력은 `report_body` 하나를 가진 JSON 객체이며, 그 값만 Markdown 리포트다. 자세한 형식 계약은 [bill-report-agent-prompt-contract.md](./bill-report-agent-prompt-contract.md)를 따른다.
 
 ## 9. 법률 용어 풀이
 
-`legal_term_glossary.py`는 프롬프트에 짧은 용어 사전 컨텍스트를 붙인다. `LAW_OC`가 있으면 `law_open_api_terms.py`의 `LawOpenApiTermClient`가 법제처 Open API를 실제로 호출해 법령용어 정의를 조회한다.
+리포트 생성 프롬프트에는 법률용어 후보나 정의를 넣지 않는다. `legal_term_glossary.py`는 리포트 생성이 끝난 뒤 `bill-agent-tooltip` 과정에서 저장된 본문을 대상으로만 실행된다. `LAW_OC`가 있으면 `law_open_api_terms.py`의 `LawOpenApiTermClient`가 법제처 Open API를 조회한다.
 
 현재 기본 사전:
 
@@ -154,7 +182,7 @@ Codex 세션은 `--ignore-user-config`, `--disable plugins`, `--disable apps`, `
 
 - `lawSearch.do?target=lstrm` + `lawService.do?target=lstrm`: 법령용어 상세 정의 조회
 
-API 정의 조회에 성공하면 프롬프트에 `법제처 API 조회 결과` 섹션이 들어간다. 정의가 없는 용어, `LAW_OC`가 없는 경우, 호출 실패는 API 결과를 넣지 않고 Lawdigest가 관리하는 정적 보조 사전만 fallback으로 넣는다. 이 경우 프롬프트에는 `정적 보조 사전`이라고 명시한다.
+API 정의 조회에 성공하면 후보 정의가 툴팁 판정 프롬프트에만 들어간다. 정의가 없는 용어, `LAW_OC`가 없는 경우, 호출 실패는 Lawdigest가 관리하는 정적 보조 사전만 사용한다.
 
 `허위정보`, `필수정보`, `표시·광고`처럼 뜻이 바로 드러나는 말은 설명하지 않을 용어로 분류한다. 너무 당연한 말까지 설명해 리포트가 늘어지는 문제를 막기 위해서다.
 
@@ -176,7 +204,7 @@ API 정의 조회에 성공하면 프롬프트에 `법제처 API 조회 결과` 
 - `합니다`, `됩니다`, `입니다` 같은 격식체 종결이 남으면 실패한다.
 - `줄어드어요`처럼 어색한 해요체가 남으면 실패한다.
 
-검증 실패 시 해당 항목은 `status: failed`로 manifest에 기록된다. `--stop-on-error`가 켜져 있으면 즉시 중단한다.
+검증 실패 시 해당 항목은 `status: failed`로 manifest에 기록된다. `--stop-on-error`가 켜져 있으면 즉시 중단한다. 리포트 생성 성공은 이후 툴팁 처리 실패로 취소되지 않는다.
 
 ## 11. 산출물
 
@@ -231,6 +259,10 @@ manifest에는 다음 정보가 들어간다.
 
 `mode != "dry_run"`이면 성공한 항목만 DB에 반영한다.
 
+- 리포트 생성은 항목별 검증 직후 즉시 반영한다.
+- 툴팁 과정은 적용본에서 툴팁을 제거했을 때 원문과 같은지 확인한 뒤 반영한다.
+- 툴팁 판정·파싱·검증이 실패하면 기존 `gpt_summary`를 유지하고 실패만 `tooltip-manifest.json`에 기록한다.
+
 반영 방식:
 
 - Markdown 최상단 `# 법안명`은 제거한다.
@@ -278,5 +310,5 @@ PYTHONPATH=services/data/src:services/ai/src pytest services/data/tests/test_pip
 
 따라서 지금 기준의 완료 범위는 다음과 같다.
 
-- 구현됨: 텍스트 리포트 생성, MCP 조사, 용어 풀이 컨텍스트, Markdown 검증, manifest, 사용량 계측, 병렬 실행, DB 반영
+- 구현됨: 텍스트 리포트 생성, 공식 자료 사전 수집, 독립 툴팁 보강, Markdown 검증, 단계별 manifest, 사용량 계측, 병렬 실행, DB 반영
 - 미구현: 텍스트 리포트 기반 시각화 JSON 생성, 프론트 컴포넌트 선택 자동화, 시각 리포트 스키마 운영 반영

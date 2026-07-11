@@ -113,6 +113,20 @@ def build_parser() -> argparse.ArgumentParser:
     agent_report.add_argument("--inspection", action="store_true", help="에이전트 실행 감사용 검사 로그를 함께 저장")
     agent_report.add_argument("--stop-on-error", action="store_true")
 
+    agent_tooltip = subparsers.add_parser("bill-agent-tooltip", help="저장된 법안 리포트의 법률용어 툴팁 보강")
+    agent_tooltip.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
+    agent_tooltip.add_argument("--limit", type=int, default=5)
+    agent_tooltip.add_argument("--output-dir", default="/tmp/lawdigest-bill-agent-tooltips")
+    agent_tooltip.add_argument("--read-mode", choices=["test", "prod"])
+    agent_tooltip.add_argument("--codex-model")
+    agent_tooltip.add_argument("--target", default="missing", choices=["missing", "all"])
+    agent_tooltip.add_argument("--source-manifest")
+    agent_tooltip.add_argument("--concurrency", type=int, default=1)
+    agent_tooltip.add_argument("--batch-session-size", type=int, default=5, help="Codex 세션당 툴팁 판정 법안 수, 최대 5")
+    agent_tooltip.add_argument("--failure-retry-attempts", type=int, default=1, help="툴팁 판정 실패 시 법안별 추가 재시도 횟수")
+    agent_tooltip.add_argument("--inspection", action="store_true", help="툴팁 판정 프롬프트를 함께 저장")
+    agent_tooltip.add_argument("--stop-on-error", action="store_true")
+
     return parser
 
 
@@ -224,6 +238,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             weekly_usage_after=args.weekly_usage_after,
             five_hour_usage_before=args.five_hour_usage_before,
             five_hour_usage_after=args.five_hour_usage_after,
+            inspection=args.inspection,
+        )
+    elif args.command == "bill-agent-tooltip":
+        result = runtime.run_bill_agent_tooltip(
+            mode=args.mode,
+            limit=args.limit,
+            output_dir=args.output_dir,
+            read_mode=args.read_mode,
+            codex_model=args.codex_model,
+            stop_on_error=args.stop_on_error,
+            target=args.target,
+            source_manifest=args.source_manifest,
+            concurrency=args.concurrency,
+            batch_session_size=args.batch_session_size,
+            failure_retry_attempts=args.failure_retry_attempts,
             inspection=args.inspection,
         )
     else:

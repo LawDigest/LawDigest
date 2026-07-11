@@ -2,6 +2,7 @@
 title: 에이전트 법안 리포트
 sources:
   - services/ai/src/lawdigest_ai/processor/agentic_bill_report.py
+  - services/ai/src/lawdigest_ai/processor/agentic_bill_tooltip.py
   - services/ai/src/lawdigest_ai/processor/legal_term_glossary.py
   - services/ai/src/lawdigest_ai/processor/law_open_api_terms.py
   - services/data/src/lawdigest_data/runtime/cli.py
@@ -13,18 +14,20 @@ sources:
 
 ```mermaid
 flowchart LR
-    Target["대상 법안"] --> Prompt["조사 지시"]
-    Prompt --> Agent["격리된 에이전트 실행"]
-    Agent --> Evidence["국회·법령·통계 확인"]
-    Evidence --> Report["Markdown 리포트"]
-    Report --> Validate["검증"]
-    Validate --> Manifest["실행 manifest"]
+    Target["대상 법안"] --> ReportAgent["리포트 생성"]
+    ReportAgent --> Validate["본문 검증"]
     Validate --> Store[("요약 필드")]
+    Validate --> ReportManifest["생성 기록"]
+    Store --> TooltipAgent["별도 용어 판정"]
+    ReportManifest --> TooltipAgent
+    TooltipAgent --> TooltipValidate["원문 보존 검증"]
+    TooltipValidate --> Store
+    TooltipValidate --> TooltipManifest["툴팁 기록"]
 ```
 
 ## Abstract
 
-에이전트 법안 리포트는 법안 하나를 더 깊게 읽어 쉬운 요약과 주요 내용을 만드는 기능이다. 외부 공식 자료를 확인하고, 정해진 형식 검증을 통과한 결과만 저장한다.
+에이전트 법안 리포트는 법안 하나를 더 깊게 읽어 쉬운 요약과 주요 내용을 만드는 기능이다. 본문 생성과 법률용어 툴팁 보강은 독립적으로 실행되며, 각 단계에서 검증을 통과한 결과만 저장한다.
 
 ## Introduction
 
@@ -38,37 +41,43 @@ flowchart LR
 
 ## Description
 
-리포트 생성은 대상 선정에서 시작한다. 통과 법안 중심 또는 전체 법안 대상으로 실행할 수 있고, 읽기와 쓰기 모드를 분리해 운영 데이터를 읽으면서 저장은 막는 검토 흐름도 가능하다.
+리포트 생성은 대상 선정에서 시작한다. 통과 법안 중심 또는 전체 법안 대상으로 실행할 수 있고, 읽기와 쓰기 모드를 분리해 운영 데이터를 읽으면서 저장은 막는 검토 흐름도 가능하다. 본문이 저장된 뒤에는 생성 기록이나 저장 데이터를 입력으로 별도 용어 판정 과정을 실행할 수 있다.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant Runtime as 실행 흐름
     participant Store as 서비스 데이터
-    participant Agent as 에이전트
+    participant ReportAgent as 리포트 에이전트
+    participant TooltipAgent as 툴팁 에이전트
     participant Sources as 공식 자료
     participant Output as 산출물
     Runtime->>Store: 대상 법안 조회
-    Runtime->>Agent: 법안별 조사 요청
-    Agent->>Sources: 국회·법령·통계 확인
-    Sources-->>Agent: 근거 자료
-    Agent-->>Runtime: 리포트 본문
-    Runtime->>Output: 파일과 manifest 저장
-    Runtime->>Store: 통과 결과 반영
+    Runtime->>Sources: 국회·법령 자료 확인
+    Sources-->>Runtime: 근거 자료
+    Runtime->>ReportAgent: 법안별 리포트 요청
+    ReportAgent-->>Runtime: 리포트 본문
+    Runtime->>Output: 본문 파일과 생성 기록 저장
+    Runtime->>Store: 본문 통과 결과 즉시 반영
+    Runtime->>TooltipAgent: 저장된 본문과 사전 후보 판정 요청
+    TooltipAgent-->>Runtime: 후보별 문맥 적합성
+    Runtime->>Output: 툴팁 적용본과 별도 기록 저장
+    Runtime->>Store: 툴팁 통과 결과 반영
 ```
 
-검증은 형식과 문체를 모두 본다. 필수 섹션이 있는지, 내부 조사 표현이 남지 않았는지, 어려운 용어를 필요할 때 설명했는지, 화면에 바로 보여도 되는 문체인지 확인한다.
+본문 검증은 형식과 문체를 본다. 필수 섹션이 있는지, 내부 조사 표현이 남지 않았는지, 화면에 바로 보여도 되는 문체인지 확인한다. 툴팁 검증은 후보 정의의 문맥 적합성과 표면어 일치를 확인하고, 적용 후 툴팁을 제거했을 때 원문이 그대로인지 확인한다.
 
 ```text
 검증 관문
 ├─ 필수 섹션 존재
 ├─ 내부 도구명과 조사 메모 제거
-├─ 어려운 용어 풀이
 ├─ 사용자 화면용 문체
-└─ 실행 manifest 기록
+├─ 툴팁 문맥·표면어 판정
+├─ 툴팁 제거 후 원문 일치
+└─ 단계별 실행 기록
 ```
 
-이 기능은 생성 실패를 숨기지 않는다. 실패한 법안은 성공한 결과와 분리되어 manifest에 남고, 중단 옵션을 켜면 첫 실패에서 실행을 멈출 수 있다.
+이 기능은 실패를 숨기지 않는다. 본문 생성과 툴팁 보강은 각자의 실행 기록에 성공·건너뜀·실패를 남긴다. 툴팁 실패는 이미 저장된 리포트의 성공을 취소하거나 기존 본문을 덮어쓰지 않는다.
 
 ## Conclusion
 

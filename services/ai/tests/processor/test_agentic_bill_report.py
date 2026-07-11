@@ -86,11 +86,11 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
     assert "처리 상태" in context
     assert "하기 위한 법률 개정안이에요" in context
     assert "괄호 설명이나 설명 불릿으로 끼워 넣지 마세요" in context
-    assert "어려운 법률·행정용어" in context
-    assert '"legal_terms"' in context
+    assert "어려운 법률용어" in context
+    assert '"legal_terms"' not in prompt
     assert "원문 요약:" in context
     assert "쉬운 풀이:" in context
-    assert "후처리" in context
+    assert "별도 툴팁 과정" in context
     assert "툴팁 문법" in context
     assert "설명 불릿으로 끼워 넣지 마세요" in context
     assert "해요체" in context
@@ -111,13 +111,14 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
     assert "자연스러운 `-요` 체" in context
     assert "`합니다`, `됩니다`, `입니다`, `바뀝니다`" in context
     assert "짧게 쓴다는 이유로 근거, 영향, 예외를 덜어내지 마세요" in context
-    assert "법률·행정용어 풀이 사전" in prompt
-    assert "정적 보조 사전" in prompt
-    assert "target=lstrm" in prompt
+    assert "법률·행정용어 풀이 사전" not in prompt
+    assert "정적 보조 사전" not in prompt
+    assert "target=lstrm" not in prompt
     assert "target=lstrmAI" not in prompt
     assert "target=lstrmRlt" not in prompt
     assert "{{용어:뜻}}" not in context
-    assert "설명하지 않을 용어" in prompt
+    assert "candidate_terms" not in prompt
+    assert '"tooltips"' not in prompt
 
 
 def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monkeypatch):
@@ -189,7 +190,7 @@ def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monk
     ]
     assert evidence["committee_materials"]["status"] == "found"
     assert evidence["cost_estimate"]["status"] == "found"
-    assert "법률·행정용어 풀이 사전" in evidence["legal_terms"]["context"]
+    assert "legal_terms" not in evidence
     assert calls == [
         ("detail", "PRC_PREFETCH"),
         ("summary", "2212345"),
@@ -1997,7 +1998,7 @@ def test_run_agentic_bill_reports_records_usage_meter_snapshot(tmp_path, monkeyp
     assert manifest["usage_meter"]["weekly"]["delta_percent"] == -0.5
 
 
-def test_run_agentic_bill_reports_applies_tooltips_from_single_structured_output(tmp_path, monkeypatch):
+def test_run_agentic_bill_reports_ignores_legacy_tooltips_in_report_output(tmp_path, monkeypatch):
     from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
 
     monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
@@ -2068,15 +2069,15 @@ def test_run_agentic_bill_reports_applies_tooltips_from_single_structured_output
     assert mock_run.call_count == 1
     assert mock_run.call_args_list[0].args[0][:2] == ["codex", "exec"]
     assert "--ephemeral" not in mock_run.call_args_list[0].args[0]
-    assert result["items"][0]["tooltip"]["status"] == "passed"
-    assert result["items"][0]["tooltip"]["applied_count"] == 1
+    assert "tooltip" not in result["items"][0]
     assert result["stats"]["usage_totals"]["input_tokens"] == 100
     assert result["stats"]["usage_totals"]["output_tokens"] == 20
     assert result["stats"]["token_usage_available_count"] == 1
     rendered = Path(result["items"][0]["report_path"]).read_text(encoding="utf-8")
     assert rendered.startswith("# 청문 절차 정비법안")
     assert not rendered.lstrip().startswith("{")
-    assert "{{청문 절차:처분을 받기 전에 당사자가 설명하고 반론할 수 있는 절차에요.}}" in rendered
+    assert "{{" not in rendered
+    assert "청문 절차" in rendered
     assert "이 정의는 후보 정의" not in rendered
 
 
