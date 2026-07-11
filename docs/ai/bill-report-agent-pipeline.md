@@ -29,12 +29,12 @@ PipelineRuntime.run_bill_agent_report
 
 PipelineRuntime.run_bill_agent_tooltip
 → run_agentic_bill_tooltips
-→ 생성 manifest 또는 DB에서 저장된 리포트 조회
+→ DB에서 최신 원본 리포트 조회(manifest는 bill ID 필터로만 사용)
 → 법률용어 사전 후보 구성
 → 별도 Codex 세션이 후보의 문맥 적합성 판정
 → 코드 게이트가 high-confidence, high-relevance, exact surface만 승인
 → 툴팁 적용본 검증
-→ 성공 건별 DB 요약 필드 업데이트
+→ BillReportTooltip에 APPLIED 또는 SKIPPED 상태 저장
 → tooltip-manifest.json 작성
 ```
 
@@ -104,7 +104,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
 | `--weekly-usage-before`, `--weekly-usage-after` | 없음 | 주간 사용량 퍼센트 계측값. |
 | `--five-hour-usage-before`, `--five-hour-usage-after` | 없음 | 5시간 사용량 퍼센트 계측값. |
 
-`bill-agent-tooltip`은 추가로 `--source-manifest`, `--target missing|all`, `--batch-session-size`, `--failure-retry-attempts`를 받는다. `--source-manifest`를 주면 생성 manifest의 성공 법안만 처리한다.
+`bill-agent-tooltip`은 추가로 `--source-manifest`, `--target missing|all`, `--batch-session-size`, `--failure-retry-attempts`를 받는다. `--source-manifest`를 주면 성공 법안 ID만 필터로 사용하며, 처리할 리포트 본문은 항상 DB의 최신 `Bill.gpt_summary`에서 다시 읽는다.
 
 ## 5. 환경변수
 
@@ -257,20 +257,21 @@ manifest에는 다음 정보가 들어간다.
 
 ## 12. DB 반영
 
-`mode != "dry_run"`이면 성공한 항목만 DB에 반영한다.
+`mode != "dry_run"`이면 리포트는 검증 성공 항목만 저장하고, 툴팁은 선점한 항목의 처리 결과를 상태로 저장한다.
 
 - 리포트 생성은 항목별 검증 직후 즉시 반영한다.
-- 툴팁 과정은 적용본에서 툴팁을 제거했을 때 원문과 같은지 확인한 뒤 반영한다.
-- 툴팁 판정·파싱·검증이 실패하면 기존 `gpt_summary`를 유지하고 실패만 `tooltip-manifest.json`에 기록한다.
+- 툴팁 과정은 `Bill.gpt_summary`를 수정하지 않고 `BillReportTooltip`에 별도 결과를 저장한다.
+- 시작 시 `source_report_hash`로 원본 버전을 고정하고, 완료 시 현재 `Bill.gpt_summary` 해시를 다시 비교한다.
+- 툴팁 판정·파싱·검증이 실패하면 `FAILED`, 적합한 툴팁이 없으면 `SKIPPED`로 기록한다.
+- `PENDING`, `FAILED`, lease가 만료된 `RUNNING` 행은 다음 실행에서 다시 선점할 수 있다.
 
 반영 방식:
 
-- Markdown 최상단 `# 법안명`은 제거한다.
-- `## 확인한 근거` 이후는 DB용 `gpt_summary`에서 제거한다.
-- 기존 `brief_summary`가 있으면 유지한다.
-- 기존 `brief_summary`가 없으면 `## 쉬운 요약`의 첫 번째 불릿을 평문으로 바꿔 사용한다.
-- `summary_tags`는 기존 값을 유지한다.
-- 최종적으로 `update_bill_summary`가 `brief_summary`, `gpt_summary`, `summary_tags`를 업데이트한다.
+- 리포트 파이프라인은 Markdown 최상단 `# 법안명`과 `## 확인한 근거` 이후를 제거한 뒤 `update_bill_summary`로 원본 리포트를 저장한다.
+- 툴팁 파이프라인은 원본을 읽은 뒤 `FOR UPDATE SKIP LOCKED`로 작업을 선점한다.
+- `APPLIED` 결과의 `rendered_summary`에도 최상단 `# 법안명`을 저장하지 않는다.
+- API는 `status = 'APPLIED'`이고 저장 해시가 현재 원본 해시와 같은 경우에만 `rendered_summary`를 사용한다. 그 외에는 `Bill.gpt_summary`를 반환한다.
+- 검색 문서는 툴팁 정의가 아닌 원본 `Bill.gpt_summary`를 사용한다.
 
 현재 심사 단계, 처리 결과, 투표 결과, 조회수, 스크랩 수는 AI 텍스트에 고정하지 않는다. 프론트와 API가 최신 데이터로 별도 표시한다.
 

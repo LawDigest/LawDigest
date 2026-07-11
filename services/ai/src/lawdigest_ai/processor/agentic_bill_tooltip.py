@@ -9,7 +9,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from lawdigest_ai.db import get_db_connection, update_bill_summary
+from lawdigest_ai.processor.bill_tooltip_store import (
+    claim_bill_tooltip_targets,
+    complete_bill_tooltip_target,
+    fail_bill_tooltip_target,
+    preview_bill_tooltip_targets,
+)
 from lawdigest_ai.processor.agentic_bill_report import (
     DEFAULT_BATCH_SESSION_SIZE,
     DEFAULT_CODEX_MODEL,
@@ -120,24 +125,17 @@ def load_source_manifest_items(source_manifest: str) -> list[dict[str, Any]]:
     return [item for item in items if item["bill_id"] and item["report_body"].strip()]
 
 
-def _fetch_bill_metadata(*, mode: str, bill_ids: list[str]) -> dict[str, dict[str, Any]]:
-    if not bill_ids:
-        return {}
-    placeholders = ", ".join(["%s"] * len(bill_ids))
-    conn = get_db_connection(mode=mode)
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                f"""
-                SELECT bill_id, bill_name, brief_summary, summary_tags, gpt_summary
-                FROM Bill
-                WHERE bill_id IN ({placeholders})
-                """,
-                bill_ids,
-            )
-            return {str(row["bill_id"]): dict(row) for row in cur.fetchall()}
-    finally:
-        conn.close()
+def load_source_manifest_bill_ids(source_manifest: str) -> list[str]:
+    manifest_path = Path(source_manifest).expanduser().resolve()
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    raw_items = payload.get("items") if isinstance(payload, dict) else None
+    if not isinstance(raw_items, list):
+        raise ValueError("source manifest에 items 배열이 없습니다.")
+    return [
+        str(item.get("bill_id") or "")
+        for item in raw_items
+        if isinstance(item, dict) and item.get("status") == "success" and item.get("bill_id")
+    ]
 
 
 def fetch_bill_tooltip_targets(
@@ -149,46 +147,23 @@ def fetch_bill_tooltip_targets(
     source_manifest: str | None = None,
 ) -> list[dict[str, Any]]:
     db_mode = _resolve_read_mode(mode, read_mode)
+    bill_ids: list[str] | None = None
     if source_manifest:
-        manifest_items = load_source_manifest_items(source_manifest)[:limit]
-        try:
-            metadata = _fetch_bill_metadata(mode=db_mode, bill_ids=[item["bill_id"] for item in manifest_items])
-        except Exception:
-            if mode != "dry_run":
-                raise
-            metadata = {}
-        return [{**metadata.get(item["bill_id"], {}), **item} for item in manifest_items]
+        bill_ids = load_source_manifest_bill_ids(source_manifest)
 
-    filters = ["gpt_summary IS NOT NULL", "gpt_summary != ''", "gpt_summary LIKE %s"]
-    params: list[Any] = ["%## 쉬운 요약%"]
-    if target == "missing":
-        filters.append("gpt_summary NOT LIKE %s")
-        params.append("%{{%:%}}%")
-    where_clause = " AND ".join(filters)
-    params.append(limit)
-    conn = get_db_connection(mode=db_mode)
-    try:
-        with conn.cursor() as cur:
-            cur.execute(
-                f"""
-                SELECT bill_id, bill_name, brief_summary, summary_tags, gpt_summary
-                FROM Bill
-                WHERE {where_clause}
-                ORDER BY propose_date DESC, bill_id DESC
-                LIMIT %s
-                """,
-                params,
-            )
-            rows = list(cur.fetchall())
-    finally:
-        conn.close()
-    return [
-        {
-            **dict(row),
-            "report_body": f"# {row['bill_name']}\n\n{str(row['gpt_summary']).strip()}\n",
-        }
-        for row in rows
-    ]
+    if mode == "dry_run":
+        return preview_bill_tooltip_targets(
+            mode=db_mode,
+            limit=limit,
+            target=target,
+            bill_ids=bill_ids,
+        )
+    return claim_bill_tooltip_targets(
+        mode=_db_mode_for_execution(mode),
+        limit=limit,
+        target=target,
+        bill_ids=bill_ids,
+    )
 
 
 @dataclass(frozen=True)
@@ -281,6 +256,8 @@ def run_agentic_bill_tooltips(
     if inspection_dir is not None:
         inspection_dir.mkdir(parents=True, exist_ok=True)
     agent = CodexBillTooltipAgent(model=codex_model or DEFAULT_CODEX_MODEL)
+    model_name = codex_model or DEFAULT_CODEX_MODEL
+    store_mode = _db_mode_for_execution(mode)
     items: list[dict[str, Any] | None] = [None] * len(targets)
     sessions: list[dict[str, Any]] = []
     started_at = datetime.now(timezone.utc)
@@ -296,7 +273,20 @@ def run_agentic_bill_tooltips(
             "candidate_count": len(candidates),
         }
         if not candidates:
-            return {**base_item, "status": "skipped", "reason": "no_candidates", "db_upserted": False}, session_id
+            db_upserted = False
+            if mode != "dry_run":
+                db_upserted = complete_bill_tooltip_target(
+                    mode=store_mode,
+                    bill_id=bill_id,
+                    source_report_hash=str(bill.get("source_report_hash") or ""),
+                    status="SKIPPED",
+                    rendered_summary=None,
+                    applied_count=0,
+                    model_name=model_name,
+                )
+            if mode != "dry_run" and not db_upserted:
+                return {**base_item, "status": "stale", "reason": "source_report_changed", "db_upserted": False}, session_id
+            return {**base_item, "status": "skipped", "reason": "no_candidates", "db_upserted": db_upserted}, session_id
 
         last_error: Exception | None = None
         for attempt in range(failure_retry_attempts + 1):
@@ -321,6 +311,27 @@ def run_agentic_bill_tooltips(
                 next_session_id = str(metadata.get("codex_thread_id") or session_id or "") or None
                 rendered, details = apply_tooltip_decisions(clean_body, candidates, decisions_text)
                 if details["applied_count"] == 0:
+                    db_upserted = False
+                    if mode != "dry_run":
+                        db_upserted = complete_bill_tooltip_target(
+                            mode=store_mode,
+                            bill_id=bill_id,
+                            source_report_hash=str(bill.get("source_report_hash") or ""),
+                            status="SKIPPED",
+                            rendered_summary=None,
+                            applied_count=0,
+                            model_name=model_name,
+                        )
+                    if mode != "dry_run" and not db_upserted:
+                        return {
+                            **base_item,
+                            **metadata,
+                            **details,
+                            **inspection_paths,
+                            "status": "stale",
+                            "reason": "source_report_changed",
+                            "db_upserted": False,
+                        }, next_session_id
                     return {
                         **base_item,
                         **metadata,
@@ -328,23 +339,35 @@ def run_agentic_bill_tooltips(
                         **inspection_paths,
                         "status": "skipped",
                         "reason": "no_approved_tooltips",
-                        "db_upserted": False,
+                        "db_upserted": db_upserted,
                     }, next_session_id
 
                 report_path = output_root / f"{_slugify_bill_id(bill_id)}.md"
                 report_path.write_text(rendered, encoding="utf-8")
+                stored_rendered = str(_build_db_summary_payload(bill, rendered).get("gpt_summary") or "")
                 db_upserted = False
                 if mode != "dry_run":
-                    payload = _build_db_summary_payload(bill, rendered)
-                    update_bill_summary(
+                    db_upserted = complete_bill_tooltip_target(
+                        mode=store_mode,
                         bill_id=bill_id,
-                        brief_summary=payload.get("brief_summary"),
-                        gpt_summary=payload.get("gpt_summary"),
-                        summary_tags=payload.get("summary_tags"),
-                        mode=_db_mode_for_execution(mode),
-                        category=payload.get("category"),
+                        source_report_hash=str(bill.get("source_report_hash") or ""),
+                        status="APPLIED",
+                        rendered_summary=stored_rendered,
+                        applied_count=int(details["applied_count"]),
+                        model_name=model_name,
                     )
-                    db_upserted = True
+                if mode != "dry_run" and not db_upserted:
+                    return {
+                        **base_item,
+                        **metadata,
+                        **details,
+                        **inspection_paths,
+                        "status": "stale",
+                        "reason": "source_report_changed",
+                        "report_path": str(report_path),
+                        "db_upserted": False,
+                        "retry_count": attempt,
+                    }, next_session_id
                 return {
                     **base_item,
                     **metadata,
@@ -358,12 +381,21 @@ def run_agentic_bill_tooltips(
                 }, next_session_id
             except Exception as exc:
                 last_error = exc
+        db_upserted = False
+        if mode != "dry_run":
+            db_upserted = fail_bill_tooltip_target(
+                mode=store_mode,
+                bill_id=bill_id,
+                source_report_hash=str(bill.get("source_report_hash") or ""),
+                error=str(last_error or "unknown tooltip failure"),
+                model_name=model_name,
+            )
         failed = {
             **base_item,
             "status": "failed",
             "reason": "tooltip_processing_failed",
             "error": str(last_error or "unknown tooltip failure"),
-            "db_upserted": False,
+            "db_upserted": db_upserted,
             "retry_count": failure_retry_attempts,
         }
         if stop_on_error:
@@ -425,6 +457,7 @@ def run_agentic_bill_tooltips(
             "success_count": sum(1 for item in completed_items if item["status"] == "success"),
             "skipped_count": sum(1 for item in completed_items if item["status"] == "skipped"),
             "failure_count": sum(1 for item in completed_items if item["status"] == "failed"),
+            "stale_count": sum(1 for item in completed_items if item["status"] == "stale"),
             "db_upserted_count": sum(1 for item in completed_items if item.get("db_upserted")),
             "total_duration_seconds": round(time.perf_counter() - started_perf, 3),
             "usage_totals": usage_totals,

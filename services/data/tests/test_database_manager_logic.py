@@ -222,6 +222,19 @@ class TestDatabaseManagerLogic(unittest.TestCase):
         self.assertIn("COALESCE(b.modified_date, b.created_date) IS NOT NULL", query)
         self.assertEqual(params, (50,))
 
+    def test_fetch_bill_search_documents_by_ids_limits_query_to_requested_bills(self):
+        with patch.object(self.db_manager, "transaction") as mock_transaction:
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+            self.cursor.fetchall.return_value = [{"bill_id": "BILL-1"}, {"bill_id": "BILL-2"}]
+
+            rows = self.db_manager.fetch_bill_search_documents_by_ids(["BILL-1", "BILL-2"])
+
+        self.assertEqual(rows, [{"bill_id": "BILL-1"}, {"bill_id": "BILL-2"}])
+        query, params = self.cursor.execute.call_args.args
+        self.assertIn("FROM Bill b", query)
+        self.assertIn("b.bill_id IN (%s, %s)", query)
+        self.assertEqual(params, ("BILL-1", "BILL-2"))
+
     def test_upsert_bill_search_documents_uses_replace_semantics(self):
         documents = [
             {

@@ -12,6 +12,7 @@ import com.everyones.lawmaking.global.error.BillException;
 import com.everyones.lawmaking.global.error.UserException;
 import com.everyones.lawmaking.global.util.AuthenticationUtil;
 import com.everyones.lawmaking.repository.BillRepository;
+import com.everyones.lawmaking.repository.BillReportTooltipQueryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +29,7 @@ import java.util.Map;
 @Transactional(readOnly = true)
 public class BillService {
     private final BillRepository billRepository;
+    private final BillReportTooltipQueryRepository billReportTooltipQueryRepository;
 
     private static final String BILL_ID_KEY_STRING = "billId";
 
@@ -37,12 +39,14 @@ public class BillService {
     }
     public BillListResponse getBillList(Pageable pageable, String stage) {
         var userIdOptional = AuthenticationUtil.getUserId();
-        return billRepository.findBillWithDetailAndPage(pageable, userIdOptional, stage);
+        return applyCurrentTooltipSummaries(
+                billRepository.findBillWithDetailAndPage(pageable, userIdOptional, stage));
     }
 
     public BillListResponse getBillListByCategory(Pageable pageable, String category) {
         var userIdOptional = AuthenticationUtil.getUserId();
-        return billRepository.findBillByCategoryAndPage(pageable, userIdOptional, category);
+        return applyCurrentTooltipSummaries(
+                billRepository.findBillByCategoryAndPage(pageable, userIdOptional, category));
     }
 
     public List<CategoryCountDto> getCategoryCounts() {
@@ -65,6 +69,7 @@ public class BillService {
         }
 
         var billDetailResponse = getBillDetailInfoFrom(bill);
+        applyCurrentTooltipSummaries(List.of(billDetailResponse));
         var similarBills = billRepository.findSimilarBills(bill.getBillName(), bill.getId())
                 .stream()
                 .map(SimilarBill::from)
@@ -149,10 +154,11 @@ public class BillService {
                 .map(this::getBillInfoFrom)
                 .toList();
 
-        return BillListResponse.builder()
+        var response = BillListResponse.builder()
                 .paginationResponse(pagination)
                 .billList(billInfoList)
                 .build();
+        return applyCurrentTooltipSummaries(response);
     }
 
 
@@ -160,17 +166,21 @@ public class BillService {
     public List<BillDto> getBillListResponse(List<String> billIdList) {
         var billList = billRepository.findBillInfoByIdList(billIdList);
 
-        return billList.stream()
+        var response = billList.stream()
                 .map(this::getBillInfoFrom)
                 .toList();
+        applyCurrentTooltipSummaries(response);
+        return response;
     }
 
     public List<BillDto> getFeedBillListResponse(List<String> billIdList) {
         var billList = billRepository.findFeedBillInfoByIdList(billIdList);
 
-        return billList.stream()
+        var response = billList.stream()
                 .map(this::getBillInfoFrom)
                 .toList();
+        applyCurrentTooltipSummaries(response);
+        return response;
     }
 
     // DTO로 이전시켜야함
@@ -238,10 +248,11 @@ public class BillService {
                 .map(this::getBillInfoFrom)
                 .toList();
 
-        return BillListResponse.builder()
+        var response = BillListResponse.builder()
                 .paginationResponse(pagination)
                 .billList(billDtoList)
                 .build();
+        return applyCurrentTooltipSummaries(response);
 
     }
     public List<Bill> findBillsWithPartiesByIds(List<String> billIds) {
@@ -251,6 +262,20 @@ public class BillService {
     public BillStateCountResponse getBillStateCount() {
         int currentAssemblyNumber = BillInfoConstant.getCurrentAssemblyNumber();
         return billRepository.findStateCount(currentAssemblyNumber);
+    }
+
+    private BillListResponse applyCurrentTooltipSummaries(BillListResponse response) {
+        applyCurrentTooltipSummaries(response.getBillList());
+        return response;
+    }
+
+    private void applyCurrentTooltipSummaries(List<? extends BillDto> bills) {
+        var billIds = bills.stream()
+                .map(bill -> bill.getBillInfoDto().getBillId())
+                .toList();
+        var summaries = billReportTooltipQueryRepository.findCurrentRenderedSummaries(billIds);
+        bills.forEach(bill -> bill.getBillInfoDto()
+                .applyRenderedSummary(summaries.get(bill.getBillInfoDto().getBillId())));
     }
 
 

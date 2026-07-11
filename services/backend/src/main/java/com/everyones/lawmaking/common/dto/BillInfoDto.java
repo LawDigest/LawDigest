@@ -70,4 +70,10 @@ public class BillInfoDto {
                 .build();
     }
 
+    public void applyRenderedSummary(String renderedSummary) {
+        if (renderedSummary != null && !renderedSummary.isBlank()) {
+            this.gptSummary = renderedSummary;
+        }
+    }
+
 }

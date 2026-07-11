@@ -2,9 +2,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
-
 REPORT_BODY = (
     "# 청문 절차 정비법안\n\n"
     "## 쉬운 요약\n**청문 절차**가 더 분명해져요. <mark>의견을 말할 기회를 분명히 해요.</mark>\n\n"
@@ -105,7 +102,7 @@ def test_source_manifest_uses_only_successful_report_items(tmp_path):
     assert items[0]["report_body"] == REPORT_BODY
 
 
-def test_source_manifest_write_mode_fails_when_db_metadata_is_unavailable(tmp_path):
+def test_source_manifest_write_mode_uses_manifest_as_bill_id_filter(tmp_path):
     from lawdigest_ai.processor.agentic_bill_tooltip import fetch_bill_tooltip_targets
 
     report_path = tmp_path / "BILL_1.md"
@@ -129,14 +126,45 @@ def test_source_manifest_write_mode_fails_when_db_metadata_is_unavailable(tmp_pa
     )
 
     with patch(
-        "lawdigest_ai.processor.agentic_bill_tooltip._fetch_bill_metadata",
-        side_effect=RuntimeError("metadata unavailable"),
-    ), pytest.raises(RuntimeError, match="metadata unavailable"):
-        fetch_bill_tooltip_targets(
+        "lawdigest_ai.processor.agentic_bill_tooltip.claim_bill_tooltip_targets",
+        return_value=[{"bill_id": "BILL_1", "report_body": "DB 리포트"}],
+    ) as claim_targets:
+        targets = fetch_bill_tooltip_targets(
             mode="prod",
             limit=1,
             source_manifest=str(manifest_path),
         )
+
+    assert targets[0]["report_body"] == "DB 리포트"
+    claim_targets.assert_called_once_with(
+        mode="prod",
+        limit=1,
+        target="missing",
+        bill_ids=["BILL_1"],
+    )
+
+
+def test_source_manifest_bill_id_filter_does_not_require_local_report_file(tmp_path):
+    from lawdigest_ai.processor.agentic_bill_tooltip import fetch_bill_tooltip_targets
+
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps({"items": [{"bill_id": "BILL_1", "status": "success"}]}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_tooltip.claim_bill_tooltip_targets",
+        return_value=[],
+    ) as claim_targets:
+        fetch_bill_tooltip_targets(mode="prod", limit=1, source_manifest=str(manifest_path))
+
+    claim_targets.assert_called_once_with(
+        mode="prod",
+        limit=1,
+        target="missing",
+        bill_ids=["BILL_1"],
+    )
 
 
 def test_run_agentic_bill_tooltips_skips_without_candidates_or_model_call(tmp_path):
@@ -176,6 +204,7 @@ def test_run_agentic_bill_tooltips_upserts_only_valid_applied_result(tmp_path):
         "bill_name": "청문 절차 정비법안",
         "brief_summary": "기존 제목",
         "summary_tags": '["행정"]',
+        "source_report_hash": "a" * 64,
         "report_body": REPORT_BODY,
     }
     candidates = [
@@ -217,7 +246,10 @@ def test_run_agentic_bill_tooltips_upserts_only_valid_applied_result(tmp_path):
     ), patch(
         "lawdigest_ai.processor.agentic_bill_tooltip.subprocess.run",
         side_effect=run_codex,
-    ), patch("lawdigest_ai.processor.agentic_bill_tooltip.update_bill_summary") as update_summary:
+    ), patch(
+        "lawdigest_ai.processor.agentic_bill_tooltip.complete_bill_tooltip_target",
+        return_value=True,
+    ) as complete_target:
         result = run_agentic_bill_tooltips(
             mode="test",
             limit=1,
@@ -229,5 +261,41 @@ def test_run_agentic_bill_tooltips_upserts_only_valid_applied_result(tmp_path):
     assert result["stats"]["db_upserted_count"] == 1
     assert "prompt" not in result["items"][0]
     assert Path(result["items"][0]["inspection_prompt_path"]).exists()
-    update_summary.assert_called_once()
-    assert "{{청문 절차:" in update_summary.call_args.kwargs["gpt_summary"]
+    complete_target.assert_called_once()
+    assert complete_target.call_args.kwargs["status"] == "APPLIED"
+    assert "{{청문 절차:" in complete_target.call_args.kwargs["rendered_summary"]
+    assert not complete_target.call_args.kwargs["rendered_summary"].startswith("# ")
+
+
+def test_run_agentic_bill_tooltips_persists_skipped_without_candidates(tmp_path):
+    from lawdigest_ai.processor.agentic_bill_tooltip import run_agentic_bill_tooltips
+
+    target = {
+        "bill_id": "PRC_NO_TERM",
+        "bill_name": "용어 없는 법안",
+        "source_report_hash": "b" * 64,
+        "report_body": REPORT_BODY.replace("청문 절차", "의견 확인"),
+    }
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_tooltip.fetch_bill_tooltip_targets",
+        return_value=[target],
+    ), patch(
+        "lawdigest_ai.processor.agentic_bill_tooltip.build_legal_term_tooltip_entries",
+        return_value=[],
+    ), patch(
+        "lawdigest_ai.processor.agentic_bill_tooltip.complete_bill_tooltip_target",
+        return_value=True,
+    ) as complete_target:
+        result = run_agentic_bill_tooltips(mode="test", limit=1, output_dir=str(tmp_path))
+
+    assert result["stats"]["skipped_count"] == 1
+    complete_target.assert_called_once_with(
+        mode="test",
+        bill_id="PRC_NO_TERM",
+        source_report_hash="b" * 64,
+        status="SKIPPED",
+        rendered_summary=None,
+        applied_count=0,
+        model_name="gpt-5.4-mini",
+    )

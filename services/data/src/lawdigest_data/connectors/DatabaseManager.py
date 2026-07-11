@@ -447,6 +447,28 @@ class DatabaseManager:
             cursor.execute(query, (limit,))
             return cursor.fetchall()
 
+    def fetch_bill_search_documents_by_ids(self, bill_ids: List[str]) -> List[Dict[str, Any]]:
+        if not bill_ids:
+            return []
+
+        placeholders = ", ".join(["%s"] * len(bill_ids))
+        query = f"""
+            SELECT
+                b.bill_id,
+                b.bill_name,
+                b.brief_summary,
+                b.gpt_summary,
+                b.summary,
+                COALESCE(b.modified_date, b.created_date) AS source_modified_date
+            FROM Bill b
+            WHERE b.bill_id IN ({placeholders})
+              AND b.ingest_status = 'READY'
+            ORDER BY b.bill_id
+        """
+        with self.transaction() as cursor:
+            cursor.execute(query, tuple(bill_ids))
+            return cursor.fetchall()
+
     def upsert_bill_search_documents(self, documents: List[Dict[str, Any]]) -> int:
         if not documents:
             return 0
