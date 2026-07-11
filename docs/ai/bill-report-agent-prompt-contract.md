@@ -6,15 +6,11 @@
 
 ## 1. 리포트 기본 구조
 
-최종 출력은 Markdown `report_body`와 내부 검증용 `temporal_consistency`를 가진 JSON 객체다. `temporal_consistency.confidence`는 시점 근거를 확인한 경우에만 `high`로 쓴다. 내부 조사 과정, MCP 호출 목록, 실패 로그, 리서치 메모는 본문에 쓰지 않는다. 툴팁 후보와 정의는 이 프롬프트에 전달하지 않는다.
+최종 출력은 Markdown `report_body`를 가진 JSON 객체다. 내부 조사 과정, MCP 호출 목록, 실패 로그, 리서치 메모는 본문에 쓰지 않는다. 툴팁 후보와 정의는 이 프롬프트에 전달하지 않는다.
 
 ```json
 {
-  "report_body": "# 법안명\n...",
-  "temporal_consistency": {
-    "confidence": "high",
-    "reason": "발의 당시와 현재 시행 조문을 구분했습니다."
-  }
+  "report_body": "# 법안명\n..."
 }
 ```
 
@@ -134,12 +130,11 @@
 
 ### 4.2 법령 시점 구분
 
-- `proposal_baseline`은 법안 발의 당시 제안이유가 설명한 개정 전 기준이다.
-- `current_law_snapshot.status=found`일 때만 리포트 생성 시점에 조회한 최신 시행 조문으로 사용한다.
-- 최신 시행 조문 조회 상태가 `found`가 아니면 현재 법령 상태를 추정하지 않고 발의 당시 제안 내용 범위에서만 쓴다.
+- `bill_text.proposal_reason_and_major_content`는 법안 발의 당시 제안이유가 설명한 개정 전 기준으로 읽는다.
+- `current_law.laws[].articles`에 `status=found`인 실제 조문이 있을 때만 리포트 생성 시점의 시행 조문으로 사용한다.
+- 조회된 현재 조문이 없으면 현재 법령 상태를 추정하지 않고 발의 당시 제안 내용 범위에서만 쓴다.
 - 두 시점이 다르면 `발의 당시`, `개정 전`, `현재 시행 조문`처럼 기준을 본문에 쓴다.
-- 통과·공포 법안에서 시점 수식 없이 `현행법`, `현행 조문`을 쓰면 검증 실패다.
-- raw Markdown 출력 또는 structured output의 `temporal_consistency.confidence`가 `high`가 아니면 검증 실패다.
+- 이 구분은 프롬프트로 처리하며, 시점 표현을 정규식이나 confidence 필드로 다시 판정하지 않는다.
 
 ## 5. 법률·행정용어 처리
 

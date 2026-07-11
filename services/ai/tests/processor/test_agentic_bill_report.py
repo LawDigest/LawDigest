@@ -22,16 +22,7 @@ def _model_context(prompt: str) -> str:
 
 
 def _structured_report_output(report_body: str) -> str:
-    return json.dumps(
-        {
-            "report_body": report_body,
-            "temporal_consistency": {
-                "confidence": "high",
-                "reason": "제공된 시점 근거의 범위 안에서 작성했어요.",
-            },
-        },
-        ensure_ascii=False,
-    )
+    return json.dumps({"report_body": report_body}, ensure_ascii=False)
 
 
 def test_agentic_report_prompt_uses_prefetched_evidence():
@@ -195,12 +186,7 @@ def test_build_bill_report_evidence_prefetches_effective_open_assembly_rows(monk
     assert evidence["bill_text"]["mentioned_articles"] == [{"label": "제12조", "JO": "001200"}]
     assert evidence["current_law"]["target_law_names"] == ["테스트법"]
     assert evidence["current_law"]["laws"][0]["status"] == "law_api_unavailable"
-    assert evidence["temporal_context"]["passed"] is True
-    assert evidence["temporal_context"]["proposal_baseline"]["as_of"] == "2025-04-09"
-    assert evidence["temporal_context"]["proposal_baseline"]["source"] == "bill_text.proposal_reason_and_major_content"
-    assert evidence["temporal_context"]["current_law_snapshot"]["source"] == "current_law"
-    assert evidence["temporal_context"]["current_law_snapshot"]["status"] == "not_found"
-    assert evidence["temporal_context"]["current_law_snapshot"]["as_of"] is None
+    assert "temporal_context" not in evidence
     assert evidence["report_density"] == {
         "level": "simple",
         "article_count": 1,
@@ -250,16 +236,41 @@ def test_build_report_density_uses_complex_contract_for_multiple_articles():
     }
 
 
-def test_agentic_report_prompt_requires_temporal_consistency_and_density_contract():
+@pytest.mark.parametrize(
+    ("bill_name", "expected"),
+    [
+        ("주택도시기금법 일부개정법률안", ["주택도시기금법"]),
+        (
+            "치유농업 연구개발 및 육성에 관한 법률 일부개정법률안",
+            ["치유농업 연구개발 및 육성에 관한 법률"],
+        ),
+        (
+            "치유농업 연구개발 및 육성에 관한 법률 전부개정법률안",
+            ["치유농업 연구개발 및 육성에 관한 법률"],
+        ),
+        (
+            "치유농업 연구개발 및 육성에 관한 법률 폐지법률안",
+            ["치유농업 연구개발 및 육성에 관한 법률"],
+        ),
+    ],
+)
+def test_extract_target_law_names_supports_law_and_formal_law_names(bill_name, expected):
+    from lawdigest_ai.processor.agentic_bill_report import _extract_target_law_names
+
+    assert _extract_target_law_names(bill_name) == expected
+
+
+def test_agentic_report_prompt_uses_source_based_temporal_guidance_and_density_contract():
     from lawdigest_ai.processor.agentic_bill_report import build_bill_report_prompt
 
     evidence = {
         "report_mode": "deep_report",
         "db_bill": {"bill_name": "테스트법 일부개정법률안"},
-        "temporal_context": {
-            "passed": True,
-            "proposal_baseline": {"as_of": "2025-04-09", "source": "bill_text.proposal_reason_and_major_content"},
-            "current_law_snapshot": {"status": "found", "as_of": "2026-07-11", "source": "current_law"},
+        "bill_text": {
+            "proposal_reason_and_major_content": "발의 당시 현행법 설명과 개정 제안",
+        },
+        "current_law": {
+            "laws": [{"law_name": "테스트법", "articles": [{"status": "found", "text": "현재 시행 조문"}]}],
         },
         "report_density": {
             "level": "simple",
@@ -277,21 +288,19 @@ def test_agentic_report_prompt_requires_temporal_consistency_and_density_contrac
         evidence=evidence,
     ))
 
-    assert '"temporal_consistency"' in context
-    assert '"confidence":"high"' in context
+    assert '"temporal_consistency"' not in context
+    assert "temporal_context" not in context
+    assert '"report_body"' in context
+    assert "bill_text.proposal_reason_and_major_content" in context
+    assert "current_law.laws[].articles" in context
     assert "발의 당시" in context
     assert "현재 시행 조문" in context
     assert "2~3개" in context
     assert "2,200~3,200자" in context
 
 
-def _temporal_validation_evidence(*, level="simple"):
+def _density_validation_evidence(*, level="simple"):
     return {
-        "temporal_context": {
-            "passed": True,
-            "proposal_baseline": {"as_of": "2025-04-09", "source": "bill_text.proposal_reason_and_major_content"},
-            "current_law_snapshot": {"status": "found", "as_of": "2026-07-11", "source": "current_law"},
-        },
         "report_density": {
             "level": level,
             "change_sections_target_min": 2 if level == "simple" else 4,
@@ -303,90 +312,8 @@ def _temporal_validation_evidence(*, level="simple"):
     }
 
 
-def test_report_evidence_validation_requires_high_temporal_confidence():
-    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
-
-    with pytest.raises(RuntimeError, match="시점 일관성 confidence"):
-        _validate_report_against_evidence(
-            "# 테스트법\n\n발의 당시 현행법은 종합만 규정했어요.",
-            bill={"bill_result": "원안가결", "stage": "공포"},
-            evidence=_temporal_validation_evidence(),
-            structured_payload={"temporal_consistency": {"confidence": "low", "reason": "시점이 불분명해요."}},
-        )
-
-
-def test_report_evidence_validation_requires_structured_output():
-    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
-
-    with pytest.raises(RuntimeError, match="structured output"):
-        _validate_report_against_evidence(
-            "# 테스트법\n\n발의 당시 현행법은 종합만 규정했어요.",
-            bill={"bill_result": "원안가결", "stage": "공포"},
-            evidence=_temporal_validation_evidence(),
-            structured_payload=None,
-        )
-
-
-def test_report_evidence_validation_rejects_unqualified_current_law_wording_for_passed_bill():
-    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
-
-    with pytest.raises(RuntimeError, match="시점 기준 없이 현행법"):
-        _validate_report_against_evidence(
-            "# 테스트법\n\n현행법은 관계 기관의 계획을 조정·종합하도록 해요.",
-            bill={"bill_result": "원안가결", "stage": "공포"},
-            evidence=_temporal_validation_evidence(),
-            structured_payload={"temporal_consistency": {"confidence": "high", "reason": "시점을 확인했어요."}},
-        )
-
-
-def test_report_evidence_validation_accepts_qualified_proposal_time_wording():
-    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
-
-    result = _validate_report_against_evidence(
-        "# 테스트법\n\n발의 당시 현행법은 관계 기관의 계획을 종합하도록 했어요.",
-        bill={"bill_result": "원안가결", "stage": "공포"},
-        evidence=_temporal_validation_evidence(),
-        structured_payload={"temporal_consistency": {"confidence": "high", "reason": "발의 당시와 현재를 구분했어요."}},
-    )
-
-    assert result["confidence"] == "high"
-
-
-@pytest.mark.parametrize("qualified_wording", ["발의 당시에는 현행법", "개정 전의 현행 조문"])
-def test_report_evidence_validation_accepts_natural_temporal_qualifiers(qualified_wording):
-    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
-
-    result = _validate_report_against_evidence(
-        f"# 테스트법\n\n{qualified_wording}이 관계 기관의 계획을 종합하도록 했어요.",
-        bill={"bill_result": "원안가결", "stage": "공포"},
-        evidence=_temporal_validation_evidence(),
-        structured_payload={"temporal_consistency": {"confidence": "high", "reason": "시점을 구분했어요."}},
-    )
-
-    assert result["confidence"] == "high"
-
-
-def test_report_evidence_validation_rejects_current_law_claim_without_snapshot():
-    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
-
-    evidence = _temporal_validation_evidence()
-    evidence["temporal_context"]["current_law_snapshot"] = {
-        "status": "not_found",
-        "as_of": None,
-        "source": "current_law",
-    }
-
-    with pytest.raises(RuntimeError, match="최신 시행 조문 근거 없이"):
-        _validate_report_against_evidence(
-            "# 테스트법\n\n현재 시행 중인 현행법은 관계 기관의 계획을 종합하도록 해요.",
-            bill={"bill_result": "원안가결", "stage": "공포"},
-            evidence=evidence,
-            structured_payload={"temporal_consistency": {"confidence": "high", "reason": "시점을 구분했어요."}},
-        )
-
-
-def test_report_evidence_validation_rejects_too_many_simple_change_sections():
-    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
+def test_report_density_validation_rejects_too_many_simple_change_sections():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_density
 
     report_body = "\n".join([
         "# 테스트법",
@@ -398,23 +325,19 @@ def test_report_evidence_validation_rejects_too_many_simple_change_sections():
     ])
 
     with pytest.raises(RuntimeError, match="변화 묶음은 3개 이하"):
-        _validate_report_against_evidence(
+        _validate_report_density(
             report_body,
-            bill={"bill_result": "원안가결", "stage": "공포"},
-            evidence=_temporal_validation_evidence(),
-            structured_payload={"temporal_consistency": {"confidence": "high", "reason": "시점을 확인했어요."}},
+            evidence=_density_validation_evidence(),
         )
 
 
-def test_report_evidence_validation_rejects_simple_report_over_hard_maximum():
-    from lawdigest_ai.processor.agentic_bill_report import _validate_report_against_evidence
+def test_report_density_validation_rejects_simple_report_over_hard_maximum():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_report_density
 
     with pytest.raises(RuntimeError, match="3,600자 이하"):
-        _validate_report_against_evidence(
+        _validate_report_density(
             "발의 당시 현행법을 기준으로 설명해요." + ("가" * 3600),
-            bill={"bill_result": "원안가결", "stage": "공포"},
-            evidence=_temporal_validation_evidence(),
-            structured_payload={"temporal_consistency": {"confidence": "high", "reason": "시점을 확인했어요."}},
+            evidence=_density_validation_evidence(),
         )
 
 
@@ -2256,10 +2179,6 @@ def test_run_agentic_bill_reports_ignores_legacy_tooltips_in_report_output(tmp_p
             json.dumps(
                 {
                     "report_body": report_body,
-                    "temporal_consistency": {
-                        "confidence": "high",
-                        "reason": "제공된 시점 근거의 범위 안에서 작성했어요.",
-                    },
                     "tooltips": [
                         {
                             "term": "청문",
@@ -2746,10 +2665,6 @@ def test_run_agentic_bill_reports_unwraps_single_report_json_in_batch_turn(tmp_p
                     "reports": [
                         {
                             "report_body": body,
-                            "temporal_consistency": {
-                                "confidence": "high",
-                                "reason": "발의 당시와 현재 시행 조문을 구분했어요.",
-                            },
                         }
                     ]
                 },

@@ -52,12 +52,11 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 
 ## 법령 시점 구분
 
-- `temporal_context.proposal_baseline`은 법안 발의 당시의 법령 설명입니다.
-- `temporal_context.current_law_snapshot.status=found`일 때만 리포트 생성 시점에 조회한 최신 시행 조문으로 사용하세요.
-- 최신 시행 조문 status가 `found`가 아니면 현재 법령 상태를 추정하지 말고 발의 당시 제안 내용만 설명하세요.
+- `bill_text.proposal_reason_and_major_content`의 법령 설명은 법안 발의 당시 기준으로 읽으세요.
+- `current_law.laws[].articles`에 `status=found`인 실제 조문이 있을 때만 리포트 생성 시점의 시행 조문으로 사용하세요.
+- 조회된 현재 조문이 없으면 현재 법령 상태를 추정하지 말고 발의 당시 제안 내용만 설명하세요.
 - 두 근거가 다르면 `발의 당시`, `개정 전`, `현재 시행 조문`처럼 기준 시점을 반드시 밝혀 쓰세요.
 - 통과·공포 법안에서는 `현행법`, `현행 조문`만 단독으로 써서 발의 당시와 현재를 섞지 마세요.
-- 시점을 근거로 구분할 수 있을 때만 `temporal_consistency.confidence`를 `high`로 판정하세요.
 
 ## 리포트 모드
 
@@ -140,9 +139,8 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 - 법률용어도 본문에서는 자연스러운 단어로만 쓰세요. 설명이 필요하면 리포트 생성이 끝난 뒤 별도 툴팁 과정이 처리합니다.
 - 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.
 - `report_body`에는 사용자에게 보여줄 최종 Markdown 리포트만 넣으세요. 첫 줄은 반드시 `# 법안명`으로 시작하세요.
-- `temporal_consistency`에는 시점 구분 confidence와 판단 이유를 넣으세요. confidence는 `high`, `medium`, `low` 중 하나입니다.
 - `bill_id`, `brief_summary`, `gpt_summary`, `tags`를 만들지 마세요.
-- 출력 스키마: `{"report_body":"# 법안명\n\n## 쉬운 요약\n- ...","temporal_consistency":{"confidence":"high","reason":"발의 당시와 현재 시행 조문을 구분했습니다."}}`
+- 출력 스키마: `{"report_body":"# 법안명\n\n## 쉬운 요약\n- ..."}`
 """.strip() + "\n"
 
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
@@ -490,9 +488,9 @@ def _extract_target_law_names(bill_name: str | None) -> list[str]:
     if not name:
         return []
     patterns = (
-        r"(.+?법)\s+일부개정법률안",
-        r"(.+?법)\s+전부개정법률안",
-        r"(.+?법)\s+폐지법률안",
+        r"(.+?(?:법률|법))\s+일부개정법률안",
+        r"(.+?(?:법률|법))\s+전부개정법률안",
+        r"(.+?(?:법률|법))\s+폐지법률안",
     )
     for pattern in patterns:
         match = re.search(pattern, name)
@@ -673,21 +671,6 @@ def _build_report_density(summary_text: str | None, article_refs: list[dict[str,
     }
 
 
-def _build_temporal_context(bill: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "passed": _bill_is_passed(bill),
-        "proposal_baseline": {
-            "as_of": str(bill.get("propose_date") or "") or None,
-            "source": "bill_text.proposal_reason_and_major_content",
-        },
-        "current_law_snapshot": {
-            "status": "not_fetched",
-            "as_of": None,
-            "source": "current_law",
-        },
-    }
-
-
 def _resolve_report_mode(report_mode: str, bill: dict[str, Any]) -> str:
     if report_mode not in REPORT_MODES:
         raise ValueError("report_mode은 auto, summary, deep_report 중 하나여야 합니다.")
@@ -707,7 +690,6 @@ def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto
         "current_law": {},
         "committee_materials": {},
         "cost_estimate": {},
-        "temporal_context": _build_temporal_context(bill),
         "report_density": _build_report_density(fallback_summary, fallback_article_refs),
         "prefetch_errors": [],
     }
@@ -787,19 +769,6 @@ def build_bill_report_evidence(bill: Dict[str, Any], *, report_mode: str = "auto
         "mentioned_articles": article_refs,
         "laws": current_law_items,
     }
-    snapshot_found = any(
-        isinstance(article, dict) and article.get("status") == "found"
-        for law in current_law_items
-        if isinstance(law, dict)
-        for article in law.get("articles", [])
-        if isinstance(law.get("articles"), list)
-    )
-    evidence["temporal_context"]["current_law_snapshot"] = {
-        "status": "found" if snapshot_found else "not_found",
-        "as_of": datetime.now(timezone.utc).date().isoformat() if snapshot_found else None,
-        "source": "current_law",
-    }
-
     review_rows: list[dict[str, Any]] = []
     try:
         raw_review_rows = client.fetch_rows("BILLJUDGE", {"BILL_NO": bill_no}, all_pages=False, page_size=10)
@@ -1080,11 +1049,12 @@ def build_bill_report_prompt(
         "- JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.\n"
         "- report_body 값은 Markdown 문자열입니다. 첫 줄 H1 제목은 bill.bill_name과 같아야 합니다.\n"
         "- report_body 안에는 툴팁 문법이나 중괄호 표기를 직접 쓰지 마세요.\n"
-        "- temporal_consistency.confidence는 시점 근거를 확인한 경우에만 high로 쓰세요.\n"
-        "- current_law_snapshot.status가 found가 아니면 현재 시행 중인 법령 상태를 주장하지 마세요.\n"
+        "- bill_text.proposal_reason_and_major_content는 발의 당시 설명으로 읽으세요.\n"
+        "- current_law.laws[].articles에 status=found인 조문이 있을 때만 현재 시행 조문으로 사용하세요.\n"
+        "- 두 출처가 다르면 발의 당시와 현재 시행 조문을 본문에서 자연스럽게 구분하세요.\n"
         "- bill_id, brief_summary, gpt_summary, tags를 만들지 마세요.\n\n"
         "출력 스키마:\n"
-        '{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ...","temporal_consistency":{"confidence":"high","reason":"발의 당시와 현재 시행 조문을 구분했습니다."}}\n\n'
+        '{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}\n\n'
         f"입력 evidence packet:\n{json.dumps(evidence_payload, ensure_ascii=False, indent=2, default=str)}"
     )
 
@@ -1106,11 +1076,12 @@ def build_bill_report_batch_prompt(batch_items: list[dict[str, Any]]) -> str:
         "- reports 배열은 입력 batch_items와 같은 순서로 report_body만 각각 정확히 한 번씩 넣으세요.\n"
         "- 각 report_body의 첫 줄 H1 제목은 해당 batch_items의 bill.bill_name과 같아야 합니다.\n"
         "- report_body 값은 Markdown 문자열입니다. JSON 문자열 안의 줄바꿈은 반드시 escape된 줄바꿈으로 표현하세요.\n"
-        "- 각 reports 항목의 temporal_consistency.confidence는 시점 근거를 확인한 경우에만 high로 쓰세요.\n"
-        "- current_law_snapshot.status가 found가 아니면 현재 시행 중인 법령 상태를 주장하지 마세요.\n"
+        "- bill_text.proposal_reason_and_major_content는 발의 당시 설명으로 읽으세요.\n"
+        "- current_law.laws[].articles에 status=found인 조문이 있을 때만 현재 시행 조문으로 사용하세요.\n"
+        "- 두 출처가 다르면 발의 당시와 현재 시행 조문을 본문에서 자연스럽게 구분하세요.\n"
         "- brief_summary, gpt_summary, tags를 만들지 마세요. DB 저장용 요약은 별도 코드가 report_body에서 생성합니다.\n\n"
         "출력 스키마:\n"
-        '{"reports":[{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ...","temporal_consistency":{"confidence":"high","reason":"발의 당시와 현재 시행 조문을 구분했습니다."}}]}\n\n'
+        '{"reports":[{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}\n\n'
         f"batch_items:\n{json.dumps(batch_items, ensure_ascii=False, indent=2, default=str)}"
     )
 
@@ -1385,9 +1356,9 @@ def _extract_single_report_payload(raw_output: str, *, bill: dict[str, Any]) -> 
     return selected_report, str(selected_report["report_body"]), True
 
 
-def _parse_report_output(raw_output: str, *, bill: dict[str, Any]) -> tuple[str, bool, dict[str, Any] | None]:
-    payload, report_body, structured_output = _extract_single_report_payload(raw_output, bill=bill)
-    return _postprocess_report_body(report_body, bill=bill), structured_output, payload
+def _parse_report_output(raw_output: str, *, bill: dict[str, Any]) -> tuple[str, bool]:
+    _, report_body, structured_output = _extract_single_report_payload(raw_output, bill=bill)
+    return _postprocess_report_body(report_body, bill=bill), structured_output
 
 
 def _apply_legal_term_tooltip_decisions(
@@ -1732,65 +1703,11 @@ def _build_report_qa_summary(items: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _validate_report_against_evidence(
+def _validate_report_density(
     report_body: str,
     *,
-    bill: dict[str, Any],
     evidence: dict[str, Any],
-    structured_payload: dict[str, Any] | None,
-) -> dict[str, Any]:
-    temporal_consistency = (
-        structured_payload.get("temporal_consistency")
-        if isinstance(structured_payload, dict)
-        else None
-    )
-    if not isinstance(structured_payload, dict):
-        raise RuntimeError("생성 리포트는 temporal_consistency를 포함한 structured output이어야 합니다.")
-    confidence = str(
-        temporal_consistency.get("confidence")
-        if isinstance(temporal_consistency, dict)
-        else ""
-    ).strip().lower()
-    if confidence != "high":
-        raise RuntimeError("생성 리포트의 시점 일관성 confidence가 high가 아닙니다.")
-
-    temporal_context = evidence.get("temporal_context")
-    passed = (
-        bool(temporal_context.get("passed"))
-        if isinstance(temporal_context, dict)
-        else _bill_is_passed(bill)
-    )
-    if passed:
-        current_law_snapshot = (
-            temporal_context.get("current_law_snapshot")
-            if isinstance(temporal_context, dict)
-            else None
-        )
-        snapshot_status = (
-            str(current_law_snapshot.get("status") or "")
-            if isinstance(current_law_snapshot, dict)
-            else ""
-        )
-        snapshot_found = snapshot_status == "found" or (
-            not snapshot_status
-            and isinstance(current_law_snapshot, dict)
-            and bool(current_law_snapshot.get("as_of"))
-        )
-        if not snapshot_found and re.search(r"현재\s*(?:시행|효력|기준|법령)|지금\s*시행", report_body):
-            raise RuntimeError("생성 리포트가 최신 시행 조문 근거 없이 현재 법령 상태를 주장했습니다.")
-
-        temporal_terms = re.compile(r"현행법|현행\s+조문")
-        qualifier_pattern = re.compile(
-            r"(?:발의\s*당시(?:에는|의)?|개정\s*전(?:에는|의)?|현재\s*시행(?:\s*중인)?|현재\s*기준(?:의)?)\s*$"
-        )
-        unqualified_terms = []
-        for match in temporal_terms.finditer(report_body):
-            prefix = report_body[max(0, match.start() - 24):match.start()]
-            if not qualifier_pattern.search(prefix):
-                unqualified_terms.append(match.group(0))
-        if unqualified_terms:
-            raise RuntimeError("생성 리포트가 시점 기준 없이 현행법 또는 현행 조문을 사용했습니다.")
-
+) -> None:
     density = evidence.get("report_density")
     if isinstance(density, dict):
         hard_max_chars = int(density.get("hard_max_chars") or 0)
@@ -1800,9 +1717,6 @@ def _validate_report_against_evidence(
         change_section_count = len(re.findall(r"(?m)^###\s+\d+\)\s+\S", report_body))
         if change_sections_max and change_section_count > change_sections_max:
             raise RuntimeError(f"생성 리포트의 변화 묶음은 {change_sections_max}개 이하로 작성해야 합니다.")
-
-    return dict(temporal_consistency) if isinstance(temporal_consistency, dict) else {}
-
 
 def _validate_report_body(report_body: str) -> None:
     body = report_body.strip()
@@ -2304,7 +2218,7 @@ class CodexBillReportAgent:
                 )
                 details.update(inspection_paths)
             raise BillReportGenerationError("Codex agent report body is empty.", details=details)
-        postprocessed_report_body, structured_output, structured_payload = _parse_report_output(raw_report_body, bill=bill)
+        postprocessed_report_body, structured_output = _parse_report_output(raw_report_body, bill=bill)
         repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
         if repair_applied:
             report_path.write_text(postprocessed_report_body, encoding="utf-8")
@@ -2320,11 +2234,9 @@ class CodexBillReportAgent:
         try:
             _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
             _validate_report_body(report_path.read_text(encoding="utf-8"))
-            details["temporal_consistency"] = _validate_report_against_evidence(
+            _validate_report_density(
                 report_path.read_text(encoding="utf-8"),
-                bill=bill,
                 evidence=evidence,
-                structured_payload=structured_payload,
             )
             validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
             if repair_applied:
@@ -2479,7 +2391,7 @@ class CodexBillReportAgent:
                 raw_report_body = report_path.read_text(encoding="utf-8")
                 if not raw_report_body.strip():
                     raise RuntimeError("Codex agent report body is empty.")
-                postprocessed_report_body, structured_output, structured_payload = _parse_report_output(raw_report_body, bill=bill)
+                postprocessed_report_body, structured_output = _parse_report_output(raw_report_body, bill=bill)
                 repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
                 if repair_applied:
                     report_path.write_text(postprocessed_report_body, encoding="utf-8")
@@ -2488,11 +2400,9 @@ class CodexBillReportAgent:
                 details["structured_output"] = structured_output
                 _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
                 _validate_report_body(report_path.read_text(encoding="utf-8"))
-                details["temporal_consistency"] = _validate_report_against_evidence(
+                _validate_report_density(
                     report_path.read_text(encoding="utf-8"),
-                    bill=bill,
                     evidence=evidence,
-                    structured_payload=structured_payload,
                 )
                 validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
                 if repair_applied:

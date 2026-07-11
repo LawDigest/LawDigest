@@ -1,5 +1,7 @@
 # Bill Report Temporal and Density Validation Implementation Plan
 
+> Superseded: 시점 게이트 구현은 철회됐으며 `2026-07-11-bill-report-prompt-only-temporal.md`가 현재 계획이다. 분량 검증 변경만 유효하다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Prevent proposal-time/current-law contradictions and keep Luna reports proportional to each bill's actual change complexity.
