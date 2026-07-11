@@ -2860,6 +2860,27 @@ def test_fetch_bill_report_targets_uses_null_summary_tags_when_column_absent():
     assert "ORDER BY propose_date DESC, bill_id DESC" in executed_query
 
 
+def test_fetch_bill_report_targets_excludes_bills_with_existing_gpt_summary():
+    from lawdigest_ai.processor.agentic_bill_report import _fetch_bill_report_targets
+
+    conn = MagicMock()
+    cur = conn.cursor.return_value.__enter__.return_value
+    cur.fetchall.return_value = []
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.get_db_connection",
+        return_value=conn,
+    ), patch(
+        "lawdigest_ai.processor.agentic_bill_report.get_bill_table_columns",
+        return_value={"bill_id", "brief_summary", "summary", "summary_tags"},
+    ):
+        _fetch_bill_report_targets(mode="dry_run", limit=1, read_mode="prod", target="all")
+
+    executed_query = cur.execute.call_args.args[0]
+    assert "gpt_summary IS NULL" in executed_query
+    assert "LENGTH(TRIM(gpt_summary)) = 0" in executed_query
+
+
 def test_fetch_bill_report_targets_can_select_pending_bills():
     from lawdigest_ai.processor.agentic_bill_report import _fetch_bill_report_targets
 

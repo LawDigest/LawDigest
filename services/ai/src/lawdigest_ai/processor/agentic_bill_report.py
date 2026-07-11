@@ -1877,7 +1877,11 @@ def _fetch_bill_report_targets(
 
     db_mode = _resolve_read_mode(mode, read_mode)
     bill_columns = get_bill_table_columns(mode=db_mode)
-    filters = ["summary IS NOT NULL", "summary != ''"]
+    filters = [
+        "summary IS NOT NULL",
+        "summary != ''",
+        "(gpt_summary IS NULL OR LENGTH(TRIM(gpt_summary)) = 0)",
+    ]
     params: list[Any] = []
     if target in {"passed", "pending"}:
         result_filters = " OR ".join(["COALESCE(bill_result, '') LIKE %s" for _ in PASSED_RESULT_TERMS])
