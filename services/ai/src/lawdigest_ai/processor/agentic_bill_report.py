@@ -20,7 +20,7 @@ from lawdigest_ai.processor.legal_term_glossary import (
 )
 
 DEFAULT_OUTPUT_DIR = "/tmp/lawdigest-bill-agent-reports"
-DEFAULT_CODEX_MODEL = os.getenv("BILL_AGENT_CODEX_MODEL", "gpt-5.4-mini")
+DEFAULT_CODEX_MODEL = os.getenv("BILL_AGENT_CODEX_MODEL", "gpt-5.6-luna")
 DEFAULT_CODEX_BIN = os.getenv("CODEX_CLI_BIN", "codex")
 DEFAULT_CODEX_TIMEOUT_SECONDS = int(os.getenv("BILL_AGENT_CODEX_TIMEOUT_SECONDS", "900"))
 DEFAULT_AGENT_WORKDIR = os.getenv("BILL_AGENT_CODEX_WORKDIR", "/tmp")

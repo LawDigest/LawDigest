@@ -98,7 +98,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
 | `--limit` | `5` | 조회할 법안 수. |
 | `--target` | `passed` | `passed`는 통과 법안 중심, `all`은 요약이 있는 전체 법안 대상이다. |
 | `--concurrency` | `1` | 동시에 실행할 Codex 세션 수. 3개 병렬 실행은 `--concurrency 3`으로 지정한다. |
-| `--codex-model` | 환경변수 또는 `gpt-5.4-mini` | 실행 모델 override. |
+| `--codex-model` | 환경변수 또는 `gpt-5.6-luna` | 실행 모델 override. |
 | `--inspection` | 꺼짐 | 법안별 검사 로그를 `inspection/` 아래에 추가로 저장한다. 에이전트 행동, 도구 호출 요약, 프롬프트, 검증 결과, 최종 근거 섹션을 감사할 때 사용한다. |
 | `--stop-on-error` | 꺼짐 | 하나라도 실패하면 즉시 중단한다. 기본은 실패 항목을 manifest에 남기고 다음 법안을 계속 처리한다. |
 | `--weekly-usage-before`, `--weekly-usage-after` | 없음 | 주간 사용량 퍼센트 계측값. |
@@ -113,7 +113,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
 | `ASSEMBLY_API_KEY` | 필수 | 열린국회정보 계열 MCP 서버가 사용한다. 없으면 `APIKEY_billsInfo`, `APIKEY_status`도 대체 키로 본다. |
 | `LAW_OC` | 권장 | 법제처/국가법령정보센터 API 인증키. `korean-law` MCP에 전달한다. |
 | `KOSIS_API_KEY` | 권장 | KOSIS 통계 조회 키. `korean-stats` MCP에 전달한다. |
-| `BILL_AGENT_CODEX_MODEL` | 선택 | 기본 모델을 바꾼다. 기본값은 `gpt-5.4-mini`다. |
+| `BILL_AGENT_CODEX_MODEL` | 선택 | 기본 모델을 바꾼다. 기본값은 `gpt-5.6-luna`다. |
 | `BILL_AGENT_CODEX_TIMEOUT_SECONDS` | 선택 | Codex 세션 제한 시간. 기본값은 900초다. |
 | `BILL_AGENT_CODEX_WORKDIR` | 선택 | Codex 실행 디렉터리. 기본값은 `/tmp`다. |
 | `CODEX_CLI_BIN` | 선택 | Codex CLI 실행 파일. 기본값은 `codex`다. |

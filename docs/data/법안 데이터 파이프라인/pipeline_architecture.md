@@ -12,7 +12,7 @@
 
 - 표준 실행 경로: `services/data/src/lawdigest_data/runtime`
 - 표준 CLI: `lawdigest-pipeline` 또는 `python -m lawdigest_data.runtime.cli`
-- 표준 AI 요약: Codex MCP 에이전트 처리 (`gpt-5.4-mini`)
+- 표준 AI 요약: Codex MCP 에이전트 처리 (`gpt-5.6-luna`)
 - AI 장애 대응: 명시적 Codex/Gemini/Claude CLI 복구 경로
 - 실행 이력: append-only JSONL (`pipeline-runs.jsonl`)
 - Airflow: 신규 운영 경로에서 제외, legacy reference로만 보관
@@ -30,7 +30,7 @@
 flowchart TB
     subgraph External["외부 데이터/모델"]
         Assembly["국회 Open API"]
-        Codex["Codex CLI<br/>gpt-5.4-mini"]
+        Codex["Codex CLI<br/>gpt-5.6-luna"]
         Gemini["Gemini CLI<br/>gemini-3-flash-preview"]
         OpenAI["OpenAI / Gemini Batch API<br/>legacy fallback"]
     end
@@ -243,7 +243,7 @@ sequenceDiagram
 
 | Provider | 기본 모델 | 역할 |
 |----------|-----------|------|
-| Codex Agent | `gpt-5.4-mini` | 표준 법안 요약/리포트 |
+| Codex Agent | `gpt-5.6-luna` | 표준 법안 요약/리포트 |
 | Codex CLI | `gpt-5.4-mini` | 명시적 CLI 복구용 |
 | Gemini CLI | `gemini-3-flash-preview` | 수동 비교/복구용 보조 경로 |
 | Claude CLI | 환경변수 지정 | 수동 비교/복구용 보조 경로 |
