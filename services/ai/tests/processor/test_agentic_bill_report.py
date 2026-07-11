@@ -357,6 +357,26 @@ def test_search_current_law_keeps_exact_candidate_beyond_initial_search_results(
     }]
 
 
+def test_search_current_law_drops_unmatched_candidates():
+    from lawdigest_ai.processor.agentic_bill_report import _search_current_law
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"LawSearch": {"law": [{"법령명한글": "난민법", "법령일련번호": "wrong"}]}}
+
+    class FakeSession:
+        def get(self, url, *, params, timeout):
+            return FakeResponse()
+
+    result = _search_current_law("민법", client=(FakeSession(), "law-oc"))
+
+    assert result["status"] == "not_found"
+    assert result["candidates"] == []
+
+
 def test_agentic_report_prompt_uses_source_based_temporal_guidance_and_density_contract():
     from lawdigest_ai.processor.agentic_bill_report import build_bill_report_prompt
 

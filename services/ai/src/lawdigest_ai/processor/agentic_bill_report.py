@@ -594,7 +594,7 @@ def _search_current_law(law_name: str, *, client: Any | None = None) -> dict[str
     return {
         "law_name": law_name,
         "status": "found" if selected_candidate else "not_found",
-        "candidates": [selected_candidate] if selected_candidate else candidates[:3],
+        "candidates": [selected_candidate] if selected_candidate else [],
     }
 
 
