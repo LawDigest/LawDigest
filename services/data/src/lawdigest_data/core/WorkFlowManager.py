@@ -511,6 +511,19 @@ class WorkFlowManager:
         df_congressman_bills = processor.process_congressman_bills(df_bills.copy())
         _, df_alternatives = processor.process_chairman_bills(df_bills.copy())
 
+        if "proposer_kind" in df_bills.columns and "bill_id" in df_bills.columns:
+            congressman_mask = df_bills["proposer_kind"].astype(str).str.strip().isin(
+                {"의원", "CONGRESSMAN"}
+            )
+            resolved_bill_ids = set()
+            if "bill_id" in df_congressman_bills.columns:
+                resolved_bill_ids = set(df_congressman_bills["bill_id"].dropna().astype(str))
+            unresolved_mask = congressman_mask & ~df_bills["bill_id"].astype(str).isin(resolved_bill_ids)
+            if unresolved_mask.any():
+                unresolved_ids = df_bills.loc[unresolved_mask, "bill_id"].tolist()
+                print(f"[bill_ingest.process] 발의자 관계가 없는 의원 법안을 제외합니다: {unresolved_ids}")
+                df_bills = df_bills.loc[~unresolved_mask].copy()
+
         if (
             df_congressman_bills is not None
             and not df_congressman_bills.empty

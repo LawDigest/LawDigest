@@ -188,6 +188,38 @@ class TestDatabaseManagerLogic(unittest.TestCase):
         self.cursor.execute.assert_not_called()
         self.cursor.executemany.assert_not_called()
 
+    def test_replace_proposer_relations_writes_complete_rows_transactionally(self):
+        with patch.object(self.db_manager, "transaction") as mock_transaction, patch.object(
+            self.db_manager,
+            "_link_proposers",
+            side_effect=[2, 1],
+        ) as link_proposers:
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+
+            result = self.db_manager.replace_proposer_relations(
+                [
+                    {
+                        "bill_id": "BILL-1",
+                        "representative_proposer_ids": ["REP-1"],
+                        "public_proposer_ids": ["REP-1", "PUB-1"],
+                    }
+                ]
+            )
+
+        assert result == {
+            "bills": 1,
+            "representative_rows": 1,
+            "public_rows": 2,
+        }
+        assert link_proposers.call_args_list[0].args == (
+            self.cursor,
+            "BILL-1",
+            ["REP-1", "PUB-1"],
+        )
+        assert link_proposers.call_args_list[0].kwargs == {"is_representative": False}
+        assert link_proposers.call_args_list[1].args == (self.cursor, "BILL-1", ["REP-1"])
+        assert link_proposers.call_args_list[1].kwargs == {"is_representative": True}
+
     def test_insert_bill_alternatives_upserts_valid_pairs(self):
         alternatives_data = [
             {"alternative_bill_id": "ALT-1", "original_bill_id": "ORG-1"},

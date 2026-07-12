@@ -97,9 +97,16 @@ class DataProcessor:
 
         # 이름 개수에 맞춰 proposer ID를 맞춰서 생성합니다.
         df_bills_congressman["rstProposerIdList"] = [
-            row["publicProposerIdList"][: len(row["rstProposerNameList"])]
+            row["representativeProposerIdList"]
+            or row["publicProposerIdList"][: len(row["rstProposerNameList"])]
             for _, row in df_bills_congressman.iterrows()
         ]
+
+        unresolved_mask = ~df_bills_congressman["publicProposerIdList"].apply(bool)
+        if unresolved_mask.any():
+            unresolved_ids = df_bills_congressman.loc[unresolved_mask, "bill_id"].tolist()
+            print(f"⚠️ [INFO] 발의자 정보를 확보하지 못한 의원 법안을 적재 대상에서 제외합니다: {unresolved_ids}")
+            df_bills_congressman = df_bills_congressman.loc[~unresolved_mask].copy()
 
         print(f"\n[처리 후 의원 발의 법안 개수: {len(df_bills_congressman)}]")
 

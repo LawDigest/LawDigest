@@ -484,7 +484,47 @@ class DatabaseManager:
             cursor.executemany(query, documents)
         return len(documents)
 
-    def _link_proposers(self, cursor: pymysql.cursors.Cursor, bill_id: str, proposer_ids: List[str], is_representative: bool = False) -> None:
+    def replace_proposer_relations(self, proposer_rows: List[Dict[str, Any]]) -> Dict[str, int]:
+        """발의자 관계를 검증한 뒤 법안별로 원자적으로 교체합니다."""
+        if not proposer_rows:
+            return {"bills": 0, "representative_rows": 0, "public_rows": 0}
+
+        representative_rows = 0
+        public_rows = 0
+        with self.transaction() as cursor:
+            for row in proposer_rows:
+                bill_id = str(row.get("bill_id") or "").strip()
+                public_ids = self._clean_proposer_ids(row.get("public_proposer_ids") or [])
+                representative_ids = self._clean_proposer_ids(
+                    row.get("representative_proposer_ids") or []
+                )
+                if not bill_id or not public_ids or not representative_ids:
+                    raise ValueError(f"완전하지 않은 발의자 관계 데이터입니다: {bill_id or '<unknown>'}")
+
+                written_public = self._link_proposers(
+                    cursor, bill_id, public_ids, is_representative=False
+                )
+                written_representative = self._link_proposers(
+                    cursor, bill_id, representative_ids, is_representative=True
+                )
+                expected_public = len(set(public_ids))
+                expected_representative = len(set(representative_ids))
+                if written_public != expected_public or written_representative != expected_representative:
+                    raise ValueError(
+                        f"유효한 의원 관계가 부족합니다: {bill_id} "
+                        f"public={written_public}/{expected_public}, "
+                        f"representative={written_representative}/{expected_representative}"
+                    )
+                public_rows += written_public
+                representative_rows += written_representative
+
+        return {
+            "bills": len(proposer_rows),
+            "representative_rows": representative_rows,
+            "public_rows": public_rows,
+        }
+
+    def _link_proposers(self, cursor: pymysql.cursors.Cursor, bill_id: str, proposer_ids: List[str], is_representative: bool = False) -> int:
         """
         법안과 의원(발의자) 간의 관계를 저장합니다.
         
@@ -496,7 +536,7 @@ class DatabaseManager:
         """
         proposer_ids = self._clean_proposer_ids(proposer_ids)
         if not proposer_ids:
-            return
+            return 0
 
         # 1. 유효한 의원 ID 및 소속 정당 ID 조회
         # 중복 제거를 위해 Set으로 변환
@@ -513,7 +553,7 @@ class DatabaseManager:
         
         if not valid_congressmen:
             print(f"⚠️ [WARN] No valid congressmen found for bill {bill_id} among {proposer_ids}")
-            return
+            return 0
 
         # 2. 관계 테이블 Insert
         # 기존 관계를 삭제하고 다시 넣는 것보다, INSERT IGNORE를 사용하여 기존 데이터 유지하면서 신규만 추가
@@ -553,6 +593,7 @@ class DatabaseManager:
             insert_params.append((bill_id, cm['congressman_id'], cm['party_id']))
             
         cursor.executemany(insert_query, insert_params)
+        return len(insert_params)
 
     def update_bill_stage(self, bills_stage_data: List[Dict]) -> Dict[str, List[str]]:
         """

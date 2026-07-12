@@ -33,7 +33,7 @@ def get_db_manager(test_mode=False):
     else:
         return DatabaseManager()
 
-def find_missing_bills(db_manager):
+def find_missing_bills(db_manager, since=None, limit=0):
     """
     BillProposer 또는 RepresentativeProposer 데이터가 누락된 법안 ID를 찾습니다.
     (Bill 테이블에는 존재하지만 연결 테이블에는 없는 경우)
@@ -57,25 +57,35 @@ def find_missing_bills(db_manager):
     # 실제로는 데이터가 많을 수 있으므로 LIMIT를 걸거나 배치로 처리하는 것이 좋을 수 있습니다.
     # 일단은 전체를 조회하도록 작성합니다.
     
-    # 1. 공동발의자 누락 확인
-    query_missing_public = "SELECT bill_id FROM Bill WHERE bill_id NOT IN (SELECT DISTINCT bill_id FROM BillProposer)"
-    # 2. 대표발의자 누락 확인
-    query_missing_rep = "SELECT bill_id FROM Bill WHERE bill_id NOT IN (SELECT DISTINCT bill_id FROM RepresentativeProposer)"
+    query = """
+        SELECT b.bill_id
+        FROM Bill b
+        WHERE b.proposer_kind = 'CONGRESSMAN'
+          AND b.ingest_status = 'READY'
+          AND (
+              NOT EXISTS (SELECT 1 FROM BillProposer bp WHERE bp.bill_id = b.bill_id)
+              OR NOT EXISTS (
+                  SELECT 1 FROM RepresentativeProposer rp WHERE rp.bill_id = b.bill_id
+              )
+          )
+    """
+    params = []
+    if since:
+        query += " AND b.propose_date >= %s"
+        params.append(since)
+    query += " ORDER BY b.propose_date DESC, b.bill_id DESC"
+    if limit > 0:
+        query += " LIMIT %s"
+        params.append(limit)
 
-    result_public = db_manager.execute_query(query_missing_public)
-    result_rep = db_manager.execute_query(query_missing_rep)
-
-    missing_public_ids = {row['bill_id'] for row in result_public} if result_public else set()
-    missing_rep_ids = {row['bill_id'] for row in result_rep} if result_rep else set()
-
-    all_missing_ids = missing_public_ids.union(missing_rep_ids)
+    result = db_manager.execute_query(query, tuple(params))
+    all_missing_ids = [row['bill_id'] for row in result] if result else []
     
-    print(f"   - 공동발의자 누락 추정 법안 수: {len(missing_public_ids)}개")
-    print(f"   - 대표발의자 누락 추정 법안 수: {len(missing_rep_ids)}개")
+    print(f"   - 의원 발의 관계 누락 법안 수: {len(all_missing_ids)}개")
     print(f"   - 총 처리 대상 법안 수: {len(all_missing_ids)}개")
     
     # 일관된 처리를 위해 정렬하여 반환
-    return sorted(list(all_missing_ids))
+    return all_missing_ids
 
 def get_congressman_mapping(db_manager):
     """
@@ -114,10 +124,10 @@ def fetch_and_process_proposers(bill_ids, db_manager):
     # DataFetcher의 fetch_bills_coactors는 df_bills(billId 컬럼 포함)를 인자로 받거나 직접 수집함.
     # 여기서는 billId 리스트만 있으므로 임시 DataFrame을 만듭니다.
     import pandas as pd
-    temp_df = pd.DataFrame({'billId': bill_ids})
+    temp_df = pd.DataFrame({'bill_id': bill_ids})
     
     # fetch_bills_coactors는 내부적으로 fetch_lawmakers_data를 호출하여 매핑을 시도함.
-    # 결과 컬럼: 'billId', 'representativeProposerIdList', 'publicProposerIdList', 'ProposerName'
+    # 결과 컬럼: 'bill_id', 'representativeProposerIdList', 'publicProposerIdList', 'ProposerName'
     # 여기서 IdList에 들어있는 값들이 congressman_id(MONA_CD)임.
     # verbose=True를 전달하여 API 응답 상세 내용을 확인합니다.
     df_coactors = fetcher.fetch_bills_coactors(df_bills=temp_df, verbose=False)
@@ -132,11 +142,11 @@ def fetch_and_process_proposers(bill_ids, db_manager):
     
     if missing_rep_mask.any():
         print(f"⚠️ 경고: 대표발의자가 없는 법안이 {missing_rep_mask.sum()}개 발견되었습니다.")
-        print(df_coactors[missing_rep_mask]['billId'].tolist())
+        print(df_coactors[missing_rep_mask]['bill_id'].tolist())
 
     if missing_public_mask.any():
          print(f"⚠️ 경고: 공동발의자가 없는 법안이 {missing_public_mask.sum()}개 발견되었습니다.")
-         print(df_coactors[missing_public_mask]['billId'].tolist())
+         print(df_coactors[missing_public_mask]['bill_id'].tolist())
 
     if not missing_rep_mask.any() and not missing_public_mask.any():
         print("✅ 모든 법안에 대해 대표발의자 및 공동발의자 정보가 정상적으로 존재합니다.")
@@ -152,63 +162,30 @@ def update_database(db_manager, df_data, congressman_party_map, db_update=False)
         return
 
     print("\n💾 데이터베이스 업데이트를 시작합니다...")
-    
-    total_inserted_rep = 0
-    total_inserted_public = 0
-    
+    del congressman_party_map
+    relation_rows = []
     for _, row in df_data.iterrows():
-        bill_id = row['billId']
-        rep_ids = row['representativeProposerIdList'] # list of ids
-        pub_ids = row['publicProposerIdList'] # list of ids
-        
-        bill_rep_count = 0
-        bill_pub_count = 0
-        
-        # RepresentativeProposer Insert
-        for rep_id in rep_ids:
-             # party_id 찾기
-            party_id = congressman_party_map.get(rep_id)
-            if party_id is None:
-                print(f"   ⚠️ [SKIP] ID {rep_id} (법안 {bill_id})의 Party ID를 찾을 수 없습니다. (Congressman 테이블 누락 가능성)")
-                continue
-            
-            try:
-                sql = """
-                INSERT INTO RepresentativeProposer (bill_id, congressman_id, party_id, created_date, modified_date)
-                VALUES (%s, %s, %s, NOW(), NOW())
-                ON DUPLICATE KEY UPDATE modified_date = NOW()
-                """
-                db_manager.execute_query(sql, (bill_id, rep_id, party_id))
-                bill_rep_count += 1
-            except Exception as e:
-                print(f"   ❌ [ERROR] Representative Insert Failed ({bill_id}, {rep_id}): {e}")
+        bill_id = row['bill_id']
+        rep_ids = row['representativeProposerIdList']
+        pub_ids = row['publicProposerIdList']
+        if not rep_ids or not pub_ids:
+            print(f"   ⚠️ [SKIP] 완전한 발의자 정보가 없어 건너뜁니다: {bill_id}")
+            continue
+        relation_rows.append(
+            {
+                "bill_id": bill_id,
+                "representative_proposer_ids": rep_ids,
+                "public_proposer_ids": pub_ids,
+            }
+        )
 
-        # BillProposer Insert
-        for pub_id in pub_ids:
-            party_id = congressman_party_map.get(pub_id)
-            if party_id is None:
-                continue
-                
-            try:
-                sql = """
-                INSERT INTO BillProposer (bill_id, congressman_id, party_id, created_date, modified_date)
-                VALUES (%s, %s, %s, NOW(), NOW())
-                ON DUPLICATE KEY UPDATE modified_date = NOW()
-                """
-                db_manager.execute_query(sql, (bill_id, pub_id, party_id))
-                bill_pub_count += 1
-            except Exception as e:
-                print(f"   ❌ [ERROR] Public Proposer Insert Failed ({bill_id}, {pub_id}): {e}")
-        
-        total_inserted_rep += bill_rep_count
-        total_inserted_public += bill_pub_count
-        print(f"   - [{bill_id}] 업데이트: 대표 {bill_rep_count}명, 공동 {bill_pub_count}명 추가됨")
-
+    result = db_manager.replace_proposer_relations(relation_rows)
     print("\n✅ 업데이트 완료.")
-    print(f"   - RepresentativeProposer 총 추가: {total_inserted_rep}건")
-    print(f"   - BillProposer 총 추가: {total_inserted_public}건")
+    print(f"   - 대상 법안: {result['bills']}건")
+    print(f"   - RepresentativeProposer 총 추가: {result['representative_rows']}건")
+    print(f"   - BillProposer 총 추가: {result['public_rows']}건")
 
-def main(no_db_update=False, test_mode=False, limit=0, cross_test_mode=False):
+def main(no_db_update=True, test_mode=False, limit=0, cross_test_mode=False, since=None):
     """
     Args:
         no_db_update (bool): True면 DB 업데이트를 수행하지 않음 (Dry run)
@@ -238,15 +215,11 @@ def main(no_db_update=False, test_mode=False, limit=0, cross_test_mode=False):
 
     try:
         # 1. 누락된 법안 찾기 (Source DB)
-        missing_bill_ids = find_missing_bills(read_db_manager)
+        missing_bill_ids = find_missing_bills(read_db_manager, since=since, limit=limit)
         
         if not missing_bill_ids:
             print("✅ 누락된 데이터가 없습니다.")
             return
-
-        if limit > 0:
-            print(f"ℹ️  LIMIT 설정으로 인해 {len(missing_bill_ids)}개 중 {limit}개만 처리합니다.")
-            missing_bill_ids = missing_bill_ids[:limit]
 
         # 2. Congressman 정보 가져오기 (Source DB) - 매핑 생성용
         congressman_map = get_congressman_mapping(read_db_manager)
@@ -274,8 +247,19 @@ def main(no_db_update=False, test_mode=False, limit=0, cross_test_mode=False):
             write_db_manager.close()
 
 if __name__ == "__main__":
-    # 여기서 파라미터를 직접 수정하여 실행할 수 있습니다.
-    # cross_test_mode=False: 운영 DB에 직접 업데이트
-    # limit=5: 5개만 먼저 시도
-    main(no_db_update=False, test_mode=False, limit=0, cross_test_mode=False)
+    import argparse
 
+    parser = argparse.ArgumentParser(description="누락된 법안 발의자 관계를 국회 API 기준으로 보완합니다.")
+    parser.add_argument("--db-update", action="store_true", help="검증된 관계를 운영 DB에 반영합니다.")
+    parser.add_argument("--test-mode", action="store_true", help="테스트 DB를 사용합니다.")
+    parser.add_argument("--cross-test-mode", action="store_true", help="운영 DB에서 읽고 테스트 DB에 씁니다.")
+    parser.add_argument("--limit", type=int, default=0, help="최대 처리 법안 수. 0이면 전체입니다.")
+    parser.add_argument("--since", help="발의일 기준 시작일(YYYY-MM-DD)입니다.")
+    args = parser.parse_args()
+    main(
+        no_db_update=not args.db_update,
+        test_mode=args.test_mode,
+        limit=args.limit,
+        cross_test_mode=args.cross_test_mode,
+        since=args.since,
+    )

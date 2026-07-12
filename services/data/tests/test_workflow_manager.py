@@ -147,6 +147,54 @@ def test_fetch_process_upsert_bills_flow_uses_artifacts(tmp_path):
     assert rows[0]["ingest_status"] == "READY"
 
 
+def test_process_bills_data_step_excludes_unresolved_congressman_bill(tmp_path):
+    artifact_path = tmp_path / "fetched.json"
+    artifact_path.write_text(
+        json.dumps(
+            [
+                {
+                    "bill_id": "BILL-UNRESOLVED",
+                    "bill_name": "의원 발의 법안",
+                    "proposeDate": "2026-01-01",
+                    "summary": "요약",
+                    "stage": "접수",
+                    "proposer_kind": "의원",
+                    "assemblyNumber": "22",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    manager = WorkFlowManager("dry_run")
+
+    with patch.object(WorkFlowManager, "_artifact_dir", return_value=tmp_path), patch.object(
+        DataFetcher,
+        "hydrate_bill_candidates",
+        return_value=pd.DataFrame(
+            {
+                "bill_id": ["BILL-UNRESOLVED"],
+                "bill_name": ["의원 발의 법안"],
+                "proposeDate": ["2026-01-01"],
+                "summary": ["요약"],
+                "stage": ["접수"],
+                "proposer_kind": ["의원"],
+                "assemblyNumber": ["22"],
+            }
+        ),
+    ), patch.object(DataProcessor, "process_congressman_bills", return_value=pd.DataFrame()), patch.object(
+        DataProcessor,
+        "process_chairman_bills",
+        return_value=(pd.DataFrame(), pd.DataFrame()),
+    ):
+        processed = manager.process_bills_data_step(str(artifact_path))
+
+    with open(processed["artifact_path"], "r", encoding="utf-8") as fp:
+        payload = json.load(fp)
+
+    assert payload["bills"] == []
+
+
 def test_bill_ingest_persists_chairman_alternative_relations(tmp_path):
     df_candidates = pd.DataFrame(
         {
