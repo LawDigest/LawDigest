@@ -877,6 +877,7 @@ class DataFetcher:
                     row.get('PPSR_CD')
                     or row.get('PUBL_PRPSR_CD')
                     or row.get('RPRSNT_PRPSR_CD')
+                    or row.get('NASS_CD')
                 )
                 proposer_name = normalize_str(
                     row.get('PPSR_NM')
