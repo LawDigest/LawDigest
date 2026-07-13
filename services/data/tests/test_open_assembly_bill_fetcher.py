@@ -1,5 +1,8 @@
 import os
 import sys
+from unittest.mock import patch
+
+import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -147,3 +150,38 @@ def test_fetch_bills_data_keeps_partial_bill_when_optional_open_assembly_rows_ar
     assert row["summary"] is None
     assert row["stage"] == "접수"
     assert row["proposer_kind"] == "의원"
+
+
+def test_fetch_bills_coactors_retries_empty_bill_response():
+    fetcher = DataFetcher()
+    fetcher.df_lawmakers = pd.DataFrame(
+        {
+            "HG_NM": ["홍길동"],
+            "MONA_CD": ["M1"],
+        }
+    )
+    empty_response = pd.DataFrame()
+    valid_response = pd.DataFrame(
+        [
+            {
+                "BILL_ID": "BILL-1",
+                "PUBL_PROPOSER": "대표발의",
+                "PPSR_CD": "M1",
+                "PPSR_NM": "홍길동",
+            }
+        ]
+    )
+
+    with patch.dict("os.environ", {"APIKEY_billProposers": "test-key"}), patch.object(
+        fetcher,
+        "fetch_data_generic",
+        side_effect=[empty_response, valid_response],
+    ) as fetch_data, patch("lawdigest_data.bills.DataFetcher.time.sleep"):
+        result = fetcher.fetch_bills_coactors(
+            df_bills=pd.DataFrame({"bill_id": ["BILL-1"]}),
+            max_retry=1,
+        )
+
+    assert result["bill_id"].tolist() == ["BILL-1"]
+    assert fetch_data.call_count == 2
+    assert "max_retry" not in fetch_data.call_args_list[0].kwargs["params"]
