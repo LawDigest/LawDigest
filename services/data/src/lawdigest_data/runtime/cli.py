@@ -50,6 +50,13 @@ def build_parser() -> argparse.ArgumentParser:
     bill_ingest.add_argument("--end-date")
     bill_ingest.add_argument("--age", default="22")
 
+    bill_ingest_verify = subparsers.add_parser(
+        "bill-ingest-verify",
+        help="READY 의원 법안의 발의자 관계 무결성 점검",
+    )
+    bill_ingest_verify.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
+    bill_ingest_verify.add_argument("--limit", type=int, default=100)
+
     status_sync = subparsers.add_parser("bill-status-sync", help="의원/법안 lifecycle/vote 상태 동기화")
     status_sync.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod", "test_db"])
     status_sync.add_argument("--start-date")
@@ -125,6 +132,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             start_date=args.start_date,
             end_date=args.end_date,
             age=args.age,
+        )
+    elif args.command == "bill-ingest-verify":
+        result = runtime.run_bill_ingest_verify(
+            mode=args.mode,
+            limit=args.limit,
         )
     elif args.command == "bill-status-sync":
         result = runtime.run_bill_status_sync(
@@ -226,7 +238,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(f"unsupported command: {args.command}")
 
     _print_result(result)
-    return 0 if result.get("status") == "success" else 1
+    return 0 if result.get("status") in {"success", "empty"} else 1
 
 
 if __name__ == "__main__":

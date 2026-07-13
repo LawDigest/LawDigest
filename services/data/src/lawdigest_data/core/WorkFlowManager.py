@@ -412,13 +412,15 @@ class WorkFlowManager:
             return 0
 
         db = self._build_db_manager(self.mode)
-        db.insert_bill_info(rows)
         max_propose_date = max((row.get("propose_date") for row in rows if row.get("propose_date")), default=None)
-        db.upsert_ingest_checkpoint(
-            source_name=source_name,
-            assembly_number=self._safe_to_int(rows[0].get("assembly_number"), default=22),
-            last_reference_date=max_propose_date,
-            metadata=metadata,
+        db.insert_bill_info(
+            rows,
+            checkpoint={
+                "source_name": source_name,
+                "assembly_number": self._safe_to_int(rows[0].get("assembly_number"), default=22),
+                "last_reference_date": max_propose_date,
+                "metadata": metadata,
+            },
         )
         return len(rows)
 
@@ -441,6 +443,26 @@ class WorkFlowManager:
             "mode": self.mode,
             "candidates": len(candidates),
             "rebuilt": rebuilt,
+        }
+
+    def verify_bill_proposer_integrity(self, limit: int = 100) -> Dict[str, Any]:
+        """READY 의원 법안의 대표·공동 발의자 관계 무결성을 읽기 전용으로 점검합니다."""
+        if self.mode == "dry_run":
+            return {
+                "mode": self.mode,
+                "status": "success",
+                "incomplete": 0,
+                "samples": [],
+            }
+
+        db = self._build_db_manager(self.mode)
+        samples = db.fetch_incomplete_congressman_bill_relations(limit=max(1, int(limit)))
+        status = "partial" if samples else "success"
+        return {
+            "mode": self.mode,
+            "status": status,
+            "incomplete": len(samples),
+            "samples": samples,
         }
 
     def fetch_bills_data_step(
@@ -468,23 +490,18 @@ class WorkFlowManager:
         df_candidates = fetcher.discover_bill_candidates(start_date=start_date, end_date=end_date, age=age)
         if df_candidates is None or df_candidates.empty:
             print("[bill_ingest.fetch] 수집된 법안 후보가 없습니다.")
-            return {"mode": self.mode, "fetched": 0, "artifact_path": None}
+            return {"mode": self.mode, "status": "empty", "fetched": 0, "artifact_path": None}
 
         if "bill_id" in df_candidates.columns:
             df_candidates = df_candidates.drop_duplicates(subset=["bill_id"], keep="last")
 
-        candidate_rows = self._build_bill_rows(df_candidates)
-        discovered = self._persist_bill_rows(
-            candidate_rows,
-            source_name="bill_discovery",
-            metadata={"discovered": len(candidate_rows)},
-        )
-
         artifact_path = self._write_artifact("bill_ingest_fetch", df_candidates.to_dict(orient="records"))
         return {
             "mode": self.mode,
+            "status": "success",
             "fetched": len(df_candidates),
-            "discovered": discovered,
+            "discovered": len(df_candidates),
+            "persisted": 0,
             "artifact_path": artifact_path,
         }
 
@@ -494,7 +511,7 @@ class WorkFlowManager:
         records = self._read_artifact(artifact_path)
         if not records:
             print("[bill_ingest.process] 처리할 법안이 없습니다.")
-            return {"mode": self.mode, "processed": 0, "artifact_path": None}
+            return {"mode": self.mode, "status": "empty", "processed": 0, "artifact_path": None}
 
         df_candidates = pd.DataFrame(records)
         fetcher = DataFetcher()
@@ -505,11 +522,34 @@ class WorkFlowManager:
         df_bills = fetcher.hydrate_bill_candidates(df_candidates, age=hydrate_age)
         if df_bills is None or df_bills.empty:
             print("[bill_ingest.process] hydrate 결과가 없습니다.")
-            return {"mode": self.mode, "processed": 0, "artifact_path": None}
+            return {"mode": self.mode, "status": "empty", "processed": 0, "artifact_path": None}
 
         processor = DataProcessor(fetcher)
         df_congressman_bills = processor.process_congressman_bills(df_bills.copy())
         _, df_alternatives = processor.process_chairman_bills(df_bills.copy())
+
+        rejected_rows: List[Dict[str, Any]] = []
+        if "proposer_kind" in df_bills.columns and "bill_id" in df_bills.columns:
+            congressman_mask = df_bills["proposer_kind"].astype(str).str.strip().isin(
+                {"의원", "CONGRESSMAN"}
+            )
+            resolved_bill_ids = set()
+            if df_congressman_bills is not None and not df_congressman_bills.empty:
+                if "bill_id" in df_congressman_bills.columns:
+                    resolved_bill_ids = set(df_congressman_bills["bill_id"].dropna().astype(str))
+            unresolved_mask = congressman_mask & ~df_bills["bill_id"].astype(str).isin(resolved_bill_ids)
+            if unresolved_mask.any():
+                unresolved_ids = df_bills.loc[unresolved_mask, "bill_id"].astype(str).tolist()
+                print(f"[bill_ingest.process] 발의자 관계가 없는 의원 법안을 제외합니다: {unresolved_ids}")
+                rejected_rows = [
+                    {
+                        "bill_id": bill_id,
+                        "reason": "missing_proposer_relations",
+                        "retryable": True,
+                    }
+                    for bill_id in unresolved_ids
+                ]
+                df_bills = df_bills.loc[~unresolved_mask].copy()
 
         if (
             df_congressman_bills is not None
@@ -545,12 +585,15 @@ class WorkFlowManager:
             {
                 "bills": rows,
                 "alternatives": alternative_rows,
+                "rejected": rejected_rows,
             },
         )
         return {
             "mode": self.mode,
+            "status": "partial" if rejected_rows else "success",
             "processed": len(rows),
             "alternatives": len(alternative_rows),
+            "rejected": len(rejected_rows),
             "artifact_path": processed_artifact_path,
         }
 
@@ -561,22 +604,46 @@ class WorkFlowManager:
         if isinstance(payload, dict):
             rows = payload.get("bills") or []
             alternative_rows = payload.get("alternatives") or []
+            rejected_rows = payload.get("rejected") or []
         else:
             rows = payload or []
             alternative_rows = []
+            rejected_rows = []
 
         if not rows and not alternative_rows:
             print("[bill_ingest.upsert] 적재할 법안이 없습니다.")
-            return {"mode": self.mode, "upserted": 0, "alternatives_upserted": 0}
+            return {
+                "mode": self.mode,
+                "status": "partial" if rejected_rows else "empty",
+                "upserted": 0,
+                "alternatives_upserted": 0,
+                "rejected": len(rejected_rows),
+            }
 
         if self.mode == "dry_run":
             print(
                 "[bill_ingest.upsert] [DRY_RUN] "
                 f"{len(rows)}개의 법안과 {len(alternative_rows)}개의 대안 관계를 수집했으나 DB에 반영하지 않습니다."
             )
-            return {"mode": self.mode, "upserted": 0, "alternatives_upserted": 0}
+            return {
+                "mode": self.mode,
+                "status": "partial" if rejected_rows else "success",
+                "upserted": 0,
+                "alternatives_upserted": 0,
+                "rejected": len(rejected_rows),
+            }
 
-        rows = self._rows_with_summary(rows)
+        rows_with_summary = self._rows_with_summary(rows)
+        rejected_rows = list(rejected_rows) + [
+            {
+                "bill_id": row.get("bill_id"),
+                "reason": "missing_summary",
+                "retryable": True,
+            }
+            for row in rows
+            if not str(row.get("summary") or "").strip()
+        ]
+        rows = rows_with_summary
         kept_bill_ids = {row.get("bill_id") for row in rows}
         alternative_rows = [
             row for row in alternative_rows if row.get("alternative_bill_id") in kept_bill_ids
@@ -593,8 +660,10 @@ class WorkFlowManager:
         )
         return {
             "mode": self.mode,
+            "status": "partial" if rejected_rows else "success",
             "upserted": upserted,
             "alternatives_upserted": alternatives_upserted,
+            "rejected": len(rejected_rows),
         }
 
     def update_lawmakers_data(self) -> Dict[str, Any]:

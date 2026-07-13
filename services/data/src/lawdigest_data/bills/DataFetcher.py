@@ -692,7 +692,7 @@ class DataFetcher:
         return df_lawmakers
 
 
-    def fetch_bills_coactors(self, df_bills=None, start_date=None, end_date=None, age=None, **kwargs):
+    def fetch_bills_coactors(self, df_bills=None, start_date=None, end_date=None, age=None, max_retry=3, **kwargs):
         """
         열린국회정보 API를 활용하여 대표발의자 및 공동발의자 정보를 수집합니다.
         
@@ -702,8 +702,10 @@ class DataFetcher:
             start_date (str, optional): df_bills 자동 수집 시 사용할 시작일.
             end_date (str, optional): df_bills 자동 수집 시 사용할 종료일.
             age (str, optional): df_bills 자동 수집 시 사용할 대수.
+            max_retry (int, optional): 법안별 빈 응답 최대 재시도 횟수. Defaults to 3.
             **kwargs: *공동발의자* API 요청에 전달할 추가 매개변수.
         """
+        max_retry = max(0, int(max_retry))
 
         # 1. df_bills 처리 (사용자 > 캐시 > 자동 수집)
         local_df_bills = df_bills
@@ -843,14 +845,24 @@ class DataFetcher:
             # verbose 모드일 때 상위 5개 법안에 대해서만 응답 출력
             current_verbose = verbose and (len(aggregated) < 5)
 
-            df_tmp = self.fetch_data_generic(
-                url=url,
-                params=params,
-                mapper=mapper,
-                format='xml',
-                all_pages=True,
-                verbose=current_verbose
-            )
+            for attempt in range(max_retry + 1):
+                df_tmp = self.fetch_data_generic(
+                    url=url,
+                    params=params,
+                    mapper=mapper,
+                    format='xml',
+                    all_pages=True,
+                    verbose=current_verbose,
+                )
+                if not df_tmp.empty:
+                    break
+                if attempt < max_retry:
+                    wait_seconds = min(2 ** attempt, 8)
+                    tqdm.write(
+                        f"⚠️ [RETRY] bill_id={bill_id} 발의자 응답이 비어 있어 "
+                        f"재시도합니다 ({attempt + 1}/{max_retry})"
+                    )
+                    time.sleep(wait_seconds)
 
             if current_verbose and not df_tmp.empty:
                  print(f"🔎 [VERBOSE] Bill {bill_id} Raw Data Sample (First row):")

@@ -206,8 +206,40 @@ def test_bill_ingest_persists_chairman_alternative_relations(tmp_path):
     )
 
 
-def test_fetch_bills_data_step_skips_discovered_candidates_without_summary_in_test_mode(tmp_path):
-    df_candidates = _build_candidate_df()
+def test_persist_bill_rows_passes_checkpoint_to_atomic_db_write():
+    db = Mock()
+    manager = WorkFlowManager("test")
+    rows = [
+        {
+            "bill_id": "BILL-1",
+            "summary": "요약",
+            "assembly_number": 22,
+            "propose_date": "2026-07-13",
+        }
+    ]
+
+    with patch.object(WorkFlowManager, "_build_db_manager", return_value=db):
+        persisted = manager._persist_bill_rows(
+            rows,
+            source_name="bill_ingest",
+            metadata={"upserted": 1},
+        )
+
+    assert persisted == 1
+    db.insert_bill_info.assert_called_once_with(
+        rows,
+        checkpoint={
+            "source_name": "bill_ingest",
+            "assembly_number": 22,
+            "last_reference_date": "2026-07-13",
+            "metadata": {"upserted": 1},
+        },
+    )
+    db.upsert_ingest_checkpoint.assert_not_called()
+
+
+def test_fetch_bills_data_step_records_candidates_without_writing_to_db(tmp_path):
+    df_candidates = _build_candidate_df().assign(summary=["후보 단계 요약"])
     db = Mock()
     manager = WorkFlowManager("test")
 
@@ -217,9 +249,59 @@ def test_fetch_bills_data_step_skips_discovered_candidates_without_summary_in_te
         fetched = manager.fetch_bills_data_step(start_date="2026-01-01", end_date="2026-01-01", age="22")
 
     assert fetched["fetched"] == 1
-    assert fetched["discovered"] == 0
+    assert fetched["status"] == "success"
+    assert fetched["discovered"] == 1
+    assert fetched["persisted"] == 0
     db.insert_bill_info.assert_not_called()
     db.upsert_ingest_checkpoint.assert_not_called()
+
+
+def test_process_bills_data_step_excludes_congressman_without_proposer_relations(tmp_path):
+    artifact_path = tmp_path / "fetched.json"
+    artifact_path.write_text(
+        json.dumps(
+            [
+                {
+                    "bill_id": "BILL-UNRESOLVED",
+                    "bill_name": "의원 발의 법안",
+                    "proposeDate": "2026-01-01",
+                    "summary": "요약",
+                    "stage": "접수",
+                    "proposer_kind": "의원",
+                    "assemblyNumber": "22",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    manager = WorkFlowManager("dry_run")
+
+    with patch.object(WorkFlowManager, "_artifact_dir", return_value=tmp_path), patch.object(
+        DataFetcher,
+        "hydrate_bill_candidates",
+        return_value=pd.DataFrame(
+            {
+                "bill_id": ["BILL-UNRESOLVED"],
+                "bill_name": ["의원 발의 법안"],
+                "proposeDate": ["2026-01-01"],
+                "summary": ["요약"],
+                "stage": ["접수"],
+                "proposer_kind": ["의원"],
+                "assemblyNumber": ["22"],
+            }
+        ),
+    ), patch.object(DataProcessor, "process_congressman_bills", return_value=pd.DataFrame()), patch.object(
+        DataProcessor,
+        "process_chairman_bills",
+        return_value=(pd.DataFrame(), pd.DataFrame()),
+    ):
+        processed = manager.process_bills_data_step(str(artifact_path))
+
+    with open(processed["artifact_path"], "r", encoding="utf-8") as fp:
+        payload = json.load(fp)
+
+    assert payload["bills"] == []
 
 
 def test_upsert_bills_data_step_skips_rows_without_summary(tmp_path):
@@ -257,6 +339,64 @@ def test_upsert_bills_data_step_skips_rows_without_summary(tmp_path):
     db.insert_bill_info.assert_called_once()
     inserted_rows = db.insert_bill_info.call_args.args[0]
     assert [row["bill_id"] for row in inserted_rows] == ["BILL-2"]
+
+
+def test_upsert_bills_data_step_reports_rejected_rows_without_writing_them(tmp_path):
+    artifact = tmp_path / "processed.json"
+    artifact.write_text(
+        json.dumps(
+            {
+                "bills": [],
+                "alternatives": [],
+                "rejected": [
+                    {
+                        "bill_id": "BILL-REJECTED",
+                        "reason": "missing_proposer_relations",
+                        "retryable": True,
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    db = Mock()
+    manager = WorkFlowManager("test")
+
+    with patch.object(WorkFlowManager, "_build_db_manager", return_value=db):
+        result = manager.upsert_bills_data_step(str(artifact))
+
+    assert result["status"] == "partial"
+    assert result["rejected"] == 1
+    db.insert_bill_info.assert_not_called()
+
+
+def test_verify_bill_proposer_integrity_reports_incomplete_ready_bills():
+    db = Mock()
+    db.fetch_incomplete_congressman_bill_relations.return_value = [
+        {
+            "bill_id": "BILL-INCOMPLETE",
+            "proposer_kind": "CONGRESSMAN",
+            "public_proposer_count": 0,
+            "representative_proposer_count": 1,
+        }
+    ]
+    manager = WorkFlowManager("test")
+
+    with patch.object(WorkFlowManager, "_build_db_manager", return_value=db):
+        result = manager.verify_bill_proposer_integrity(limit=10)
+
+    assert result["status"] == "partial"
+    assert result["incomplete"] == 1
+    assert result["samples"] == [
+        {
+            "bill_id": "BILL-INCOMPLETE",
+            "proposer_kind": "CONGRESSMAN",
+            "public_proposer_count": 0,
+            "representative_proposer_count": 1,
+        }
+    ]
+    db.fetch_incomplete_congressman_bill_relations.assert_called_once_with(limit=10)
 
 
 def test_build_bill_rows_sets_ready_status_for_public_bill():

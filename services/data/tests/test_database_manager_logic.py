@@ -177,6 +177,122 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             mock_transaction.assert_not_called()
             self.cursor.executemany.assert_not_called()
 
+    def test_insert_bill_info_rejects_congressman_without_proposer_relations(self):
+        bills_data = [
+            {
+                "bill_id": "BILL-NO-PROPOSERS",
+                "bill_name": "발의자 없는 의원 법안",
+                "summary": "요약",
+                "proposer_kind": "CONGRESSMAN",
+                "public_proposer_ids": [],
+                "rst_proposer_ids": [],
+            }
+        ]
+
+        with patch.object(self.db_manager, "transaction") as mock_transaction:
+            with self.assertRaisesRegex(ValueError, "proposer"):
+                self.db_manager.insert_bill_info(bills_data)
+
+            mock_transaction.assert_not_called()
+            self.cursor.executemany.assert_not_called()
+
+    def test_insert_bill_info_rejects_congressman_when_proposer_ids_are_invalid(self):
+        bills_data = [
+            {
+                "bill_id": "BILL-INVALID-PROPOSERS",
+                "bill_name": "유효하지 않은 발의자 의원 법안",
+                "summary": "요약",
+                "proposer_kind": "CONGRESSMAN",
+                "public_proposer_ids": ["MISSING"],
+                "rst_proposer_ids": ["MISSING"],
+            }
+        ]
+
+        with patch.object(self.db_manager, "transaction") as mock_transaction, patch.object(
+            self.db_manager,
+            "_bill_table_has_column",
+            return_value=False,
+        ), patch.object(
+            self.db_manager,
+            "_bill_table_enum_values",
+            return_value={"CHAIRMAN", "CONGRESSMAN", "GOVERNMENT"},
+        ):
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+            self.cursor.fetchall.side_effect = [[], []]
+
+            with self.assertRaisesRegex(ValueError, "proposer"):
+                self.db_manager.insert_bill_info(bills_data)
+
+            self.assertTrue(self.cursor.executemany.called)
+
+    def test_fetch_incomplete_congressman_bill_relations_returns_ready_bill_samples(self):
+        expected = [
+            {
+                "bill_id": "BILL-INCOMPLETE",
+                "proposer_kind": "CONGRESSMAN",
+                "public_proposer_count": 0,
+                "representative_proposer_count": 1,
+            }
+        ]
+        self.cursor.fetchall.return_value = expected
+
+        with patch.object(self.db_manager, "transaction") as mock_transaction:
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+
+            result = self.db_manager.fetch_incomplete_congressman_bill_relations(limit=10)
+
+        query = self.cursor.execute.call_args.args[0]
+        self.assertIn("FROM Bill b", query)
+        self.assertIn("BillProposer", query)
+        self.assertIn("RepresentativeProposer", query)
+        self.assertEqual(self.cursor.execute.call_args.args[1], (10,))
+        self.assertEqual(result, expected)
+
+    def test_insert_bill_info_writes_checkpoint_inside_bill_transaction(self):
+        bills_data = [
+            {
+                "bill_id": "BILL-CHECKPOINT",
+                "bill_name": "체크포인트 법안",
+                "summary": "요약",
+                "public_proposer_ids": ["M1"],
+                "rst_proposer_ids": ["M1"],
+            }
+        ]
+
+        with patch.object(self.db_manager, "transaction") as mock_transaction, patch.object(
+            self.db_manager,
+            "_bill_table_has_column",
+            return_value=False,
+        ), patch.object(
+            self.db_manager,
+            "_bill_table_enum_values",
+            return_value={"CHAIRMAN", "CONGRESSMAN", "GOVERNMENT"},
+        ):
+            mock_transaction.return_value.__enter__.return_value = self.cursor
+            self.cursor.fetchall.side_effect = [
+                [{"congressman_id": "M1", "party_id": 1}],
+                [{"congressman_id": "M1", "party_id": 1}],
+            ]
+
+            self.db_manager.insert_bill_info(
+                bills_data,
+                checkpoint={
+                    "source_name": "bill_ingest",
+                    "assembly_number": 22,
+                    "last_reference_date": "2026-07-13",
+                    "metadata": {"upserted": 1},
+                },
+            )
+
+        checkpoint_calls = [
+            call for call in self.cursor.execute.call_args_list if "IngestCheckpoint" in call.args[0]
+        ]
+        self.assertEqual(len(checkpoint_calls), 1)
+        self.assertEqual(
+            checkpoint_calls[0].args[1],
+            ("bill_ingest", 22, "2026-07-13", '{"upserted": 1}'),
+        )
+
     def test_link_proposers_ignores_empty_and_nan_ids(self):
         self.db_manager._link_proposers(
             self.cursor,

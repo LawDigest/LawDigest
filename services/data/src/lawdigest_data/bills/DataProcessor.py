@@ -101,6 +101,15 @@ class DataProcessor:
             for _, row in df_bills_congressman.iterrows()
         ]
 
+        relation_ready_mask = (
+            df_bills_congressman["publicProposerIdList"].apply(bool)
+            & df_bills_congressman["rstProposerIdList"].apply(bool)
+        )
+        if not relation_ready_mask.all():
+            unresolved_ids = df_bills_congressman.loc[~relation_ready_mask, "bill_id"].tolist()
+            print(f"⚠️ [INFO] 발의자 관계를 확보하지 못한 의원 법안을 제외합니다: {unresolved_ids}")
+            df_bills_congressman = df_bills_congressman.loc[relation_ready_mask].copy()
+
         print(f"\n[처리 후 의원 발의 법안 개수: {len(df_bills_congressman)}]")
 
         # 제외할 컬럼 목록

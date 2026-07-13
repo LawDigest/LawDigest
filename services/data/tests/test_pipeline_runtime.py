@@ -56,8 +56,47 @@ def test_bill_ingest_skips_downstream_when_fetch_has_no_artifact(tmp_path):
 
     manager.process_bills_data_step.assert_not_called()
     manager.upsert_bills_data_step.assert_not_called()
-    assert result["status"] == "success"
+    assert result["status"] == "empty"
     assert result["steps"][-1]["step"] == "skip"
+    assert result["steps"][-1]["status"] == "empty"
+
+
+def test_bill_ingest_marks_run_partial_when_processing_rejects_bills(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    manager = MagicMock()
+    manager.fetch_bills_data_step.return_value = {"artifact_path": "/tmp/fetched.json", "fetched": 2}
+    manager.process_bills_data_step.return_value = {
+        "artifact_path": "/tmp/processed.json",
+        "processed": 1,
+        "rejected": 1,
+        "status": "partial",
+    }
+    manager.upsert_bills_data_step.return_value = {"upserted": 1}
+
+    with patch("lawdigest_data.runtime.pipeline._build_workflow_manager", return_value=manager):
+        result = PipelineRuntime(log_dir=tmp_path).run_bill_ingest(mode="test")
+
+    assert result["status"] == "partial"
+    process_step = next(step for step in result["steps"] if step["step"] == "process_bills")
+    assert process_step["status"] == "partial"
+
+
+def test_bill_ingest_verify_records_incomplete_proposer_relations(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    manager = MagicMock()
+    manager.verify_bill_proposer_integrity.return_value = {
+        "status": "partial",
+        "incomplete": 1,
+    }
+
+    with patch("lawdigest_data.runtime.pipeline._build_workflow_manager", return_value=manager):
+        result = PipelineRuntime(log_dir=tmp_path).run_bill_ingest_verify(mode="test", limit=10)
+
+    manager.verify_bill_proposer_integrity.assert_called_once_with(limit=10)
+    assert result["status"] == "partial"
+    assert result["steps"][0]["status"] == "partial"
 
 
 def test_ai_cli_repair_delegates_to_existing_provider_runtime(tmp_path):
@@ -413,6 +452,31 @@ def test_cli_dispatches_bill_ingest(tmp_path):
         start_date="2026-05-01",
         end_date="2026-05-02",
         age="22",
+    )
+
+
+def test_cli_dispatches_bill_ingest_verify_as_failure_when_samples_exist(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_bill_ingest_verify.return_value = {
+            "status": "partial",
+            "incomplete": 1,
+        }
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "bill-ingest-verify",
+            "--mode",
+            "test",
+            "--limit",
+            "10",
+        ])
+
+    assert exit_code == 1
+    Runtime.return_value.run_bill_ingest_verify.assert_called_once_with(
+        mode="test",
+        limit=10,
     )
 
 

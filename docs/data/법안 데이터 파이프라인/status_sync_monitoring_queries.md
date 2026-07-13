@@ -63,6 +63,8 @@ WHERE source_name IN ('bill_ingest', 'bill_discovery', 'bill_status_lifecycle')
 ORDER BY source_name, assembly_number;
 ```
 
+`bill_discovery`는 과거 후보 단계에서 사용하던 checkpoint 이름입니다. 현재 `bill-ingest`는 최종 적재가 끝난 뒤에만 `bill_ingest` checkpoint를 갱신합니다.
+
 ## 5. vote checkpoint 점검
 
 ```sql
@@ -139,7 +141,7 @@ ORDER BY modified_date DESC
 LIMIT 100;
 ```
 
-## 9. 발의자 링크 무결성 참고 점검
+## 9. 발의자 링크 무결성 점검
 
 ```sql
 SELECT COUNT(*) AS representative_proposer_rows FROM RepresentativeProposer;
@@ -147,11 +149,28 @@ SELECT COUNT(*) AS bill_proposer_rows FROM BillProposer;
 ```
 
 ```sql
-SELECT b.bill_id, b.bill_name, b.propose_date
+SELECT
+  b.bill_id,
+  b.bill_name,
+  b.propose_date,
+  COUNT(DISTINCT bp.congressman_id) AS public_proposer_count,
+  COUNT(DISTINCT rp.congressman_id) AS representative_proposer_count
 FROM Bill b
 LEFT JOIN RepresentativeProposer rp ON rp.bill_id = b.bill_id
+LEFT JOIN BillProposer bp ON bp.bill_id = b.bill_id
 WHERE b.proposer_kind = 'CONGRESSMAN'
-  AND rp.bill_id IS NULL
+  AND b.ingest_status = 'READY'
+GROUP BY b.bill_id, b.bill_name, b.propose_date
+HAVING public_proposer_count = 0
+    OR representative_proposer_count = 0
 ORDER BY b.propose_date DESC
 LIMIT 100;
 ```
+
+표준 읽기 전용 점검 명령은 아래와 같습니다.
+
+```bash
+lawdigest-pipeline bill-ingest-verify --mode prod --limit 100
+```
+
+누락 샘플이 하나라도 있으면 `partial`로 종료되므로 스케줄러나 모니터링에서 성공으로 처리하지 않아야 합니다.

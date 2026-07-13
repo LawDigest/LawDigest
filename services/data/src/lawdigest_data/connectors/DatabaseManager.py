@@ -227,6 +227,24 @@ class DatabaseManager:
         last_reference_date: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
+        with self.transaction() as cursor:
+            self._upsert_ingest_checkpoint_cursor(
+                cursor,
+                source_name=source_name,
+                assembly_number=assembly_number,
+                last_reference_date=last_reference_date,
+                metadata=metadata,
+            )
+
+    @staticmethod
+    def _upsert_ingest_checkpoint_cursor(
+        cursor: pymysql.cursors.Cursor,
+        *,
+        source_name: str,
+        assembly_number: int,
+        last_reference_date: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
         payload = None if metadata is None else json.dumps(metadata, ensure_ascii=False)
         query = """
             INSERT INTO IngestCheckpoint (
@@ -237,10 +255,14 @@ class DatabaseManager:
                 metadata_json = new.metadata_json,
                 modified_date = NOW()
         """
-        with self.transaction() as cursor:
-            cursor.execute(query, (source_name, assembly_number, last_reference_date, payload))
+        cursor.execute(query, (source_name, assembly_number, last_reference_date, payload))
     
-    def insert_bill_info(self, bills_data: List[Dict]) -> None:
+    def insert_bill_info(
+        self,
+        bills_data: List[Dict],
+        *,
+        checkpoint: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """
         법안 정보를 DB에 적재합니다. (기존 insertBillInfoDf 대체)
 
@@ -253,6 +275,7 @@ class DatabaseManager:
                 - bill_id, bill_name, prose_date, ... (Bill 테이블 컬럼)
                 - public_proposer_ids (List[str]): 공동발의자 의원 ID 목록
                 - rst_proposer_ids (List[str]): 대표발의자 의원 ID 목록
+            checkpoint (Dict, optional): 법안과 같은 트랜잭션으로 반영할 checkpoint 정보.
         """
         missing_summary_ids = [
             str(bill.get("bill_id") or "<unknown>")
@@ -264,6 +287,8 @@ class DatabaseManager:
                 "Bill.summary is required before insert_bill_info: "
                 + ", ".join(missing_summary_ids[:10])
             )
+
+        self._validate_congressman_proposer_relations(bills_data)
 
         normalized_bills = []
         for bill in bills_data:
@@ -367,14 +392,40 @@ class DatabaseManager:
             # 각 법안별로 발의자 연결 실행
             for bill in normalized_bills:
                 bill_id = bill['bill_id']
-                
+
                 # 2-1. 공동발의자 (Public Proposer)
-                if 'public_proposer_ids' in bill and bill['public_proposer_ids']:
-                    self._link_proposers(cursor, bill_id, bill['public_proposer_ids'], is_representative=False)
-                
+                public_ids = self._clean_proposer_ids(bill.get('public_proposer_ids') or [])
+                written_public = self._link_proposers(
+                    cursor, bill_id, public_ids, is_representative=False
+                )
+
                 # 2-2. 대표발의자 (Representative Proposer)
-                if 'rst_proposer_ids' in bill and bill['rst_proposer_ids']:
-                    self._link_proposers(cursor, bill_id, bill['rst_proposer_ids'], is_representative=True)
+                representative_ids = self._clean_proposer_ids(bill.get('rst_proposer_ids') or [])
+                written_representative = self._link_proposers(
+                    cursor, bill_id, representative_ids, is_representative=True
+                )
+
+                if str(bill.get("proposer_kind") or "").strip() in {"의원", "CONGRESSMAN"}:
+                    expected_public = len(set(public_ids))
+                    expected_representative = len(set(representative_ids))
+                    if (
+                        written_public != expected_public
+                        or written_representative != expected_representative
+                    ):
+                        raise ValueError(
+                            f"Incomplete proposer relations for {bill_id}: "
+                            f"public={written_public}/{expected_public}, "
+                            f"representative={written_representative}/{expected_representative}"
+                        )
+
+            if checkpoint:
+                self._upsert_ingest_checkpoint_cursor(
+                    cursor,
+                    source_name=checkpoint["source_name"],
+                    assembly_number=checkpoint["assembly_number"],
+                    last_reference_date=checkpoint.get("last_reference_date"),
+                    metadata=checkpoint.get("metadata"),
+                )
 
     def _clean_proposer_ids(self, proposer_ids: List[Any]) -> List[str]:
         cleaned_ids = []
@@ -386,6 +437,21 @@ class DatabaseManager:
                 continue
             cleaned_ids.append(value)
         return cleaned_ids
+
+    def _validate_congressman_proposer_relations(self, bills_data: List[Dict]) -> None:
+        for bill in bills_data:
+            proposer_kind = str(bill.get("proposer_kind") or "").strip()
+            if proposer_kind not in {"의원", "CONGRESSMAN"}:
+                continue
+
+            public_ids = self._clean_proposer_ids(bill.get("public_proposer_ids") or [])
+            representative_ids = self._clean_proposer_ids(bill.get("rst_proposer_ids") or [])
+            if not public_ids or not representative_ids:
+                bill_id = str(bill.get("bill_id") or "<unknown>")
+                raise ValueError(
+                    f"Incomplete proposer relations for {bill_id}: "
+                    "both public and representative proposer IDs are required"
+                )
 
     def insert_bill_alternatives(self, alternatives_data: List[Dict[str, Any]]) -> int:
         unique_pairs = []
@@ -447,6 +513,39 @@ class DatabaseManager:
             cursor.execute(query, (limit,))
             return cursor.fetchall()
 
+    def fetch_incomplete_congressman_bill_relations(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """READY 상태 의원 법안 중 발의자 관계가 한쪽이라도 없는 샘플을 조회합니다."""
+        limit = max(1, int(limit))
+        query = """
+            SELECT
+                b.bill_id,
+                b.proposer_kind,
+                COALESCE(bp.public_proposer_count, 0) AS public_proposer_count,
+                COALESCE(rp.representative_proposer_count, 0) AS representative_proposer_count
+            FROM Bill b
+            LEFT JOIN (
+                SELECT bill_id, COUNT(*) AS public_proposer_count
+                FROM BillProposer
+                GROUP BY bill_id
+            ) bp ON bp.bill_id = b.bill_id
+            LEFT JOIN (
+                SELECT bill_id, COUNT(*) AS representative_proposer_count
+                FROM RepresentativeProposer
+                GROUP BY bill_id
+            ) rp ON rp.bill_id = b.bill_id
+            WHERE b.ingest_status = 'READY'
+              AND b.proposer_kind = 'CONGRESSMAN'
+              AND (
+                  COALESCE(bp.public_proposer_count, 0) = 0
+                  OR COALESCE(rp.representative_proposer_count, 0) = 0
+              )
+            ORDER BY b.propose_date DESC, b.bill_id ASC
+            LIMIT %s
+        """
+        with self.transaction() as cursor:
+            cursor.execute(query, (limit,))
+            return cursor.fetchall()
+
     def upsert_bill_search_documents(self, documents: List[Dict[str, Any]]) -> int:
         if not documents:
             return 0
@@ -484,7 +583,7 @@ class DatabaseManager:
             cursor.executemany(query, documents)
         return len(documents)
 
-    def _link_proposers(self, cursor: pymysql.cursors.Cursor, bill_id: str, proposer_ids: List[str], is_representative: bool = False) -> None:
+    def _link_proposers(self, cursor: pymysql.cursors.Cursor, bill_id: str, proposer_ids: List[str], is_representative: bool = False) -> int:
         """
         법안과 의원(발의자) 간의 관계를 저장합니다.
         
@@ -496,7 +595,7 @@ class DatabaseManager:
         """
         proposer_ids = self._clean_proposer_ids(proposer_ids)
         if not proposer_ids:
-            return
+            return 0
 
         # 1. 유효한 의원 ID 및 소속 정당 ID 조회
         # 중복 제거를 위해 Set으로 변환
@@ -513,7 +612,7 @@ class DatabaseManager:
         
         if not valid_congressmen:
             print(f"⚠️ [WARN] No valid congressmen found for bill {bill_id} among {proposer_ids}")
-            return
+            return 0
 
         # 2. 관계 테이블 Insert
         # 기존 관계를 삭제하고 다시 넣는 것보다, INSERT IGNORE를 사용하여 기존 데이터 유지하면서 신규만 추가
@@ -553,6 +652,7 @@ class DatabaseManager:
             insert_params.append((bill_id, cm['congressman_id'], cm['party_id']))
             
         cursor.executemany(insert_query, insert_params)
+        return len(insert_params)
 
     def update_bill_stage(self, bills_stage_data: List[Dict]) -> Dict[str, List[str]]:
         """

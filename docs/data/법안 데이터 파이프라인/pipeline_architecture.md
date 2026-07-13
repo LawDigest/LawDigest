@@ -119,6 +119,7 @@ python -m lawdigest_data.runtime.cli <command> [options]
 | 명령 | 현재 역할 | 상태 |
 |------|-----------|------|
 | `bill-ingest` | 국회 API 법안 수집, 정제, DB 반영 | 표준 |
+| `bill-ingest-verify` | `READY` 의원 법안의 대표·공동 발의자 관계 무결성 점검 | 표준 점검 |
 | `bill-status-sync` | 의원, lifecycle, vote 상태 동기화 | 표준 |
 | `ai-summary` | Codex MCP 에이전트 기반 법안 요약/리포트 생성 | 표준 |
 | `bill-agent-report` | Codex MCP 에이전트 기반 법안 종합 리포트 직접 실행 | 명시 실행 |
@@ -190,6 +191,22 @@ sequenceDiagram
 - `services/data/src/lawdigest_data/bills/DataProcessor.py`
 - `services/data/src/lawdigest_data/connectors/DatabaseManager.py`
 - `services/data/src/lawdigest_data/core/WorkFlowManager.py`
+
+적재 불변식:
+
+1. `fetch_bills_data_step`은 후보를 artifact로만 저장하고 `Bill`이나 `IngestCheckpoint`를 변경하지 않습니다.
+2. `process_bills_data_step`은 의원 법안의 대표·공동 발의자 관계를 모두 확보하지 못한 항목을 `rejected`로 남기고 적재 대상에서 제외합니다.
+3. `upsert_bills_data_step`은 요약이 있고 발의자 관계가 검증된 행만 `bill_ingest` checkpoint와 함께 반영합니다.
+4. `DatabaseManager.insert_bill_info`는 의원 법안의 관계가 비어 있거나 실제 `Congressman`과 연결되지 않으면 트랜잭션을 중단합니다.
+5. 실행 결과는 `success`, `empty`, `partial`, `failed` 중 하나로 기록합니다. `partial`은 일부 항목이 재처리 대상으로 남았다는 뜻입니다.
+
+발의자 관계 점검:
+
+```bash
+lawdigest-pipeline bill-ingest-verify --mode prod --limit 100
+```
+
+`READY` 상태의 `CONGRESSMAN` 법안에서 `BillProposer` 또는 `RepresentativeProposer`가 없는 샘플을 반환합니다. 샘플이 있으면 실행 상태는 `partial`이며, 상세 항목은 `pipeline-runs.jsonl`의 step 결과에 남습니다.
 
 ### 4.2 상태 동기화: `bill-status-sync`
 

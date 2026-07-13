@@ -125,8 +125,9 @@ class PipelineRuntime:
         run_id = self.recorder.start(command, params)
         try:
             steps = executor(run_id)
-            result = {"run_id": run_id, "command": command, "status": "success", "steps": steps}
-            self.recorder.finish(run_id, "success", result)
+            status = self._status_from_steps(steps)
+            result = {"run_id": run_id, "command": command, "status": status, "steps": steps}
+            self.recorder.finish(run_id, status, result)
             return result
         except Exception as exc:
             result = {
@@ -139,6 +140,17 @@ class PipelineRuntime:
             self.recorder.finish(run_id, "failed", result)
             raise
 
+    @staticmethod
+    def _status_from_steps(steps: List[Dict[str, Any]]) -> str:
+        statuses = {str(step.get("status") or "success") for step in steps}
+        if "failed" in statuses:
+            return "failed"
+        if "partial" in statuses:
+            return "partial"
+        if "empty" in statuses or "skipped" in statuses:
+            return "empty"
+        return "success"
+
     def _record_step(
         self,
         run_id: str,
@@ -146,9 +158,10 @@ class PipelineRuntime:
         step: str,
         result: Dict[str, Any],
     ) -> Dict[str, Any]:
-        entry = {"step": step, "result": result}
+        status = str(result.get("status") or "success")
+        entry = {"step": step, "status": status, "result": result}
         steps.append(entry)
-        self.recorder.step(run_id, step, "success", result)
+        self.recorder.step(run_id, step, status, result)
         return result
 
     def run_bill_ingest(
@@ -172,7 +185,12 @@ class PipelineRuntime:
             )
             fetched_artifact = fetched.get("artifact_path")
             if not fetched_artifact:
-                self._record_step(run_id, steps, "skip", {"reason": "fetch_bills produced no artifact"})
+                self._record_step(
+                    run_id,
+                    steps,
+                    "skip",
+                    {"status": "empty", "reason": "fetch_bills produced no artifact"},
+                )
                 return steps
 
             processed = self._record_step(
@@ -183,13 +201,39 @@ class PipelineRuntime:
             )
             processed_artifact = processed.get("artifact_path")
             if not processed_artifact:
-                self._record_step(run_id, steps, "skip", {"reason": "process_bills produced no artifact"})
+                self._record_step(
+                    run_id,
+                    steps,
+                    "skip",
+                    {"status": "empty", "reason": "process_bills produced no artifact"},
+                )
                 return steps
 
             self._record_step(run_id, steps, "upsert_bills", manager.upsert_bills_data_step(processed_artifact))
             return steps
 
         return self._run("bill.ingest", params, execute)
+
+    def run_bill_ingest_verify(
+        self,
+        *,
+        mode: str = "dry_run",
+        limit: int = 100,
+    ) -> Dict[str, Any]:
+        params = {"mode": mode, "limit": limit}
+
+        def execute(run_id: str) -> List[Dict[str, Any]]:
+            manager = _build_workflow_manager(mode)
+            steps: List[Dict[str, Any]] = []
+            self._record_step(
+                run_id,
+                steps,
+                "verify_bill_proposer_integrity",
+                manager.verify_bill_proposer_integrity(limit=limit),
+            )
+            return steps
+
+        return self._run("bill.ingest_verify", params, execute)
 
     def run_bill_status_sync(
         self,
@@ -219,7 +263,12 @@ class PipelineRuntime:
                 if artifact_path:
                     self._record_step(run_id, steps, upsert_name, getattr(manager, upsert_name)(artifact_path))
                 else:
-                    self._record_step(run_id, steps, f"skip_{upsert_name}", {"reason": "no artifact"})
+                    self._record_step(
+                        run_id,
+                        steps,
+                        f"skip_{upsert_name}",
+                        {"status": "empty", "reason": "no artifact"},
+                    )
             return steps
 
         return self._run("bill.status_sync", params, execute)
