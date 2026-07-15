@@ -1,5 +1,9 @@
 # Airflow 3.x SimpleAuthManager 인증 설정 가이드
 
+> **폐기된 문서:** Airflow는 LawDigest의 빌드·배포·운영 대상이 아닙니다.
+> 이 문서는 과거 구성 확인을 위한 참고 자료이며 아래 명령을 운영 환경에서
+> 실행하지 않습니다. 현재 정책은 [DEPRECATED.md](./DEPRECATED.md)를 따릅니다.
+
 Airflow 3.x에서 도입된 `SimpleAuthManager`는 데이터베이스 대신 설정 파일과 로컬 JSON 파일을 사용하여 사용자를 관리하는 가벼운 인증 방식입니다. 개발 및 테스트 환경에서 사용하기 적합합니다.
 
 ## 1. 환경 변수 설정

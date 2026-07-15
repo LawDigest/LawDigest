@@ -8,6 +8,11 @@
 - 운영 API 백엔드
 - 서버 로컬 셸에서 실행하는 배포 스크립트
 
+Airflow는 적용 범위에 포함되지 않는다. `infra/airflow/`는 과거 구성을 확인하기
+위한 legacy reference이며 빌드·배포·운영 서버 기동 대상으로 사용하지 않는다.
+데이터 파이프라인은 `services/data/src/lawdigest_data/runtime/`의 자체 런타임을
+사용한다.
+
 개별 절차는 아래 문서를 함께 참고한다.
 
 - [Web Deploy Environments](./WEB_DEPLOY_ENVIRONMENTS.md)
@@ -41,6 +46,7 @@
 
 - 운영 웹과 백엔드는 `main` push를 기준으로 GitHub Actions에서 배포한다.
 - GitHub Actions는 변경된 서비스만 검증하고 정확한 `main` 커밋을 서버 worktree로 배포한다.
+- Airflow는 자동·수동 배포 대상이 아니며 Airflow 배포 스크립트를 두지 않는다.
 - 서버 로컬 배포 스크립트는 GitHub Actions의 실행 본체이자 장애 시 수동 복구 경로로 유지한다.
 - 배포 스크립트는 서버의 `.env` 파일을 기준으로 동작한다.
 - 프론트는 `services/web/.env`
