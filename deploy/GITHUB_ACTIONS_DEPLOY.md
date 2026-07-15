@@ -6,9 +6,10 @@ LawDigest 운영 웹과 백엔드는 PR이 `main`에 머지되어 새 커밋이 
 ## 워크플로
 
 - 파일: [`.github/workflows/deploy-production.yml`](../.github/workflows/deploy-production.yml)
-- 이벤트: `main` 브랜치 `push`
+- 검증 이벤트: `main` 대상 Pull Request
+- 배포 이벤트: `main` 브랜치 `push`
 - 환경: GitHub `production` environment
-- 동시성 그룹: `production-deployment`
+- 동시성 그룹: 이벤트와 PR 번호 또는 ref 기준 분리
 - 권한: `contents: read`
 
 문서나 데이터 파이프라인만 변경된 경우 운영 웹과 백엔드는 배포하지 않는다.
@@ -25,12 +26,16 @@ LawDigest 운영 웹과 백엔드는 PR이 `main`에 머지되어 새 커밋이 
 1. 직전 `main` SHA와 새 `main` SHA 사이의 변경 파일을 확인한다.
 2. 변경된 웹은 Node.js `22.17.1`에서 `npm ci`, lint, test, build를 실행한다.
 3. 변경된 백엔드는 Java 17에서 Gradle test와 `bootJar`를 실행한다.
-4. 대상 검증이 모두 성공하면 production 환경의 SSH 설정으로 Oracle 서버에 접속한다.
-5. [`deploy-github-main.sh`](./deploy-github-main.sh)를 SSH로 전달해 원격 임시 파일로 저장한 뒤 실행한다.
-6. 서버는 배포 SHA가 `origin/main`에 포함되는지 검증한다.
-7. `.worktrees/github-actions-<sha>` 전용 worktree를 만들고 변경된 서비스만 배포한다.
-8. 배포가 끝나면 worktree를 제거한다.
-9. 운영 웹 핵심 경로와 공개 API를 외부에서 스모크 테스트한다.
+4. 대상 검증 결과를 `Validate production changes` gate로 통합한다.
+5. `main` push이고 gate가 성공하면 production 환경의 SSH 설정으로 Oracle 서버에 접속한다.
+6. [`deploy-github-main.sh`](./deploy-github-main.sh)를 SSH로 전달해 원격 임시 파일로 저장한 뒤 실행한다.
+7. 서버는 배포 SHA가 `origin/main`에 포함되는지 검증한다.
+8. `.worktrees/github-actions-<sha>` 전용 worktree를 만들고 변경된 서비스만 배포한다.
+9. 배포가 끝나면 worktree를 제거한다.
+10. 운영 웹 핵심 경로와 공개 API를 외부에서 스모크 테스트한다.
+
+Pull Request에서는 검증 gate까지만 실행하고 운영 배포 job은 실행하지 않는다. `main`
+브랜치 보호 규칙은 `Validate production changes`를 필수 상태 검사로 사용한다.
 
 백엔드와 웹이 동시에 변경되면 백엔드를 먼저 배포한다. 백엔드 배포는 staging
 컨테이너 헬스체크와 실패 시 복구를 사용한다. 웹 배포는 새 release의 로컬

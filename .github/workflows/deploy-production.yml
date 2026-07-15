@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 concurrency:
-  group: production-deployment
-  cancel-in-progress: false
+  group: production-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   changes:
@@ -30,7 +33,7 @@ jobs:
       - name: Detect changed services
         id: detect
         env:
-          BEFORE_SHA: ${{ github.event.before }}
+          BEFORE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           AFTER_SHA: ${{ github.sha }}
         shell: bash
         run: |
@@ -130,19 +133,49 @@ jobs:
       - name: Test and build
         run: ./gradlew test bootJar --no-daemon
 
-  deploy:
-    name: Deploy changed services
+  validation:
+    name: Validate production changes
     needs:
       - changes
       - verify_web
       - verify_backend
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Confirm required verification jobs
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          WEB_RESULT: ${{ needs.verify_web.result }}
+          BACKEND_RESULT: ${{ needs.verify_backend.result }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "$CHANGES_RESULT" != "success" ]; then
+            echo "Changed-service detection failed: $CHANGES_RESULT"
+            exit 1
+          fi
+
+          for result in "$WEB_RESULT" "$BACKEND_RESULT"; do
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              echo "Service verification failed: $result"
+              exit 1
+            fi
+          done
+
+  deploy:
+    name: Deploy changed services
+    needs:
+      - changes
+      - validation
     if: >-
       ${{
-        always() &&
+        github.event_name == 'push' &&
         needs.changes.result == 'success' &&
+        needs.validation.result == 'success' &&
         (needs.changes.outputs.web == 'true' || needs.changes.outputs.backend == 'true') &&
-        (needs.verify_web.result == 'success' || needs.verify_web.result == 'skipped') &&
-        (needs.verify_backend.result == 'success' || needs.verify_backend.result == 'skipped')
+        !cancelled()
       }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
