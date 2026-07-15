@@ -2,7 +2,7 @@
 
 import { CSSProperties } from 'react';
 import Link from 'next/link';
-import { Avatar } from '@nextui-org/avatar';
+import { Avatar } from '@heroui/avatar';
 import { getPartyColor } from '@/constants/party';
 import { getImageSrc } from '@/utils';
 import { useGetCongressmanRanking } from '../apis';

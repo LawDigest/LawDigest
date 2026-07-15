@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { Card, CardBody, Chip, Pagination, Button, useDisclosure } from '@nextui-org/react';
+import { Card, CardBody, Chip, Pagination, Button, useDisclosure } from '@heroui/react';
 import { useState, useEffect } from 'react';
 import { IconNext, IconPrev, IconEnter } from '@/public/svgs';
 import TimelineModal from './TimelineModal';

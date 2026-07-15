@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Navbar, NavbarContent, NavbarItem, NavbarBrand } from '@nextui-org/navbar';
+import { Navbar, NavbarContent, NavbarItem, NavbarBrand } from '@heroui/navbar';
 import { useCallback, useState } from 'react';
 import { siteConfig } from '@/config/site';
 import { IconNavBorder } from '@/public/svgs';

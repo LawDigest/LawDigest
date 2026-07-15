@@ -1,6 +1,6 @@
 import { BillResponse } from '@/types';
 import { RefObject } from 'react';
-import { Spinner } from '@nextui-org/spinner';
+import { Spinner } from '@heroui/spinner';
 import { Bill } from '@/components';
 
 export default function BillFollowedList({

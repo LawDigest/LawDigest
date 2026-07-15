@@ -3,7 +3,7 @@
 import { useTheme } from 'next-themes';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Badge, Card, CardHeader, CardBody } from '@nextui-org/react';
+import { Badge, Card, CardHeader, CardBody } from '@heroui/react';
 import {
   getChairmanProposerInfo,
   getGovernmentAdministrationName,

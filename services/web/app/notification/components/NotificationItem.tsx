@@ -4,7 +4,7 @@ import { useTheme } from 'next-themes';
 import Link from 'next/link';
 import getTimeRemaining from '@/utils/getTimeRemaining';
 import type { Notification } from '@/types';
-import { Avatar, AvatarGroup, Button, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from '@nextui-org/react';
+import { Avatar, AvatarGroup, Button, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from '@heroui/react';
 import { IconAlert, IconKebab } from '@/public/svgs';
 
 export default function NotificationItem({
@@ -26,7 +26,6 @@ export default function NotificationItem({
   const isDark = theme === 'dark';
   const isRepresentativeSolo = notification_image_url_list.length === 1;
   const imageUrlList = notification_image_url_list.map((str) => str.split(':'));
-  // eslint-disable-next-line no-constant-condition
   const linkUrl = `${type === 'congressman_party_update' ? 'congressman' : 'bill'}/${target}`;
 
   return (
@@ -44,10 +43,8 @@ export default function NotificationItem({
             className="w-[50px] h-[50px]"
             classNames={{
               base: [
-                // eslint-disable-next-line no-constant-condition
                 `${type === 'bill_stage_update' || type === 'bill_result_update' ? 'bg-white dark:bg-dark-pb p-1' : ''} border ${imageUrlList[0][0]}`,
               ],
-              // eslint-disable-next-line no-constant-condition
               img: [`${type === 'bill_stage_update' || type === 'bill_result_update' ? 'object-contain' : ''}`],
             }}
           />

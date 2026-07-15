@@ -115,7 +115,7 @@ function Nav() {
       if (isDraggingRef.current) e.preventDefault();
     };
     node.addEventListener('touchmove', onTouchMove, { passive: false });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // 스크롤 감지 (compact 전환) — 검색/드래그 중 차단
   useEffect(() => {

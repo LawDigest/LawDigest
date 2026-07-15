@@ -7,7 +7,7 @@ import { useIntersect } from '@/hooks';
 import { ACCESS_TOKEN } from '@/constants';
 import { useGetFollowingBill } from '@/app/following/apis';
 import { Bill } from '@/components/Bill';
-import { Spinner } from '@nextui-org/spinner';
+import { Spinner } from '@heroui/spinner';
 
 export default function FollowingFeed() {
   const router = useRouter();

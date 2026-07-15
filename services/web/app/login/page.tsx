@@ -1,7 +1,7 @@
 'use client';
 
 import { Logo } from '@/components';
-import { Button } from '@nextui-org/react';
+import { Button } from '@heroui/react';
 import Image from 'next/image';
 
 const buildOAuthHref = (provider: 'kakao' | 'google' | 'naver', callbackPath: string) => {

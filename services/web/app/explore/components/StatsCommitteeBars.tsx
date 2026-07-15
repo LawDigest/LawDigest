@@ -83,7 +83,7 @@ export default function StatsCommitteeBars() {
             <LabelList
               dataKey="count"
               position="right"
-              formatter={(value: number) => value.toLocaleString()}
+              formatter={(value) => Number(value).toLocaleString()}
               className="fill-gray-3 dark:fill-gray-1"
               fontSize={11}
             />

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Spinner } from '@nextui-org/spinner';
+import { Spinner } from '@heroui/spinner';
 import { Bill } from '@/components';
 import { useIntersect } from '@/hooks';
 import { BillProps } from '@/types';

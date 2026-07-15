@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardHeader, CardBody, Divider } from '@nextui-org/react';
+import { Card, CardHeader, CardBody, Divider } from '@heroui/react';
 import HalfDonutChart from '@/components/common/Chart/HalfDonutChart';
 import VoteResultBoard from './VoteResultBoard';
 

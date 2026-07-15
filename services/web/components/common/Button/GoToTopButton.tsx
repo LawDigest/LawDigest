@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useEffect } from 'react';
 import { IconArrowUp } from '@/public/svgs';
-import { Button } from '@nextui-org/react';
+import { Button } from '@heroui/react';
 
 export default function GoToTopButton() {
   const [isVisible, setIsVisible] = useState(false);

@@ -1,8 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Button } from '@nextui-org/button';
-import { Link as NextUILink } from '@nextui-org/link';
-import { Card } from '@nextui-org/card';
-import { Divider } from '@nextui-org/react';
+import { Button } from '@heroui/button';
+import { Link as NextUILink } from '@heroui/link';
+import { Card } from '@heroui/card';
+import { Divider } from '@heroui/react';
 import { IconWeb } from '@/public/svgs';
 import {
   PARTY_NAME_KO,

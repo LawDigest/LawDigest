@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useIntersect } from '@/hooks';
-import { Spinner } from '@nextui-org/spinner';
+import { Spinner } from '@heroui/spinner';
 import { convertDateFormat } from '@/utils';
-import { Divider } from '@nextui-org/react';
+import { Divider } from '@heroui/react';
 import { TimelineResponseList } from '@/types';
 import PlenaryList from './PlenaryList';
 import PromulgationList from './PromulgationList';

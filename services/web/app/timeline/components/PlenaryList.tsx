@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { Card, CardBody, Chip, Button, useDisclosure, Pagination } from '@nextui-org/react';
+import { Card, CardBody, Chip, Button, useDisclosure, Pagination } from '@heroui/react';
 import { ProcessResult } from '@/app/bill/[id]/components';
 import { useState, useEffect } from 'react';
 import { IconEnter, IconNext, IconPrev } from '@/public/svgs';

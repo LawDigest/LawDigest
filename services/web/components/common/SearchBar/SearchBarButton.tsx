@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useSetAtom } from 'jotai';
-import { Input, Button } from '@nextui-org/react';
+import { Input, Button } from '@heroui/react';
 import { searchModalState } from '@/store';
 import { IconSearchbar } from '@/public/svgs';
 
@@ -14,7 +14,7 @@ export default function SearchBarButton() {
   }, []);
 
   return (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events
     <form
       onClick={onClickSearchBar}
       className="w-full px-5 rounded-2xl flex justify-center items-center gap-[10px] md:w-[600px] mx-auto my-5">

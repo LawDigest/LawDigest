@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { Cell, Label, Pie, PieChart, Sector } from 'recharts';
-import type { PieSectorDataItem } from 'recharts/types/polar/Pie';
+import type { PieSectorShapeProps } from 'recharts';
 import { getCategoryMeta } from '@/config/categories';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { useGetStatisticsByCategory } from '../apis';
@@ -70,9 +70,8 @@ export default function StatsCategoryDonut() {
               outerRadius={72}
               paddingAngle={2}
               strokeWidth={0}
-              activeIndex={activeIndex ?? undefined}
-              activeShape={({ outerRadius = 0, ...props }: PieSectorDataItem) => (
-                <Sector {...props} outerRadius={outerRadius + 6} />
+              shape={({ outerRadius, isActive, index, ...props }: PieSectorShapeProps) => (
+                <Sector {...props} outerRadius={outerRadius + (isActive || index === activeIndex ? 6 : 0)} />
               )}
               onMouseEnter={(_, index) => setActiveIndex(index)}
               onMouseLeave={() => setActiveIndex(null)}>

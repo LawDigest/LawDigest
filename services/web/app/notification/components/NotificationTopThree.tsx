@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback } from 'react';
-import { Button, Divider } from '@nextui-org/react';
+import { Button, Divider } from '@heroui/react';
 import { getCookie } from 'cookies-next';
 import { useSetAtom } from 'jotai';
 import { ACCESS_TOKEN } from '@/constants';

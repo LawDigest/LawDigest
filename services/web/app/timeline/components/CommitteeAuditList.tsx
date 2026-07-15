@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { Card, CardBody, CardHeader, Pagination, Button, useDisclosure } from '@nextui-org/react';
+import { Card, CardBody, CardHeader, Pagination, Button, useDisclosure } from '@heroui/react';
 import { IconEnter, IconNext, IconPrev } from '@/public/svgs';
 import TimelineModal from './TimelineModal';
 

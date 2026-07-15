@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { Layout } from '@/components';
 import Image from 'next/image';
-import { Button } from '@nextui-org/react';
+import { Button } from '@heroui/react';
 
 export default function NotFound() {
   const router = useRouter();

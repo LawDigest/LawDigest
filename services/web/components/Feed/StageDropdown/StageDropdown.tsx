@@ -1,6 +1,6 @@
 'use client';
 
-import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Button, Selection } from '@nextui-org/react';
+import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Button, Selection } from '@heroui/react';
 import { IconControl } from '@/public/svgs';
 import { siteConfig } from '@/config/site';
 import { STAGE_TAB, STAGE_TAB_KO } from '@/constants';

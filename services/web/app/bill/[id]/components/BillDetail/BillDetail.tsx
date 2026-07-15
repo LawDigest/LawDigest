@@ -1,5 +1,5 @@
 import { Bill } from '@/components';
-import { Divider } from '@nextui-org/react';
+import { Divider } from '@heroui/react';
 import { BillResponse } from '@/types';
 import { getChairmanProposerInfo, isGovernmentBill } from '@/utils';
 import { SectionContainer } from '../SectionContainer';

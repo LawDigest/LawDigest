@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useGetPartyCongressman } from '@/app/party/[id]/apis';
-import { Spinner, Button, Divider } from '@nextui-org/react';
+import { Spinner, Button, Divider } from '@heroui/react';
 import { IconArrowDown, IconArrowUp } from '@/public/svgs';
 import PartyCongressmanItem from './PartyCongressmanItem';
 

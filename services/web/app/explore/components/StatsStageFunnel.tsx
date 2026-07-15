@@ -76,7 +76,7 @@ export default function StatsStageFunnel() {
             <LabelList
               dataKey="pct"
               position="right"
-              formatter={(value: number) => `${value}%`}
+              formatter={(value) => `${Number(value)}%`}
               className="fill-gray-3 dark:fill-gray-1"
               fontSize={11}
               fontWeight={600}

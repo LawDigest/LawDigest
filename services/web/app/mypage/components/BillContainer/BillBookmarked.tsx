@@ -15,7 +15,7 @@ import {
   PopoverContent,
   Tooltip,
   Button,
-} from '@nextui-org/react';
+} from '@heroui/react';
 import Link from 'next/link';
 import { PartyLogoReplacement } from '@/components';
 import { ProposerList } from '@/app/bill/[id]/components';

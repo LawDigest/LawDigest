@@ -1,6 +1,6 @@
 import { BillResponse, ValueOf } from '@/types';
 import { RefObject } from 'react';
-import { Spinner } from '@nextui-org/spinner';
+import { Spinner } from '@heroui/spinner';
 import { FEED_TAB } from '@/constants';
 import Bill from './Bill';
 import { filterUniqueBills } from './filterUniqueBills';

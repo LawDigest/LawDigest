@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { IconNotification } from '@/public/svgs';
-import { Badge } from '@nextui-org/badge';
+import { Badge } from '@heroui/badge';
 import { useGetNotificationCount } from '@/app/notification/apis';
 import { getCookie } from 'cookies-next';
 import { ACCESS_TOKEN } from '@/constants';
@@ -15,7 +15,6 @@ export default function NotificationButton() {
 
   if (!accessToken) {
     return (
-      // eslint-disable-next-line jsx-a11y/anchor-is-valid
       <Link
         href="#"
         onClick={() =>
