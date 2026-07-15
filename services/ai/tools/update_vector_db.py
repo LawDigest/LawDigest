@@ -18,9 +18,9 @@ src_path = os.path.join(project_root, 'src')
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from lawdigest_ai import config as project_config
-from lawdigest_ai.rag.embedding import EmbeddingGenerator
-from lawdigest_ai.rag.vector_store import VectorStore
+from lawdigest_ai import config as project_config  # noqa: E402
+from lawdigest_ai.rag.embedding import EmbeddingGenerator  # noqa: E402
+from lawdigest_ai.rag.vector_store import VectorStore  # noqa: E402
 
 # ===========================================================================
 # 설정 영역: 여기서 임베딩 및 메타데이터에 사용할 필드를 관리합니다.
@@ -30,11 +30,11 @@ EMBEDDING_FIELDS = [
     {"name": "소관 위원회", "key": "committee"},
     {"name": "제안일", "key": "propose_date"},
     {"name": "AI 요약", "key": "gpt_summary"},
-    {"name": "한 줄 요약", "key": "brief_summary"},
+    {"name": "한 줄 요약", "key": "title"},
     {"name": "전체 요약", "key": "summary"},
 ]
 METADATA_FIELDS = [
-    "bill_id", "bill_name", "committee", "summary", "brief_summary",
+    "bill_id", "bill_name", "committee", "summary", "title",
     "gpt_summary", "propose_date", "assembly_number", "stage",
     "bill_result", "proposers"
 ]

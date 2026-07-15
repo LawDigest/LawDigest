@@ -83,14 +83,14 @@ class WorkFlowManager:
         return compact[: max_length - 3].rstrip() + "..."
 
     @classmethod
-    def _derive_brief_summary(
+    def _derive_title(
         cls,
         summary: Optional[str],
         bill_name: Optional[str],
-        existing_brief_summary: Optional[str],
+        existing_title: Optional[str],
     ) -> Optional[str]:
-        if existing_brief_summary:
-            return existing_brief_summary
+        if existing_title:
+            return existing_title
 
         ignored_lines = {"제안이유", "주요내용", "제안이유 및 주요내용"}
         if summary:
@@ -179,10 +179,10 @@ class WorkFlowManager:
                 or self._coerce_optional_text(row.get("pdfLinkUrl"))
                 or self._coerce_optional_text(row.get("PDF_LINK_URL"))
             )
-            brief_summary = self._derive_brief_summary(
+            title = self._derive_title(
                 summary=summary,
                 bill_name=bill_name,
-                existing_brief_summary=self._coerce_optional_text(row.get("brief_summary")),
+                existing_title=self._coerce_optional_text(row.get("title")),
             )
 
             rows.append(
@@ -197,7 +197,7 @@ class WorkFlowManager:
                     "stage": stage,
                     "proposers": self._coerce_optional_text(row.get("proposers")),
                     "bill_pdf_url": explicit_bill_pdf_url,
-                    "brief_summary": brief_summary,
+                    "title": title,
                     "summary_tags": row.get("summary_tags"),
                     "bill_number": self._safe_to_int(row.get("billNumber")),
                     "bill_link": self._coerce_optional_text(row.get("bill_link")),

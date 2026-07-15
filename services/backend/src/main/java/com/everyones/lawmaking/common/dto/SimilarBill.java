@@ -16,7 +16,7 @@ public class SimilarBill {
     @NotNull
     private String billId;
     @NotNull
-    private String billBriefSummary;
+    private String billTitle;
     @NotNull
     private String billName;
     @NotNull
@@ -34,7 +34,7 @@ public class SimilarBill {
 
         return SimilarBill.builder()
                 .billId(bill.getId())
-                .billBriefSummary(bill.getBriefSummary())
+                .billTitle(bill.getTitle())
                 .billName(bill.getBillName())
                 .billProposers(bill.getProposers())
                 .billStage(bill.getStage())

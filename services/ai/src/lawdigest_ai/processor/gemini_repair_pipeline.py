@@ -44,13 +44,13 @@ def _fetch_missing_bills(mode: str, limit: int, read_mode: str | None = None) ->
         summary,
         proposers,
         proposer_kind,
-        brief_summary,
+        title,
         gpt_summary,
         propose_date,
         stage
     FROM Bill
     WHERE
-        (gpt_summary IS NULL OR gpt_summary = '' OR brief_summary IS NULL OR brief_summary = '')
+        (gpt_summary IS NULL OR gpt_summary = '' OR title IS NULL OR title = '')
         AND summary IS NOT NULL
         AND summary != ''
     ORDER BY propose_date DESC
@@ -74,7 +74,7 @@ def _fetch_latest_bills(mode: str, limit: int, read_mode: str | None = None) -> 
         summary,
         proposers,
         proposer_kind,
-        brief_summary,
+        title,
         gpt_summary,
         propose_date,
         stage
@@ -100,7 +100,7 @@ def _normalize_item(
     failure_map: Dict[str, str],
     usage_map: Dict[str, dict[str, int]],
 ) -> Dict[str, Any]:
-    ai_title = row.get("brief_summary")
+    ai_title = row.get("title")
     ai_summary = row.get("gpt_summary")
     bill_id = row.get("bill_id")
     error = failure_map.get(str(bill_id))
@@ -141,7 +141,7 @@ def _upsert_successful_item(item: Dict[str, Any], mode: str) -> bool:
         return False
     update_bill_summary(
         bill_id=str(item["bill_id"]),
-        brief_summary=item.get("ai_title"),
+        title=item.get("ai_title"),
         gpt_summary=item.get("ai_summary"),
         summary_tags=item.get("summary_tags"),
         mode=_db_mode_for_execution(mode),
@@ -194,7 +194,7 @@ def run_gemini_repair_pipeline(
 
         if target_mode == "latest" and targets:
             for target in targets:
-                target["brief_summary"] = None
+                target["title"] = None
                 target["gpt_summary"] = None
 
         summarizer = build_cli_summarizer(cli_provider)

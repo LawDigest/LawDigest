@@ -9,14 +9,14 @@ import org.junit.jupiter.api.Test;
 
 class BillTest {
     @Test
-    void createsReadyBillOnlyWhenBriefAndGptSummaryExist() {
+    void createsReadyBillOnlyWhenTitleAndGptSummaryExist() {
         var bill = Bill.of(billRequest("bill-1", "짧은 요약", "상세 요약"));
 
         assertThat(bill.getIngestStatus()).isEqualTo(IngestStatusType.READY);
     }
 
     @Test
-    void createsPartialBillWhenBriefSummaryIsMissing() {
+    void createsPartialBillWhenTitleIsMissing() {
         var bill = Bill.of(billRequest("bill-1", null, "상세 요약"));
 
         assertThat(bill.getIngestStatus()).isEqualTo(IngestStatusType.PARTIAL);
@@ -38,7 +38,7 @@ class BillTest {
         assertThat(bill.getIngestStatus()).isEqualTo(IngestStatusType.PARTIAL);
     }
 
-    private BillDfRequest billRequest(String billId, String briefSummary, String gptSummary) {
+    private BillDfRequest billRequest(String billId, String title, String gptSummary) {
         return new BillDfRequest(
                 billId,
                 Math.abs(billId.hashCode()),
@@ -48,7 +48,7 @@ class BillTest {
                 22,
                 "원문 요약",
                 gptSummary,
-                briefSummary,
+                title,
                 LocalDate.of(2026, 6, 1),
                 "테스트 발의자",
                 List.of(),

@@ -99,7 +99,8 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
-    - /home/ubuntu/project/Lawdigest:/opt/airflow/project
+    - ${LAWDIGEST_PROJECT_DIR:-/home/ubuntu/project/Lawdigest}:/opt/airflow/project
+    - ${LAWDIGEST_DATA_ENV_FILE:-/home/ubuntu/project/Lawdigest/services/data/.env}:/opt/airflow/project/services/data/.env:ro
     - /home/ubuntu/.nvm:/opt/host-home/.nvm:ro
     - /home/ubuntu/.gemini:/opt/host-home/.gemini:ro
     - /home/ubuntu/.codex:/opt/host-home/.codex:ro

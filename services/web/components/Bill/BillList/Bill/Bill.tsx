@@ -49,7 +49,7 @@ export default function Bill({
   bill_info_dto: {
     bill_id,
     bill_name,
-    brief_summary,
+    title,
     propose_date,
     summary,
     gpt_summary,
@@ -295,7 +295,7 @@ export default function Bill({
             </div>
           )}
 
-          <h2 className={`${detail ? 'text-[26px]' : 'text-xl'} font-semibold`}>{brief_summary}</h2>
+          <h2 className={`${detail ? 'text-[26px]' : 'text-xl'} font-semibold`}>{title}</h2>
 
           <h3 className="text-sm text-gray-2 dark:text-gray-3">{bill_name}</h3>
 

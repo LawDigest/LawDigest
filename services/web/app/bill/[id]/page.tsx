@@ -17,7 +17,7 @@ export const generateMetadata = async ({ params }: BillDetailPageProps): Promise
   const { data } = await useGetBillDetail(id, queryClient);
 
   return getMetadata({
-    title: data.bill_info_dto.brief_summary,
+    title: data.bill_info_dto.title,
     description: `${data.bill_info_dto.propose_date} 발의, 현재 ${data.bill_info_dto.bill_stage} 단계, '${data.bill_info_dto.bill_name}' 관련 발의안`,
     asPath: `/bill/${id}`,
   });

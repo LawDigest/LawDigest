@@ -69,14 +69,14 @@ def repair_missing_summaries(
         return
 
     # 결측치 타입 분류
-    df['needs_brief'] = df['brief_summary'].isnull() | (df['brief_summary'] == '')
+    df['needs_title'] = df['title'].isnull() | (df['title'] == '')
     df['needs_gpt'] = df['gpt_summary'].isnull() | (df['gpt_summary'] == '')
 
-    brief_count = df['needs_brief'].sum()
+    title_count = df['needs_title'].sum()
     gpt_count = df['needs_gpt'].sum()
 
     print("\n   복구 대상:")
-    print(f"   - brief_summary: {brief_count}건")
+    print(f"   - title: {title_count}건")
     print(f"   - gpt_summary: {gpt_count}건")
 
     # 배치 처리 계획
@@ -111,8 +111,8 @@ def repair_missing_summaries(
 
     # 복구 통계
     stats = {
-        'brief_success': 0,
-        'brief_failed': 0,
+        'title_success': 0,
+        'title_failed': 0,
         'gpt_success': 0,
         'gpt_failed': 0,
         'total_processed': 0
@@ -132,29 +132,29 @@ def repair_missing_summaries(
 
             print(f"\n📦 배치 {batch_idx + 1}/{total_batches} 처리 중 ({start_idx + 1}~{end_idx}번째)")
 
-            # briefSummary 복구
-            brief_to_repair = batch_df[batch_df['needs_brief']].copy()
-            if len(brief_to_repair) > 0:
-                print(f"   - brief_summary {len(brief_to_repair)}건 처리 중...")
-                brief_result_df = summarizer.AI_title_summarize(brief_to_repair)
+            # title 복구
+            title_to_repair = batch_df[batch_df['needs_title']].copy()
+            if len(title_to_repair) > 0:
+                print(f"   - title {len(title_to_repair)}건 처리 중...")
+                title_result_df = summarizer.AI_title_summarize(title_to_repair)
 
                 # 성공한 건수 계산
-                brief_success = brief_result_df['brief_summary'].notna().sum()
-                stats['brief_success'] += brief_success
-                stats['brief_failed'] += len(brief_to_repair) - brief_success
+                title_success = title_result_df['title'].notna().sum()
+                stats['title_success'] += title_success
+                stats['title_failed'] += len(title_to_repair) - title_success
 
-                print(f"     ✅ 성공: {brief_success}건, ❌ 실패: {len(brief_to_repair) - brief_success}건")
+                print(f"     ✅ 성공: {title_success}건, ❌ 실패: {len(title_to_repair) - title_success}건")
 
                 # DB 업데이트
                 if not dry_run:
-                    for _, row in brief_result_df.iterrows():
-                        if pd.notna(row['brief_summary']) and row['brief_summary'] != '':
+                    for _, row in title_result_df.iterrows():
+                        if pd.notna(row['title']) and row['title'] != '':
                             update_query = """
                             UPDATE Bill
-                            SET brief_summary = %s
+                            SET title = %s
                             WHERE bill_id = %s
                             """
-                            db_manager.execute_query(update_query, (row['brief_summary'], row['bill_id']))
+                            db_manager.execute_query(update_query, (row['title'], row['bill_id']))
 
             # gpt_summary 복구
             gpt_to_repair = batch_df[batch_df['needs_gpt']].copy()
@@ -196,9 +196,9 @@ def repair_missing_summaries(
         print("\n[5/5] 복구 결과 리포트")
         print("=" * 80)
         print(f"📊 총 처리: {stats['total_processed']}건")
-        print("\n   brief_summary:")
-        print(f"   - ✅ 성공: {stats['brief_success']}건")
-        print(f"   - ❌ 실패: {stats['brief_failed']}건")
+        print("\n   title:")
+        print(f"   - ✅ 성공: {stats['title_success']}건")
+        print(f"   - ❌ 실패: {stats['title_failed']}건")
         print("\n   gpt_summary:")
         print(f"   - ✅ 성공: {stats['gpt_success']}건")
         print(f"   - ❌ 실패: {stats['gpt_failed']}건")
@@ -224,7 +224,7 @@ def repair_missing_summaries(
         if dry_run:
             print("✅ DRY-RUN 완료! 실제 DB는 업데이트되지 않았습니다.")
         else:
-            total_success = stats['brief_success'] + stats['gpt_success']
+            total_success = stats['title_success'] + stats['gpt_success']
             print(f"✅ 복구 완료! 총 {total_success}건의 AI Summary를 복구했습니다.")
         print("=" * 80)
 

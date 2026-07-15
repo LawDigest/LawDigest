@@ -9,13 +9,13 @@ import { PartyLogoReplacement } from '@/components';
 import { getPartyLogoSrc } from '@/utils';
 
 export default function BillBookmarked({
-  billBriefSummary,
+  billTitle,
   billId,
   billProposers,
   billStage,
   party,
 }: {
-  billBriefSummary: string;
+  billTitle: string;
   billId: string;
   billProposers: string;
   billStage: string;
@@ -35,7 +35,7 @@ export default function BillBookmarked({
     <Card className={`border-1.5 flex-row md:py-2 ${partyName}`} radius="md">
       <CardBody className="flex justify-between gap-2 ">
         <Link href={`/bill/${billId}`}>
-          <p className="text-sm font-bold lg:text-lg">{billBriefSummary}</p>
+          <p className="text-sm font-bold lg:text-lg">{billTitle}</p>
         </Link>
         <div className="flex items-center w-full gap-2 ">
           <Chip

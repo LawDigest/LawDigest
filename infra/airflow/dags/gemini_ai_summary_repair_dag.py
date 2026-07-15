@@ -110,7 +110,7 @@ with DAG(
     DB에서 AI 요약이 누락된 법안을 조회하고, 선택한 headless CLI 경로로 요약을 생성한 뒤 JSON 산출물을 남기고 필요 시 DB에 반영합니다.
 
     ### 🚀 주요 기능
-    1. **미요약 대상 자동 조회**: `Bill` 테이블에서 `brief_summary` 또는 `gpt_summary`가 비어 있는 법안을 최대 `limit`건 조회합니다.
+    1. **미요약 대상 자동 조회**: `Bill` 테이블에서 `title` 또는 `gpt_summary`가 비어 있는 법안을 최대 `limit`건 조회합니다.
     2. **CLI 요약 생성**: 조회된 법안을 `batch_size` 단위로 Gemini/Codex/Claude CLI 요약기에 전달합니다.
     3. **산출물 저장**: 성공/실패 여부와 생성된 `ai_title`, `ai_summary`, `summary_tags`를 JSON으로 저장합니다.
     4. **선택적 DB 반영**: `test` 또는 `prod` 모드에서는 성공 건을 DB에 업데이트합니다.

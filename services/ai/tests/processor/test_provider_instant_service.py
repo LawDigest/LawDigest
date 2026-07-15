@@ -16,7 +16,7 @@ def test_summarize_single_bill_routes_provider_with_default_model():
     provider = MagicMock()
     provider.summarize_bill.return_value = InstantProviderResult(
         bill_id="B001",
-        brief_summary="요약",
+        title="요약",
         gpt_summary="상세",
         summary_tags='["a","b","c","d","e"]',
         error=None,
@@ -37,7 +37,7 @@ def test_summarize_single_bill_routes_provider_with_default_model():
         model=GEMINI_INSTANT_MODEL,
     )
     assert result["bill_id"] == "B001"
-    assert result["brief_summary"] == "요약"
+    assert result["title"] == "요약"
 
 
 def test_summarize_single_bill_raises_when_provider_returns_error():
@@ -46,7 +46,7 @@ def test_summarize_single_bill_raises_when_provider_returns_error():
     provider = MagicMock()
     provider.summarize_bill.return_value = InstantProviderResult(
         bill_id="B001",
-        brief_summary=None,
+        title=None,
         gpt_summary=None,
         summary_tags=None,
         error="요약 실패",
@@ -72,14 +72,14 @@ def test_summarize_bills_routes_provider_with_openai_default_model():
     provider.summarize_bills.return_value = [
         InstantProviderResult(
             bill_id="B001",
-            brief_summary="요약1",
+            title="요약1",
             gpt_summary="상세1",
             summary_tags='["a","b","c","d","e"]',
             error=None,
         ),
         InstantProviderResult(
             bill_id="B002",
-            brief_summary=None,
+            title=None,
             gpt_summary=None,
             summary_tags=None,
             error="응답 파싱 실패",
@@ -98,7 +98,7 @@ def test_summarize_bills_routes_provider_with_openai_default_model():
         result = summarize_bills_with_provider(bills, provider="openai", model=None)
 
     provider.summarize_bills.assert_called_once_with(bills, model=SUMMARY_STRUCTURED_MODEL)
-    assert result[0]["brief_summary"] == "요약1"
+    assert result[0]["title"] == "요약1"
     assert result[1]["error"] == "응답 파싱 실패"
 
 
@@ -111,7 +111,7 @@ def test_gemini_instant_provider_uses_response_json_schema():
             generate_content=MagicMock(
                 return_value=SimpleNamespace(
                     text=BatchStructuredSummary(
-                        brief_summary="짧은 요약",
+                        title="짧은 요약",
                         gpt_summary="상세 요약",
                         tags=["태그1", "태그2", "태그3", "태그4", "태그5"],
                         category="경제·세금",

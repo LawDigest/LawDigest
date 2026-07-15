@@ -148,8 +148,8 @@ def test_openai_batch_provider_build_request_rows_matches_current_openai_shape()
     schema = json_schema["schema"]
     assert schema["type"] == "object"
     assert schema["additionalProperties"] is False
-    assert set(schema["required"]) == {"briefSummary", "gptSummary", "tags", "category"}
-    assert set(schema["properties"]) == {"briefSummary", "gptSummary", "tags", "category"}
+    assert set(schema["required"]) == {"title", "gptSummary", "tags", "category"}
+    assert set(schema["properties"]) == {"title", "gptSummary", "tags", "category"}
 
 
 def test_submit_batches_routes_to_requested_provider(tmp_path):
@@ -622,7 +622,7 @@ def test_provider_batch_apply_results_uses_provider_parse_output_lines():
     provider.parse_output_lines.return_value = [
         BatchProviderParseResult(
             bill_id="B001",
-            brief_summary="짧은 요약",
+            title="짧은 요약",
             gpt_summary="긴 요약",
             tags=["a", "b", "c", "d", "e"],
             error=None,
@@ -661,7 +661,7 @@ def test_provider_batch_apply_results_is_idempotent_for_already_processed_items(
     provider.parse_output_lines.return_value = [
         BatchProviderParseResult(
             bill_id="B001",
-            brief_summary="짧은 요약",
+            title="짧은 요약",
             gpt_summary="긴 요약",
             tags=["a", "b", "c", "d", "e"],
             error=None,
@@ -694,7 +694,7 @@ def test_provider_batch_apply_results_marks_missing_bill_row_as_failed():
     provider.parse_output_lines.return_value = [
         BatchProviderParseResult(
             bill_id="B001",
-            brief_summary="짧은 요약",
+            title="짧은 요약",
             gpt_summary="긴 요약",
             tags=["a", "b", "c", "d", "e"],
             error=None,

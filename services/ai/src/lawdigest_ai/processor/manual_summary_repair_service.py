@@ -34,13 +34,13 @@ def _fetch_missing_bills(mode: str, limit: int) -> List[Dict[str, Any]]:
         summary,
         proposers,
         proposer_kind,
-        brief_summary,
+        title,
         gpt_summary,
         propose_date,
         stage
     FROM Bill
     WHERE
-        (gpt_summary IS NULL OR gpt_summary = '' OR brief_summary IS NULL OR brief_summary = '')
+        (gpt_summary IS NULL OR gpt_summary = '' OR title IS NULL OR title = '')
         AND summary IS NOT NULL
         AND summary != ''
     ORDER BY propose_date DESC
@@ -57,13 +57,13 @@ def _fetch_missing_bills(mode: str, limit: int) -> List[Dict[str, Any]]:
 
 def _to_report_item(source: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any]:
     error = result.get("error")
-    if not error and (not result.get("brief_summary") or not result.get("gpt_summary")):
+    if not error and (not result.get("title") or not result.get("gpt_summary")):
         error = "요약 결과에 필수 필드가 비어 있습니다."
 
     return {
         "bill_id": source.get("bill_id"),
         "bill_name": source.get("bill_name"),
-        "brief_summary": result.get("brief_summary"),
+        "title": result.get("title"),
         "gpt_summary": result.get("gpt_summary"),
         "summary_tags": result.get("summary_tags"),
         "category": result.get("category"),
@@ -79,7 +79,7 @@ def _upsert_successful_items(items: List[Dict[str, Any]], mode: str) -> int:
             continue
         update_bill_summary(
             bill_id=str(item["bill_id"]),
-            brief_summary=item.get("brief_summary"),
+            title=item.get("title"),
             gpt_summary=item.get("gpt_summary"),
             summary_tags=item.get("summary_tags"),
             mode=_db_mode_for_execution(mode),

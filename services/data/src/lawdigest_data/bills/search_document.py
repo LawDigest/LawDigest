@@ -16,15 +16,15 @@ def build_bill_search_document(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
 
     bill_name = _coerce_text(row.get("bill_name"))
-    brief_summary = _coerce_text(row.get("brief_summary"))
+    title = _coerce_text(row.get("title"))
     gpt_summary = _coerce_text(row.get("gpt_summary"))
     raw_summary = _coerce_text(row.get("summary"))
     search_parts = [
         bill_name,
         bill_name,
         bill_name,
-        brief_summary,
-        brief_summary,
+        title,
+        title,
         gpt_summary,
         raw_summary,
     ]
@@ -32,7 +32,7 @@ def build_bill_search_document(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     return {
         "bill_id": bill_id,
         "bill_name_text": bill_name,
-        "brief_summary_text": brief_summary,
+        "title_text": title,
         "gpt_summary_text": gpt_summary,
         "raw_summary_text": raw_summary,
         "search_text": "\n".join(part for part in search_parts if part),

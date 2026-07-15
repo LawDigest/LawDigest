@@ -23,6 +23,7 @@ jobs:
     outputs:
       web: ${{ steps.detect.outputs.web }}
       backend: ${{ steps.detect.outputs.backend }}
+      coordinated_migration: ${{ steps.detect.outputs.coordinated_migration }}
     steps:
       - name: Check out main commit
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -44,6 +45,7 @@ jobs:
 
           deploy_web=false
           deploy_backend=false
+          coordinated_migration=false
 
           while IFS= read -r path; do
             case "$path" in
@@ -57,14 +59,21 @@ jobs:
                 deploy_web=true
                 deploy_backend=true
                 ;;
+              infra/db/migrations/20260715_rename_bill_brief_summary_to_title.sql)
+                coordinated_migration=true
+                ;;
             esac
           done < "$changed_files"
 
-          echo "web=$deploy_web" >> "$GITHUB_OUTPUT"
-          echo "backend=$deploy_backend" >> "$GITHUB_OUTPUT"
+          {
+            echo "web=$deploy_web"
+            echo "backend=$deploy_backend"
+            echo "coordinated_migration=$coordinated_migration"
+          } >> "$GITHUB_OUTPUT"
 
           echo "Web deployment: $deploy_web"
           echo "Backend deployment: $deploy_backend"
+          echo "Coordinated migration: $coordinated_migration"
           echo "Changed files:"
           sed -n '1,200p' "$changed_files"
 
@@ -175,6 +184,7 @@ jobs:
         needs.changes.result == 'success' &&
         needs.validation.result == 'success' &&
         (needs.changes.outputs.web == 'true' || needs.changes.outputs.backend == 'true') &&
+        needs.changes.outputs.coordinated_migration != 'true' &&
         !cancelled()
       }}
     runs-on: ubuntu-latest

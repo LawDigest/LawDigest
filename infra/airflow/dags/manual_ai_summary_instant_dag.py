@@ -73,7 +73,7 @@ def run_instant_ai_summary(**context):
 
         update_bill_summary(
             bill_id=result["bill_id"],
-            brief_summary=result.get("brief_summary"),
+            title=result.get("title"),
             gpt_summary=result.get("gpt_summary"),
             summary_tags=result.get("summary_tags"),
             mode=mode,
@@ -140,7 +140,7 @@ with DAG(
 
     ### 🚀 주요 기능
     1. **단일 법안 요약**: 입력받은 법안 데이터(ID, 이름, 요약 원문 등)를 기반으로 선택한 provider로 즉시 요약을 수행합니다.
-    2. **결과 확인**: 요약된 `brief_summary`, `gpt_summary`, `tags`를 로그와 XCom 결과로 즉시 확인할 수 있습니다.
+    2. **결과 확인**: 요약된 `title`, `gpt_summary`, `tags`를 로그와 XCom 결과로 즉시 확인할 수 있습니다.
     3. **선택적 DB 반영**: `upsert=True` 파라미터를 통해 결과를 DB에 즉시 업데이트할 수 있습니다.
 
     ### ⚙️ 실행 모드 (Execution Mode)

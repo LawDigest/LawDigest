@@ -165,7 +165,7 @@ def test_parse_output_line_reads_text_parts_and_validates_shared_schema():
 
     provider = GeminiBatchProvider(client=MagicMock())
     summary = BatchStructuredSummary(
-        brief_summary="요약",
+        title="요약",
         gpt_summary="상세",
         tags=["태그1", "태그2", "태그3", "태그4", "태그5"],
         category="경제·세금",
@@ -193,7 +193,7 @@ def test_parse_output_line_reads_text_parts_and_validates_shared_schema():
     result = provider.parse_output_line(line)
 
     assert result.bill_id == "B001"
-    assert result.brief_summary == "요약"
+    assert result.title == "요약"
     assert result.gpt_summary == "상세"
     assert result.tags == ["태그1", "태그2", "태그3", "태그4", "태그5"]
     assert result.error is None
@@ -205,7 +205,7 @@ def test_parse_output_line_supports_raw_success_shape_without_key():
 
     provider = GeminiBatchProvider(client=MagicMock())
     summary = BatchStructuredSummary(
-        brief_summary="원시 요약",
+        title="원시 요약",
         gpt_summary="원시 상세",
         tags=["원시1", "원시2", "원시3", "원시4", "원시5"],
         category="경제·세금",
@@ -228,7 +228,7 @@ def test_parse_output_line_supports_raw_success_shape_without_key():
     result = provider.parse_output_line(line)
 
     assert result.bill_id is None
-    assert result.brief_summary == "원시 요약"
+    assert result.title == "원시 요약"
     assert result.gpt_summary == "원시 상세"
     assert result.tags == ["원시1", "원시2", "원시3", "원시4", "원시5"]
     assert result.error is None
@@ -240,13 +240,13 @@ def test_parse_output_lines_maps_raw_success_rows_to_expected_bill_ids():
 
     provider = GeminiBatchProvider(client=MagicMock())
     summary_one = BatchStructuredSummary(
-        brief_summary="첫 번째 요약",
+        title="첫 번째 요약",
         gpt_summary="첫 번째 상세",
         tags=["태그1", "태그2", "태그3", "태그4", "태그5"],
         category="경제·세금",
     ).model_dump_json(by_alias=True)
     summary_two = BatchStructuredSummary(
-        brief_summary="두 번째 요약",
+        title="두 번째 요약",
         gpt_summary="두 번째 상세",
         tags=["태그6", "태그7", "태그8", "태그9", "태그10"],
         category="경제·세금",
@@ -267,7 +267,7 @@ def test_parse_output_lines_maps_raw_success_rows_to_expected_bill_ids():
     results = provider.parse_output_lines(output_jsonl, expected_bill_ids=["B101", "B102"])
 
     assert [result.bill_id for result in results] == ["B101", "B102"]
-    assert [result.brief_summary for result in results] == ["첫 번째 요약", "두 번째 요약"]
+    assert [result.title for result in results] == ["첫 번째 요약", "두 번째 요약"]
     assert all(result.error is None for result in results)
 
 
@@ -283,7 +283,7 @@ def test_parse_output_line_surfaces_row_error():
     result = provider.parse_output_line(line)
 
     assert result.bill_id == "B002"
-    assert result.brief_summary is None
+    assert result.title is None
     assert result.gpt_summary is None
     assert result.tags is None
     assert "invalid request" in (result.error or "")
@@ -296,7 +296,7 @@ def test_parse_output_line_reports_schema_validation_failure():
     line = json.dumps(
         {
             "key": "B003",
-            "response": {"candidates": [{"content": {"parts": [{"text": '{"briefSummary":"요약"}'}]}}]},
+            "response": {"candidates": [{"content": {"parts": [{"text": '{"title":"요약"}'}]}}]},
         },
         ensure_ascii=False,
     )
@@ -304,7 +304,7 @@ def test_parse_output_line_reports_schema_validation_failure():
     result = provider.parse_output_line(line)
 
     assert result.bill_id == "B003"
-    assert result.brief_summary is None
+    assert result.title is None
     assert result.gpt_summary is None
     assert result.tags is None
     assert "검증 실패" in (result.error or "")

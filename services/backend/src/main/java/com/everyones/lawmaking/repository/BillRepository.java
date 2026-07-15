@@ -107,8 +107,8 @@ public interface BillRepository extends JpaRepository<Bill, String>, BillReposit
     @Query("SELECT b FROM Bill b " +
             "WHERE b.id in :billList " +
             "AND b.ingestStatus = com.everyones.lawmaking.domain.entity.IngestStatusType.READY " +
-            "AND b.briefSummary IS NOT NULL " +
-            "AND length(trim(b.briefSummary)) > 0 " +
+            "AND b.title IS NOT NULL " +
+            "AND length(trim(b.title)) > 0 " +
             "AND b.gptSummary IS NOT NULL " +
             "AND length(trim(b.gptSummary)) > 0 " +
             "ORDER BY b.proposeDate desc, b.id desc")

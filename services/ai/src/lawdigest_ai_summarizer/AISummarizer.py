@@ -95,13 +95,13 @@ class AISummarizer:
         if df_bills is None or len(df_bills) == 0:
             return df_bills
 
-        if "brief_summary" not in df_bills.columns:
-            df_bills["brief_summary"] = None
+        if "title" not in df_bills.columns:
+            df_bills["title"] = None
         if "gpt_summary" not in df_bills.columns:
             df_bills["gpt_summary"] = None
 
         rows_to_process = df_bills[
-            (df_bills["brief_summary"].isnull()) | (df_bills["brief_summary"] == "") |
+            (df_bills["title"].isnull()) | (df_bills["title"] == "") |
             (df_bills["gpt_summary"].isnull()) | (df_bills["gpt_summary"] == "")
         ]
 
@@ -117,7 +117,7 @@ class AISummarizer:
             if result is None:
                 continue
 
-            df_bills.loc[idx, "brief_summary"] = result.brief_summary
+            df_bills.loc[idx, "title"] = result.title
             df_bills.loc[idx, "gpt_summary"] = result.gpt_summary
             df_bills.loc[idx, "summary_tags"] = json.dumps(result.tags, ensure_ascii=False)
             success += 1

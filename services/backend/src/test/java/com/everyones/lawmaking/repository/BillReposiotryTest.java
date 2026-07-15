@@ -39,11 +39,11 @@ public class BillReposiotryTest {
     private BillRepository billRepository;
 
     @Test
-    void mainFeedOnlyReturnsBillsWithBriefAndGptSummary() {
+    void mainFeedOnlyReturnsBillsWithTitleAndGptSummary() {
         persistReadyBill("summarized", "짧은 요약", "상세 요약");
-        persistReadyBill("missing-brief", null, "상세 요약");
+        persistReadyBill("missing-title", null, "상세 요약");
         persistReadyBill("missing-gpt", "짧은 요약", null);
-        persistReadyBill("blank-brief", " ", "상세 요약");
+        persistReadyBill("blank-title", " ", "상세 요약");
         persistReadyBill("blank-gpt", "짧은 요약", " ");
         entityManager.flush();
 
@@ -55,20 +55,20 @@ public class BillReposiotryTest {
     }
 
     @Test
-    void feedBillInfoByIdListOnlyReturnsBillsWithBriefAndGptSummary() {
+    void feedBillInfoByIdListOnlyReturnsBillsWithTitleAndGptSummary() {
         persistReadyBill("summarized", "짧은 요약", "상세 요약");
-        persistReadyBill("missing-brief", null, "상세 요약");
+        persistReadyBill("missing-title", null, "상세 요약");
         persistReadyBill("missing-gpt", "짧은 요약", null);
         entityManager.flush();
 
-        var bills = billRepository.findFeedBillInfoByIdList(List.of("summarized", "missing-brief", "missing-gpt"));
+        var bills = billRepository.findFeedBillInfoByIdList(List.of("summarized", "missing-title", "missing-gpt"));
 
         assertThat(bills)
                 .extracting(Bill::getId)
                 .containsExactly("summarized");
     }
 
-    private void persistReadyBill(String billId, String briefSummary, String gptSummary) {
+    private void persistReadyBill(String billId, String title, String gptSummary) {
         entityManager.persist(Bill.builder()
                 .id(billId)
                 .billNumber(Math.abs(billId.hashCode()))
@@ -77,7 +77,7 @@ public class BillReposiotryTest {
                 .proposeDate(LocalDate.of(2026, 6, 1))
                 .stage("접수")
                 .summary("원문 요약")
-                .briefSummary(briefSummary)
+                .title(title)
                 .gptSummary(gptSummary)
                 .ingestStatus(IngestStatusType.READY)
                 .billLike(new ArrayList<>())

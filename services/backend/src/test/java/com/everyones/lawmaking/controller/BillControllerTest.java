@@ -55,7 +55,7 @@ class BillControllerTest {
         return BillDto.of(
                 BillInfoDto.builder()
                         .billId(billId)
-                        .briefSummary("brief " + billId)
+                        .title("title " + billId)
                         .build(),
                 Collections.emptyList(),
                 Collections.emptyList(),

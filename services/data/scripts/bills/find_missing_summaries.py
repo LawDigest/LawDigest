@@ -2,7 +2,7 @@
 기존 DB에서 AI Summary가 누락된 데이터를 조회하는 스크립트
 
 이 스크립트는 다음을 수행합니다:
-1. lawDB 데이터베이스에서 gptSummary 또는 briefSummary가 NULL인 법안 조회
+1. lawDB 데이터베이스에서 gptSummary 또는 title이 NULL인 법안 조회
 2. 조회 결과를 JSON 파일로 저장
 3. 통계 정보 출력
 
@@ -69,13 +69,13 @@ def find_missing_summaries(output_path: str = "output/bills/missing_summaries.js
             summary,
             proposers,
             proposer_kind,
-            brief_summary,
+            title,
             gpt_summary,
             propose_date,
             stage
         FROM Bill
         WHERE
-            (gpt_summary IS NULL OR gpt_summary = '' OR brief_summary IS NULL OR brief_summary = '')
+            (gpt_summary IS NULL OR gpt_summary = '' OR title IS NULL OR title = '')
             AND summary IS NOT NULL
             AND summary != ''
         ORDER BY propose_date DESC
@@ -94,16 +94,16 @@ def find_missing_summaries(output_path: str = "output/bills/missing_summaries.js
         print("\n[3/4] 조회 결과 분석")
         print(f"✅ 총 {len(df)}건의 결측치 발견")
 
-        # brief_summary 결측치
-        brief_missing = df['brief_summary'].isnull() | (df['brief_summary'] == '')
-        print(f"   - brief_summary 결측: {brief_missing.sum()}건")
+        # title 결측치
+        title_missing = df['title'].isnull() | (df['title'] == '')
+        print(f"   - title 결측: {title_missing.sum()}건")
 
         # gpt_summary 결측치
         gpt_missing = df['gpt_summary'].isnull() | (df['gpt_summary'] == '')
         print(f"   - gpt_summary 결측: {gpt_missing.sum()}건")
 
         # 둘 다 결측
-        both_missing = brief_missing & gpt_missing
+        both_missing = title_missing & gpt_missing
         print(f"   - 둘 다 결측: {both_missing.sum()}건")
 
         # 발의주체별 통계
@@ -150,9 +150,9 @@ def find_missing_summaries(output_path: str = "output/bills/missing_summaries.js
             print(f"\n{idx + 1}. [{row['bill_id']}] {row['bill_name']}")
             print(f"   발의자: {row['proposers']} ({row['proposer_kind']})")
             print(f"   발의일: {row['propose_date']}")
-            brief_status = "❌" if pd.isna(row['brief_summary']) or row['brief_summary'] == '' else "✅"
+            title_status = "❌" if pd.isna(row['title']) or row['title'] == '' else "✅"
             gpt_status = "❌" if pd.isna(row['gpt_summary']) or row['gpt_summary'] == '' else "✅"
-            print(f"   brief_summary: {brief_status} | gpt_summary: {gpt_status}")
+            print(f"   title: {title_status} | gpt_summary: {gpt_status}")
 
         print("\n" + "=" * 80)
         print(f"✅ 작업 완료! 결측치 {len(df)}건을 {output_path}에 저장했습니다.")

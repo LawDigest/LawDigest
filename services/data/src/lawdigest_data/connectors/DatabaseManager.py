@@ -319,7 +319,7 @@ class DatabaseManager:
                 "proposers",
                 "bill_pdf_url",
                 "viewCount",
-                "brief_summary",
+                "title",
                 "bill_number",
                 "bill_link",
                 "bill_result",
@@ -340,7 +340,7 @@ class DatabaseManager:
                 "%(proposers)s",
                 "%(bill_pdf_url)s",
                 "0",
-                "%(brief_summary)s",
+                "%(title)s",
                 "%(bill_number)s",
                 "%(bill_link)s",
                 "%(bill_result)s",
@@ -358,7 +358,7 @@ class DatabaseManager:
                 "stage = new.stage",
                 "gpt_summary = new.gpt_summary",
                 "bill_pdf_url = new.bill_pdf_url",
-                "brief_summary = new.brief_summary",
+                "title = new.title",
                 "bill_link = new.bill_link",
                 "bill_result = new.bill_result",
                 "proposer_kind = new.proposer_kind",
@@ -486,7 +486,7 @@ class DatabaseManager:
             SELECT
                 b.bill_id,
                 b.bill_name,
-                b.brief_summary,
+                b.title,
                 b.gpt_summary,
                 b.summary,
                 COALESCE(b.modified_date, b.created_date) AS source_modified_date
@@ -554,7 +554,7 @@ class DatabaseManager:
             INSERT INTO BillSearchDocument (
                 bill_id,
                 bill_name_text,
-                brief_summary_text,
+                title_text,
                 gpt_summary_text,
                 raw_summary_text,
                 search_text,
@@ -563,7 +563,7 @@ class DatabaseManager:
             ) VALUES (
                 %(bill_id)s,
                 %(bill_name_text)s,
-                %(brief_summary_text)s,
+                %(title_text)s,
                 %(gpt_summary_text)s,
                 %(raw_summary_text)s,
                 %(search_text)s,
@@ -572,7 +572,7 @@ class DatabaseManager:
             ) AS new
             ON DUPLICATE KEY UPDATE
                 bill_name_text = new.bill_name_text,
-                brief_summary_text = new.brief_summary_text,
+                title_text = new.title_text,
                 gpt_summary_text = new.gpt_summary_text,
                 raw_summary_text = new.raw_summary_text,
                 search_text = new.search_text,
