@@ -59,7 +59,7 @@ watchdog 등록:
 
 ```bash
 pm2 list
-curl -sSI https://dev.lawdigest.kr/election | sed -n '1,20p'
+curl -sSI https://dev.lawdigest.kr/ | sed -n '1,20p'
 ```
 
 정상이라면:

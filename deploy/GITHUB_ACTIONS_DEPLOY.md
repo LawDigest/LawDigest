@@ -86,5 +86,5 @@ GitHub Actions를 사용할 수 없는 경우 서버에서 깨끗한 대상 work
 pm2 list
 docker ps --filter "name=lawdigest-backend-test"
 curl -fsSI https://api.lawdigest.kr/ | sed -n '1,20p'
-curl -fsSI https://lawdigest.kr/election | sed -n '1,20p'
+curl -fsSI https://lawdigest.kr/ | sed -n '1,20p'
 ```

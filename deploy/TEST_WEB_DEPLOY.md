@@ -91,12 +91,12 @@ WEB_PORT=3020 PM2_NAME=lawdigest-web-test ./deploy/deploy-test-web.sh /home/ubun
 
 ```bash
 pm2 list
-curl -sSI https://test.lawdigest.kr/election | sed -n '1,20p'
+curl -sSI https://test.lawdigest.kr/ | sed -n '1,20p'
 ```
 
 정상이라면:
 - `lawdigest-web-test` 프로세스가 `online`
-- `https://test.lawdigest.kr/election` 응답이 `200 OK`
+- `https://test.lawdigest.kr/` 응답이 `200 OK`
 
 ## 현재 release 확인
 현재 심링크 대상 확인:
