@@ -3,6 +3,9 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
+from types import ModuleType
+
+import pytest
 
 
 def _load_backfill_module():
@@ -18,6 +21,17 @@ def _load_backfill_module():
     assert spec and spec.loader
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
+    return module
+
+
+def _missing_test_db_module() -> ModuleType:
+    module = ModuleType("lawdigest_ai.db")
+
+    def _missing_config():
+        raise ValueError("DB 환경변수 누락: TEST_DB_PASSWORD")
+
+    module.get_prod_db_config = lambda: {}
+    module.get_test_db_config = _missing_config
     return module
 
 
@@ -62,3 +76,11 @@ def test_summarize_updates_counts_before_and_after_names():
         "조국혁신당": 2,
         "국민의힘": 1,
     }
+
+
+def test_test_db_config_does_not_fall_back_to_hardcoded_credentials(monkeypatch):
+    module = _load_backfill_module()
+    monkeypatch.setitem(sys.modules, "lawdigest_ai.db", _missing_test_db_module())
+
+    with pytest.raises(ValueError, match="TEST_DB_PASSWORD"):
+        module._resolve_db_config("test")
