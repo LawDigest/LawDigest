@@ -19,4 +19,5 @@ RUN pip install --no-cache-dir \
 # pydantic-ai-slim 등 앱 런타임 의존성은 Airflow constraints보다 높은
 # opentelemetry-api 버전을 요구하므로 별도 단계에서 해결한다.
 RUN pip install --no-cache-dir \
-    -r /requirements-runtime.txt
+    -r /requirements-runtime.txt \
+    && pip check

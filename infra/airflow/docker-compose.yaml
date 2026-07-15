@@ -241,7 +241,7 @@ services:
         fi
         mkdir -p /sources/logs /sources/dags /sources/plugins
         chown -R "${AIRFLOW_UID:-50000}:0" /sources/{logs,dags,plugins}
-        exec /entrypoint airflow db migrate
+        exec su -s /bin/bash airflow -c 'exec /home/airflow/.local/bin/airflow db migrate'
     environment:
       <<: *airflow-common-env
       _AIRFLOW_DB_MIGRATE: 'true'
