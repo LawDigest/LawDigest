@@ -138,7 +138,7 @@ Codex 세션은 `--ignore-user-config`, `--disable plugins`, `--disable apps`, `
 - `korean-stats`는 정책 배경 설명에 직접 도움이 될 때만 쓴다.
 - 입력과 도구 결과가 다르면 도구 결과를 우선하되, 불확실한 내용은 단정하지 않는다.
 
-출력은 Markdown 리포트만 허용한다. 자세한 형식 계약은 [bill-report-agent-prompt-contract.md](./bill-report-agent-prompt-contract.md)를 따른다.
+출력은 카드용 `brief_summary`와 Markdown `report_body`를 포함한 구조화 JSON만 허용한다. 자세한 형식 계약은 [bill-report-agent-prompt-contract.md](./bill-report-agent-prompt-contract.md)를 따른다.
 
 ## 9. 법률 용어 풀이
 
@@ -235,8 +235,9 @@ manifest에는 다음 정보가 들어간다.
 
 - Markdown 최상단 `# 법안명`은 제거한다.
 - `## 확인한 근거` 이후는 DB용 `gpt_summary`에서 제거한다.
-- 기존 `brief_summary`가 있으면 유지한다.
-- 기존 `brief_summary`가 없으면 `## 쉬운 요약`의 첫 번째 불릿을 평문으로 바꿔 사용한다.
+- 에이전트가 생성한 `brief_summary`가 `[핵심 변경]을/를 위한 [정확한 법안명]` 제목형 계약을 만족하는지 검증한다.
+- 원문 `summary`의 첫 문장처럼 완결된 설명문이거나 정확한 법안명으로 끝나지 않는 결과는 실패 처리한다.
+- 검증된 새 `brief_summary`로 기존 값을 교체한다. 구조화 출력 이전의 레거시 Markdown만 기존 fallback 변환을 사용한다.
 - `summary_tags`는 기존 값을 유지한다.
 - 최종적으로 `update_bill_summary`가 `brief_summary`, `gpt_summary`, `summary_tags`를 업데이트한다.
 

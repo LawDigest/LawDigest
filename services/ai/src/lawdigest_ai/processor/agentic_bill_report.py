@@ -132,12 +132,15 @@ description: Use for Lawdigest bill report generation from deterministic evidenc
 - 법률·행정용어 툴팁 문법은 직접 쓰지 마세요. 중괄호 기반 툴팁 표기는 파이프라인 검증에서 제거되거나 실패 처리됩니다.
 - 법제처 정의가 있는 용어도 본문에서는 자연스러운 단어로만 쓰세요. 툴팁 표기는 코드가 후처리로 주입합니다.
 - 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.
+- `brief_summary`에는 카드에 표시할 제목형 요약을 작성하세요. 완결된 설명문이 아니라 핵심 변경 목적·수단을 먼저 쓰고, `을/를 위한` 뒤에 입력의 정확한 법안명을 붙여 끝내세요.
+- `brief_summary`는 원문이나 `쉬운 요약`의 첫 문장을 그대로 복사하지 말고, 여러 핵심 변화가 있으면 가장 중요한 2~3개를 짧은 명사형으로 묶으세요.
+- 예: `선관위원장 상임화·상임위원 확대 및 감사·인사검증 강화를 위한 선거관리위원회법 일부개정법률안`
 - `report_body`에는 사용자에게 보여줄 최종 Markdown 리포트만 넣으세요. 첫 줄은 반드시 `# 법안명`으로 시작하세요.
 - `tooltips`에는 법제처 용어 사전 후보 중 본문 문맥에서 일반 독자에게 꼭 필요한 high-confidence 용어만 넣으세요.
 - 후보에 없는 용어를 새로 만들지 마세요. `surface`는 `report_body`에 실제로 등장하는 표현이어야 합니다.
 - `definition`은 참고용이며 최종 툴팁 정의는 파이프라인이 후보 사전 정의로만 주입합니다.
-- `bill_id`, `brief_summary`, `gpt_summary`, `tags`를 만들지 마세요.
-- 출력 스키마: `{"report_body":"# 법안명\n\n## 쉬운 요약\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high"}],"rejected":[]}`
+- `bill_id`, `gpt_summary`, `tags`를 만들지 마세요.
+- 출력 스키마: `{"brief_summary":"핵심 변화를 위한 법안명","report_body":"# 법안명\n\n## 쉬운 요약\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high"}],"rejected":[]}`
 """.strip() + "\n"
 
 PASSED_RESULT_TERMS = ("원안가결", "수정가결", "가결")
@@ -1038,14 +1041,17 @@ def build_bill_report_prompt(
         f"{legal_term_context}\n\n"
         "출력 규칙:\n"
         "- JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.\n"
+        "- brief_summary는 카드용 제목형 요약입니다. 원문 첫 문장을 복사하지 말고, 핵심 변경 목적·수단을 짧은 명사형으로 먼저 쓰세요.\n"
+        "- brief_summary는 '[핵심 변경 목적/수단]을/를 위한 [정확한 bill.bill_name]' 형태로 작성하고 반드시 정확한 법안명으로 끝내세요.\n"
+        "- brief_summary는 '입니다', '합니다', '것입니다', '함' 같은 문장 종결 표현으로 끝내지 마세요.\n"
         "- report_body 값은 Markdown 문자열입니다. 첫 줄 H1 제목은 bill.bill_name과 같아야 합니다.\n"
         "- report_body 안에는 툴팁 문법이나 중괄호 표기를 직접 쓰지 마세요.\n"
         "- tooltips 배열에는 candidate_terms 중 본문 문맥에서 꼭 필요한 high-confidence 용어만 넣으세요.\n"
         "- 후보에 없는 용어를 새로 만들지 마세요. surface는 report_body에 실제로 등장하는 표현이어야 합니다.\n"
         "- confidence는 high 또는 low만 사용하세요. 파이프라인은 high만 반영합니다.\n"
-        "- bill_id, brief_summary, gpt_summary, tags를 만들지 마세요.\n\n"
+        "- bill_id, gpt_summary, tags를 만들지 마세요.\n\n"
         "출력 스키마:\n"
-        '{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high"}],"rejected":[{"term":"정확성","reason":"일반어이거나 문맥 정의가 불확실함"}]}\n\n'
+        '{"brief_summary":"핵심 변화를 위한 예시법안","report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ...","tooltips":[{"term":"청문","surface":"청문 절차","definition":"후보 정의","reason":"문맥상 핵심 절차 용어","confidence":"high"}],"rejected":[{"term":"정확성","reason":"일반어이거나 문맥 정의가 불확실함"}]}\n\n'
         f"candidate_terms:\n{json.dumps(candidate_terms, ensure_ascii=False, indent=2, default=str)}\n\n"
         f"입력 evidence packet:\n{json.dumps(evidence_payload, ensure_ascii=False, indent=2, default=str)}"
     )
@@ -1065,12 +1071,13 @@ def build_bill_report_batch_prompt(batch_items: list[dict[str, Any]]) -> str:
         "- report_body 안의 Markdown 구조, 문체, 하이라이트, 용어 설명 방식은 `$lawdigest-bill-report` 스킬 계약을 따르세요.\n\n"
         "출력 규칙:\n"
         "- 최종 출력은 JSON 객체 하나만 작성하세요. JSON 앞뒤에 설명, 코드펜스, Markdown을 붙이지 마세요.\n"
-        "- reports 배열은 입력 batch_items와 같은 순서로 report_body만 각각 정확히 한 번씩 넣으세요.\n"
+        "- reports 배열은 입력 batch_items와 같은 순서로 brief_summary와 report_body를 각각 정확히 한 번씩 넣으세요.\n"
+        "- 각 brief_summary는 원문 첫 문장이 아니라 '[핵심 변경 목적/수단]을/를 위한 [정확한 bill.bill_name]' 형태의 제목형 요약이어야 합니다.\n"
         "- 각 report_body의 첫 줄 H1 제목은 해당 batch_items의 bill.bill_name과 같아야 합니다.\n"
         "- report_body 값은 Markdown 문자열입니다. JSON 문자열 안의 줄바꿈은 반드시 escape된 줄바꿈으로 표현하세요.\n"
-        "- brief_summary, gpt_summary, tags를 만들지 마세요. DB 저장용 요약은 별도 코드가 report_body에서 생성합니다.\n\n"
+        "- bill_id, gpt_summary, tags를 만들지 마세요.\n\n"
         "출력 스키마:\n"
-        '{"reports":[{"report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}\n\n'
+        '{"reports":[{"brief_summary":"핵심 변화를 위한 예시법안","report_body":"# 예시법안\\n\\n## 쉬운 요약\\n- ..."}]}\n\n'
         f"batch_items:\n{json.dumps(batch_items, ensure_ascii=False, indent=2, default=str)}"
     )
 
@@ -1110,6 +1117,35 @@ def _validate_report_title_matches_bill(report_body: str, bill: dict[str, Any]) 
             "생성 리포트 제목이 대상 법안명과 일치하지 않습니다: "
             f"expected={bill.get('bill_name')}, actual={_extract_report_title(report_body) or '없음'}"
         )
+
+
+def _validate_generated_brief_summary(
+    brief_summary: str | None,
+    bill: dict[str, Any],
+    *,
+    required: bool,
+) -> None:
+    if not required and not brief_summary:
+        return
+    if not brief_summary:
+        raise RuntimeError("생성 리포트에 카드용 제목 brief_summary가 없습니다.")
+
+    bill_name = str(bill.get("bill_name") or "").strip()
+    if not bill_name:
+        return
+    title_pattern = re.compile(rf"^(?P<prefix>.+?)(?:을|를)\s+위한\s+{re.escape(bill_name)}$")
+    match = title_pattern.fullmatch(brief_summary)
+    if match is None:
+        raise RuntimeError(
+            "생성 리포트의 brief_summary가 제목형 계약과 일치하지 않습니다: "
+            f"expected='[핵심 변경]을/를 위한 {bill_name}', actual={brief_summary}"
+        )
+
+    prefix = match.group("prefix").strip()
+    if not prefix or len(prefix) > 80:
+        raise RuntimeError("생성 리포트의 brief_summary 핵심 변경 제목은 1~80자여야 합니다.")
+    if re.search(r"[.!?。]|(?:입니다|합니다|것입니다|하였음|하고 있음|기관임)$", prefix):
+        raise RuntimeError("생성 리포트의 brief_summary는 설명문이 아닌 짧은 명사형 제목이어야 합니다.")
 
 
 def _parse_batch_report_output(
@@ -1234,6 +1270,7 @@ class ApprovedLegalTermTooltip:
 @dataclass(frozen=True)
 class ParsedStructuredReport:
     report_body: str
+    brief_summary: str | None
     tooltip_decisions: list[ApprovedLegalTermTooltip]
     tooltip_candidate_count: int
     structured_output: bool = False
@@ -1391,6 +1428,10 @@ def _parse_structured_report_output(
 ) -> ParsedStructuredReport:
     payload, report_body, structured_output = _extract_single_report_payload(raw_output, bill=bill)
     postprocessed_report_body = _postprocess_report_body(report_body, bill=bill)
+    raw_brief_summary = payload.get("brief_summary") if payload is not None else None
+    brief_summary = None
+    if isinstance(raw_brief_summary, str):
+        brief_summary = re.sub(r"\s+", " ", _strip_markdown_for_summary(raw_brief_summary)).strip()
     candidate_entries = [
         entry
         for entry in _legal_term_entries_from_evidence(evidence)
@@ -1408,6 +1449,7 @@ def _parse_structured_report_output(
 
     return ParsedStructuredReport(
         report_body=postprocessed_report_body,
+        brief_summary=brief_summary,
         tooltip_decisions=decisions,
         tooltip_candidate_count=len(candidate_entries),
         structured_output=structured_output,
@@ -1640,7 +1682,12 @@ def _build_brief_summary_from_report(bill_name: str, report_body: str) -> str | 
     return None
 
 
-def _build_db_summary_payload(bill: Dict[str, Any], report_body: str) -> Dict[str, Any]:
+def _build_db_summary_payload(
+    bill: Dict[str, Any],
+    report_body: str,
+    *,
+    generated_brief_summary: str | None = None,
+) -> Dict[str, Any]:
     body = report_body.strip()
     body = re.sub(r"^# .+\n+", "", body, count=1)
     evidence_heading = body.find("\n## 확인한 근거")
@@ -1650,8 +1697,10 @@ def _build_db_summary_payload(bill: Dict[str, Any], report_body: str) -> Dict[st
     gpt_summary = body.strip()
 
     bill_name = str(bill.get("bill_name") or "").strip()
-    brief_summary = bill.get("brief_summary")
-    if not brief_summary or _has_overlong_brief_prefix(str(brief_summary), bill_name):
+    brief_summary = generated_brief_summary or bill.get("brief_summary")
+    if generated_brief_summary is None and (
+        not brief_summary or _has_overlong_brief_prefix(str(brief_summary), bill_name)
+    ):
         brief_summary = _build_brief_summary_from_report(bill_name, report_body) or brief_summary
 
     return {
@@ -1670,6 +1719,7 @@ def _persist_successful_report_item(*, mode: str, bill: dict[str, Any], item: di
     payload = _build_db_summary_payload(
         bill=bill,
         report_body=Path(str(report_path)).read_text(encoding="utf-8"),
+        generated_brief_summary=item.get("brief_summary"),
     )
     update_bill_summary(
         bill_id=str(item["bill_id"]),
@@ -2177,9 +2227,15 @@ class CodexBillReportAgent:
         }
         details["repair_applied"] = repair_applied
         details["structured_output"] = parsed_report.structured_output
+        details["brief_summary"] = parsed_report.brief_summary
         details["tooltip"] = _build_structured_tooltip_details(parsed_report)
         try:
             _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
+            _validate_generated_brief_summary(
+                parsed_report.brief_summary,
+                bill,
+                required=parsed_report.structured_output,
+            )
             _validate_report_body(report_path.read_text(encoding="utf-8"))
             validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
             if repair_applied:
@@ -2340,8 +2396,14 @@ class CodexBillReportAgent:
                 details["output_bytes"] = report_path.stat().st_size
                 details["repair_applied"] = repair_applied
                 details["structured_output"] = parsed_report.structured_output
+                details["brief_summary"] = parsed_report.brief_summary
                 details["tooltip"] = _build_structured_tooltip_details(parsed_report)
                 _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
+                _validate_generated_brief_summary(
+                    parsed_report.brief_summary,
+                    bill,
+                    required=parsed_report.structured_output,
+                )
                 _validate_report_body(report_path.read_text(encoding="utf-8"))
                 validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
                 if repair_applied:

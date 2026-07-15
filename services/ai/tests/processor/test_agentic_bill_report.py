@@ -85,6 +85,9 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
     assert "아직 법으로 확정된 건 아니고" not in prompt
     assert "처리 상태" in context
     assert "하기 위한 법률 개정안이에요" in context
+    assert "brief_summary는 카드용 제목형 요약" in prompt
+    assert "원문 첫 문장을 복사하지 말고" in prompt
+    assert "'[핵심 변경 목적/수단]을/를 위한 [정확한 bill.bill_name]'" in prompt
     assert "괄호 설명이나 설명 불릿으로 끼워 넣지 마세요" in context
     assert "어려운 법률·행정용어" in context
     assert '"legal_terms"' in context
@@ -245,11 +248,12 @@ def test_agentic_report_batch_prompt_isolates_bill_reports():
     assert "다른 법안 리포트에 절대 옮기지 마세요" in prompt
     assert "JSON 객체 하나만 작성하세요" in prompt
     assert '"reports"' in prompt
+    assert '"brief_summary"' in prompt
     assert '"report_body"' in prompt
-    assert '{"reports":[{"report_body"' in prompt
+    assert '{"reports":[{"brief_summary"' in prompt
     assert '"bill_id":"PRC_EXAMPLE"' not in prompt
     assert "처리 상태와 관계없이 deep_report 긴 버전" in prompt
-    assert "같은 순서로 report_body만" in prompt
+    assert "같은 순서로 brief_summary와 report_body" in prompt
     assert "### 1) 제목" in context
     assert "번호 헤딩 다음에는 불릿이 아닌 일반 문단" in context
     assert "## 배치 출력" not in REPORT_SKILL_BODY
@@ -1948,6 +1952,7 @@ def test_run_agentic_bill_reports_applies_tooltips_from_single_structured_output
         output_path.write_text(
             json.dumps(
                 {
+                    "brief_summary": "청문 절차 명확화를 위한 청문 절차 정비법안",
                     "report_body": report_body,
                     "tooltips": [
                         {
@@ -2281,7 +2286,21 @@ def test_run_agentic_bill_reports_unwraps_single_report_json_in_batch_turn(tmp_p
             "JSON 복구 테스트법안 2" if is_resume else "JSON 복구 테스트법안 1",
             "두 번째 법안" if is_resume else "첫 번째 법안",
         )
-        output_path.write_text(json.dumps({"reports": [{"report_body": body}]}, ensure_ascii=False), encoding="utf-8")
+        bill_name = "JSON 복구 테스트법안 2" if is_resume else "JSON 복구 테스트법안 1"
+        output_path.write_text(
+            json.dumps(
+                {
+                    "reports": [
+                        {
+                            "brief_summary": f"지원 근거 신설을 위한 {bill_name}",
+                            "report_body": body,
+                        }
+                    ]
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
         stdout = '{"type":"thread.started","thread_id":"thread-json-repair"}'
         return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
 
@@ -2303,6 +2322,10 @@ def test_run_agentic_bill_reports_unwraps_single_report_json_in_batch_turn(tmp_p
     assert result["stats"]["success_count"] == 2
     assert result["stats"]["failure_count"] == 0
     assert [call.kwargs["bill_id"] for call in mock_update.call_args_list] == ["PRC_JSON_BATCH_1", "PRC_JSON_BATCH_2"]
+    assert [call.kwargs["brief_summary"] for call in mock_update.call_args_list] == [
+        "지원 근거 신설을 위한 JSON 복구 테스트법안 1",
+        "지원 근거 신설을 위한 JSON 복구 테스트법안 2",
+    ]
     for item in result["items"]:
         body = Path(item["report_path"]).read_text(encoding="utf-8")
         assert body.startswith("# JSON 복구 테스트법안")
@@ -2458,37 +2481,70 @@ def test_run_agentic_bill_reports_runs_batch_sessions_in_parallel(tmp_path, monk
     assert [item["batch_index"] for item in result["items"]] == [1, 1, 2, 2]
 
 
-def test_agentic_report_builds_db_summary_payload_from_markdown():
+def test_agentic_report_validates_generated_card_title_contract():
+    from lawdigest_ai.processor.agentic_bill_report import _validate_generated_brief_summary
+
+    bill = {"bill_name": "선거관리위원회법 일부개정법률안"}
+    _validate_generated_brief_summary(
+        "선관위원장 상임화·상임위원 확대 및 감사·인사검증 강화를 위한 선거관리위원회법 일부개정법률안",
+        bill,
+        required=True,
+    )
+
+    with pytest.raises(RuntimeError, match="제목형 계약"):
+        _validate_generated_brief_summary(
+            "중앙선거관리위원회는 선거사무 전반을 중립적이고 책임 있게 수행하여야 하는 헌법기관임.",
+            bill,
+            required=True,
+        )
+
+    with pytest.raises(RuntimeError, match="brief_summary가 없습니다"):
+        _validate_generated_brief_summary(None, bill, required=True)
+
+
+def test_agentic_report_replaces_source_sentence_with_generated_card_title():
     from lawdigest_ai.processor.agentic_bill_report import _build_db_summary_payload
 
     bill = {
         "bill_id": "PRC_DB",
-        "bill_name": "개인정보 보호법 일부개정법률안",
-        "brief_summary": "기존 한 줄 요약",
+        "bill_name": "선거관리위원회법 일부개정법률안",
+        "brief_summary": (
+            "중앙선거관리위원회는 민주주의의 근간인 선거의 공정성과 투명성을 확보하고, "
+            "선거ㆍ투표관리, 조사ㆍ단속, 조직운영 등 선거사무 전반을 중립적이고 책임 있게 "
+            "수행하여야 하는 헌법기관임."
+        ),
         "summary_tags": '["기존태그"]',
     }
     report_body = """
-# 개인정보 보호법 일부개정법률안
+# 선거관리위원회법 일부개정법률안
 
 ## 쉬운 요약
-- 중소기업과 소상공인이 개인정보를 더 안전하게 다룰 수 있도록 정부가 도와주는 길을 새로 만들어요.
-- 실제 지원 업무는 전문기관이 맡을 수 있게 길을 열어요.
+- 중앙선거관리위원회의 내부 관리·감독을 더 촘촘하게 만들기 위한 법률 개정안이에요.
+- 위원장을 상임으로 바꾸고 상임위원을 3명으로 늘려요.
 
 ## 무엇이 달라지나
-### 1) 지원 대상의 명확화
-안 제29조의2를 새로 두어 지원 대상을 더 분명히 잡아요.
+### 1) 위원회 운영 방식 변경
+위원장을 상임으로 바꾸고 상임위원을 확대해요.
 
 ## 확인한 근거
 - 국회 의안정보시스템
 """.strip()
 
-    payload = _build_db_summary_payload(bill=bill, report_body=report_body)
+    generated_title = (
+        "선관위원장 상임화·상임위원 확대 및 감사·인사검증 강화를 위한 "
+        "선거관리위원회법 일부개정법률안"
+    )
+    payload = _build_db_summary_payload(
+        bill=bill,
+        report_body=report_body,
+        generated_brief_summary=generated_title,
+    )
 
-    assert payload["brief_summary"] == "기존 한 줄 요약"
+    assert payload["brief_summary"] == generated_title
     assert payload["summary_tags"] == '["기존태그"]'
     assert "## 쉬운 요약" in payload["gpt_summary"]
-    assert "### 1) 지원 대상의 명확화" in payload["gpt_summary"]
-    assert "# 개인정보 보호법 일부개정법률안" not in payload["gpt_summary"]
+    assert "### 1) 위원회 운영 방식 변경" in payload["gpt_summary"]
+    assert "# 선거관리위원회법 일부개정법률안" not in payload["gpt_summary"]
     assert "확인한 근거" not in payload["gpt_summary"]
 
 
@@ -2595,6 +2651,7 @@ def test_run_agentic_bill_reports_upserts_successful_items(tmp_path, monkeypatch
         return {
             "bill_id": bill["bill_id"],
             "bill_name": bill["bill_name"],
+            "brief_summary": "지원 근거 명확화를 위한 업서트 테스트법 일부개정법률안",
             "report_path": str(report_path),
             "status": "success",
         }
@@ -2614,7 +2671,9 @@ def test_run_agentic_bill_reports_upserts_successful_items(tmp_path, monkeypatch
 
     assert result["stats"]["db_upserted_count"] == 1
     mock_update.assert_called_once()
-    assert mock_update.call_args.kwargs["brief_summary"] == "기존 제목"
+    assert mock_update.call_args.kwargs["brief_summary"] == (
+        "지원 근거 명확화를 위한 업서트 테스트법 일부개정법률안"
+    )
     assert "쉬운 요약" in mock_update.call_args.kwargs["gpt_summary"]
 
 
