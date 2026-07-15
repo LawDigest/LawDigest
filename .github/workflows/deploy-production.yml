@@ -31,6 +31,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Verify deployment policy
+        run: ./deploy/verify-deploy-policy.sh
+
       - name: Detect changed services
         id: detect
         env:
@@ -55,7 +58,11 @@ jobs:
               services/backend/*|deploy/deploy-prod-backend.sh|deploy/deploy-test-backend.sh)
                 deploy_backend=true
                 ;;
-              .github/workflows/deploy-production.yml|deploy/deploy-github-main.sh)
+              .github/workflows/deploy-production.yml)
+                # 정책 검사는 실행하되 서비스 변경으로 간주하지 않는다.
+                :
+                ;;
+              deploy/deploy-github-main.sh)
                 deploy_web=true
                 deploy_backend=true
                 ;;
