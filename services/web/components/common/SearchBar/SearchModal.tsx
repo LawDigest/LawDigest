@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useState, useEffect } from 'react';
-import { useRecoilValue, useResetRecoilState } from 'recoil';
+import { useAtomValue } from 'jotai';
+import { useResetAtom } from 'jotai/utils';
 import { searchModalState } from '@/store';
 import { Button, Chip } from '@nextui-org/react';
 import { IconX } from '@/public/svgs';
@@ -10,8 +11,8 @@ import SearchBar from './SearchBar';
 
 export default function SearchModal() {
   const router = useRouter();
-  const searchModal = useRecoilValue(searchModalState);
-  const resetSearchModal = useResetRecoilState(searchModalState);
+  const searchModal = useAtomValue(searchModalState);
+  const resetSearchModal = useResetAtom(searchModalState);
   const [recentKeywords, setRecentKeywords] = useState(
     typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('recentkeywords') || '[]') : [],
   );

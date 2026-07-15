@@ -4,7 +4,7 @@ import { Metadata, Viewport } from 'next';
 import { siteConfig } from '@/config/site';
 import clsx from 'clsx';
 import Script from 'next/script';
-import { QueryClientProvider, NextUIProvider, NextThemesProvider, RecoilRootProvider } from '@/lib/provider';
+import { QueryClientProvider, NextUIProvider, NextThemesProvider, StateProvider } from '@/lib/provider';
 import { GoToTopButton, Snackbar } from '@/components';
 import SearchModal from '@/components/common/SearchBar/SearchModal';
 import Nav from '@/components/Layout/Nav/Nav';
@@ -80,7 +80,7 @@ function RootLayout({ children }: { children: React.ReactNode }) {
         )}
       </head>
       <body className={clsx('text-black bg-white dark:bg-dark-b dark:lg:bg-dark-pb dark:text-white antialiased')}>
-        <RecoilRootProvider>
+        <StateProvider>
           <QueryClientProvider>
             <NextThemesProvider>
               <NextUIProvider>
@@ -97,7 +97,7 @@ function RootLayout({ children }: { children: React.ReactNode }) {
               </NextUIProvider>
             </NextThemesProvider>
           </QueryClientProvider>
-        </RecoilRootProvider>
+        </StateProvider>
       </body>
     </html>
   );

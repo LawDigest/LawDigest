@@ -6,12 +6,12 @@ import { Badge } from '@nextui-org/badge';
 import { useGetNotificationCount } from '@/app/notification/apis';
 import { getCookie } from 'cookies-next';
 import { ACCESS_TOKEN } from '@/constants';
-import { useSetRecoilState } from 'recoil';
+import { useSetAtom } from 'jotai';
 import { snackbarState } from '@/store';
 
 export default function NotificationButton() {
   const accessToken = getCookie(ACCESS_TOKEN);
-  const setSnackbar = useSetRecoilState(snackbarState);
+  const setSnackbar = useSetAtom(snackbarState);
 
   if (!accessToken) {
     return (

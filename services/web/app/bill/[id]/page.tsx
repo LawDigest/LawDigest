@@ -6,7 +6,12 @@ import { getMetadata } from '@/utils';
 import { BillDetail } from './components';
 import { useGetBillDetail, usePatchViewCount } from './apis';
 
-export const generateMetadata = async ({ params: { id } }: { params: { id: string } }): Promise<Metadata> => {
+type BillDetailPageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export const generateMetadata = async ({ params }: BillDetailPageProps): Promise<Metadata> => {
+  const { id } = await params;
   const queryClient = getQueryClient();
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const { data } = await useGetBillDetail(id, queryClient);
@@ -18,9 +23,12 @@ export const generateMetadata = async ({ params: { id } }: { params: { id: strin
   });
 };
 
-export default async function BillDetailPage({ params: { id } }: { params: { id: string } }) {
+export default async function BillDetailPage({ params }: BillDetailPageProps) {
+  const { id } = await params;
   const queryClient = getQueryClient();
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { data } = await useGetBillDetail(id, queryClient);
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const viewCount = await usePatchViewCount(id)
     .then((res) => res.data.view_count)
     .catch(() => data.bill_info_dto.view_count);

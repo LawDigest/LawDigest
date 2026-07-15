@@ -1,13 +1,13 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useSetRecoilState } from 'recoil';
+import { useSetAtom } from 'jotai';
 import { Input, Button } from '@nextui-org/react';
 import { searchModalState } from '@/store';
 import { IconSearchbar } from '@/public/svgs';
 
 export default function SearchBarButton() {
-  const setSearchModal = useSetRecoilState(searchModalState);
+  const setSearchModal = useSetAtom(searchModalState);
 
   const onClickSearchBar = useCallback(() => {
     setSearchModal({ show: true });

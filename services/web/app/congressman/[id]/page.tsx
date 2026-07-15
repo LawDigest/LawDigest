@@ -6,7 +6,12 @@ import getQueryClient from '@/lib/getQueryClient';
 import { CongressmanContainer } from './components';
 import { getCongressmanDetail } from './apis';
 
-export const generateMetadata = async ({ params: { id } }: { params: { id: string } }): Promise<Metadata> => {
+type CongressmanPageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export const generateMetadata = async ({ params }: CongressmanPageProps): Promise<Metadata> => {
+  const { id } = await params;
   const queryClient = getQueryClient();
   const { data } = await queryClient.fetchQuery({
     queryKey: ['/congressman/detail', id],
@@ -20,7 +25,8 @@ export const generateMetadata = async ({ params: { id } }: { params: { id: strin
   });
 };
 
-export default async function Congressman({ params: { id } }: { params: { id: string } }) {
+export default async function Congressman({ params }: CongressmanPageProps) {
+  const { id } = await params;
   const queryClient = getQueryClient();
 
   return (

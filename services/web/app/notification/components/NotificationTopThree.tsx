@@ -3,7 +3,7 @@
 import React, { useCallback } from 'react';
 import { Button, Divider } from '@nextui-org/react';
 import { getCookie } from 'cookies-next';
-import { useSetRecoilState } from 'recoil';
+import { useSetAtom } from 'jotai';
 import { ACCESS_TOKEN } from '@/constants';
 import { snackbarState } from '@/store';
 import {
@@ -22,7 +22,7 @@ export default function NotificationTopThree() {
   const { data: notificationCount } = useGetNotificationCount({
     enabled: Boolean(accessToken),
   });
-  const setSnackbar = useSetRecoilState(snackbarState);
+  const setSnackbar = useSetAtom(snackbarState);
 
   const mutateRead = usePutNotificationRead({
     onSuccess: () => {

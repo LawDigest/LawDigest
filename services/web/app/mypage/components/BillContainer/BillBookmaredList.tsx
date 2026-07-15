@@ -10,7 +10,7 @@ export default function BillBookmarkedList({
 }: {
   bills: BillResponse[];
   isFetching: boolean;
-  fetchRef: RefObject<HTMLDivElement>;
+  fetchRef: RefObject<HTMLDivElement | null>;
 }) {
   return (
     <ul className="flex flex-col gap-4 mx-[30px] lg:mx-0">

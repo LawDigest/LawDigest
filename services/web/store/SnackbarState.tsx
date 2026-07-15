@@ -1,4 +1,4 @@
-import { atom } from 'recoil';
+import { atomWithReset } from 'jotai/utils';
 import { SnackbarType } from '@/types';
 
 interface SnackbarStateProps {
@@ -8,14 +8,11 @@ interface SnackbarStateProps {
   duration?: number;
 }
 
-const snackbarState = atom<SnackbarStateProps>({
-  key: 'snackbarState',
-  default: {
-    show: false,
-    type: 'DEFAULT',
-    message: '',
-    duration: 3000,
-  },
+const snackbarState = atomWithReset<SnackbarStateProps>({
+  show: false,
+  type: 'DEFAULT',
+  message: '',
+  duration: 3000,
 });
 
 export default snackbarState;

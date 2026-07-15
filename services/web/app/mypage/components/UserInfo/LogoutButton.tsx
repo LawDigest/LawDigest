@@ -3,13 +3,13 @@ import { useRouter } from 'next/navigation';
 import { ACCESS_TOKEN } from '@/constants';
 import { useCallback } from 'react';
 import { Button } from '@nextui-org/react';
-import { useSetRecoilState } from 'recoil';
+import { useSetAtom } from 'jotai';
 import { snackbarState } from '@/store';
 import { postLogout } from '../../apis';
 
 export default function LogoutButton() {
   const router = useRouter();
-  const setSnackbar = useSetRecoilState(snackbarState);
+  const setSnackbar = useSetAtom(snackbarState);
 
   const onClickLogout = useCallback(async () => {
     postLogout();

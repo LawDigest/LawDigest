@@ -10,7 +10,7 @@ export default function BillFollowedList({
 }: {
   bills: BillResponse[];
   isFetching: boolean;
-  fetchRef: RefObject<HTMLDivElement>;
+  fetchRef: RefObject<HTMLDivElement | null>;
 }) {
   return (
     <ul className="flex flex-col gap-4">

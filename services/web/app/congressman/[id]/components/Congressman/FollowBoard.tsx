@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { Button } from '@nextui-org/react';
 import { getCookie } from 'cookies-next';
 import { ACCESS_TOKEN } from '@/constants';
-import { useSetRecoilState } from 'recoil';
+import { useSetAtom } from 'jotai';
 import { snackbarState } from '@/store';
 import { IconCheck, IconPlus } from '@/public/svgs';
 import { usePatchCongressmanFollow } from '../../apis';
@@ -25,7 +25,7 @@ export default function FollowBoard({
   const [isFollowed, setIsFollowed] = useState(likeChecked);
   const [followCount, setFollowCount] = useState(follow_count);
   const mutationFollow = usePatchCongressmanFollow(id);
-  const setSnackbar = useSetRecoilState(snackbarState);
+  const setSnackbar = useSetAtom(snackbarState);
 
   const onClickFollow = useCallback(() => {
     const accessToken = getCookie(ACCESS_TOKEN);
