@@ -20,7 +20,8 @@ LawDigest 웹 프론트엔드 배포 기준을 도메인별로 정리한 문서�
 
 ## 배포 실행 기준
 
-웹 배포는 GitHub Actions가 아니라 서버 로컬 셸에서 아래 스크립트를 직접 실행한다.
+운영 웹은 `main` push에서 웹 관련 변경이 감지되면 GitHub Actions가
+`deploy-prod-web.sh`를 원격 실행한다. 아래 서버 로컬 명령은 수동 복구 또는 점검 시 사용한다.
 
 - 운영 배포: `./deploy/deploy-prod-web.sh <target-worktree>`
 - 테스트 배포: `./deploy/deploy-test-web.sh <target-worktree>`

@@ -1,0 +1,196 @@
+name: Deploy production
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    name: Detect deploy targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      web: ${{ steps.detect.outputs.web }}
+      backend: ${{ steps.detect.outputs.backend }}
+    steps:
+      - name: Check out main commit
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Detect changed services
+        id: detect
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          changed_files="$(mktemp)"
+          git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" > "$changed_files"
+
+          deploy_web=false
+          deploy_backend=false
+
+          while IFS= read -r path; do
+            case "$path" in
+              services/web/*|deploy/deploy-prod-web.sh|deploy/deploy-web-release.sh|deploy/ensure-dev-web-pm2.sh)
+                deploy_web=true
+                ;;
+              services/backend/*|deploy/deploy-prod-backend.sh|deploy/deploy-test-backend.sh)
+                deploy_backend=true
+                ;;
+              .github/workflows/deploy-production.yml|deploy/deploy-github-main.sh)
+                deploy_web=true
+                deploy_backend=true
+                ;;
+            esac
+          done < "$changed_files"
+
+          echo "web=$deploy_web" >> "$GITHUB_OUTPUT"
+          echo "backend=$deploy_backend" >> "$GITHUB_OUTPUT"
+
+          echo "Web deployment: $deploy_web"
+          echo "Backend deployment: $deploy_backend"
+          echo "Changed files:"
+          sed -n '1,200p' "$changed_files"
+
+  verify_web:
+    name: Verify web
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: services/web
+    steps:
+      - name: Check out main commit
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 22.17.1
+          cache: npm
+          cache-dependency-path: services/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        env:
+          NEXT_PUBLIC_URL: https://api.lawdigest.kr/
+          NEXT_PUBLIC_IMAGE_URL: https://api.lawdigest.kr
+          NEXT_PUBLIC_HOSTNAME: api.lawdigest.kr
+          INTERNAL_API_ORIGIN: https://api.lawdigest.kr
+          NEXT_PUBLIC_DOMAIN: https://lawdigest.kr
+        run: npm run build
+
+  verify_backend:
+    name: Verify backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: services/backend
+    steps:
+      - name: Check out main commit
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Test and build
+        run: ./gradlew test bootJar --no-daemon
+
+  deploy:
+    name: Deploy changed services
+    needs:
+      - changes
+      - verify_web
+      - verify_backend
+    if: >-
+      ${{
+        always() &&
+        needs.changes.result == 'success' &&
+        (needs.changes.outputs.web == 'true' || needs.changes.outputs.backend == 'true') &&
+        (needs.verify_web.result == 'success' || needs.verify_web.result == 'skipped') &&
+        (needs.verify_backend.result == 'success' || needs.verify_backend.result == 'skipped')
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: production
+      url: https://lawdigest.kr
+    steps:
+      - name: Check out main commit
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Configure SSH
+        env:
+          PROD_SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+          PROD_SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${PROD_SSH_PRIVATE_KEY:?production 환경의 PROD_SSH_PRIVATE_KEY가 필요합니다}"
+          : "${PROD_SSH_KNOWN_HOSTS:?production 환경의 PROD_SSH_KNOWN_HOSTS가 필요합니다}"
+
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$PROD_SSH_PRIVATE_KEY" > "$HOME/.ssh/lawdigest-production"
+          chmod 600 "$HOME/.ssh/lawdigest-production"
+          printf '%s\n' "$PROD_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Deploy exact main commit
+        env:
+          PROD_SSH_HOST: ${{ vars.PROD_SSH_HOST }}
+          PROD_SSH_PORT: ${{ vars.PROD_SSH_PORT }}
+          PROD_SSH_USER: ${{ vars.PROD_SSH_USER }}
+          DEPLOY_WEB: ${{ needs.changes.outputs.web }}
+          DEPLOY_BACKEND: ${{ needs.changes.outputs.backend }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${PROD_SSH_HOST:?production 환경의 PROD_SSH_HOST가 필요합니다}"
+          : "${PROD_SSH_PORT:?production 환경의 PROD_SSH_PORT가 필요합니다}"
+          : "${PROD_SSH_USER:?production 환경의 PROD_SSH_USER가 필요합니다}"
+
+          ssh -T \
+            -i "$HOME/.ssh/lawdigest-production" \
+            -p "$PROD_SSH_PORT" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            "$PROD_SSH_USER@$PROD_SSH_HOST" \
+            bash -s -- "$GITHUB_SHA" "$DEPLOY_WEB" "$DEPLOY_BACKEND" \
+            < deploy/deploy-github-main.sh
