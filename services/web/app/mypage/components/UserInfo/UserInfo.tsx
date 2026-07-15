@@ -5,6 +5,7 @@ import { useGetUserInfo } from '../../apis';
 import LogoutButton from './LogoutButton';
 
 export default async function UserInfo({ queryClient }: { queryClient: QueryClient }) {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { data: userInfo } = await useGetUserInfo(queryClient);
   const { user_name, user_image_url, user_email } = userInfo;
 

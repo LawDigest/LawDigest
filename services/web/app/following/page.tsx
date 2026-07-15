@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getCookie } from 'cookies-next';
 import { ACCESS_TOKEN } from '@/constants';
 import { dehydrate, HydrationBoundary, useQueryClient } from '@tanstack/react-query';
-import { useSetRecoilState } from 'recoil';
+import { useSetAtom } from 'jotai';
 import { snackbarState } from '@/store';
 import { SearchBarButton } from '@/components';
 import { FollowingNav, BillContainer } from './components';
@@ -14,7 +14,7 @@ export default function Following() {
   const router = useRouter();
   const accessToken = getCookie(ACCESS_TOKEN);
   const queryClient = useQueryClient();
-  const setSnackbar = useSetRecoilState(snackbarState);
+  const setSnackbar = useSetAtom(snackbarState);
 
   useEffect(() => {
     if (!accessToken) {

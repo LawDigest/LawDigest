@@ -7,7 +7,12 @@ import { PARTY_POSITION, PARTY_NAME_KO } from '@/constants/party';
 import PartyContainer from './components';
 import { getPartyDetail } from './apis';
 
-export const generateMetadata = async ({ params: { id } }: { params: { id: string } }): Promise<Metadata> => {
+type PartyPageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export const generateMetadata = async ({ params }: PartyPageProps): Promise<Metadata> => {
+  const { id } = await params;
   const queryClient = getQueryClient();
   const { data } = await queryClient.fetchQuery({
     queryKey: ['/party/detail', id],
@@ -21,7 +26,8 @@ export const generateMetadata = async ({ params: { id } }: { params: { id: strin
   });
 };
 
-export default async function Party({ params: { id } }: { params: { id: string } }) {
+export default async function Party({ params }: PartyPageProps) {
+  const { id } = await params;
   const queryClient = getQueryClient();
 
   return (

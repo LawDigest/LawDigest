@@ -34,7 +34,7 @@ import Image from 'next/image';
 import { PartyLogoReplacement } from '@/components/common';
 import { getCookie } from 'cookies-next';
 import { ACCESS_TOKEN } from '@/constants';
-import { useSetRecoilState } from 'recoil';
+import { useSetAtom } from 'jotai';
 import { snackbarState } from '@/store';
 import { ProposerList } from '@/app/bill/[id]/components';
 import GPTSummary from '../../GPTSummary';
@@ -92,7 +92,7 @@ export default function Bill({
   } else if (isChairmanProposer) {
     proposerCardBorderClassName = 'lawdigest-chairman-proposer-card';
   }
-  const setSnackbar = useSetRecoilState(snackbarState);
+  const setSnackbar = useSetAtom(snackbarState);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const displayedSummary = gpt_summary && !detail ? getFeedSummaryMarkdown(gpt_summary) : gpt_summary || summary;

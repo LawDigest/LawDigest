@@ -14,7 +14,7 @@ export default function BillList({
 }: {
   bills: BillResponse[];
   isFetching: boolean;
-  fetchRef: RefObject<HTMLDivElement>;
+  fetchRef: RefObject<HTMLDivElement | null>;
   detail?: boolean;
   feedType?: ValueOf<typeof FEED_TAB>;
 }) {

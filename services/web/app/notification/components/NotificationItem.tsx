@@ -88,8 +88,12 @@ export default function NotificationItem({
             </Button>
           </DropdownTrigger>
           <DropdownMenu>
-            <DropdownItem onClick={() => onClickRead(notification_id, true)}>읽음 표시</DropdownItem>
-            <DropdownItem onClick={() => onClickDelete(notification_id)}>삭제</DropdownItem>
+            <DropdownItem key="read" onClick={() => onClickRead(notification_id, true)}>
+              읽음 표시
+            </DropdownItem>
+            <DropdownItem key="delete" onClick={() => onClickDelete(notification_id)}>
+              삭제
+            </DropdownItem>
           </DropdownMenu>
         </Dropdown>
       </div>

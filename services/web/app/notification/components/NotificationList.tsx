@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getDateStatus } from '@/utils';
 import { Divider, Button, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from '@nextui-org/react';
 import { IconKebab } from '@/public/svgs';
-import { useSetRecoilState } from 'recoil';
+import { useSetAtom } from 'jotai';
 import { snackbarState } from '@/store';
 import {
   useGetNotificationCount,
@@ -61,7 +61,7 @@ const initialData = [
 export default function NotificationList() {
   const { data: notificationCount } = useGetNotificationCount();
   const { data: notifications } = useGetNotification();
-  const setSnackbar = useSetRecoilState(snackbarState);
+  const setSnackbar = useSetAtom(snackbarState);
   const mutateRead = usePutNotificationRead();
   const mutateDelete = useDeleteNotification();
   const mutateReadAll = usePutNotificationReadAll();
@@ -161,8 +161,12 @@ export default function NotificationList() {
               </Button>
             </DropdownTrigger>
             <DropdownMenu>
-              <DropdownItem onClick={onClickReadAll}>모두 읽음 표시</DropdownItem>
-              <DropdownItem onClick={onClickDeleteAll}>모두 삭제</DropdownItem>
+              <DropdownItem key="read-all" onClick={onClickReadAll}>
+                모두 읽음 표시
+              </DropdownItem>
+              <DropdownItem key="delete-all" onClick={onClickDeleteAll}>
+                모두 삭제
+              </DropdownItem>
             </DropdownMenu>
           </Dropdown>
         </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useRecoilValue } from 'recoil';
+import { useAtomValue } from 'jotai';
 import { siteConfig } from '@/config/site';
 import { searchModalState } from '@/store';
 
@@ -20,7 +20,7 @@ function Nav() {
   const router = useRouter();
   const [isCompact, setIsCompact] = useState(false);
   const [lastScrollTop, setLastScrollTop] = useState(0);
-  const searchModal = useRecoilValue(searchModalState);
+  const searchModal = useAtomValue(searchModalState);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useState, useCallback, Dispatch, SetStateAction } from 'react';
 import { IconSearchbar } from '@/public/svgs';
 import { Button, Input } from '@nextui-org/react';
-import { useResetRecoilState, useRecoilValue } from 'recoil';
+import { useAtomValue } from 'jotai';
+import { useResetAtom } from 'jotai/utils';
 import { searchModalState } from '@/store';
 
 export default function SearchBar({
@@ -14,8 +15,8 @@ export default function SearchBar({
 }) {
   const router = useRouter();
   const [value, setValue] = useState('');
-  const searchModal = useRecoilValue(searchModalState);
-  const resetSearchModal = useResetRecoilState(searchModalState);
+  const searchModal = useAtomValue(searchModalState);
+  const resetSearchModal = useResetAtom(searchModalState);
 
   const onSubmitSearch = useCallback(
     (event: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>) => {

@@ -4,7 +4,9 @@ import CongressmanList from './CongressmanList';
 import { useGetFollowingCongressman } from '../../apis';
 
 export default async function FollowingNav() {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const queryClient = useQueryClient();
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { data: congressmanList } = await useGetFollowingCongressman(queryClient);
 
   return (

@@ -2,15 +2,16 @@
 
 import Link from 'next/link';
 import { Fragment, useEffect } from 'react';
-import { useRecoilValue, useResetRecoilState } from 'recoil';
+import { useAtomValue } from 'jotai';
+import { useResetAtom } from 'jotai/utils';
 import { Transition } from '@headlessui/react';
 import { Button } from '@nextui-org/react';
 import { snackbarState } from '@/store';
 import { IconCancel } from '@/public/svgs';
 
 export default function Snackbar() {
-  const snackbar = useRecoilValue(snackbarState);
-  const resetSnackbar = useResetRecoilState(snackbarState);
+  const snackbar = useAtomValue(snackbarState);
+  const resetSnackbar = useResetAtom(snackbarState);
 
   // eslint-disable-next-line consistent-return
   useEffect(() => {

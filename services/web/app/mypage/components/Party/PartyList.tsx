@@ -4,6 +4,7 @@ import PartyItem from './PartyItem';
 import { useGetFollowingParty } from '../../apis';
 
 export default async function PartyList({ qeuryClient }: { qeuryClient: QueryClient }) {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { data: partyList } = await useGetFollowingParty(qeuryClient);
   const partyLength = partyList.length;
 

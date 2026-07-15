@@ -8,7 +8,9 @@ import { useGetCongressmanDetail } from '../../apis';
 import PartyLogo from './PartyLogo';
 
 export default async function CongressmanDetail({ congressmanId }: { congressmanId: string }) {
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const queryClient = useQueryClient();
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const { data: congressman } = await useGetCongressmanDetail({ congressmanId, queryClient });
   const {
     congressman_name,
