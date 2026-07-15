@@ -24,7 +24,7 @@ export default function CommitteeAuditList({
       bill_name: string;
       bill_stage: string;
       bill_proposers: string;
-      bill_brief_summary: string;
+      bill_title: string;
     }[];
   }[];
 }) {
@@ -79,7 +79,7 @@ export default function CommitteeAuditList({
                     <div key={committee_name} className="flex flex-col gap-2">
                       <p className="text-lg font-bold">{committee_name}</p>
                       <div className="flex flex-col gap-3">
-                        {bill_outline_dto_list.map(({ party_info, bill_id, bill_proposers, bill_brief_summary }) => (
+                        {bill_outline_dto_list.map(({ party_info, bill_id, bill_proposers, bill_title }) => (
                           <div key={bill_id} className="flex gap-[18px] items-center">
                             <Link
                               href={`/party/${party_info[0].party_id}`}
@@ -97,7 +97,7 @@ export default function CommitteeAuditList({
                             </Link>
                             <div className="flex flex-col gap-1">
                               <Link href={`/bill/${bill_id}`}>
-                                <p className="text-xs font-bold">{bill_brief_summary}</p>
+                                <p className="text-xs font-bold">{bill_title}</p>
                               </Link>
                               <p className="text-xs font-semibold text-gray-2 dark:text-gray-3">{bill_proposers}</p>
                             </div>
@@ -137,39 +137,37 @@ export default function CommitteeAuditList({
                       </Button>
                       <TimelineModal isOpen={isOpenIndividual} onClose={onCloseIndividual}>
                         <div className="flex flex-col gap-3">
-                          {item.bill_outline_dto_list.map(
-                            ({ party_info, bill_id, bill_proposers, bill_brief_summary }) => (
-                              <div key={bill_id} className="flex gap-[18px] items-center">
-                                <Link
-                                  href={`/party/${party_info[0].party_id}`}
-                                  className={`flex items-center justify-center w-7 h-7 rounded-full shadow-lg shrink-0 border-1.5 ${party_info[0].party_name}`}>
-                                  {party_info[0].party_name === '무소속' ? (
-                                    <span className="text-xs font-bold text-black dark:text-white">무</span>
-                                  ) : (
-                                    <Image
-                                      src={`${process.env.NEXT_PUBLIC_IMAGE_URL}${isDark ? party_info[0].party_image_url.replace('wide', 'dark') : party_info[0].party_image_url}`}
-                                      alt={`${party_info[0].party_name} 로고 이미지`}
-                                      width={22}
-                                      height={22}
-                                    />
-                                  )}
+                          {item.bill_outline_dto_list.map(({ party_info, bill_id, bill_proposers, bill_title }) => (
+                            <div key={bill_id} className="flex gap-[18px] items-center">
+                              <Link
+                                href={`/party/${party_info[0].party_id}`}
+                                className={`flex items-center justify-center w-7 h-7 rounded-full shadow-lg shrink-0 border-1.5 ${party_info[0].party_name}`}>
+                                {party_info[0].party_name === '무소속' ? (
+                                  <span className="text-xs font-bold text-black dark:text-white">무</span>
+                                ) : (
+                                  <Image
+                                    src={`${process.env.NEXT_PUBLIC_IMAGE_URL}${isDark ? party_info[0].party_image_url.replace('wide', 'dark') : party_info[0].party_image_url}`}
+                                    alt={`${party_info[0].party_name} 로고 이미지`}
+                                    width={22}
+                                    height={22}
+                                  />
+                                )}
+                              </Link>
+                              <div className="flex flex-col gap-1">
+                                <Link href={`/bill/${bill_id}`}>
+                                  <p className="text-xs font-bold">{bill_title}</p>
                                 </Link>
-                                <div className="flex flex-col gap-1">
-                                  <Link href={`/bill/${bill_id}`}>
-                                    <p className="text-xs font-bold">{bill_brief_summary}</p>
-                                  </Link>
-                                  <p className="text-xs font-semibold text-gray-2 dark:text-gray-3">{bill_proposers}</p>
-                                </div>
+                                <p className="text-xs font-semibold text-gray-2 dark:text-gray-3">{bill_proposers}</p>
                               </div>
-                            ),
-                          )}
+                            </div>
+                          ))}
                         </div>
                       </TimelineModal>
                     </div>
                     <div className="flex flex-col gap-3">
                       {item.bill_outline_dto_list
                         .slice(0, 5)
-                        .map(({ party_info, bill_id, bill_proposers, bill_brief_summary }) => (
+                        .map(({ party_info, bill_id, bill_proposers, bill_title }) => (
                           <div key={bill_id} className="flex gap-[18px] items-center">
                             <Link
                               href={`/party/${party_info[0].party_id}`}
@@ -187,7 +185,7 @@ export default function CommitteeAuditList({
                             </Link>
                             <div className="flex flex-col gap-1">
                               <Link href={`/bill/${bill_id}`}>
-                                <p className="text-xs font-bold">{bill_brief_summary}</p>
+                                <p className="text-xs font-bold">{bill_title}</p>
                               </Link>
                               <p className="text-xs font-semibold text-gray-2 dark:text-gray-3">{bill_proposers}</p>
                             </div>

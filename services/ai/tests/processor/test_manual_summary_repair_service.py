@@ -22,7 +22,7 @@ def test_manual_summary_repair_saves_report_in_dry_run(tmp_path):
             "summary": "원문1",
             "proposers": "홍길동",
             "proposer_kind": "CONGRESSMAN",
-            "brief_summary": None,
+            "title": None,
             "gpt_summary": None,
             "propose_date": "2026-04-19",
             "stage": "접수",
@@ -33,7 +33,7 @@ def test_manual_summary_repair_saves_report_in_dry_run(tmp_path):
             "summary": "원문2",
             "proposers": "임꺽정",
             "proposer_kind": "CONGRESSMAN",
-            "brief_summary": None,
+            "title": None,
             "gpt_summary": None,
             "propose_date": "2026-04-18",
             "stage": "접수",
@@ -51,14 +51,14 @@ def test_manual_summary_repair_saves_report_in_dry_run(tmp_path):
             return_value=[
                 {
                     "bill_id": "B001",
-                    "brief_summary": "요약1",
+                    "title": "요약1",
                     "gpt_summary": "상세1",
                     "summary_tags": '["a","b","c","d","e"]',
                     "error": None,
                 },
                 {
                     "bill_id": "B002",
-                    "brief_summary": None,
+                    "title": None,
                     "gpt_summary": None,
                     "summary_tags": None,
                     "error": "요약 실패",
@@ -97,7 +97,7 @@ def test_manual_summary_repair_upserts_successful_items():
             "summary": "원문1",
             "proposers": "홍길동",
             "proposer_kind": "CONGRESSMAN",
-            "brief_summary": None,
+            "title": None,
             "gpt_summary": None,
             "propose_date": "2026-04-19",
             "stage": "접수",
@@ -114,7 +114,7 @@ def test_manual_summary_repair_upserts_successful_items():
             return_value=[
                 {
                     "bill_id": "B001",
-                    "brief_summary": "요약1",
+                    "title": "요약1",
                     "gpt_summary": "상세1",
                     "summary_tags": '["a","b","c","d","e"]',
                     "error": None,
@@ -134,7 +134,7 @@ def test_manual_summary_repair_upserts_successful_items():
     assert report["stats"]["db_upserted_count"] == 1
     mock_update.assert_called_once_with(
         bill_id="B001",
-        brief_summary="요약1",
+        title="요약1",
         gpt_summary="상세1",
         summary_tags='["a","b","c","d","e"]',
         mode="test",

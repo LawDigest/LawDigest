@@ -59,12 +59,12 @@ class AISummarizer:
     def AI_structured_summarize(self, df_bills: pd.DataFrame, model: Optional[str] = None) -> pd.DataFrame:
         if df_bills is None or len(df_bills) == 0:
             return df_bills
-        for col in ("brief_summary", "gpt_summary"):
+        for col in ("title", "gpt_summary"):
             if col not in df_bills.columns:
                 df_bills[col] = None
 
         to_process = df_bills[
-            df_bills["brief_summary"].isnull() | (df_bills["brief_summary"] == "") |
+            df_bills["title"].isnull() | (df_bills["title"] == "") |
             df_bills["gpt_summary"].isnull() | (df_bills["gpt_summary"] == "")
         ]
         if len(to_process) == 0:
@@ -75,7 +75,7 @@ class AISummarizer:
             result = self._summarize_one(row.to_dict(), model=model)
             if result is None:
                 continue
-            df_bills.loc[idx, "brief_summary"] = result.brief_summary
+            df_bills.loc[idx, "title"] = result.title
             df_bills.loc[idx, "gpt_summary"] = result.gpt_summary
             df_bills.loc[idx, "summary_tags"] = json.dumps(result.tags, ensure_ascii=False)
             df_bills.loc[idx, "category"] = category_label_to_code(result.category)

@@ -23,7 +23,7 @@ def resolve_instant_model(provider: InstantProviderName, model: str | None) -> s
 def _result_to_dict(result: InstantProviderResult) -> Dict[str, Any]:
     return {
         "bill_id": result.bill_id,
-        "brief_summary": result.brief_summary,
+        "title": result.title,
         "gpt_summary": result.gpt_summary,
         "summary_tags": result.summary_tags,
         "category": result.category,

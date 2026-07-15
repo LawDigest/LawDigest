@@ -48,7 +48,7 @@ def parse_output_jsonl_line(
     result = OpenAIBatchProvider().parse_output_line(line)
     return (
         result.bill_id,
-        result.brief_summary,
+        result.title,
         result.gpt_summary,
         result.tags,
         result.category,
@@ -63,7 +63,7 @@ def bill_table_has_column(cursor: pymysql.cursors.Cursor, column_name: str) -> b
 
 def build_bill_summary_update(
     *,
-    brief_summary: str | None,
+    title: str | None,
     gpt_summary: str | None,
     summary_tags: list[str] | None,
     bill_id: str,
@@ -71,8 +71,8 @@ def build_bill_summary_update(
     category: str | None = None,
     include_category: bool = False,
 ) -> tuple[str, tuple[Any, ...]]:
-    set_clauses = ["brief_summary=%s", "gpt_summary=%s"]
-    params: list[Any] = [brief_summary, gpt_summary]
+    set_clauses = ["title=%s", "gpt_summary=%s"]
+    params: list[Any] = [title, gpt_summary]
     if include_summary_tags:
         set_clauses.append("summary_tags=%s")
         params.append(json.dumps(summary_tags or [], ensure_ascii=False))
@@ -148,7 +148,7 @@ def fetch_unsummarized_bills(conn: pymysql.connections.Connection, limit: int) -
     SELECT b.bill_id, b.bill_name, b.summary, b.proposers, b.proposer_kind, b.propose_date, b.stage
     FROM Bill b
     WHERE b.summary IS NOT NULL AND b.summary <> ''
-      AND (b.brief_summary IS NULL OR b.brief_summary = '' OR b.gpt_summary IS NULL OR b.gpt_summary = '')
+      AND (b.title IS NULL OR b.title = '' OR b.gpt_summary IS NULL OR b.gpt_summary = '')
       AND NOT EXISTS (
         SELECT 1 FROM ai_batch_items i JOIN ai_batch_jobs j ON j.id = i.job_id
         WHERE i.bill_id = b.bill_id AND j.status IN ({",".join(["%s"] * len(ACTIVE_BATCH_STATES))})
@@ -236,7 +236,7 @@ def apply_batch_results(
         include_summary_tags = bill_table_has_column(cursor, "summary_tags")
         include_category = bill_table_has_column(cursor, "category")
         for line in [l for l in output_jsonl.splitlines() if l.strip()]:  # noqa: E741
-            bill_id, brief, gpt, tags, category, err = parse_output_jsonl_line(line)
+            bill_id, title, gpt, tags, category, err = parse_output_jsonl_line(line)
             if not bill_id:
                 failed += 1
                 continue
@@ -249,7 +249,7 @@ def apply_batch_results(
                 )
                 continue
             update_sql, update_params = build_bill_summary_update(
-                brief_summary=brief,
+                title=title,
                 gpt_summary=gpt,
                 summary_tags=tags,
                 bill_id=bill_id,

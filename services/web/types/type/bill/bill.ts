@@ -10,7 +10,7 @@ export interface BillResponse {
     view_count: number;
     bill_like_count: number;
     bill_stage: string;
-    brief_summary: string;
+    title: string;
     bill_result: string;
     proposer_kind?: 'CONGRESSMAN' | 'CHAIRMAN' | 'GOVERNMENT' | string | null;
     proposers?: string | null;
@@ -35,7 +35,7 @@ export interface BillResponse {
   }[];
   is_book_mark: boolean;
   similar_bills: {
-    billBriefSummary: string;
+    billTitle: string;
     billId: string;
     billName: string;
     billProposers: string;

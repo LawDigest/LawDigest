@@ -22,7 +22,7 @@ import { ProposerList } from '@/app/bill/[id]/components';
 import { getChairmanProposerInfo } from '@/utils';
 
 export default function BillBookmarked({
-  bill_info_dto: { bill_id, brief_summary, bill_stage, proposer_kind, proposers, committee },
+  bill_info_dto: { bill_id, title, bill_stage, proposer_kind, proposers, committee },
   representative_proposer_dto_list,
   public_proposer_dto_list,
 }: BillProps) {
@@ -42,7 +42,7 @@ export default function BillBookmarked({
     <Card className={`border-1.5 flex-row md:py-2 ${cardBorderClassName}`} radius="md">
       <CardBody className="flex justify-between gap-2">
         <Link href={`/bill/${bill_id}`}>
-          <p className="text-sm font-bold md:text-base lg:text-lg">{brief_summary}</p>
+          <p className="text-sm font-bold md:text-base lg:text-lg">{title}</p>
         </Link>
         <div className="flex flex-wrap items-center w-full gap-2 overflow-visible">
           <Chip

@@ -16,11 +16,11 @@ def test_update_bill_summary_skips_summary_tags_when_column_absent():
 
     with patch("lawdigest_ai.db.get_db_connection", return_value=conn), patch(
         "lawdigest_ai.db.get_bill_table_columns",
-        return_value={"bill_id", "brief_summary", "gpt_summary"},
+        return_value={"bill_id", "title", "gpt_summary"},
     ):
         update_bill_summary(
             bill_id="B001",
-            brief_summary="짧은 요약",
+            title="짧은 요약",
             gpt_summary="상세 요약",
             summary_tags='["태그"]',
             mode="prod",

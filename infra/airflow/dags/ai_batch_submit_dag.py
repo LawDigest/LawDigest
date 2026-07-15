@@ -66,7 +66,7 @@ with DAG(
     대량의 미요약 법안을 한꺼번에 선택한 provider의 Batch API로 보내어 요약을 요청하는 DAG입니다.
 
     ### 🚀 주요 기능
-    1. **미요약 대상 식별**: DB에서 `brief_summary` 또는 `gpt_summary`가 누락된 법안을 지정된 개수(`limit`)만큼 조회합니다.
+    1. **미요약 대상 식별**: DB에서 `title` 또는 `gpt_summary`가 누락된 법안을 지정된 개수(`limit`)만큼 조회합니다.
     2. **요청 파일 생성**: 선택한 provider 규격에 맞는 JSONL 파일을 생성합니다.
     3. **Batch 업로드**: 생성된 파일을 provider에 업로드하고 Batch 작업을 생성합니다.
     4. **상태 관리**: 생성된 Batch ID와 작업 정보를 DB(`ai_batch_jobs`, `ai_batch_items`)에 저장하여 추후 결과를 수신할 수 있게 합니다.

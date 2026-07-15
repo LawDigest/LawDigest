@@ -23,7 +23,7 @@ export default function PlenaryList({
       bill_name: string;
       bill_stage: string;
       bill_proposers: string;
-      bill_brief_summary: string;
+      bill_title: string;
       bill_result: string;
     };
     approval_vote_count: number;
@@ -102,7 +102,7 @@ export default function PlenaryList({
                           </Link>
                           <div className="flex flex-col gap-1">
                             <Link href={`/bill/${bill_info.bill_id}`}>
-                              <p className="text-xs font-bold">{bill_info.bill_brief_summary}</p>
+                              <p className="text-xs font-bold">{bill_info.bill_title}</p>
                             </Link>
                             <p className="text-xs font-semibold text-gray-2 dark:text-gray-3">
                               {bill_info.bill_proposers}
@@ -141,7 +141,7 @@ export default function PlenaryList({
                   </Link>
                   <div className="flex flex-col w-full gap-2 md:h-full md:justify-between">
                     <Link href={`/bill/${item.bill_info.bill_id}`}>
-                      <p className="text-sm font-bold">{item.bill_info.bill_brief_summary}</p>
+                      <p className="text-sm font-bold">{item.bill_info.bill_title}</p>
                     </Link>
                     <div className="flex items-center gap-[6px]">
                       <Chip

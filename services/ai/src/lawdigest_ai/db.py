@@ -89,7 +89,7 @@ def get_bill_table_columns(mode: str = "test") -> set[str]:
 
 def update_bill_summary(
     bill_id: str,
-    brief_summary: str | None,
+    title: str | None,
     gpt_summary: str | None,
     summary_tags: str | None,
     mode: str = "test",
@@ -99,8 +99,8 @@ def update_bill_summary(
     bill_columns = get_bill_table_columns(mode=mode)
     conn = get_db_connection(mode=mode)
     try:
-        set_clauses = ["brief_summary=%s", "gpt_summary=%s"]
-        params: list[Any] = [brief_summary, gpt_summary]
+        set_clauses = ["title=%s", "gpt_summary=%s"]
+        params: list[Any] = [title, gpt_summary]
         if "summary_tags" in bill_columns:
             set_clauses.append("summary_tags=%s")
             params.append(summary_tags)

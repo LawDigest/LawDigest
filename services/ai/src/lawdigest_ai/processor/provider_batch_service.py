@@ -119,7 +119,7 @@ def apply_batch_results_for_provider(
                 continue
 
             update_sql, update_params = build_bill_summary_update(
-                brief_summary=result.brief_summary,
+                title=result.title,
                 gpt_summary=result.gpt_summary,
                 summary_tags=result.tags,
                 bill_id=result.bill_id,

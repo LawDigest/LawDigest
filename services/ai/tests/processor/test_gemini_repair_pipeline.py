@@ -24,14 +24,14 @@ def test_gemini_repair_pipeline_saves_json_in_dry_run(tmp_path, capsys):
         "summary": "원문 요약",
         "proposers": "홍길동",
         "proposer_kind": "의원발의",
-        "brief_summary": None,
+        "title": None,
         "gpt_summary": None,
         "propose_date": "2026-04-16",
         "stage": "위원회",
     }]
     result_rows = [{
         **rows[0],
-        "brief_summary": "개인정보 처리 투명성 강화",
+        "title": "개인정보 처리 투명성 강화",
         "gpt_summary": "1. 처리방침 고지 의무를 강화한다.",
         "summary_tags": json.dumps(["개인정보보호", "투명성강화", "정보주체권리", "설명요구권", "제재기준정비"], ensure_ascii=False),
     }]
@@ -79,14 +79,14 @@ def test_gemini_repair_pipeline_upserts_successful_items():
         "summary": "원문 요약",
         "proposers": "김철수",
         "proposer_kind": "의원발의",
-        "brief_summary": "",
+        "title": "",
         "gpt_summary": None,
         "propose_date": "2026-04-16",
         "stage": "본회의",
     }]
     result_rows = [{
         **rows[0],
-        "brief_summary": "플랫폼 거래 투명성 강화",
+        "title": "플랫폼 거래 투명성 강화",
         "gpt_summary": "1. 계약조건 공개 의무를 확대한다.",
         "summary_tags": json.dumps(["플랫폼규제", "거래투명성", "공정거래", "계약공개", "사업자책임"], ensure_ascii=False),
     }]
@@ -119,7 +119,7 @@ def test_gemini_repair_pipeline_upserts_each_success_before_later_failure(tmp_pa
             "summary": "원문 요약",
             "proposers": "김철수",
             "proposer_kind": "의원발의",
-            "brief_summary": None,
+            "title": None,
             "gpt_summary": None,
             "propose_date": "2026-04-16",
             "stage": "본회의",
@@ -130,7 +130,7 @@ def test_gemini_repair_pipeline_upserts_each_success_before_later_failure(tmp_pa
             "summary": "원문 요약",
             "proposers": "박영희",
             "proposer_kind": "의원발의",
-            "brief_summary": None,
+            "title": None,
             "gpt_summary": None,
             "propose_date": "2026-04-16",
             "stage": "위원회",
@@ -139,7 +139,7 @@ def test_gemini_repair_pipeline_upserts_each_success_before_later_failure(tmp_pa
     first_result = pd.DataFrame([
         {
             **rows[0],
-            "brief_summary": "첫 번째 요약",
+            "title": "첫 번째 요약",
             "gpt_summary": "1. 첫 번째 법안을 요약한다.",
             "summary_tags": json.dumps(["요약", "즉시저장", "법안", "테스트", "성공"], ensure_ascii=False),
         }
@@ -182,7 +182,7 @@ def test_gemini_repair_pipeline_raises_when_all_items_fail(tmp_path):
         "summary": "원문 요약",
         "proposers": "박영희",
         "proposer_kind": "의원발의",
-        "brief_summary": None,
+        "title": None,
         "gpt_summary": None,
         "propose_date": "2026-04-16",
         "stage": "위원회",
@@ -217,14 +217,14 @@ def test_gemini_repair_pipeline_accepts_cli_provider(tmp_path):
         "summary": "원문 요약",
         "proposers": "이영희",
         "proposer_kind": "의원발의",
-        "brief_summary": None,
+        "title": None,
         "gpt_summary": None,
         "propose_date": "2026-04-16",
         "stage": "위원회",
     }]
     result_rows = [{
         **rows[0],
-        "brief_summary": "CLI 제공자 기반 요약",
+        "title": "CLI 제공자 기반 요약",
         "gpt_summary": "1. CLI 제공자 경로를 검증한다.",
         "summary_tags": json.dumps(["CLI", "요약", "검증", "법안", "자동화"], ensure_ascii=False),
     }]

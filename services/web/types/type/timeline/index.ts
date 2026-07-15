@@ -19,7 +19,7 @@ export interface TimelineResponseList {
       bill_name: string;
       bill_stage: string;
       bill_proposers: string;
-      bill_brief_summary: string;
+      bill_title: string;
       bill_result: string;
     };
     approval_vote_count: number;
@@ -43,7 +43,7 @@ export interface TimelineResponseList {
     bill_name: string;
     bill_stage: string;
     bill_proposers: string;
-    bill_brief_summary: string;
+    bill_title: string;
   }[];
   committee_audit_list: {
     committee_name: string;
@@ -58,11 +58,11 @@ export interface TimelineResponseList {
       bill_name: string;
       bill_stage: string;
       bill_proposers: string;
-      bill_brief_summary: string;
+      bill_title: string;
     }[];
   }[];
   submitted_list: {
-    bill_brief_summary: string;
+    bill_title: string;
     bill_id: string;
     bill_name: string;
     bill_proposers: string;

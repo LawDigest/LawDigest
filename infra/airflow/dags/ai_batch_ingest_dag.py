@@ -61,7 +61,7 @@ with DAG(
     ### 🚀 주요 기능
     1. **Batch 상태 모니터링**: 진행 중인(`SUBMITTED`, `IN_PROGRESS` 등) 작업의 상태를 provider 서버에서 조회합니다.
     2. **결과 다운로드**: 작업 상태가 `COMPLETED`이면 요약 결과(JSONL)를 다운로드하여 파싱합니다.
-    3. **DB 최종 업데이트**: 파싱된 요약(`gpt_summary`, `brief_summary`, `tags`)을 `Bill` 테이블에 영구적으로 반영합니다.
+    3. **DB 최종 업데이트**: 파싱된 요약(`gpt_summary`, `title`, `tags`)을 `Bill` 테이블에 영구적으로 반영합니다.
     4. **작업 완료 처리**: 상태 테이블(`ai_batch_jobs`, `ai_batch_items`)의 정보를 최종 상태로 업데이트합니다.
 
     ### ⚙️ 실행 모드 (Execution Mode)

@@ -718,6 +718,23 @@ def test_legal_term_dictionary_migration_schema():
     assert "UNIQUE KEY uq_legal_term_dictionary_source_normalized_term" in migration_sql
 
 
+def test_bill_title_rename_migration_is_guarded_and_instant():
+    from pathlib import Path
+
+    migration_path = (
+        Path(__file__).resolve().parents[3]
+        / "infra/db/migrations/20260715_rename_bill_brief_summary_to_title.sql"
+    )
+    migration_sql = migration_path.read_text(encoding="utf-8")
+
+    assert "RENAME COLUMN `brief_summary` TO `title`" in migration_sql
+    assert "RENAME COLUMN `brief_summary_text` TO `title_text`" in migration_sql
+    assert migration_sql.count("ALGORITHM=INSTANT") == 2
+    assert "information_schema.COLUMNS" in migration_sql
+    assert "invalid_bill_title_migration_state" in migration_sql
+    assert "invalid_search_title_migration_state" in migration_sql
+
+
 def test_cli_dispatches_bill_agent_report_target_all(tmp_path):
     from lawdigest_data.runtime.cli import main
 

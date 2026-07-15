@@ -436,7 +436,7 @@ def test_build_bill_rows_sets_partial_status_when_summary_is_missing():
 
     assert rows[0]["ingest_status"] == "PARTIAL"
 
-def test_build_bill_rows_generates_brief_summary_and_does_not_reuse_bill_link_as_pdf_url():
+def test_build_bill_rows_generates_title_and_does_not_reuse_bill_link_as_pdf_url():
     manager = WorkFlowManager("dry_run")
     df_bills = pd.DataFrame(
         {
@@ -453,7 +453,7 @@ def test_build_bill_rows_generates_brief_summary_and_does_not_reuse_bill_link_as
 
     rows = manager._build_bill_rows(df_bills)
 
-    assert rows[0]["brief_summary"] == "첫 번째 핵심 문장입니다."
+    assert rows[0]["title"] == "첫 번째 핵심 문장입니다."
     assert rows[0]["bill_pdf_url"] is None
 
 

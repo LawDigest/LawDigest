@@ -80,7 +80,7 @@ public class BillRepositoryImpl implements BillRepositoryCustom {
     private List<BillInfoDto> findPagedBills(Pageable pageable, String stage) {
         return queryFactory.select(new QBillInfoDto(bill))
                 .from(bill)
-                .where(eqReady(), hasText(bill.briefSummary), hasText(bill.gptSummary), eqStage(stage))
+                .where(eqReady(), hasText(bill.title), hasText(bill.gptSummary), eqStage(stage))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize() + 1)
                 .orderBy(bill.proposeDate.desc(), bill.id.desc())
@@ -90,7 +90,7 @@ public class BillRepositoryImpl implements BillRepositoryCustom {
     private List<BillInfoDto> findPagedBillsByCategory(Pageable pageable, String category) {
         return queryFactory.select(new QBillInfoDto(bill))
                 .from(bill)
-                .where(eqReady(), hasText(bill.briefSummary), hasText(bill.gptSummary), bill.category.eq(category))
+                .where(eqReady(), hasText(bill.title), hasText(bill.gptSummary), bill.category.eq(category))
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize() + 1)
                 .orderBy(bill.proposeDate.desc(), bill.id.desc())

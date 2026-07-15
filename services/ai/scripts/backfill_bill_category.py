@@ -26,7 +26,7 @@ def run(*, mode: str, execute: bool, limit: int | None, batch_size: int) -> int:
     conn = get_db_connection(mode=mode)
     try:
         select_sql = (
-            "SELECT bill_id, committee, bill_name, brief_summary "
+            "SELECT bill_id, committee, bill_name, title "
             "FROM Bill WHERE category IS NULL"
         )
         if limit:
@@ -38,7 +38,7 @@ def run(*, mode: str, execute: bool, limit: int | None, batch_size: int) -> int:
         dist: dict[str, int] = {}
         updates: list[tuple[str, str]] = []
         for row in rows:
-            code = classify_bill(row["committee"], row["bill_name"], row.get("brief_summary"))
+            code = classify_bill(row["committee"], row["bill_name"], row.get("title"))
             dist[code] = dist.get(code, 0) + 1
             if code != UNKNOWN_CODE:
                 updates.append((code, row["bill_id"]))

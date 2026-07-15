@@ -28,8 +28,8 @@ from lawdigest_ai.processor.category_taxonomy import (
 
 class BatchStructuredSummary(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
-    brief_summary: str = Field(
-        alias="briefSummary",
+    title: str = Field(
+        alias="title",
         description=(
             "기존 DB 스타일의 긴 제목형 한국어 요약. 핵심 변경 목적이나 수단을 먼저 쓰고 "
             "'을/를 위한' 뒤에 정확한 법안명을 붙여 끝낸다. "
@@ -60,13 +60,13 @@ def _build_prompt_for_bill(row: Dict[str, Any]) -> str:
     }
     return (
         "다음 법안 정보를 보고 JSON으로만 응답하세요.\n"
-        "키는 briefSummary, gptSummary, tags, category 네 개만 포함해야 합니다.\n"
-        "briefSummary는 기존 DB 스타일의 긴 제목형 요약으로 작성하세요.\n"
-        "briefSummary 형식은 가능한 한 '[핵심 변경 목적/수단]을/를 위한 [정확한 bill_name]' 구조를 따르세요.\n"
-        "briefSummary는 반드시 입력 payload의 bill_name과 같은 법안명으로 끝나야 합니다.\n"
-        "briefSummary는 완성된 설명문이나 문장으로 쓰지 말고, '입니다', '합니다', '것입니다', '함' 같은 종결 표현으로 끝내지 마세요.\n"
-        "briefSummary 예: '해양폐기물관리위원회 위원에 지방자치단체 협의체 추천 인사를 포함하기 위한 해양폐기물 및 해양오염퇴적물 관리법 일부개정법률안'\n"
-        "briefSummary 예: '공공외교 기본계획에 지자체·민간 협력체계 구축 방안을 명시하기 위한 공공외교법 일부개정법률안'\n"
+        "키는 title, gptSummary, tags, category 네 개만 포함해야 합니다.\n"
+        "title은 기존 DB 스타일의 긴 제목형 요약으로 작성하세요.\n"
+        "title 형식은 가능한 한 '[핵심 변경 목적/수단]을/를 위한 [정확한 bill_name]' 구조를 따르세요.\n"
+        "title은 반드시 입력 payload의 bill_name과 같은 법안명으로 끝나야 합니다.\n"
+        "title은 완성된 설명문이나 문장으로 쓰지 말고, '입니다', '합니다', '것입니다', '함' 같은 종결 표현으로 끝내지 마세요.\n"
+        "title 예: '해양폐기물관리위원회 위원에 지방자치단체 협의체 추천 인사를 포함하기 위한 해양폐기물 및 해양오염퇴적물 관리법 일부개정법률안'\n"
+        "title 예: '공공외교 기본계획에 지자체·민간 협력체계 구축 방안을 명시하기 위한 공공외교법 일부개정법률안'\n"
         "gptSummary는 기존 양식에 맞춰 아래 규칙으로 작성하세요.\n"
         f"1) 첫 줄: \"{{opening_proposer_line}}\"\n"
         f"2) 다음 줄부터 {SUMMARY_LIST_GUIDELINE}\n"
@@ -242,7 +242,7 @@ class OpenAIBatchProvider(BatchProviderBase):
         if row_error is not None:
             return BatchProviderParseResult(
                 bill_id=bill_id,
-                brief_summary=None,
+                title=None,
                 gpt_summary=None,
                 tags=None,
                 error=row_error,
@@ -251,7 +251,7 @@ class OpenAIBatchProvider(BatchProviderBase):
         if response.get("status_code") != 200:
             return BatchProviderParseResult(
                 bill_id=bill_id,
-                brief_summary=None,
+                title=None,
                 gpt_summary=None,
                 tags=None,
                 error=f"status_code={response.get('status_code')}",
@@ -260,7 +260,7 @@ class OpenAIBatchProvider(BatchProviderBase):
         if not choices:
             return BatchProviderParseResult(
                 bill_id=bill_id,
-                brief_summary=None,
+                title=None,
                 gpt_summary=None,
                 tags=None,
                 error="choices가 비어있습니다.",
@@ -269,7 +269,7 @@ class OpenAIBatchProvider(BatchProviderBase):
         if not content:
             return BatchProviderParseResult(
                 bill_id=bill_id,
-                brief_summary=None,
+                title=None,
                 gpt_summary=None,
                 tags=None,
                 error="message content가 비어있습니다.",
@@ -279,14 +279,14 @@ class OpenAIBatchProvider(BatchProviderBase):
         except ValidationError as exc:
             return BatchProviderParseResult(
                 bill_id=bill_id,
-                brief_summary=None,
+                title=None,
                 gpt_summary=None,
                 tags=None,
                 error=f"Structured Output 검증 실패: {exc}",
             )
         return BatchProviderParseResult(
             bill_id=bill_id,
-            brief_summary=parsed.brief_summary,
+            title=parsed.title,
             gpt_summary=parsed.gpt_summary,
             tags=parsed.tags,
             error=None,

@@ -197,7 +197,7 @@ class GeminiBatchProvider(BatchProviderBase):
         if error_payload is not None:
             return GeminiBatchResult(
                 bill_id=bill_id,
-                brief_summary=None,
+                title=None,
                 gpt_summary=None,
                 tags=None,
                 error=_format_error(error_payload),
@@ -207,7 +207,7 @@ class GeminiBatchProvider(BatchProviderBase):
         if not content:
             return GeminiBatchResult(
                 bill_id=bill_id,
-                brief_summary=None,
+                title=None,
                 gpt_summary=None,
                 tags=None,
                 error="response text가 비어있습니다.",
@@ -218,7 +218,7 @@ class GeminiBatchProvider(BatchProviderBase):
         except ValidationError as exc:
             return GeminiBatchResult(
                 bill_id=bill_id,
-                brief_summary=None,
+                title=None,
                 gpt_summary=None,
                 tags=None,
                 error=f"Structured Output 검증 실패: {exc}",
@@ -226,7 +226,7 @@ class GeminiBatchProvider(BatchProviderBase):
 
         return GeminiBatchResult(
             bill_id=bill_id,
-            brief_summary=parsed.brief_summary,
+            title=parsed.title,
             gpt_summary=parsed.gpt_summary,
             tags=parsed.tags,
             error=None,

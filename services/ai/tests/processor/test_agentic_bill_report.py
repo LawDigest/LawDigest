@@ -85,7 +85,7 @@ def test_agentic_report_prompt_targets_user_facing_report(monkeypatch):
     assert "아직 법으로 확정된 건 아니고" not in prompt
     assert "처리 상태" in context
     assert "하기 위한 법률 개정안이에요" in context
-    assert "brief_summary는 카드용 제목형 요약" in prompt
+    assert "title은 카드용 제목형 요약" in prompt
     assert "원문 첫 문장을 복사하지 말고" in prompt
     assert "'[핵심 변경 목적/수단]을/를 위한 [정확한 bill.bill_name]'" in prompt
     assert "괄호 설명이나 설명 불릿으로 끼워 넣지 마세요" in context
@@ -248,12 +248,12 @@ def test_agentic_report_batch_prompt_isolates_bill_reports():
     assert "다른 법안 리포트에 절대 옮기지 마세요" in prompt
     assert "JSON 객체 하나만 작성하세요" in prompt
     assert '"reports"' in prompt
-    assert '"brief_summary"' in prompt
+    assert '"title"' in prompt
     assert '"report_body"' in prompt
-    assert '{"reports":[{"brief_summary"' in prompt
+    assert '{"reports":[{"title"' in prompt
     assert '"bill_id":"PRC_EXAMPLE"' not in prompt
     assert "처리 상태와 관계없이 deep_report 긴 버전" in prompt
-    assert "같은 순서로 brief_summary와 report_body" in prompt
+    assert "같은 순서로 title과 report_body" in prompt
     assert "### 1) 제목" in context
     assert "번호 헤딩 다음에는 불릿이 아닌 일반 문단" in context
     assert "## 배치 출력" not in REPORT_SKILL_BODY
@@ -1952,7 +1952,7 @@ def test_run_agentic_bill_reports_applies_tooltips_from_single_structured_output
         output_path.write_text(
             json.dumps(
                 {
-                    "brief_summary": "청문 절차 명확화를 위한 청문 절차 정비법안",
+                    "title": "청문 절차 명확화를 위한 청문 절차 정비법안",
                     "report_body": report_body,
                     "tooltips": [
                         {
@@ -2099,7 +2099,7 @@ def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monk
             "bill_number": "2211001",
             "bill_name": "부분 성공 테스트법안 1",
             "summary": "첫 번째 요약",
-            "brief_summary": "기존 첫 번째 제목",
+            "title": "기존 첫 번째 제목",
             "summary_tags": '["기존"]',
             "bill_result": "소관위심사",
             "stage": "위원회 심사",
@@ -2109,7 +2109,7 @@ def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monk
             "bill_number": "2211002",
             "bill_name": "부분 성공 테스트법안 2",
             "summary": "두 번째 요약",
-            "brief_summary": "기존 두 번째 제목",
+            "title": "기존 두 번째 제목",
             "summary_tags": '["기존"]',
             "bill_result": "소관위심사",
             "stage": "위원회 심사",
@@ -2174,7 +2174,7 @@ def test_run_agentic_bill_reports_maps_report_bodies_without_agent_bill_id(tmp_p
             "bill_number": "2212001",
             "bill_name": "식별자 복구 테스트법안 1",
             "summary": "첫 번째 요약",
-            "brief_summary": "기존 첫 번째 제목",
+            "title": "기존 첫 번째 제목",
             "summary_tags": '["기존"]',
             "bill_result": "소관위심사",
             "stage": "위원회 심사",
@@ -2184,7 +2184,7 @@ def test_run_agentic_bill_reports_maps_report_bodies_without_agent_bill_id(tmp_p
             "bill_number": "2212002",
             "bill_name": "식별자 복구 테스트법안 2",
             "summary": "두 번째 요약",
-            "brief_summary": "기존 두 번째 제목",
+            "title": "기존 두 번째 제목",
             "summary_tags": '["기존"]',
             "bill_result": "소관위심사",
             "stage": "위원회 심사",
@@ -2252,7 +2252,7 @@ def test_run_agentic_bill_reports_unwraps_single_report_json_in_batch_turn(tmp_p
             "bill_number": "2213001",
             "bill_name": "JSON 복구 테스트법안 1",
             "summary": "첫 번째 요약",
-            "brief_summary": "기존 첫 번째 제목",
+            "title": "기존 첫 번째 제목",
             "summary_tags": '["기존"]',
             "bill_result": "소관위심사",
             "stage": "위원회 심사",
@@ -2262,7 +2262,7 @@ def test_run_agentic_bill_reports_unwraps_single_report_json_in_batch_turn(tmp_p
             "bill_number": "2213002",
             "bill_name": "JSON 복구 테스트법안 2",
             "summary": "두 번째 요약",
-            "brief_summary": "기존 두 번째 제목",
+            "title": "기존 두 번째 제목",
             "summary_tags": '["기존"]',
             "bill_result": "소관위심사",
             "stage": "위원회 심사",
@@ -2292,7 +2292,7 @@ def test_run_agentic_bill_reports_unwraps_single_report_json_in_batch_turn(tmp_p
                 {
                     "reports": [
                         {
-                            "brief_summary": f"지원 근거 신설을 위한 {bill_name}",
+                            "title": f"지원 근거 신설을 위한 {bill_name}",
                             "report_body": body,
                         }
                     ]
@@ -2322,7 +2322,7 @@ def test_run_agentic_bill_reports_unwraps_single_report_json_in_batch_turn(tmp_p
     assert result["stats"]["success_count"] == 2
     assert result["stats"]["failure_count"] == 0
     assert [call.kwargs["bill_id"] for call in mock_update.call_args_list] == ["PRC_JSON_BATCH_1", "PRC_JSON_BATCH_2"]
-    assert [call.kwargs["brief_summary"] for call in mock_update.call_args_list] == [
+    assert [call.kwargs["title"] for call in mock_update.call_args_list] == [
         "지원 근거 신설을 위한 JSON 복구 테스트법안 1",
         "지원 근거 신설을 위한 JSON 복구 테스트법안 2",
     ]
@@ -2482,24 +2482,24 @@ def test_run_agentic_bill_reports_runs_batch_sessions_in_parallel(tmp_path, monk
 
 
 def test_agentic_report_validates_generated_card_title_contract():
-    from lawdigest_ai.processor.agentic_bill_report import _validate_generated_brief_summary
+    from lawdigest_ai.processor.agentic_bill_report import _validate_generated_title
 
     bill = {"bill_name": "선거관리위원회법 일부개정법률안"}
-    _validate_generated_brief_summary(
+    _validate_generated_title(
         "선관위원장 상임화·상임위원 확대 및 감사·인사검증 강화를 위한 선거관리위원회법 일부개정법률안",
         bill,
         required=True,
     )
 
     with pytest.raises(RuntimeError, match="제목형 계약"):
-        _validate_generated_brief_summary(
+        _validate_generated_title(
             "중앙선거관리위원회는 선거사무 전반을 중립적이고 책임 있게 수행하여야 하는 헌법기관임.",
             bill,
             required=True,
         )
 
-    with pytest.raises(RuntimeError, match="brief_summary가 없습니다"):
-        _validate_generated_brief_summary(None, bill, required=True)
+    with pytest.raises(RuntimeError, match="title이 없습니다"):
+        _validate_generated_title(None, bill, required=True)
 
 
 def test_agentic_report_replaces_source_sentence_with_generated_card_title():
@@ -2508,7 +2508,7 @@ def test_agentic_report_replaces_source_sentence_with_generated_card_title():
     bill = {
         "bill_id": "PRC_DB",
         "bill_name": "선거관리위원회법 일부개정법률안",
-        "brief_summary": (
+        "title": (
             "중앙선거관리위원회는 민주주의의 근간인 선거의 공정성과 투명성을 확보하고, "
             "선거ㆍ투표관리, 조사ㆍ단속, 조직운영 등 선거사무 전반을 중립적이고 책임 있게 "
             "수행하여야 하는 헌법기관임."
@@ -2537,10 +2537,10 @@ def test_agentic_report_replaces_source_sentence_with_generated_card_title():
     payload = _build_db_summary_payload(
         bill=bill,
         report_body=report_body,
-        generated_brief_summary=generated_title,
+        generated_title=generated_title,
     )
 
-    assert payload["brief_summary"] == generated_title
+    assert payload["title"] == generated_title
     assert payload["summary_tags"] == '["기존태그"]'
     assert "## 쉬운 요약" in payload["gpt_summary"]
     assert "### 1) 위원회 운영 방식 변경" in payload["gpt_summary"]
@@ -2548,14 +2548,14 @@ def test_agentic_report_replaces_source_sentence_with_generated_card_title():
     assert "확인한 근거" not in payload["gpt_summary"]
 
 
-def test_agentic_report_rebuilds_overlong_brief_summary_prefix():
+def test_agentic_report_rebuilds_overlong_title_prefix():
     from lawdigest_ai.processor.agentic_bill_report import _build_db_summary_payload
 
     bill_name = "인공지능 데이터센터 산업 진흥에 관한 특별법안(대안)"
     bill = {
         "bill_id": "PRC_AI_DC",
         "bill_name": bill_name,
-        "brief_summary": (
+        "title": (
             "인공지능 데이터센터의 신속한 구축과 운영 지원을 위한 행정·재정적 근거를 마련하고 "
             "인허가 절차 간소화 및 각종 특례를 규정하기 위한 "
             "인공지능 데이터센터 산업 진흥에 관한 특별법안(대안)"
@@ -2576,14 +2576,14 @@ def test_agentic_report_rebuilds_overlong_brief_summary_prefix():
 
     payload = _build_db_summary_payload(bill=bill, report_body=report_body)
 
-    assert payload["brief_summary"] == (
+    assert payload["title"] == (
         "전력·용수 기반과 인허가 특례로 인공지능 데이터센터 구축·운영 지원을 위한 "
         "인공지능 데이터센터 산업 진흥에 관한 특별법안(대안)"
     )
-    assert payload["brief_summary"].endswith(bill_name)
+    assert payload["title"].endswith(bill_name)
 
 
-def test_agentic_report_rebuilds_brief_summary_without_bad_particles():
+def test_agentic_report_rebuilds_title_without_bad_particles():
     from lawdigest_ai.processor.agentic_bill_report import _build_db_summary_payload
 
     cases = [
@@ -2604,7 +2604,7 @@ def test_agentic_report_rebuilds_brief_summary_without_bad_particles():
         ),
     ]
 
-    malformed_briefs = {
+    malformed_titles = {
         "농지법 일부개정법률안(대안)": "농지의 실제 이용 상태를 더 잘 파악하고, 방치된을 위한 농지법 일부개정법률안(대안)",
         "해운법 일부개정법률안(대안)": "섬 주민이 끊기지 않게 배를을 위한 해운법 일부개정법률안(대안)",
         "지속가능한 연근해어업 발전법안(대안)": (
@@ -2618,15 +2618,15 @@ def test_agentic_report_rebuilds_brief_summary_without_bad_particles():
             bill={
                 "bill_id": "PRC_CASE",
                 "bill_name": bill_name,
-                "brief_summary": malformed_briefs[bill_name],
+                "title": malformed_titles[bill_name],
                 "summary_tags": None,
             },
             report_body=f"## 쉬운 요약\n- {first_bullet}\n\n## 주요 내용\n### 1) 변화\n본문",
         )
 
-        assert payload["brief_summary"] == expected
-        assert "된을 위한" not in payload["brief_summary"]
-        assert "를을 위한" not in payload["brief_summary"]
+        assert payload["title"] == expected
+        assert "된을 위한" not in payload["title"]
+        assert "를을 위한" not in payload["title"]
 
 
 def test_run_agentic_bill_reports_upserts_successful_items(tmp_path, monkeypatch):
@@ -2636,7 +2636,7 @@ def test_run_agentic_bill_reports_upserts_successful_items(tmp_path, monkeypatch
     target = {
         "bill_id": "PRC_DB_UPSERT",
         "bill_name": "업서트 테스트법 일부개정법률안",
-        "brief_summary": "기존 제목",
+        "title": "기존 제목",
         "summary_tags": '["기존태그"]',
     }
     report_path = tmp_path / "PRC_DB_UPSERT.md"
@@ -2651,7 +2651,7 @@ def test_run_agentic_bill_reports_upserts_successful_items(tmp_path, monkeypatch
         return {
             "bill_id": bill["bill_id"],
             "bill_name": bill["bill_name"],
-            "brief_summary": "지원 근거 명확화를 위한 업서트 테스트법 일부개정법률안",
+            "title": "지원 근거 명확화를 위한 업서트 테스트법 일부개정법률안",
             "report_path": str(report_path),
             "status": "success",
         }
@@ -2671,7 +2671,7 @@ def test_run_agentic_bill_reports_upserts_successful_items(tmp_path, monkeypatch
 
     assert result["stats"]["db_upserted_count"] == 1
     mock_update.assert_called_once()
-    assert mock_update.call_args.kwargs["brief_summary"] == (
+    assert mock_update.call_args.kwargs["title"] == (
         "지원 근거 명확화를 위한 업서트 테스트법 일부개정법률안"
     )
     assert "쉬운 요약" in mock_update.call_args.kwargs["gpt_summary"]
@@ -2689,7 +2689,7 @@ def test_fetch_bill_report_targets_uses_null_summary_tags_when_column_absent():
         return_value=conn,
     ), patch(
         "lawdigest_ai.processor.agentic_bill_report.get_bill_table_columns",
-        return_value={"bill_id", "brief_summary", "summary"},
+        return_value={"bill_id", "title", "summary"},
     ):
         _fetch_bill_report_targets(mode="dry_run", limit=1, read_mode="prod", target="all")
 
@@ -2710,7 +2710,7 @@ def test_fetch_bill_report_targets_can_select_pending_bills():
         return_value=conn,
     ), patch(
         "lawdigest_ai.processor.agentic_bill_report.get_bill_table_columns",
-        return_value={"bill_id", "brief_summary", "summary", "summary_tags"},
+        return_value={"bill_id", "title", "summary", "summary_tags"},
     ):
         _fetch_bill_report_targets(mode="dry_run", limit=1, read_mode="prod", target="pending")
 

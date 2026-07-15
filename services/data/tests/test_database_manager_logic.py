@@ -343,7 +343,7 @@ class TestDatabaseManagerLogic(unittest.TestCase):
             {
                 "bill_id": "BILL-1",
                 "bill_name_text": "법안명",
-                "brief_summary_text": "짧은 요약",
+                "title_text": "짧은 요약",
                 "gpt_summary_text": "AI 요약",
                 "raw_summary_text": "원문 요약",
                 "search_text": "법안명 짧은 요약 AI 요약 원문 요약",

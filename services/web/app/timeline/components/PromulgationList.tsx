@@ -12,7 +12,7 @@ export default function PromulgationList({
   promulgation_list,
 }: {
   promulgation_list: {
-    bill_brief_summary: string;
+    bill_title: string;
     bill_id: string;
     bill_name: string;
     bill_proposers: string;
@@ -67,7 +67,7 @@ export default function PromulgationList({
               </Button>
               <TimelineModal isOpen={isOpen} onClose={onClose}>
                 <div className="flex flex-col gap-3">
-                  {promulgation_list.map(({ party_info, bill_id, bill_proposers, bill_brief_summary }) => (
+                  {promulgation_list.map(({ party_info, bill_id, bill_proposers, bill_title }) => (
                     <div key={bill_id} className="flex gap-[18px] items-center">
                       <Link
                         href={`/party/${party_info[0].party_id}`}
@@ -85,7 +85,7 @@ export default function PromulgationList({
                       </Link>
                       <div className="flex flex-col gap-1">
                         <Link href={`/bill/${promulgation_list[currentPage].bill_id}`}>
-                          <p className="text-xs font-bold">{bill_brief_summary}</p>
+                          <p className="text-xs font-bold">{bill_title}</p>
                         </Link>
                         <p className="text-xs font-semibold text-gray-2 dark:text-gray-3">{bill_proposers}</p>
                       </div>
@@ -119,7 +119,7 @@ export default function PromulgationList({
                   </Link>
                   <div className="flex flex-col w-full gap-2 md:h-full md:justify-between">
                     <Link href={`/bill/${item.bill_id}`}>
-                      <p className="text-sm font-bold">{item.bill_brief_summary}</p>
+                      <p className="text-sm font-bold">{item.bill_title}</p>
                     </Link>
                     <div className="flex items-center gap-[6px]">
                       <Chip

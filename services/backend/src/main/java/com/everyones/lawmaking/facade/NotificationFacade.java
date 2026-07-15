@@ -76,14 +76,14 @@ public class NotificationFacade {
         var congressmanName = congressman.getName();
         var party = congressman.getParty();
         var billId = bill.getId();
-        var billBriefSummary = bill.getBriefSummary();
+        var billTitle = bill.getTitle();
         String partyName = NullUtil.nullCoalescing(party::getName, "defaultPartyName");
         String partyImageUrl = NullUtil.nullCoalescing(party::getPartyImageUrl, "defaultPartyImageUrl");
         var congressmanInfo = partyName+":"+congressman.getCongressmanImageUrl();
         var partyInfo = partyName+":"+partyImageUrl;
 
 
-        return List.of(billId, congressmanName, billBriefSummary, congressmanInfo, partyInfo);
+        return List.of(billId, congressmanName, billTitle, congressmanInfo, partyInfo);
     }
     public List<String> updateCongressmanParty(List<String> uniqueKeys) {
         var congressman = congressmanService.findById(uniqueKeys.get(0));
@@ -98,16 +98,16 @@ public class NotificationFacade {
         var billId = uniqueKeys.get(0);
         var bill = billService.findById(billId);
         var proposerKind = bill.getProposerKind();
-        var briefSummary = bill.getBriefSummary();
+        var title = bill.getTitle();
         var proposers = bill.getProposers();
         var stage = bill.getStage();
 
         if(proposerKind.equals(ProposerKindType.CONGRESSMAN)){
-            return Stream.concat(Stream.of(billId, briefSummary, stage, proposerKind.name()), partyService.getPartyInfoList(billId).stream())
+            return Stream.concat(Stream.of(billId, title, stage, proposerKind.name()), partyService.getPartyInfoList(billId).stream())
                     .toList();
         }
         else{
-            return List.of(billId, briefSummary, stage, proposerKind.name(),proposers);
+            return List.of(billId, title, stage, proposerKind.name(),proposers);
 
         }
     }
@@ -115,16 +115,16 @@ public class NotificationFacade {
         var billId = relatedEntityIds.get(0);
         var bill = billService.findById(billId);
         var proposerKind = bill.getProposerKind();
-        var briefSummary = bill.getBriefSummary();
+        var title = bill.getTitle();
         var proposers = bill.getProposers();
         var billResult = bill.getBillResult();
 
         if(proposerKind.equals(ProposerKindType.CONGRESSMAN)){
-            return Stream.concat(Stream.of(billId, briefSummary, billResult, proposerKind.name()), partyService.getPartyInfoList(billId).stream())
+            return Stream.concat(Stream.of(billId, title, billResult, proposerKind.name()), partyService.getPartyInfoList(billId).stream())
                     .toList();
         }
         else{
-            return List.of(billId, briefSummary, billResult, proposerKind.name(), proposers);
+            return List.of(billId, title, billResult, proposerKind.name(), proposers);
 
         }
     }

@@ -95,8 +95,8 @@ import java.util.List;
     @Column(name = "bill_pdf_url")
     private String billPdfUrl; // PDF 파일의 경로 또는 식별자
 
-    @Column(name = "brief_summary", columnDefinition = "TEXT")
-    private String briefSummary;
+    @Column(name = "title", columnDefinition = "TEXT")
+    private String title;
 
     @Column(name ="bill_link")
     private String billLink;
@@ -120,14 +120,14 @@ import java.util.List;
                 .stage(billDfRequest.getStage())
                 .gptSummary(billDfRequest.getGptSummary())
                 .summary(billDfRequest.getSummary())
-                .briefSummary(billDfRequest.getBriefSummary())
+                .title(billDfRequest.getTitle())
                 .proposerKind(ProposerKindType.from(billDfRequest.getProposerKind()))
                 .ingestStatus(resolveIngestStatus(
                         billDfRequest.getBillName(),
                         billDfRequest.getProposeDate(),
                         billDfRequest.getStage(),
                         billDfRequest.getSummary(),
-                        billDfRequest.getBriefSummary(),
+                        billDfRequest.getTitle(),
                         billDfRequest.getGptSummary()
                 ))
                 .build();
@@ -143,14 +143,14 @@ import java.util.List;
         this.setStage(billDfRequest.getStage());
         this.setGptSummary(billDfRequest.getGptSummary());
         this.setSummary(billDfRequest.getSummary());
-        this.setBriefSummary(billDfRequest.getBriefSummary());
+        this.setTitle(billDfRequest.getTitle());
         this.setProposerKind(ProposerKindType.from(billDfRequest.getProposerKind()));
         this.setIngestStatus(resolveIngestStatus(
                 billDfRequest.getBillName(),
                 billDfRequest.getProposeDate(),
                 billDfRequest.getStage(),
                 billDfRequest.getSummary(),
-                billDfRequest.getBriefSummary(),
+                billDfRequest.getTitle(),
                 billDfRequest.getGptSummary()
         ));
 
@@ -172,16 +172,16 @@ import java.util.List;
             LocalDate proposeDate,
             String stage,
             String summary,
-            String briefSummary,
+            String title,
             String gptSummary
     ) {
         if (hasText(billName) && proposeDate != null && hasText(stage)
-                && hasText(summary) && hasText(briefSummary) && hasText(gptSummary)) {
+                && hasText(summary) && hasText(title) && hasText(gptSummary)) {
             return IngestStatusType.READY;
         }
 
         if (hasText(billName) || proposeDate != null || hasText(stage)
-                || hasText(summary) || hasText(briefSummary) || hasText(gptSummary)) {
+                || hasText(summary) || hasText(title) || hasText(gptSummary)) {
             return IngestStatusType.PARTIAL;
         }
 

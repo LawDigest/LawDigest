@@ -42,7 +42,7 @@ def test_prompt_block_lists_all_labels_and_priority_rule():
 @pytest.mark.parametrize("category", CATEGORIES)
 def test_model_accepts_every_label(category):
     model = BatchStructuredSummary(
-        brief_summary="요약",
+        title="요약",
         gpt_summary="상세",
         tags=["a", "b", "c", "d", "e"],
         category=category.label,
@@ -53,7 +53,7 @@ def test_model_accepts_every_label(category):
 def test_model_rejects_invalid_category():
     with pytest.raises(Exception):
         BatchStructuredSummary(
-            brief_summary="요약",
+            title="요약",
             gpt_summary="상세",
             tags=["a", "b", "c", "d", "e"],
             category="없는분야",
@@ -62,5 +62,5 @@ def test_model_rejects_invalid_category():
 
 def test_build_prompt_includes_category_section():
     prompt = _build_prompt_for_bill({"bill_id": "B1", "bill_name": "테스트법", "summary": "원문"})
-    assert "키는 briefSummary, gptSummary, tags, category 네 개만 포함해야 합니다." in prompt
+    assert "키는 title, gptSummary, tags, category 네 개만 포함해야 합니다." in prompt
     assert "category는 아래 17개 분야" in prompt

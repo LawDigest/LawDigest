@@ -2,7 +2,7 @@
 
 작성일: 2026-06-23
 
-이 문서는 현재 구현된 법안 리포트 생성 파이프라인을 설명한다. 예전 문서의 2단계 시각화 JSON 계획과 달리, 지금 운영 가능한 범위는 **Codex 에이전트가 Markdown 리포트를 만들고, 검증을 통과한 결과를 `brief_summary`, `gpt_summary`, `summary_tags` 계약에 맞춰 DB에 반영하는 흐름**이다.
+이 문서는 현재 구현된 법안 리포트 생성 파이프라인을 설명한다. 예전 문서의 2단계 시각화 JSON 계획과 달리, 지금 운영 가능한 범위는 **Codex 에이전트가 Markdown 리포트를 만들고, 검증을 통과한 결과를 `title`, `gpt_summary`, `summary_tags` 계약에 맞춰 DB에 반영하는 흐름**이다.
 
 ## 1. 목적
 
@@ -138,7 +138,7 @@ Codex 세션은 `--ignore-user-config`, `--disable plugins`, `--disable apps`, `
 - `korean-stats`는 정책 배경 설명에 직접 도움이 될 때만 쓴다.
 - 입력과 도구 결과가 다르면 도구 결과를 우선하되, 불확실한 내용은 단정하지 않는다.
 
-출력은 카드용 `brief_summary`와 Markdown `report_body`를 포함한 구조화 JSON만 허용한다. 자세한 형식 계약은 [bill-report-agent-prompt-contract.md](./bill-report-agent-prompt-contract.md)를 따른다.
+출력은 카드용 `title`와 Markdown `report_body`를 포함한 구조화 JSON만 허용한다. 자세한 형식 계약은 [bill-report-agent-prompt-contract.md](./bill-report-agent-prompt-contract.md)를 따른다.
 
 ## 9. 법률 용어 풀이
 
@@ -235,11 +235,11 @@ manifest에는 다음 정보가 들어간다.
 
 - Markdown 최상단 `# 법안명`은 제거한다.
 - `## 확인한 근거` 이후는 DB용 `gpt_summary`에서 제거한다.
-- 에이전트가 생성한 `brief_summary`가 `[핵심 변경]을/를 위한 [정확한 법안명]` 제목형 계약을 만족하는지 검증한다.
+- 에이전트가 생성한 `title`가 `[핵심 변경]을/를 위한 [정확한 법안명]` 제목형 계약을 만족하는지 검증한다.
 - 원문 `summary`의 첫 문장처럼 완결된 설명문이거나 정확한 법안명으로 끝나지 않는 결과는 실패 처리한다.
-- 검증된 새 `brief_summary`로 기존 값을 교체한다. 구조화 출력 이전의 레거시 Markdown만 기존 fallback 변환을 사용한다.
+- 검증된 새 `title`로 기존 값을 교체한다. 구조화 출력 이전의 레거시 Markdown만 기존 fallback 변환을 사용한다.
 - `summary_tags`는 기존 값을 유지한다.
-- 최종적으로 `update_bill_summary`가 `brief_summary`, `gpt_summary`, `summary_tags`를 업데이트한다.
+- 최종적으로 `update_bill_summary`가 `title`, `gpt_summary`, `summary_tags`를 업데이트한다.
 
 현재 심사 단계, 처리 결과, 투표 결과, 조회수, 스크랩 수는 AI 텍스트에 고정하지 않는다. 프론트와 API가 최신 데이터로 별도 표시한다.
 

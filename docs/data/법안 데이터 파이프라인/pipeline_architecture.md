@@ -52,7 +52,7 @@ flowchart TB
         RepairPipeline["run_gemini_repair_pipeline"]
         Prompt["기존 API 프롬프트 재사용"]
         Schema["BatchStructuredSummary<br/>Pydantic schema"]
-        SummaryCols["brief_summary / gpt_summary / summary_tags"]
+        SummaryCols["title / gpt_summary / summary_tags"]
     end
 
     subgraph Storage["저장소"]
@@ -252,7 +252,7 @@ sequenceDiagram
     end
     Agent->>Output: manifest JSON 저장
     opt mode != dry_run
-        Agent->>DB: brief_summary / gpt_summary / summary_tags upsert
+        Agent->>DB: title / gpt_summary / summary_tags upsert
     end
 ```
 
@@ -269,7 +269,7 @@ sequenceDiagram
 
 ```json
 {
-  "briefSummary": "...",
+  "title": "...",
   "gptSummary": "...",
   "tags": ["...", "...", "...", "...", "..."]
 }
@@ -279,11 +279,11 @@ DB 반영:
 
 | structured key | DB column |
 |----------------|-----------|
-| `briefSummary` | `Bill.brief_summary` |
+| `title` | `Bill.title` |
 | `gptSummary` | `Bill.gpt_summary` |
 | `tags` | `Bill.summary_tags` |
 
-`briefSummary`는 기존 DB 스타일의 긴 제목형 요약으로 작성합니다. 즉, 핵심 변경 내용을 앞에 두고 마지막은 정확한 법안명으로 끝나는 형태를 표준으로 둡니다.
+`title`는 기존 DB 스타일의 긴 제목형 요약으로 작성합니다. 즉, 핵심 변경 내용을 앞에 두고 마지막은 정확한 법안명으로 끝나는 형태를 표준으로 둡니다.
 
 ### 4.4 통과 법안 종합 리포트: `bill-agent-report`
 
@@ -298,7 +298,7 @@ DB 반영:
 | `korean-law` | 현행법 및 개정 법령 맥락, 관련 조문, 법령 인용 검증 |
 | `korean-stats` | 정책 배경에 의미 있는 통계청 공식 통계와 출처 확인 |
 
-출력은 기본적으로 `/tmp/lawdigest-bill-agent-reports` 아래 `bill_id.md`와 `manifest.json`으로 저장합니다. 생성된 리포트는 이후 `briefSummary`, `gptSummary`, `tags` 품질 개선이나 별도 상세 리포트 화면의 근거 자료로 활용합니다.
+출력은 기본적으로 `/tmp/lawdigest-bill-agent-reports` 아래 `bill_id.md`와 `manifest.json`으로 저장합니다. 생성된 리포트는 이후 `title`, `gptSummary`, `tags` 품질 개선이나 별도 상세 리포트 화면의 근거 자료로 활용합니다.
 
 ---
 

@@ -202,7 +202,7 @@ class DataProcessor:
         return df_bills
 
     def add_AI_summary_columns(self, df_bills):
-        df_bills["brief_summary"] = None
+        df_bills["title"] = None
         df_bills["gpt_summary"] = None
         print("\n[AI 요약 데이터 컬럼 추가 완료]")
 

@@ -13,7 +13,7 @@ function createBill(id: string, name = id): BillResponse {
       view_count: 0,
       bill_like_count: 0,
       bill_stage: '접수',
-      brief_summary: '',
+      title: '',
       bill_result: '',
     },
     representative_proposer_dto_list: [],

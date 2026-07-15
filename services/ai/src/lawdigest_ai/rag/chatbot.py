@@ -4,12 +4,13 @@ import logging
 import os
 from typing import Any, Dict, List
 
-logger = logging.getLogger(__name__)
-
 from openai import OpenAI
+
 from lawdigest_ai import config
 from lawdigest_ai.rag.embedding import EmbeddingGenerator
 from lawdigest_ai.rag.vector_store import VectorStore
+
+logger = logging.getLogger(__name__)
 
 BILL_COLLECTION = os.getenv("QDRANT_BILL_COLLECTION", "bills")
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
@@ -53,7 +54,7 @@ class LawdigestionChatbot:
             lines.append(
                 f"[법안 {i}]\n"
                 f"법안명: {doc.get('bill_name', '미상')}\n"
-                f"한줄요약: {doc.get('brief_summary', '')}\n"
+                f"한줄요약: {doc.get('title', '')}\n"
                 f"상세요약: {doc.get('gpt_summary', '')}\n"
             )
         return "\n".join(lines)

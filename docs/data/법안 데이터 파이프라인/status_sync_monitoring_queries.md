@@ -33,7 +33,7 @@ LIMIT 30;
 ```sql
 SELECT
   SUM(CASE WHEN summary IS NULL OR summary = '' THEN 1 ELSE 0 END) AS summary_missing,
-  SUM(CASE WHEN brief_summary IS NULL OR brief_summary = '' THEN 1 ELSE 0 END) AS brief_summary_missing,
+  SUM(CASE WHEN title IS NULL OR title = '' THEN 1 ELSE 0 END) AS title_missing,
   SUM(CASE WHEN proposers IS NULL OR proposers = '' THEN 1 ELSE 0 END) AS proposers_missing,
   SUM(CASE WHEN bill_pdf_url IS NULL OR bill_pdf_url = '' THEN 1 ELSE 0 END) AS bill_pdf_missing
 FROM Bill;
@@ -43,7 +43,7 @@ FROM Bill;
 SELECT bill_id, bill_name, propose_date, proposer_kind, proposers, stage
 FROM Bill
 WHERE summary IS NULL OR summary = ''
-   OR brief_summary IS NULL OR brief_summary = ''
+   OR title IS NULL OR title = ''
    OR proposers IS NULL OR proposers = ''
 ORDER BY propose_date DESC
 LIMIT 100;

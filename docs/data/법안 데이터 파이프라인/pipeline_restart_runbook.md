@@ -90,7 +90,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
   --output-dir /tmp/lawdigest-bill-agent-reports
 ```
 
-이 경로는 기본적으로 Codex MCP 에이전트 기반 리포트 생성기를 실행합니다. 에이전트가 국회·법령·통계 MCP를 사용해 Markdown 리포트를 만들고, `prod` 실행에서는 기존 컬럼인 `brief_summary`, `gpt_summary`, `summary_tags`로 반영합니다. 기본 모델은 `gpt-5.4-mini`입니다.
+이 경로는 기본적으로 Codex MCP 에이전트 기반 리포트 생성기를 실행합니다. 에이전트가 국회·법령·통계 MCP를 사용해 Markdown 리포트를 만들고, `prod` 실행에서는 기존 컬럼인 `title`, `gpt_summary`, `summary_tags`로 반영합니다. 기본 모델은 `gpt-5.4-mini`입니다.
 
 Gemini 보조 경로 smoke 예시:
 

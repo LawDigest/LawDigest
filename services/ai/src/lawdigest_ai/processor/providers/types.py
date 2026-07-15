@@ -20,7 +20,7 @@ class ProviderBase:
 @dataclass(frozen=True, slots=True)
 class BatchProviderParseResult:
     bill_id: str | None
-    brief_summary: str | None
+    title: str | None
     gpt_summary: str | None
     tags: list[str] | None
     error: str | None
@@ -39,7 +39,7 @@ class BatchProviderJobState:
 @dataclass(frozen=True, slots=True)
 class InstantProviderResult:
     bill_id: str | None
-    brief_summary: str | None
+    title: str | None
     gpt_summary: str | None
     summary_tags: str | None
     error: str | None
@@ -124,7 +124,7 @@ class InstantProviderBase(ProviderBase, ABC):
         if not results:
             return InstantProviderResult(
                 bill_id=bill.get("bill_id"),
-                brief_summary=None,
+                title=None,
                 gpt_summary=None,
                 summary_tags=None,
                 error="요약 결과가 없습니다.",
@@ -177,12 +177,12 @@ class OpenAIInstantProvider(InstantProviderBase):
         for row in result_df.to_dict("records"):
             bill_id = row.get("bill_id")
             error = failure_map.get(str(bill_id))
-            if not error and (not row.get("brief_summary") or not row.get("gpt_summary")):
+            if not error and (not row.get("title") or not row.get("gpt_summary")):
                 error = "OpenAI 요약 결과에 필수 필드가 비어 있습니다."
             results.append(
                 InstantProviderResult(
                     bill_id=str(bill_id) if bill_id is not None else None,
-                    brief_summary=row.get("brief_summary"),
+                    title=row.get("title"),
                     gpt_summary=row.get("gpt_summary"),
                     summary_tags=_normalize_summary_tags(row.get("summary_tags")),
                     error=error,
@@ -253,7 +253,7 @@ class GeminiInstantProvider(InstantProviderBase):
                         results.append(
                             InstantProviderResult(
                                 bill_id=str(bill_id) if bill_id is not None else None,
-                                brief_summary=parsed.brief_summary,
+                                title=parsed.title,
                                 gpt_summary=parsed.gpt_summary,
                                 summary_tags=_normalize_summary_tags(parsed.tags),
                                 error=None,
@@ -268,7 +268,7 @@ class GeminiInstantProvider(InstantProviderBase):
                         results.append(
                             InstantProviderResult(
                                 bill_id=str(bill_id) if bill_id is not None else None,
-                                brief_summary=None,
+                                title=None,
                                 gpt_summary=None,
                                 summary_tags=None,
                                 error=str(exc),

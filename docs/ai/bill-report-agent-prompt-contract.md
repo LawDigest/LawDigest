@@ -6,7 +6,7 @@
 
 ## 1. 리포트 기본 구조
 
-최종 출력은 `brief_summary`, `report_body`, `tooltips`, `rejected`를 담은 구조화 JSON만 허용한다. 내부 조사 과정, MCP 호출 목록, 실패 로그, 리서치 메모는 본문에 쓰지 않는다.
+최종 출력은 `title`, `report_body`, `tooltips`, `rejected`를 담은 구조화 JSON만 허용한다. 내부 조사 과정, MCP 호출 목록, 실패 로그, 리서치 메모는 본문에 쓰지 않는다.
 
 필수 섹션:
 
@@ -45,7 +45,7 @@
 
 ## 2. 카드용 제목
 
-`brief_summary`는 카드의 `h2`에 표시할 제목형 요약이다.
+`title`는 카드의 `h2`에 표시할 제목형 요약이다.
 
 - 원문 `summary`나 `쉬운 요약`의 첫 문장을 그대로 복사하지 않는다.
 - `[핵심 변경 목적/수단]을/를 위한 [정확한 법안명]` 구조로 작성한다.
@@ -222,8 +222,8 @@ DB 반영 시 `_build_db_summary_payload`가 Markdown을 가공한다.
 
 - 최상단 `# 법안명`은 제거한다.
 - `## 확인한 근거` 이후는 `gpt_summary`에서 제거한다.
-- 구조화 출력의 `brief_summary`가 제목형 계약과 정확한 법안명 suffix를 만족하는지 검증한다.
-- 검증된 `brief_summary`로 기존 값을 교체한다.
+- 구조화 출력의 `title`가 제목형 계약과 정확한 법안명 suffix를 만족하는지 검증한다.
+- 검증된 `title`로 기존 값을 교체한다.
 - 구조화 출력 이전의 레거시 Markdown만 기존 값 유지·첫 불릿 fallback 변환을 사용한다.
 - `summary_tags`는 기존 값을 유지한다.
 

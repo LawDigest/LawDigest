@@ -113,14 +113,14 @@ class TestIntegrationPipeline(unittest.TestCase):
                 "bill_id": "BILL001", "bill_name": "법안1", "propose_date": today,
                 "committee": "법사위", "stage": "접수", "proposer_kind": "CONGRESSMAN",
                 "rst_proposer_ids": ["CM001"], "public_proposer_ids": ["CM002"],
-                "summary": "내용1", "gpt_summary": "요약1", "bill_pdf_url": "url1", "brief_summary": "짧은요약1", "bill_number": "001", "bill_link": "link1", "bill_result": None,
+                "summary": "내용1", "gpt_summary": "요약1", "bill_pdf_url": "url1", "title": "짧은요약1", "bill_number": "001", "bill_link": "link1", "bill_result": None,
                 "proposers": "의원1 외 1인"
             },
              {
                 "bill_id": "BILL002", "bill_name": "법안2", "propose_date": "2024-01-01",
                 "committee": "정무위", "stage": "위원회 심사", "proposer_kind": "CONGRESSMAN",
                 "rst_proposer_ids": ["CM003"], "public_proposer_ids": ["CM001"],
-                "summary": "내용2", "gpt_summary": "요약2", "bill_pdf_url": "url2", "brief_summary": "짧은요약2", "bill_number": "002", "bill_link": "link2", "bill_result": None,
+                "summary": "내용2", "gpt_summary": "요약2", "bill_pdf_url": "url2", "title": "짧은요약2", "bill_number": "002", "bill_link": "link2", "bill_result": None,
                 "proposers": "의원3 외 1인"
             }
         ]
