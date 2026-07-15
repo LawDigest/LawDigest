@@ -2,4 +2,4 @@ pandas
 python-dotenv
 pydantic
 pydantic-ai-slim[openai]
-langfuse>=2.57.0
+langfuse>=3,<4

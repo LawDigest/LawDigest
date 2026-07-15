@@ -22,7 +22,7 @@ opentelemetry-semantic-conventions==0.62b1
 chardet<6
 
 # AI observability, RAG, and provider integrations
-langfuse>=2.57.0
+langfuse>=3,<4
 langchain>=0.3.0
 langchain-community>=0.3.0
 langchain-openai>=1.1.10
