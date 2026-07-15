@@ -37,7 +37,9 @@
 1. 대상 커밋의 AI, data, backend, web 테스트와 린트가 모두 통과했는지 확인한다.
 2. DB 백업을 생성하고 복구 가능한 백업인지 확인한다.
 3. 새 백엔드와 웹 빌드에 필요한 환경 파일이 준비됐는지 확인한다.
-4. 아래 작업을 pause하고 실행 중인 task가 끝났는지 확인한다.
+4. `deploy-production.yml`의 변경 감지가 이 마이그레이션을
+   `coordinated_migration=true`로 판별해 push 자동 배포를 건너뛰는지 확인한다.
+5. 아래 작업을 pause하고 실행 중인 task가 끝났는지 확인한다.
 
 ```bash
 airflow dags pause bill_ingest_dag
@@ -162,6 +164,11 @@ SHOW FULL PROCESSLIST;
 1. backend: `deploy/deploy-prod-backend.sh <target-worktree>`
 2. web: `deploy/deploy-prod-web.sh <target-worktree>`
 3. Airflow DAG와 `services/data`, `services/ai` 실행 환경
+
+운영 루트 체크아웃에 다른 작업이 있으면 이를 수정하지 않는다. `main`의 정확한
+커밋으로 깨끗한 전용 worktree를 만든 뒤 backend/web 배포 스크립트의 인자로 넘기고,
+Airflow는 `AIRFLOW_SKIP_GIT_PULL=true`와 `LAWDIGEST_PROJECT_DIR=<worktree>`로 같은
+worktree를 마운트한다.
 
 DB 변경 후 구 백엔드로 자동 rollback하면 구 컬럼이 없어 기동할 수 없다. 백엔드 배포
 스크립트의 컨테이너 rollback만 단독으로 신뢰하지 말고 아래 DB rollback까지 함께
