@@ -2,8 +2,8 @@
 
 import { CSSProperties, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Avatar } from '@nextui-org/avatar';
-import { Spinner } from '@nextui-org/spinner';
+import { Avatar } from '@heroui/avatar';
+import { Spinner } from '@heroui/spinner';
 import { getPartyColor } from '@/constants/party';
 import { getImageSrc } from '@/utils';
 import { useIntersect } from '@/hooks';

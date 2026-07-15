@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { PartyCongressmanProps } from '@/types';
-import { Avatar } from '@nextui-org/avatar';
+import { Avatar } from '@heroui/avatar';
 
 export default function PartyCongressmanItem({
   congressman_id,

@@ -4,7 +4,7 @@ import { Metadata, Viewport } from 'next';
 import { siteConfig } from '@/config/site';
 import clsx from 'clsx';
 import Script from 'next/script';
-import { QueryClientProvider, NextUIProvider, NextThemesProvider, StateProvider } from '@/lib/provider';
+import { QueryClientProvider, HeroUIProvider, NextThemesProvider, StateProvider } from '@/lib/provider';
 import { GoToTopButton, Snackbar } from '@/components';
 import SearchModal from '@/components/common/SearchBar/SearchModal';
 import Nav from '@/components/Layout/Nav/Nav';
@@ -70,7 +70,6 @@ function RootLayout({ children }: { children: React.ReactNode }) {
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
         />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard-dynamic-subset.css"
@@ -83,7 +82,7 @@ function RootLayout({ children }: { children: React.ReactNode }) {
         <StateProvider>
           <QueryClientProvider>
             <NextThemesProvider>
-              <NextUIProvider>
+              <HeroUIProvider>
                 <div className="relative flex flex-col h-auto min-h-[100dvh] min-w-[360px]">
                   <main className="flex items-center justify-center w-full h-full ">
                     {children}
@@ -94,7 +93,7 @@ function RootLayout({ children }: { children: React.ReactNode }) {
                   {/* Nav는 모든 페이지 전환에서 유지되도록 루트 레이아웃에 배치 */}
                   <Nav />
                 </div>
-              </NextUIProvider>
+              </HeroUIProvider>
             </NextThemesProvider>
           </QueryClientProvider>
         </StateProvider>

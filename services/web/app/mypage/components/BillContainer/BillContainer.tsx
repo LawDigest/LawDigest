@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useIntersect } from '@/hooks';
-import { Card } from '@nextui-org/card';
+import { Card } from '@heroui/card';
 import { useGetBillBookmarked } from '../../apis';
 import BillBookmarkedCount from './BillBookmarkedCount';
 import BillBookmarkedList from './BillBookmaredList';

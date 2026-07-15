@@ -2,7 +2,7 @@ import { deleteCookie } from 'cookies-next';
 import { useRouter } from 'next/navigation';
 import { ACCESS_TOKEN } from '@/constants';
 import { useCallback } from 'react';
-import { Button } from '@nextui-org/react';
+import { Button } from '@heroui/react';
 import { useSetAtom } from 'jotai';
 import { snackbarState } from '@/store';
 import { postLogout } from '../../apis';

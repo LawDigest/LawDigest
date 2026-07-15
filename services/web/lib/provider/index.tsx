@@ -1,6 +1,6 @@
 import QueryClientProvider from './QueryClientProvider';
-import NextUIProvider from './NextUIProvider';
+import HeroUIProvider from './HeroUIProvider';
 import NextThemesProvider from './NextThemesProvider';
 import StateProvider from './StateProvider';
 
-export { QueryClientProvider, NextUIProvider, NextThemesProvider, StateProvider };
+export { QueryClientProvider, HeroUIProvider, NextThemesProvider, StateProvider };

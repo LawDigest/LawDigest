@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Avatar } from '@nextui-org/avatar';
+import { Avatar } from '@heroui/avatar';
 import { SearchCongressmanPartyProps } from '@/types';
 import { EnterButton } from '@/components';
 

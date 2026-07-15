@@ -119,17 +119,18 @@ ChartContainer.displayName = 'Chart';
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
-const ChartTooltipContent = React.forwardRef<
-  HTMLDivElement,
-  React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-    React.ComponentProps<'div'> & {
-      hideLabel?: boolean;
-      hideIndicator?: boolean;
-      indicator?: 'line' | 'dot' | 'dashed';
-      nameKey?: string;
-      labelKey?: string;
-    }
->(
+type ChartTooltipContentProps = Partial<
+  RechartsPrimitive.TooltipContentProps<RechartsPrimitive.TooltipValueType, string | number>
+> &
+  React.ComponentProps<'div'> & {
+    hideLabel?: boolean;
+    hideIndicator?: boolean;
+    indicator?: 'line' | 'dot' | 'dashed';
+    nameKey?: string;
+    labelKey?: string;
+  };
+
+const ChartTooltipContent = React.forwardRef<HTMLDivElement, ChartTooltipContentProps>(
   (
     {
       active,
@@ -196,7 +197,7 @@ const ChartTooltipContent = React.forwardRef<
 
             return (
               <div
-                key={item.dataKey ?? index}
+                key={String(item.dataKey ?? index)}
                 className={clsx(
                   'flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-gray-2',
                   indicator === 'dot' && 'items-center',
@@ -257,7 +258,7 @@ const ChartLegend = RechartsPrimitive.Legend;
 const ChartLegendContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<'div'> &
-    Pick<RechartsPrimitive.LegendProps, 'payload' | 'verticalAlign'> & {
+    Pick<RechartsPrimitive.DefaultLegendContentProps, 'payload' | 'verticalAlign'> & {
       hideIcon?: boolean;
       nameKey?: string;
       /** hover 중인 series key — 지정하면 나머지 항목을 흐리게 표시한다. */

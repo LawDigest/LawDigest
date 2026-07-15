@@ -5,7 +5,7 @@ import { Fragment, useEffect } from 'react';
 import { useAtomValue } from 'jotai';
 import { useResetAtom } from 'jotai/utils';
 import { Transition } from '@headlessui/react';
-import { Button } from '@nextui-org/react';
+import { Button } from '@heroui/react';
 import { snackbarState } from '@/store';
 import { IconCancel } from '@/public/svgs';
 

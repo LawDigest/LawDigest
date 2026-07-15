@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
-import { Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@nextui-org/react';
+import { Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
 import { ACCESS_TOKEN } from '@/constants';
 import { deleteCookie } from 'cookies-next';
 import { postWithdraw } from './apis';

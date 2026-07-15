@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { getCookie } from 'cookies-next';
-import { Card, CardHeader, CardBody } from '@nextui-org/react';
+import { Card, CardHeader, CardBody } from '@heroui/react';
 import { ACCESS_TOKEN } from '@/constants';
 import { getFollowingCongressman } from '@/app/following/apis';
 import CongressmanList from '@/app/following/components/FollowingHeader/CongressmanList';

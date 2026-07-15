@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { Spinner } from '@nextui-org/spinner';
+import { Spinner } from '@heroui/spinner';
 import AssemblySegment, { AssemblySegmentValue } from './AssemblySegment';
 import SeatDistribution from './SeatDistribution';
 import MemberRanking from './MemberRanking';

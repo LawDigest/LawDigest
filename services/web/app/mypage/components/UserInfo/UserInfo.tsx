@@ -1,4 +1,4 @@
-import { Avatar } from '@nextui-org/avatar';
+import { Avatar } from '@heroui/avatar';
 import { QueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import { useGetUserInfo } from '../../apis';

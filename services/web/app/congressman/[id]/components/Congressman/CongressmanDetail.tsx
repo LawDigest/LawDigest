@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Card } from '@nextui-org/card';
-import { Avatar } from '@nextui-org/avatar';
-import { Chip, Divider, Button, Link as NextUILink, Accordion, AccordionItem } from '@nextui-org/react';
+import { Card } from '@heroui/card';
+import { Avatar } from '@heroui/avatar';
+import { Chip, Divider, Button, Link as NextUILink, Accordion, AccordionItem } from '@heroui/react';
 import { IconWeb } from '@/public/svgs';
 import FollowBoard from './FollowBoard';
 import { useGetCongressmanDetail } from '../../apis';

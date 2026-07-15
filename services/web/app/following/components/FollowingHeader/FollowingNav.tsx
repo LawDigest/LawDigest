@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardBody } from '@nextui-org/react';
+import { Card, CardHeader, CardBody } from '@heroui/react';
 import { useQueryClient } from '@tanstack/react-query';
 import CongressmanList from './CongressmanList';
 import { useGetFollowingCongressman } from '../../apis';

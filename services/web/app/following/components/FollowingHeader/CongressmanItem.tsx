@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { Avatar, Button } from '@nextui-org/react';
+import { Avatar, Button } from '@heroui/react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PartyLogoReplacement } from '@/components';

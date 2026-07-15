@@ -5,7 +5,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { useAtomValue } from 'jotai';
 import { useResetAtom } from 'jotai/utils';
 import { searchModalState } from '@/store';
-import { Button, Chip } from '@nextui-org/react';
+import { Button, Chip } from '@heroui/react';
 import { IconX } from '@/public/svgs';
 import SearchBar from './SearchBar';
 

@@ -1,5 +1,5 @@
 import { Logo } from '@/components/Layout';
-import { Spinner } from '@nextui-org/spinner';
+import { Spinner } from '@heroui/spinner';
 
 export default function Loading() {
   return (

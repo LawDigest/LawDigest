@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@nextui-org/button';
+import { Button } from '@heroui/button';
 import { IconArrowLeft } from '@/public/svgs';
 
 export default function GoBackButton() {

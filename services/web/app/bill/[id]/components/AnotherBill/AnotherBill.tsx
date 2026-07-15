@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import Image from 'next/image';
-import { Card, CardFooter, CardBody, Chip, AvatarGroup, Avatar } from '@nextui-org/react';
+import { Card, CardFooter, CardBody, Chip, AvatarGroup, Avatar } from '@heroui/react';
 import Link from 'next/link';
 import { PartyLogoReplacement } from '@/components';
 import { getPartyLogoSrc } from '@/utils';
@@ -49,7 +49,6 @@ export default function BillBookmarked({
         </div>
       </CardBody>
       <CardFooter className="flex justify-center pl-0 overflow-visible basis-1/4 shrink-0">
-        {/* eslint-disable-next-line no-nested-ternary */}
         {isRepresentativeSolo ? (
           <Link
             href={party[0].party_image_url !== null ? `/party/${party[0].party_id}` : {}}

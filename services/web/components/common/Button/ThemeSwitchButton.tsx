@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
-import { Button } from '@nextui-org/react';
+import { Button } from '@heroui/react';
 import { IconDarkMode, IconLightMode } from '@/public/svgs';
 
 export default function ThemeSwitchButton() {

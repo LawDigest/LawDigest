@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useCallback, Dispatch, SetStateAction } from 'react';
 import { IconSearchbar } from '@/public/svgs';
-import { Button, Input } from '@nextui-org/react';
+import { Button, Input } from '@heroui/react';
 import { useAtomValue } from 'jotai';
 import { useResetAtom } from 'jotai/utils';
 import { searchModalState } from '@/store';

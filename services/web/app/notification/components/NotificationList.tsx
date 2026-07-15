@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getDateStatus } from '@/utils';
-import { Divider, Button, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from '@nextui-org/react';
+import { Divider, Button, Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from '@heroui/react';
 import { IconKebab } from '@/public/svgs';
 import { useSetAtom } from 'jotai';
 import { snackbarState } from '@/store';

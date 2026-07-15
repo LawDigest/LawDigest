@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Divider, Card, CardBody } from '@nextui-org/react';
+import { Divider, Card, CardBody } from '@heroui/react';
 import { getDDay } from '@/utils';
 import { TimelineBillState } from '@/types';
 import { useGetTimelineBillState } from '../apis/queries';

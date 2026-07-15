@@ -17,7 +17,7 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@nextui-org/react';
+} from '@heroui/react';
 import Link from 'next/link';
 import { BillProps } from '@/types';
 import { IconClock, IconExport, IconScrabSmall } from '@/public/svgs';

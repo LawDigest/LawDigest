@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { BillList, SearchBarButton } from '@/components';
 import { useIntersect } from '@/hooks';
-import { Divider } from '@nextui-org/react';
+import { Divider } from '@heroui/react';
 import { useGetSearchCongressmanParty, useGetSearchBill } from '../apis';
 import { SearchList } from './components';
 
