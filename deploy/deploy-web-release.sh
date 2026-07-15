@@ -55,6 +55,7 @@ load_env_file() {
     esac
 
     printf -v "$key" '%s' "$value"
+    # shellcheck disable=SC2163
     export "$key"
   done < "$env_file"
 }
@@ -74,11 +75,12 @@ NEXT_PUBLIC_DOMAIN="${NEXT_PUBLIC_DOMAIN:-https://lawdigest.kr}"
 FORCED_NEXT_PUBLIC_DOMAIN="$NEXT_PUBLIC_DOMAIN"
 DEPLOY_LABEL="${DEPLOY_LABEL:-release}"
 DEV_RUNTIME_ROOT="$SHARED_REPO_ROOT/.runtime/dev-web"
+HEALTHCHECK_PATH="${WEB_HEALTHCHECK_PATH:-/election}"
 
 load_env_file "$SOURCE_ENV_FILE"
 
 if [ -f "$TARGET_ROOT/.env.preview" ]; then
-  # shellcheck disable=SC1090
+  # shellcheck disable=SC1091
   . "$TARGET_ROOT/.env.preview"
 fi
 
@@ -87,6 +89,36 @@ if [ -n "$FORCED_NEXT_PUBLIC_DOMAIN" ]; then
 fi
 
 load_env_file "$TARGET_WEB_DIR/.env.preview"
+
+start_web_process() {
+  local release_root="$1"
+
+  if pm2 describe "$PM2_NAME" > /dev/null 2>&1; then
+    pm2 delete "$PM2_NAME"
+  fi
+
+  cd "$release_root/services/web"
+  NODE_ENV=production \
+  PORT="$PORT" \
+  HOSTNAME="$APP_HOST" \
+  NEXT_PUBLIC_URL="$NEXT_PUBLIC_URL" \
+  NEXT_PUBLIC_IMAGE_URL="$NEXT_PUBLIC_IMAGE_URL" \
+  NEXT_PUBLIC_HOSTNAME="$NEXT_PUBLIC_HOSTNAME" \
+  INTERNAL_API_ORIGIN="$INTERNAL_API_ORIGIN" \
+  NEXT_PUBLIC_DOMAIN="$NEXT_PUBLIC_DOMAIN" \
+  pm2 start npm --name "$PM2_NAME" -- run start
+}
+
+check_web_health() {
+  for _ in $(seq 1 30); do
+    if curl -fsS -o /dev/null "http://127.0.0.1:${PORT}${HEALTHCHECK_PATH}"; then
+      return 0
+    fi
+    sleep 2
+  done
+
+  return 1
+}
 
 BRANCH_NAME="$(git -C "$TARGET_ROOT" branch --show-current)"
 COMMIT_SHA="$(git -C "$TARGET_ROOT" rev-parse --short HEAD)"
@@ -106,7 +138,7 @@ mkdir -p "$RELEASES_DIR"
 
 echo "▶ 의존성 설치"
 cd "$TARGET_WEB_DIR"
-npm install
+npm ci
 
 echo "▶ 프로덕션 빌드"
 NODE_ENV=production \
@@ -151,25 +183,44 @@ if [ -d "$TARGET_WEB_DIR/.next" ]; then
   cp -a "$TARGET_WEB_DIR/.next" "$RELEASE_DIR/services/web/.next"
 fi
 
+PREVIOUS_RELEASE=""
+if [ -L "$CURRENT_LINK" ]; then
+  PREVIOUS_RELEASE="$(readlink -f "$CURRENT_LINK")"
+fi
+
 echo "▶ current 심링크 전환"
 ln -sfn "$RELEASE_DIR" "$TMP_LINK"
 mv -Tf "$TMP_LINK" "$CURRENT_LINK"
 
 echo "▶ PM2 재기동"
-if pm2 describe "$PM2_NAME" > /dev/null 2>&1; then
-  pm2 delete "$PM2_NAME"
-fi
+start_web_process "$CURRENT_LINK"
 
-cd "$CURRENT_LINK/services/web"
-NODE_ENV=production \
-PORT="$PORT" \
-HOSTNAME="$APP_HOST" \
-NEXT_PUBLIC_URL="$NEXT_PUBLIC_URL" \
-NEXT_PUBLIC_IMAGE_URL="$NEXT_PUBLIC_IMAGE_URL" \
-NEXT_PUBLIC_HOSTNAME="$NEXT_PUBLIC_HOSTNAME" \
-INTERNAL_API_ORIGIN="$INTERNAL_API_ORIGIN" \
-NEXT_PUBLIC_DOMAIN="$NEXT_PUBLIC_DOMAIN" \
-pm2 start npm --name "$PM2_NAME" -- run start
+echo "▶ 웹 헬스체크"
+if ! check_web_health; then
+  echo "✗ 새 웹 release 헬스체크 실패"
+  pm2 logs "$PM2_NAME" --lines 100 --nostream || true
+
+  if [ -z "$PREVIOUS_RELEASE" ] || [ ! -d "$PREVIOUS_RELEASE/services/web" ]; then
+    echo "✗ 복구할 이전 웹 release가 없습니다."
+    pm2 delete "$PM2_NAME" || true
+    exit 1
+  fi
+
+  echo "▶ 이전 웹 release 복구"
+  ln -sfn "$PREVIOUS_RELEASE" "$TMP_LINK"
+  mv -Tf "$TMP_LINK" "$CURRENT_LINK"
+  start_web_process "$CURRENT_LINK"
+
+  if ! check_web_health; then
+    echo "✗ 이전 웹 release 복구 헬스체크 실패"
+    pm2 logs "$PM2_NAME" --lines 100 --nostream || true
+    exit 1
+  fi
+
+  pm2 save
+  echo "✓ 이전 웹 release 복구 완료: $PREVIOUS_RELEASE"
+  exit 1
+fi
 
 if [ -x "$SCRIPT_DIR/ensure-dev-web-pm2.sh" ] && [ "$PM2_NAME" != "lawdigest-web-dev" ]; then
   echo "▶ dev 웹 PM2 누락 여부 점검"

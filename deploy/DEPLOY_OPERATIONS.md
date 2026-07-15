@@ -15,6 +15,7 @@
 - [Test Web Deploy Guide](./TEST_WEB_DEPLOY.md)
 - [Dev Web Deploy Guide](./DEV_WEB_DEPLOY.md)
 - [Prod Backend Deploy Guide](./PROD_BACKEND_DEPLOY.md)
+- [GitHub Actions Production Deploy](./GITHUB_ACTIONS_DEPLOY.md)
 
 ## 전체 구조
 
@@ -38,13 +39,23 @@
 
 ### 서버 전제
 
-- 배포는 이 서버의 로컬 셸에서 실행한다.
-- GitHub Actions 기반 배포는 사용하지 않는다.
+- 운영 웹과 백엔드는 `main` push를 기준으로 GitHub Actions에서 배포한다.
+- GitHub Actions는 변경된 서비스만 검증하고 정확한 `main` 커밋을 서버 worktree로 배포한다.
+- 서버 로컬 배포 스크립트는 GitHub Actions의 실행 본체이자 장애 시 수동 복구 경로로 유지한다.
 - 배포 스크립트는 서버의 `.env` 파일을 기준으로 동작한다.
 - 프론트는 `services/web/.env`
 - 백엔드는 `services/backend/.env`
 
 ## 배포 흐름
+
+### GitHub Actions 운영 배포
+
+1. PR이 `main`에 머지된다.
+2. 워크플로가 직전 `main` 커밋과 새 커밋 사이의 변경 경로를 확인한다.
+3. 웹 또는 백엔드 중 변경된 서비스만 lint/test/build 검증한다.
+4. 모든 대상 검증이 통과하면 SSH로 Oracle 서버에 접속한다.
+5. 서버는 커밋이 `origin/main`에 포함됐는지 확인하고 전용 worktree에서 배포한다.
+6. 백엔드는 staging 헬스체크와 rollback, 웹은 release 헬스체크와 이전 release 복구를 수행한다.
 
 ### 프론트 배포
 
