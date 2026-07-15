@@ -115,7 +115,22 @@ fi
 if [ "$DEPLOY_WEB" = "true" ]; then
   echo "▶ 운영 웹 배포"
   prepare_node_runtime
-  "$WORKTREE_PATH/deploy/deploy-prod-web.sh" "$WORKTREE_PATH"
+  PRODUCTION_WEB_RUNTIME="$REPO_ROOT/.runtime/prod-web"
+  RUNTIME_ROOT="$PRODUCTION_WEB_RUNTIME" \
+    "$WORKTREE_PATH/deploy/deploy-prod-web.sh" "$WORKTREE_PATH"
+
+  CURRENT_WEB_RELEASE="$(readlink -f "$PRODUCTION_WEB_RUNTIME/current")"
+  if [ ! -d "$CURRENT_WEB_RELEASE/services/web" ]; then
+    echo "✗ 운영 웹 current release가 유효하지 않습니다: $CURRENT_WEB_RELEASE"
+    exit 1
+  fi
+
+  case "$CURRENT_WEB_RELEASE" in
+    "$WORKTREE_PATH"/*)
+      echo "✗ 운영 웹 release가 임시 배포 worktree 안에 생성되었습니다: $CURRENT_WEB_RELEASE"
+      exit 1
+      ;;
+  esac
 fi
 
 echo "✓ GitHub Actions 운영 배포 완료"

@@ -27,4 +27,5 @@ WEB_PORT=3010 PM2_NAME=lawdigest-web-prod ./deploy/deploy-prod-web.sh /home/ubun
 
 - 운영 배포는 `main` 기준 상태만 올린다.
 - PM2/포트/nginx 실제 운영 값은 서버 환경에 맞춰 override할 수 있다.
+- release는 대상 worktree가 아니라 공유 저장소의 `.runtime/prod-web`에 유지한다.
 - 상세 런타임 구조는 공통 release/symlink 방식으로 [deploy-web-release.sh](./deploy-web-release.sh)를 따른다.
