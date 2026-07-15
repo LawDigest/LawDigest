@@ -194,3 +194,25 @@ jobs:
             "$PROD_SSH_USER@$PROD_SSH_HOST" \
             "set -euo pipefail; script=\$(mktemp); trap 'rm -f \"\$script\"' EXIT; cat > \"\$script\"; bash \"\$script\" '$GITHUB_SHA' '$DEPLOY_WEB' '$DEPLOY_BACKEND'" \
             < deploy/deploy-github-main.sh
+
+          smoke_urls=(
+            "https://lawdigest.kr/"
+            "https://lawdigest.kr/explore"
+            "https://lawdigest.kr/timeline"
+            "https://api.lawdigest.kr/v1/election/selector"
+          )
+
+          for url in "${smoke_urls[@]}"; do
+            echo "Smoke test: $url"
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              --location \
+              --retry 5 \
+              --retry-all-errors \
+              --retry-delay 3 \
+              --max-time 30 \
+              --output /dev/null \
+              "$url"
+          done

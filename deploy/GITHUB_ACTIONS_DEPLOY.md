@@ -26,14 +26,17 @@ LawDigest 운영 웹과 백엔드는 PR이 `main`에 머지되어 새 커밋이 
 2. 변경된 웹은 Node.js `22.17.1`에서 `npm ci`, lint, test, build를 실행한다.
 3. 변경된 백엔드는 Java 17에서 Gradle test와 `bootJar`를 실행한다.
 4. 대상 검증이 모두 성공하면 production 환경의 SSH 설정으로 Oracle 서버에 접속한다.
-5. [`deploy-github-main.sh`](./deploy-github-main.sh)를 SSH 표준입력으로 전달한다.
+5. [`deploy-github-main.sh`](./deploy-github-main.sh)를 SSH로 전달해 원격 임시 파일로 저장한 뒤 실행한다.
 6. 서버는 배포 SHA가 `origin/main`에 포함되는지 검증한다.
 7. `.worktrees/github-actions-<sha>` 전용 worktree를 만들고 변경된 서비스만 배포한다.
 8. 배포가 끝나면 worktree를 제거한다.
+9. 운영 웹 핵심 경로와 공개 API를 외부에서 스모크 테스트한다.
 
 백엔드와 웹이 동시에 변경되면 백엔드를 먼저 배포한다. 백엔드 배포는 staging
 컨테이너 헬스체크와 실패 시 복구를 사용한다. 웹 배포는 새 release의 로컬
-헬스체크가 실패하면 이전 release 심링크와 PM2 프로세스를 복구한다.
+헬스체크가 실패하면 이전 release 심링크와 PM2 프로세스를 복구한다. 운영 웹
+release는 배포용 worktree가 제거되어도 유지되는 공유 저장소의
+`.runtime/prod-web`에 저장한다.
 
 ## GitHub production 환경 설정
 
