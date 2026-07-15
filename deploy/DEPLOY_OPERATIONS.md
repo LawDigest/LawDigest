@@ -96,9 +96,9 @@
 
 ```bash
 pm2 list
-curl -sSI https://lawdigest.kr/election | sed -n '1,20p'
-curl -sSI https://test.lawdigest.kr/election | sed -n '1,20p'
-curl -sSI https://dev.lawdigest.kr/election | sed -n '1,20p'
+curl -sSI https://lawdigest.kr/ | sed -n '1,20p'
+curl -sSI https://test.lawdigest.kr/ | sed -n '1,20p'
+curl -sSI https://dev.lawdigest.kr/ | sed -n '1,20p'
 ```
 
 ### 백엔드

@@ -192,5 +192,6 @@ jobs:
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
             "$PROD_SSH_USER@$PROD_SSH_HOST" \
-            bash -s -- "$GITHUB_SHA" "$DEPLOY_WEB" "$DEPLOY_BACKEND" \
+            'set -euo pipefail; script=$(mktemp); trap '\''rm -f "$script"'\'' EXIT; cat > "$script"; bash "$script" "$1" "$2" "$3"' \
+            -- "$GITHUB_SHA" "$DEPLOY_WEB" "$DEPLOY_BACKEND" \
             < deploy/deploy-github-main.sh
