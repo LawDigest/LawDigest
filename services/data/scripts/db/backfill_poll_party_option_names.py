@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -47,16 +46,7 @@ def _resolve_db_config(mode: str) -> dict[str, Any]:
     if mode == "prod":
         return get_prod_db_config()
 
-    try:
-        return get_test_db_config()
-    except ValueError:
-        return {
-            "host": os.environ.get("TEST_DB_HOST", "140.245.74.246"),
-            "port": int(os.environ.get("TEST_DB_PORT", "2812")),
-            "user": os.environ.get("TEST_DB_USER", "root"),
-            "password": os.environ.get("TEST_DB_PASSWORD", "eLL-@hjm3K7CgFDV-MKp"),
-            "database": os.environ.get("TEST_DB_NAME", "lawTestDB"),
-        }
+    return get_test_db_config()
 
 
 def _build_db_manager(mode: str) -> DatabaseManager:

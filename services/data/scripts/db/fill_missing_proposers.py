@@ -1,37 +1,42 @@
+from __future__ import annotations
+
 import sys
-import os
+from pathlib import Path
+from typing import Any
 
-# src 모듈 임포트를 위한 경로 설정
-sys.path.append(os.path.join(os.path.dirname(__file__), '../src'))
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
+DATA_SRC = PROJECT_ROOT / "services" / "data" / "src"
+AI_SRC = PROJECT_ROOT / "services" / "ai" / "src"
 
-from lawdigest_data.connectors.DatabaseManager import DatabaseManager
-from lawdigest_data.bills.DataFetcher import DataFetcher
+for path in (str(DATA_SRC), str(AI_SRC)):
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
-# ==========================================
-# [TEST DB CONFIGURATION]
-# 테스트 모드(--test-mode) 사용 시 아래 변수에 접속 정보를 입력하세요.
-# ==========================================
-# 테스트 DB 설정 (환경변수 또는 하드코딩된 값 사용)
-TEST_DB_HOST = os.environ.get("TEST_DB_HOST", "140.245.74.246")
-TEST_DB_PORT = int(os.environ.get("TEST_DB_PORT", 2812))
-TEST_DB_USER = os.environ.get("TEST_DB_USER", "root")
-TEST_DB_PASSWORD = os.environ.get("TEST_DB_PASSWORD", "eLL-@hjm3K7CgFDV-MKp")
-TEST_DB_NAME = os.environ.get("TEST_DB_NAME", "lawTestDB")
-# ==========================================
+
+def _resolve_test_db_config() -> dict[str, Any]:
+    from lawdigest_ai.db import get_test_db_config
+
+    return get_test_db_config()
 
 def get_db_manager(test_mode=False):
     """DB 매니저 인스턴스를 반환합니다. 테스트 모드인 경우 별도 설정을 사용합니다."""
+    from lawdigest_data.connectors.DatabaseManager import DatabaseManager
+
     if test_mode:
-        print(f"⚠️ [TEST MODE] 테스트 데이터베이스({TEST_DB_HOST}:{TEST_DB_PORT})에 연결합니다.")
-        return DatabaseManager(
-            host=TEST_DB_HOST,
-            port=TEST_DB_PORT,
-            username=TEST_DB_USER,
-            password=TEST_DB_PASSWORD,
-            database=TEST_DB_NAME
+        config = _resolve_test_db_config()
+        print(
+            "⚠️ [TEST MODE] 테스트 데이터베이스"
+            f"({config['host']}:{config['port']})에 연결합니다."
         )
-    else:
-        return DatabaseManager()
+        return DatabaseManager(
+            host=config["host"],
+            port=config["port"],
+            username=config["user"],
+            password=config["password"],
+            database=config["database"],
+        )
+
+    return DatabaseManager()
 
 def find_missing_bills(db_manager):
     """
@@ -105,6 +110,8 @@ def fetch_and_process_proposers(bill_ids, db_manager):
     """
     누락된 법안 ID에 대해 DataFetcher를 통해 발의자 정보를 수집합니다.
     """
+    from lawdigest_data.bills.DataFetcher import DataFetcher
+
     if not bill_ids:
         return []
 
@@ -278,4 +285,3 @@ if __name__ == "__main__":
     # cross_test_mode=False: 운영 DB에 직접 업데이트
     # limit=5: 5개만 먼저 시도
     main(no_db_update=False, test_mode=False, limit=0, cross_test_mode=False)
-
