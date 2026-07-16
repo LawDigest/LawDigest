@@ -28,7 +28,9 @@ DEFAULT_CODEX_TIMEOUT_SECONDS = int(os.getenv("BILL_AGENT_CODEX_TIMEOUT_SECONDS"
 DEFAULT_AGENT_WORKDIR = os.getenv("BILL_AGENT_CODEX_WORKDIR", "/tmp")
 DEFAULT_CODEX_HOME = os.getenv("BILL_AGENT_CODEX_HOME", "/home/ubuntu/.codex-report")
 DEFAULT_BATCH_SESSION_SIZE = int(os.getenv("BILL_AGENT_BATCH_SESSION_SIZE", "5"))
+DEFAULT_FAILURE_RETRY_ATTEMPTS = 1
 MAX_BATCH_SESSION_SIZE = 5
+RETRYABLE_FAILURE_TYPES = frozenset({"empty_output", "execution_error", "invalid_output"})
 CODEX_AUTH_FILES = ("auth.json", ".credentials.json", "installation_id")
 CODEX_SYSTEM_SKILL_NAMES = ("imagegen", "openai-docs", "plugin-creator", "skill-creator", "skill-installer")
 REPORT_SKILL_NAME = "lawdigest-bill-report"
@@ -2161,8 +2163,14 @@ class CodexBillReportAgent:
             stdout_text = (proc.stdout or "").strip()
             stderr_text = (proc.stderr or "").strip()
             exit_code = proc.returncode
-        except Exception:
-            raise
+        except Exception as exc:
+            details = {
+                "bill_id": bill.get("bill_id"),
+                "bill_name": bill.get("bill_name"),
+                "report_path": str(report_path),
+                "failure_type": "execution_error",
+            }
+            raise BillReportGenerationError(str(exc), details=details) from exc
         finally:
             finished_at = datetime.now(timezone.utc)
             duration_seconds = round(time.perf_counter() - started_perf, 3)
@@ -2180,6 +2188,7 @@ class CodexBillReportAgent:
         }
         validation = {"status": "not_run", "summary": "리포트 생성 실패로 Markdown 검증을 실행하지 않았습니다."}
         if exit_code != 0:
+            details["failure_type"] = "execution_error"
             if inspection_dir:
                 inspection_paths = _write_inspection_artifacts(
                     inspection_dir=Path(inspection_dir),
@@ -2195,9 +2204,10 @@ class CodexBillReportAgent:
                 details.update(inspection_paths)
             error = (stderr_text or stdout_text or "Codex agent failed").strip()
             raise BillReportGenerationError(error, details=details)
-        if not report_path.exists() and stdout_text:
+        if not report_path.exists() and stdout_text and not metadata.get("codex_event_count"):
             report_path.write_text(stdout_text, encoding="utf-8")
-        if not report_path.exists():
+        if not report_path.exists() or report_path.stat().st_size == 0:
+            details["failure_type"] = "empty_output"
             if inspection_dir:
                 inspection_paths = _write_inspection_artifacts(
                     inspection_dir=Path(inspection_dir),
@@ -2212,24 +2222,23 @@ class CodexBillReportAgent:
                 )
                 details.update(inspection_paths)
             raise BillReportGenerationError("Codex agent report body is empty.", details=details)
-        raw_report_body = report_path.read_text(encoding="utf-8")
-        parsed_report = _parse_structured_report_output(raw_report_body, bill=bill, evidence=evidence)
-        postprocessed_report_body = _apply_structured_report_tooltips(parsed_report)
-        repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
-        if repair_applied:
-            report_path.write_text(postprocessed_report_body, encoding="utf-8")
-        output_bytes = report_path.stat().st_size
-        details["output_bytes"] = output_bytes
-        details["report_mode"] = resolved_mode
-        details["prefetch"] = {
-            "plan": EFFECTIVE_AGENT_TOOL_AUDIT["effective_prefetch"],
-            "errors": evidence.get("prefetch_errors") or [],
-        }
-        details["repair_applied"] = repair_applied
-        details["structured_output"] = parsed_report.structured_output
-        details["title"] = parsed_report.title
-        details["tooltip"] = _build_structured_tooltip_details(parsed_report)
         try:
+            raw_report_body = report_path.read_text(encoding="utf-8")
+            parsed_report = _parse_structured_report_output(raw_report_body, bill=bill, evidence=evidence)
+            postprocessed_report_body = _apply_structured_report_tooltips(parsed_report)
+            repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
+            if repair_applied:
+                report_path.write_text(postprocessed_report_body, encoding="utf-8")
+            details["output_bytes"] = report_path.stat().st_size
+            details["report_mode"] = resolved_mode
+            details["prefetch"] = {
+                "plan": EFFECTIVE_AGENT_TOOL_AUDIT["effective_prefetch"],
+                "errors": evidence.get("prefetch_errors") or [],
+            }
+            details["repair_applied"] = repair_applied
+            details["structured_output"] = parsed_report.structured_output
+            details["title"] = parsed_report.title
+            details["tooltip"] = _build_structured_tooltip_details(parsed_report)
             _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
             _validate_generated_title(
                 parsed_report.title,
@@ -2242,6 +2251,7 @@ class CodexBillReportAgent:
                 validation_summary = "Markdown 리포트 형식 cheap repair 후 품질 검증을 통과했습니다."
             validation = {"status": "passed", "summary": validation_summary}
         except RuntimeError as exc:
+            details["failure_type"] = "invalid_output"
             validation = {"status": "failed", "summary": str(exc)}
             if inspection_dir:
                 inspection_paths = _write_inspection_artifacts(
@@ -2316,6 +2326,7 @@ class CodexBillReportAgent:
                     "batch_index": batch_index,
                     "batch_turn_index": turn_index,
                     "status": "failed",
+                    "failure_type": "execution_error",
                     "error": "Codex session id is missing; cannot resume batch session.",
                     "token_usage_available": False,
                     "report_mode": resolved_mode,
@@ -2336,6 +2347,7 @@ class CodexBillReportAgent:
 
             started_at = datetime.now(timezone.utc)
             started_perf = time.perf_counter()
+            execution_error: Exception | None = None
             try:
                 proc = subprocess.run(
                     command,
@@ -2349,6 +2361,11 @@ class CodexBillReportAgent:
                 stdout_text = (proc.stdout or "").strip()
                 stderr_text = (proc.stderr or "").strip()
                 exit_code = proc.returncode
+            except Exception as exc:
+                stdout_text = ""
+                stderr_text = str(exc)
+                exit_code = -1
+                execution_error = exc
             finally:
                 finished_at = datetime.now(timezone.utc)
                 duration_seconds = round(time.perf_counter() - started_perf, 3)
@@ -2380,41 +2397,57 @@ class CodexBillReportAgent:
                 },
             }
             validation = {"status": "not_run", "summary": "Markdown 검증을 실행하지 않았습니다."}
+            failure_type: str | None = None
             try:
-                if exit_code != 0:
+                if execution_error is not None or exit_code != 0:
+                    failure_type = "execution_error"
                     raise RuntimeError((stderr_text or stdout_text or "Codex agent failed").strip())
-                if not report_path.exists() and stdout_text:
+                if not report_path.exists() and stdout_text and not metadata.get("codex_event_count"):
                     report_path.write_text(stdout_text, encoding="utf-8")
-                if not report_path.exists():
+                if not report_path.exists() or report_path.stat().st_size == 0:
+                    failure_type = "empty_output"
                     raise RuntimeError("Codex agent report body is empty.")
-                raw_report_body = report_path.read_text(encoding="utf-8")
-                parsed_report = _parse_structured_report_output(raw_report_body, bill=bill, evidence=evidence)
-                postprocessed_report_body = _apply_structured_report_tooltips(parsed_report)
-                repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
-                if repair_applied:
-                    report_path.write_text(postprocessed_report_body, encoding="utf-8")
-                details["output_bytes"] = report_path.stat().st_size
-                details["repair_applied"] = repair_applied
-                details["structured_output"] = parsed_report.structured_output
-                details["title"] = parsed_report.title
-                details["tooltip"] = _build_structured_tooltip_details(parsed_report)
-                _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
-                _validate_generated_title(
-                    parsed_report.title,
-                    bill,
-                    required=parsed_report.structured_output,
-                )
-                _validate_report_body(report_path.read_text(encoding="utf-8"))
+                try:
+                    raw_report_body = report_path.read_text(encoding="utf-8")
+                    parsed_report = _parse_structured_report_output(raw_report_body, bill=bill, evidence=evidence)
+                    postprocessed_report_body = _apply_structured_report_tooltips(parsed_report)
+                    repair_applied = postprocessed_report_body != raw_report_body.strip() + "\n"
+                    if repair_applied:
+                        report_path.write_text(postprocessed_report_body, encoding="utf-8")
+                    details["output_bytes"] = report_path.stat().st_size
+                    details["repair_applied"] = repair_applied
+                    details["structured_output"] = parsed_report.structured_output
+                    details["title"] = parsed_report.title
+                    details["tooltip"] = _build_structured_tooltip_details(parsed_report)
+                    _validate_report_title_matches_bill(report_path.read_text(encoding="utf-8"), bill)
+                    _validate_generated_title(
+                        parsed_report.title,
+                        bill,
+                        required=parsed_report.structured_output,
+                    )
+                    _validate_report_body(report_path.read_text(encoding="utf-8"))
+                except RuntimeError:
+                    failure_type = "invalid_output"
+                    raise
                 validation_summary = "Markdown 리포트 품질 검증을 통과했습니다."
                 if repair_applied:
                     validation_summary = "Markdown 리포트 형식 cheap repair 후 품질 검증을 통과했습니다."
                 validation = {"status": "passed", "summary": validation_summary}
                 status_item = {**details, "status": "success"}
                 if success_callback is not None:
-                    status_item["db_upserted"] = success_callback(bill, status_item)
+                    try:
+                        status_item["db_upserted"] = success_callback(bill, status_item)
+                    except Exception:
+                        failure_type = "persistence_error"
+                        raise
             except Exception as exc:
                 validation = {"status": "failed", "summary": str(exc)}
-                status_item = {**details, "status": "failed", "error": str(exc)}
+                status_item = {
+                    **details,
+                    "status": "failed",
+                    "failure_type": failure_type or "configuration_error",
+                    "error": str(exc),
+                }
 
             if inspection_dir:
                 inspection_paths = _write_inspection_artifacts(
@@ -2463,6 +2496,17 @@ class CodexBillReportAgent:
         return {"items": completed_items, "session": session}
 
 
+def _build_retry_history_entry(item: dict[str, Any], *, attempt: int) -> dict[str, Any]:
+    entry = {
+        "attempt": attempt,
+        "failure_type": item.get("failure_type"),
+        "error": item.get("error"),
+    }
+    if isinstance(item.get("usage"), dict):
+        entry["usage"] = item["usage"]
+    return entry
+
+
 def run_agentic_bill_reports(
     *,
     mode: str = "dry_run",
@@ -2477,6 +2521,7 @@ def run_agentic_bill_reports(
     inspection: bool = False,
     report_mode: str = "auto",
     batch_session_size: int = DEFAULT_BATCH_SESSION_SIZE,
+    failure_retry_attempts: int = DEFAULT_FAILURE_RETRY_ATTEMPTS,
 ) -> Dict[str, Any]:
     if limit < 1:
         raise ValueError("limit는 1 이상이어야 합니다.")
@@ -2490,6 +2535,8 @@ def run_agentic_bill_reports(
         raise ValueError("batch_session_size는 1 이상이어야 합니다.")
     if batch_session_size > MAX_BATCH_SESSION_SIZE:
         raise ValueError(f"batch_session_size는 {MAX_BATCH_SESSION_SIZE} 이하여야 합니다.")
+    if failure_retry_attempts < 0:
+        raise ValueError("failure_retry_attempts는 0 이상이어야 합니다.")
 
     targets = _fetch_bill_report_targets(mode=mode, limit=limit, read_mode=read_mode, target=target)
     output_root = Path(output_dir).expanduser().resolve()
@@ -2517,16 +2564,23 @@ def run_agentic_bill_reports(
                 report_mode=report_mode,
             )
             if item.get("status") == "success":
-                item["db_upserted"] = persist_successful_item(bill, item)
+                try:
+                    item["db_upserted"] = persist_successful_item(bill, item)
+                except Exception as exc:
+                    return index, {
+                        **item,
+                        "status": "failed",
+                        "failure_type": "persistence_error",
+                        "error": str(exc),
+                    }
             return index, item
         except BillReportGenerationError as exc:
             failed = {
                 **exc.details,
                 "status": "failed",
+                "failure_type": exc.details.get("failure_type") or "configuration_error",
                 "error": str(exc),
             }
-            if stop_on_error:
-                raise
             return index, failed
         except Exception as exc:
             failed = {
@@ -2534,10 +2588,9 @@ def run_agentic_bill_reports(
                 "bill_name": bill.get("bill_name"),
                 "report_path": str(report_path),
                 "status": "failed",
+                "failure_type": "configuration_error",
                 "error": str(exc),
             }
-            if stop_on_error:
-                raise
             return index, failed
 
     def generate_batch(start_index: int, bills: list[dict[str, Any]], batch_index: int) -> dict[str, Any]:
@@ -2551,8 +2604,6 @@ def run_agentic_bill_reports(
                 success_callback=persist_successful_item,
             )
         except Exception as exc:
-            if stop_on_error:
-                raise
             batch_result = {
                 "items": [
                     {
@@ -2560,6 +2611,7 @@ def run_agentic_bill_reports(
                         "bill_name": bill.get("bill_name"),
                         "report_path": str(output_root / f"{_slugify_bill_id(bill.get('bill_id'))}.md"),
                         "status": "failed",
+                        "failure_type": "configuration_error",
                         "error": str(exc),
                         "batch_index": batch_index,
                     }
@@ -2573,9 +2625,6 @@ def run_agentic_bill_reports(
             }
         for offset, item in enumerate(batch_result["items"]):
             items[start_index + offset] = item
-        if stop_on_error and any(item.get("status") == "failed" for item in batch_result["items"]):
-            first_failed = next(item for item in batch_result["items"] if item.get("status") == "failed")
-            raise BillReportGenerationError(str(first_failed.get("error") or "batch failed"), details=first_failed)
         return batch_result["session"]
 
     if targets and batch_session_size > 1 and len(targets) > 1:
@@ -2605,7 +2654,40 @@ def run_agentic_bill_reports(
             item_index, item = generate_one(index, bill)
             items[item_index] = item
 
+    retried_item_count = 0
+    retry_success_count = 0
+    for index, initial_item in enumerate(items):
+        if (
+            initial_item is None
+            or initial_item.get("status") != "failed"
+            or not initial_item.get("batch_index")
+            or initial_item.get("failure_type") not in RETRYABLE_FAILURE_TYPES
+            or failure_retry_attempts == 0
+        ):
+            continue
+
+        retried_item_count += 1
+        history = [_build_retry_history_entry(initial_item, attempt=0)]
+        final_item = initial_item
+        for attempt in range(1, failure_retry_attempts + 1):
+            _, retry_item = generate_one(index, targets[index])
+            final_item = retry_item
+            if retry_item.get("status") == "success":
+                retry_success_count += 1
+                break
+            history.append(_build_retry_history_entry(retry_item, attempt=attempt))
+            if retry_item.get("failure_type") not in RETRYABLE_FAILURE_TYPES:
+                break
+        final_item["retry"] = {
+            "attempt_count": len(history) - 1 if final_item.get("status") == "failed" else attempt,
+            "history": history,
+        }
+        items[index] = final_item
+
     completed_items = [item for item in items if item is not None]
+    if stop_on_error and any(item.get("status") == "failed" for item in completed_items):
+        first_failed = next(item for item in completed_items if item.get("status") == "failed")
+        raise BillReportGenerationError(str(first_failed.get("error") or "report failed"), details=first_failed)
     finished_at = datetime.now(timezone.utc)
     total_duration_seconds = round(time.perf_counter() - started_perf, 3)
     usage_totals: dict[str, int] = {}
@@ -2622,6 +2704,10 @@ def run_agentic_bill_reports(
         tooltip = item.get("tooltip")
         if isinstance(tooltip, dict):
             add_usage(tooltip.get("usage"))
+        retry = item.get("retry")
+        if isinstance(retry, dict):
+            for history_item in retry.get("history") or []:
+                add_usage(history_item.get("usage"))
     for session in sessions:
         add_usage(session.get("usage"))
 
@@ -2636,6 +2722,7 @@ def run_agentic_bill_reports(
         "report_mode": report_mode,
         "concurrency": concurrency,
         "batch_session_size": batch_session_size,
+        "failure_retry_attempts": failure_retry_attempts,
         "batch_session_count": len(sessions) if batch_session_size > 1 else len(completed_items),
         "inspection": {
             "enabled": inspection,
@@ -2650,6 +2737,8 @@ def run_agentic_bill_reports(
             "processed_count": len(completed_items),
             "success_count": sum(1 for item in completed_items if item["status"] == "success"),
             "failure_count": sum(1 for item in completed_items if item["status"] == "failed"),
+            "retried_item_count": retried_item_count,
+            "retry_success_count": retry_success_count,
             "total_duration_seconds": total_duration_seconds,
             "token_usage_available_count": (
                 sum(1 for item in completed_items if item.get("token_usage_available"))
