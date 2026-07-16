@@ -298,6 +298,36 @@ def test_bill_agent_report_delegates_to_agentic_report_runtime(tmp_path):
     assert result["status"] == "success"
 
 
+def test_bill_title_regeneration_delegates_to_title_only_runtime(tmp_path):
+    from lawdigest_data.runtime.pipeline import PipelineRuntime
+
+    with patch(
+        "lawdigest_ai.processor.bill_title_regeneration.run_bill_title_regeneration",
+        return_value={
+            "status": "success",
+            "stats": {"target_count": 5, "success_count": 5, "failure_count": 0},
+        },
+    ) as run_titles:
+        result = PipelineRuntime(log_dir=tmp_path).run_bill_title_regeneration(
+            mode="dry_run",
+            limit=5,
+            output_dir="/tmp/titles",
+            read_mode="prod",
+        )
+
+    run_titles.assert_called_once_with(
+        mode="dry_run",
+        limit=5,
+        output_dir="/tmp/titles",
+        read_mode="prod",
+        codex_model=None,
+        batch_size=5,
+    )
+    assert result["command"] == "bill.title_regeneration"
+    assert result["steps"][0]["step"] == "regenerate_bill_titles"
+    assert result["status"] == "success"
+
+
 def test_bill_agent_report_can_target_all_bills(tmp_path):
     from lawdigest_data.runtime.pipeline import PipelineRuntime
 
@@ -613,6 +643,36 @@ def test_cli_dispatches_bill_agent_report(tmp_path):
         five_hour_usage_before=None,
         five_hour_usage_after=None,
         inspection=False,
+    )
+
+
+def test_cli_dispatches_bill_title_regeneration(tmp_path):
+    from lawdigest_data.runtime.cli import main
+
+    with patch("lawdigest_data.runtime.cli.PipelineRuntime") as Runtime:
+        Runtime.return_value.run_bill_title_regeneration.return_value = {"status": "success"}
+        exit_code = main([
+            "--log-dir",
+            str(tmp_path),
+            "bill-title-regenerate",
+            "--mode",
+            "dry_run",
+            "--limit",
+            "5",
+            "--output-dir",
+            "/tmp/titles",
+            "--read-mode",
+            "prod",
+        ])
+
+    assert exit_code == 0
+    Runtime.return_value.run_bill_title_regeneration.assert_called_once_with(
+        mode="dry_run",
+        limit=5,
+        output_dir="/tmp/titles",
+        read_mode="prod",
+        codex_model=None,
+        batch_size=5,
     )
 
 

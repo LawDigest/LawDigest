@@ -117,3 +117,24 @@ def update_bill_summary(
         conn.commit()
     finally:
         conn.close()
+
+
+def update_bill_title_if_current(
+    bill_id: str,
+    title: str,
+    expected_title: str,
+    mode: str = "test",
+) -> bool:
+    """조회 이후 제목이 바뀌지 않은 법안의 title만 갱신합니다."""
+    conn = get_db_connection(mode=mode)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE Bill SET title=%s WHERE bill_id=%s AND title=%s",
+                (title, bill_id, expected_title),
+            )
+            updated = cur.rowcount == 1
+        conn.commit()
+        return updated
+    finally:
+        conn.close()

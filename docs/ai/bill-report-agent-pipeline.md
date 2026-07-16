@@ -258,6 +258,23 @@ manifest에는 다음 정보가 들어간다.
 
 현재 심사 단계, 처리 결과, 투표 결과, 조회수, 스크랩 수는 AI 텍스트에 고정하지 않는다. 프론트와 API가 최신 데이터로 별도 표시한다.
 
+### 제목만 재생성
+
+에이전트형 리포트 본문은 유지하고 원문 `summary`가 복사된 `title`만 고칠 때는 별도 명령을 사용한다.
+
+```bash
+PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cli \
+  bill-title-regenerate \
+  --mode dry_run \
+  --read-mode prod \
+  --limit 5 \
+  --output-dir /tmp/lawdigest-bill-title-regeneration
+```
+
+대상은 `gpt_summary`에 `## 쉬운 요약`과 `## 주요 내용`이 있고, `제안이유 및 주요내용` 머리말을 제거한 원문 요약의 prefix가 현재 제목과 일치하는 법안이다. 에이전트는 `summary`, 기존 `gpt_summary`, 정확한 `bill_name`을 입력받아 제목 JSON만 생성한다.
+
+`--mode prod`에서도 DB UPDATE는 조회 당시 제목이 그대로인 행의 `title`에만 적용된다. `gpt_summary`, `summary_tags`, `category`는 변경하지 않는다. 생성·검증 결과와 실행 전 `gpt_summary` SHA-256은 출력 디렉터리의 `result.json`에 기록된다.
+
 ## 13. 운영 절차
 
 1. `dry_run --read-mode prod`로 소량 실행한다.

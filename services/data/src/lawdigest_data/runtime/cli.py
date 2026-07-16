@@ -120,6 +120,17 @@ def build_parser() -> argparse.ArgumentParser:
     agent_report.add_argument("--inspection", action="store_true", help="에이전트 실행 감사용 검사 로그를 함께 저장")
     agent_report.add_argument("--stop-on-error", action="store_true")
 
+    title_regeneration = subparsers.add_parser(
+        "bill-title-regenerate",
+        help="원문 요약이 복사된 법안 title만 에이전트로 재생성",
+    )
+    title_regeneration.add_argument("--mode", default="dry_run", choices=["dry_run", "test", "prod"])
+    title_regeneration.add_argument("--limit", type=int, default=5)
+    title_regeneration.add_argument("--output-dir", default="/tmp/lawdigest-bill-title-regeneration")
+    title_regeneration.add_argument("--read-mode", choices=["test", "prod"])
+    title_regeneration.add_argument("--codex-model")
+    title_regeneration.add_argument("--batch-size", type=int, default=5)
+
     return parser
 
 
@@ -237,6 +248,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             five_hour_usage_before=args.five_hour_usage_before,
             five_hour_usage_after=args.five_hour_usage_after,
             inspection=args.inspection,
+        )
+    elif args.command == "bill-title-regenerate":
+        result = runtime.run_bill_title_regeneration(
+            mode=args.mode,
+            limit=args.limit,
+            output_dir=args.output_dir,
+            read_mode=args.read_mode,
+            codex_model=args.codex_model,
+            batch_size=args.batch_size,
         )
     else:
         parser.error(f"unsupported command: {args.command}")

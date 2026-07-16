@@ -744,3 +744,32 @@ class PipelineRuntime:
             five_hour_usage_after=five_hour_usage_after,
             inspection=inspection,
         )
+
+    def run_bill_title_regeneration(
+        self,
+        *,
+        mode: str = "dry_run",
+        limit: int = 5,
+        output_dir: str = "/tmp/lawdigest-bill-title-regeneration",
+        read_mode: str | None = None,
+        codex_model: str | None = None,
+        batch_size: int = 5,
+    ) -> Dict[str, Any]:
+        params = {
+            "mode": mode,
+            "limit": limit,
+            "output_dir": output_dir,
+            "read_mode": read_mode,
+            "codex_model": codex_model,
+            "batch_size": batch_size,
+        }
+
+        def execute(run_id: str) -> List[Dict[str, Any]]:
+            from lawdigest_ai.processor.bill_title_regeneration import run_bill_title_regeneration
+
+            steps: List[Dict[str, Any]] = []
+            result = run_bill_title_regeneration(**params)
+            self._record_step(run_id, steps, "regenerate_bill_titles", result)
+            return steps
+
+        return self._run("bill.title_regeneration", params, execute)
