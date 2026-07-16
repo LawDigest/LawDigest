@@ -2152,6 +2152,7 @@ def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monk
             target="pending",
             report_mode="deep_report",
             batch_session_size=2,
+            failure_retry_attempts=0,
         )
 
     assert result["stats"]["success_count"] == 1
@@ -2160,8 +2161,323 @@ def test_run_agentic_bill_reports_upserts_partial_batch_successes(tmp_path, monk
     assert result["items"][0]["status"] == "success"
     assert result["items"][1]["status"] == "failed"
     assert "Codex agent report body is empty" in result["items"][1]["error"]
+    assert result["items"][1]["failure_type"] == "empty_output"
     mock_update.assert_called_once()
     assert mock_update.call_args.kwargs["bill_id"] == "PRC_PARTIAL_1"
+
+
+def test_run_agentic_bill_reports_retries_retryable_batch_failures(tmp_path, monkeypatch):
+    from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+    monkeypatch.delenv("ASSEMBLY_API_KEY", raising=False)
+    targets = [
+        {
+            "bill_id": f"PRC_RETRY_{index}",
+            "bill_number": f"221110{index}",
+            "bill_name": f"재시도 테스트법안 {index}",
+            "summary": f"{index}번째 요약",
+            "title": f"기존 {index}번째 제목",
+            "summary_tags": '["기존"]',
+            "bill_result": "소관위심사",
+            "stage": "위원회 심사",
+        }
+        for index in (1, 2)
+    ]
+
+    def report_output(index: int) -> str:
+        bill_name = f"재시도 테스트법안 {index}"
+        report_body = (
+            f"# {bill_name}\n\n"
+            f"## 쉬운 요약\n- <mark>**{index}번째** 리포트예요.</mark>\n\n"
+            "## 주요 내용\n- **지원 근거**: 설명이에요.\n\n"
+            "## 무엇이 달라지나\n\n"
+            "### 1) 지원 근거 신설\n\n"
+            f"{index}번째 근거만 사용해 지원 근거를 만들어요.\n"
+        )
+        return json.dumps(
+            {
+                "title": f"지원 근거 신설을 위한 {bill_name}",
+                "report_body": report_body,
+                "tooltips": [],
+                "rejected": [],
+            },
+            ensure_ascii=False,
+        )
+
+    calls: list[list[str]] = []
+
+    def run_codex(command, **kwargs):
+        calls.append(command)
+        output_path = Path(command[command.index("--output-last-message") + 1])
+        is_resume = command[:3] == ["codex", "exec", "resume"]
+        if not is_resume and len(calls) == 1:
+            output_path.write_text(report_output(1), encoding="utf-8")
+            stdout = '{"type":"thread.started","thread_id":"thread-retry"}'
+        elif is_resume:
+            stdout = '{"type":"turn.completed","usage":{"input_tokens":20}}'
+        else:
+            output_path.write_text(report_output(2), encoding="utf-8")
+            stdout = '{"type":"thread.started","thread_id":"thread-retry-single"}'
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout=stdout, stderr="")
+
+    upserted_bill_ids: list[str] = []
+
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets",
+        return_value=targets,
+    ), patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex), patch(
+        "lawdigest_ai.processor.agentic_bill_report.update_bill_summary",
+        side_effect=lambda **kwargs: upserted_bill_ids.append(kwargs["bill_id"]),
+    ):
+        result = run_agentic_bill_reports(
+            mode="test",
+            limit=2,
+            output_dir=str(tmp_path),
+            target="pending",
+            report_mode="deep_report",
+            batch_session_size=2,
+            failure_retry_attempts=1,
+        )
+
+    assert len(calls) == 3
+    assert calls[1][:3] == ["codex", "exec", "resume"]
+    assert calls[2][:3] != ["codex", "exec", "resume"]
+    assert result["stats"]["success_count"] == 2
+    assert result["stats"]["failure_count"] == 0
+    assert result["stats"]["retried_item_count"] == 1
+    assert result["stats"]["retry_success_count"] == 1
+    assert result["items"][1]["retry"]["attempt_count"] == 1
+    assert result["items"][1]["retry"]["history"][0]["attempt"] == 0
+    assert result["items"][1]["retry"]["history"][0]["failure_type"] == "empty_output"
+    assert result["stats"]["usage_totals"]["input_tokens"] == 20
+    assert upserted_bill_ids == ["PRC_RETRY_1", "PRC_RETRY_2"]
+
+
+def test_run_agentic_bill_reports_preserves_success_before_later_batch_configuration_error(tmp_path):
+    from lawdigest_ai.processor.agentic_bill_report import build_bill_report_evidence, run_agentic_bill_reports
+
+    targets = [
+        {"bill_id": "PRC_CONFIG_BATCH_1", "bill_name": "배치 설정 테스트법안 1", "summary": "첫 번째 요약"},
+        {"bill_id": "PRC_CONFIG_BATCH_2", "bill_name": "배치 설정 테스트법안 2", "summary": "두 번째 요약"},
+    ]
+    evidence_calls = 0
+
+    def build_evidence(bill, *, report_mode):
+        nonlocal evidence_calls
+        evidence_calls += 1
+        if evidence_calls == 2:
+            raise RuntimeError("evidence config failed")
+        return build_bill_report_evidence(bill, report_mode=report_mode)
+
+    def run_codex(command, **kwargs):
+        output_path = Path(command[command.index("--output-last-message") + 1])
+        output_path.write_text(
+            "# 배치 설정 테스트법안 1\n\n"
+            "## 쉬운 요약\n- **첫 항목**은 성공해요. <mark>뒤 항목 오류가 앞 결과를 지우면 안 돼요.</mark>\n\n"
+            "## 주요 내용\n- **처리 보존**: 성공 결과를 유지해요.\n\n"
+            "## 무엇이 달라지나\n\n### 1) 처리 결과 보존\n\n첫 항목 결과를 그대로 유지해요.\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(
+            args=command,
+            returncode=0,
+            stdout='{"type":"thread.started","thread_id":"thread-config"}',
+            stderr="",
+        )
+
+    with patch("lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets", return_value=targets), patch(
+        "lawdigest_ai.processor.agentic_bill_report.build_bill_report_evidence", side_effect=build_evidence
+    ), patch("lawdigest_ai.processor.agentic_bill_report.subprocess.run", side_effect=run_codex) as run_process:
+        result = run_agentic_bill_reports(limit=2, output_dir=str(tmp_path), batch_session_size=2)
+
+    assert run_process.call_count == 1
+    assert result["items"][0]["status"] == "success"
+    assert result["items"][1]["status"] == "failed"
+    assert result["items"][1]["failure_type"] == "configuration_error"
+    assert result["stats"]["success_count"] == 1
+    assert result["stats"]["retried_item_count"] == 0
+
+
+def test_run_agentic_bill_reports_can_disable_failure_retries(tmp_path):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent, run_agentic_bill_reports
+
+    targets = [{"bill_id": "PRC_NO_RETRY_1", "bill_name": "재시도 비활성화법안 1"}, {"bill_id": "PRC_NO_RETRY_2", "bill_name": "재시도 비활성화법안 2"}]
+    batch_result = {
+        "items": [
+            {"bill_id": bill["bill_id"], "bill_name": bill["bill_name"], "status": "failed", "failure_type": "empty_output", "error": "empty", "batch_index": 1}
+            for bill in targets
+        ],
+        "session": {"batch_index": 1, "token_usage_available": False},
+    }
+
+    with patch("lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets", return_value=targets), patch.object(
+        CodexBillReportAgent, "write_reports_batch", return_value=batch_result
+    ), patch.object(CodexBillReportAgent, "write_report") as write_report:
+        result = run_agentic_bill_reports(limit=2, output_dir=str(tmp_path), batch_session_size=2, failure_retry_attempts=0)
+
+    write_report.assert_not_called()
+    assert result["stats"]["retried_item_count"] == 0
+    assert result["stats"]["failure_count"] == 2
+
+
+@pytest.mark.parametrize("retry_attempts", [-1, 1.5])
+def test_run_agentic_bill_reports_rejects_invalid_failure_retry_attempts(tmp_path, retry_attempts):
+    from lawdigest_ai.processor.agentic_bill_report import run_agentic_bill_reports
+
+    with pytest.raises(ValueError, match="failure_retry_attempts"):
+        run_agentic_bill_reports(output_dir=str(tmp_path), failure_retry_attempts=retry_attempts)
+
+
+def test_codex_agent_classifies_zero_byte_output_as_empty_output(tmp_path):
+    from lawdigest_ai.processor.agentic_bill_report import BillReportGenerationError, CodexBillReportAgent
+
+    output_path = tmp_path / "empty.md"
+    output_path.touch()
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.subprocess.run",
+        return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr=""),
+    ), pytest.raises(BillReportGenerationError) as exc_info:
+        CodexBillReportAgent().write_report(
+            bill={"bill_id": "PRC_EMPTY", "bill_name": "빈 출력법안"},
+            output_path=str(output_path),
+        )
+
+    assert exc_info.value.details["failure_type"] == "empty_output"
+
+
+def test_codex_agent_does_not_reuse_preexisting_report_when_retry_writes_nothing(tmp_path):
+    from lawdigest_ai.processor.agentic_bill_report import BillReportGenerationError, CodexBillReportAgent
+
+    output_path = tmp_path / "stale.md"
+    output_path.write_text(
+        "# 이전 출력법안\n\n## 쉬운 요약\n- **이전 결과**예요. <mark>재사용하면 안 돼요.</mark>\n\n## 주요 내용\n- **기존 결과**: 설명이에요.\n",
+        encoding="utf-8",
+    )
+    with patch(
+        "lawdigest_ai.processor.agentic_bill_report.subprocess.run",
+        return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout='{"type":"turn.completed"}', stderr=""),
+    ), pytest.raises(BillReportGenerationError) as exc_info:
+        CodexBillReportAgent().write_report(
+            bill={"bill_id": "PRC_STALE", "bill_name": "이전 출력법안"},
+            output_path=str(output_path),
+        )
+
+    assert exc_info.value.details["failure_type"] == "empty_output"
+
+
+def test_codex_agent_classifies_environment_preparation_failure_as_configuration_error(tmp_path):
+    from lawdigest_ai.processor.agentic_bill_report import BillReportGenerationError, CodexBillReportAgent
+
+    with patch.object(CodexBillReportAgent, "build_environment", side_effect=OSError("config unavailable")), patch(
+        "lawdigest_ai.processor.agentic_bill_report.subprocess.run"
+    ) as run_process, pytest.raises(BillReportGenerationError) as exc_info:
+        CodexBillReportAgent().write_report(
+            bill={"bill_id": "PRC_CONFIG", "bill_name": "설정 오류법안"},
+            output_path=str(tmp_path / "config.md"),
+        )
+
+    run_process.assert_not_called()
+    assert exc_info.value.details["failure_type"] == "configuration_error"
+
+
+def test_run_agentic_bill_reports_retries_until_exhausted_before_stop_on_error(tmp_path):
+    from lawdigest_ai.processor.agentic_bill_report import BillReportGenerationError, CodexBillReportAgent, run_agentic_bill_reports
+
+    targets = [{"bill_id": "PRC_STOP_1", "bill_name": "재시도 소진법안 1"}, {"bill_id": "PRC_STOP_2", "bill_name": "재시도 소진법안 2"}]
+    batch_result = {
+        "items": [
+            {"bill_id": bill["bill_id"], "bill_name": bill["bill_name"], "status": "failed", "failure_type": "empty_output", "error": "empty", "batch_index": 1}
+            for bill in targets
+        ],
+        "session": {"batch_index": 1, "token_usage_available": False},
+    }
+
+    retry_calls: list[str] = []
+
+    def fail_retry(self, *, bill, output_path, **kwargs):
+        retry_calls.append(bill["bill_id"])
+        raise BillReportGenerationError(
+            "still invalid",
+            details={"bill_id": bill["bill_id"], "report_path": output_path, "failure_type": "invalid_output", "usage": {"input_tokens": 3}},
+        )
+
+    with patch("lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets", return_value=targets), patch.object(
+        CodexBillReportAgent, "write_reports_batch", return_value=batch_result
+    ), patch.object(CodexBillReportAgent, "write_report", fail_retry), pytest.raises(
+        BillReportGenerationError, match="still invalid"
+    ):
+        run_agentic_bill_reports(
+            limit=2,
+            output_dir=str(tmp_path),
+            batch_session_size=2,
+            failure_retry_attempts=2,
+            stop_on_error=True,
+        )
+
+    assert len(retry_calls) == 4
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["stats"]["usage_totals"]["input_tokens"] == 12
+    assert [item["retry"]["attempt_count"] for item in manifest["items"]] == [2, 2]
+
+
+def test_run_agentic_bill_reports_stops_retrying_after_retry_persistence_failure(tmp_path):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent, run_agentic_bill_reports
+
+    targets = [{"bill_id": "PRC_RETRY_DB_1", "bill_name": "재시도 저장 실패법안 1"}, {"bill_id": "PRC_RETRY_DB_2", "bill_name": "재시도 저장 실패법안 2"}]
+    batch_result = {
+        "items": [
+            {"bill_id": bill["bill_id"], "bill_name": bill["bill_name"], "status": "failed", "failure_type": "empty_output", "error": "empty", "batch_index": 1}
+            for bill in targets
+        ],
+        "session": {"batch_index": 1, "token_usage_available": False},
+    }
+
+    retry_calls: list[str] = []
+
+    def successful_retry(self, *, bill, output_path, **kwargs):
+        retry_calls.append(bill["bill_id"])
+        return {"bill_id": bill["bill_id"], "bill_name": bill["bill_name"], "status": "success", "report_path": output_path, "title": f"변화를 위한 {bill['bill_name']}", "usage": {"input_tokens": 7}}
+
+    with patch("lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets", return_value=targets), patch.object(
+        CodexBillReportAgent, "write_reports_batch", return_value=batch_result
+    ), patch.object(CodexBillReportAgent, "write_report", successful_retry), patch(
+        "lawdigest_ai.processor.agentic_bill_report._persist_successful_report_item", side_effect=RuntimeError("db down")
+    ):
+        result = run_agentic_bill_reports(mode="test", limit=2, output_dir=str(tmp_path), batch_session_size=2, failure_retry_attempts=3)
+
+    assert len(retry_calls) == 2
+    assert result["stats"]["retry_success_count"] == 0
+    assert result["stats"]["usage_totals"]["input_tokens"] == 14
+    assert all(item["failure_type"] == "persistence_error" for item in result["items"])
+    assert all(item["retry"]["attempt_count"] == 1 for item in result["items"])
+
+
+def test_run_agentic_bill_reports_does_not_retry_persistence_failures(tmp_path):
+    from lawdigest_ai.processor.agentic_bill_report import CodexBillReportAgent, run_agentic_bill_reports
+
+    targets = [{"bill_id": "PRC_DB_1", "bill_name": "저장 실패법안 1"}, {"bill_id": "PRC_DB_2", "bill_name": "저장 실패법안 2"}]
+
+    def write_batch(self, *, bills, success_callback, **kwargs):
+        items = []
+        for bill in bills:
+            item = {"bill_id": bill["bill_id"], "bill_name": bill["bill_name"], "status": "success", "title": f"변화를 위한 {bill['bill_name']}", "report_path": str(tmp_path / f"{bill['bill_id']}.md"), "batch_index": 1}
+            try:
+                item["db_upserted"] = success_callback(bill, item)
+            except Exception as exc:
+                item = {**item, "status": "failed", "failure_type": "persistence_error", "error": str(exc)}
+            items.append(item)
+        return {"items": items, "session": {"batch_index": 1, "token_usage_available": False}}
+
+    with patch("lawdigest_ai.processor.agentic_bill_report._fetch_bill_report_targets", return_value=targets), patch.object(
+        CodexBillReportAgent, "write_reports_batch", write_batch
+    ), patch("lawdigest_ai.processor.agentic_bill_report._persist_successful_report_item", side_effect=RuntimeError("db down")), patch.object(
+        CodexBillReportAgent, "write_report"
+    ) as write_report:
+        result = run_agentic_bill_reports(mode="test", limit=2, output_dir=str(tmp_path), batch_session_size=2)
+
+    write_report.assert_not_called()
+    assert result["stats"]["retried_item_count"] == 0
+    assert [item["failure_type"] for item in result["items"]] == ["persistence_error", "persistence_error"]
 
 
 def test_run_agentic_bill_reports_maps_report_bodies_without_agent_bill_id(tmp_path, monkeypatch):

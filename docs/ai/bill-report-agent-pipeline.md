@@ -72,9 +72,11 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
 | `--limit` | `5` | 조회할 법안 수. |
 | `--target` | `passed` | `passed`는 통과 법안 중심, `all`은 요약이 있는 전체 법안 대상이다. |
 | `--concurrency` | `1` | 동시에 실행할 Codex 세션 수. 3개 병렬 실행은 `--concurrency 3`으로 지정한다. |
+| `--batch-session-size` | `5` | 한 Codex 배치 세션에서 처리할 법안 수. 최대 5건이다. |
+| `--failure-retry-attempts` | `1` | 배치에서 생성에 실패한 항목을 새 단건 세션으로 다시 실행하는 횟수. `0`이면 재시도하지 않는다. |
 | `--codex-model` | 환경변수 또는 `gpt-5.4-mini` | 실행 모델 override. |
 | `--inspection` | 꺼짐 | 법안별 검사 로그를 `inspection/` 아래에 추가로 저장한다. 에이전트 행동, 도구 호출 요약, 프롬프트, 검증 결과, 최종 근거 섹션을 감사할 때 사용한다. |
-| `--stop-on-error` | 꺼짐 | 하나라도 실패하면 즉시 중단한다. 기본은 실패 항목을 manifest에 남기고 다음 법안을 계속 처리한다. |
+| `--stop-on-error` | 꺼짐 | 자동 재시도를 마친 뒤에도 실패가 남으면 실행을 실패 처리한다. 기본은 실패 항목을 manifest에 남긴다. |
 | `--weekly-usage-before`, `--weekly-usage-after` | 없음 | 주간 사용량 퍼센트 계측값. |
 | `--five-hour-usage-before`, `--five-hour-usage-after` | 없음 | 5시간 사용량 퍼센트 계측값. |
 
@@ -176,7 +178,18 @@ API 정의 조회에 성공하면 프롬프트에 `법제처 API 조회 결과` 
 - `합니다`, `됩니다`, `입니다` 같은 격식체 종결이 남으면 실패한다.
 - `줄어드어요`처럼 어색한 해요체가 남으면 실패한다.
 
-검증 실패 시 해당 항목은 `status: failed`로 manifest에 기록된다. `--stop-on-error`가 켜져 있으면 즉시 중단한다.
+검증 실패 시 해당 항목은 `status: failed`로 manifest에 기록된다. 배치 항목이면 설정된 횟수만큼 단건 재시도를 마친 뒤 최종 상태를 확정한다.
+
+### 배치 실패 자동 재시도
+
+배치 세션에서 실패한 항목만 새 단건 Codex 세션에서 다시 실행한다. 정상 항목은 건드리지 않는다. 기본값은 1회다.
+
+- 재시도 대상: 빈 출력(`empty_output`), Codex 실행·세션 오류(`execution_error`), 구조화 출력·제목·Markdown 검증 오류(`invalid_output`)
+- 재시도하지 않는 대상: DB 반영 오류(`persistence_error`), 실행 전 입력·설정 오류(`configuration_error`)
+- `--failure-retry-attempts 0`으로 자동 재시도를 끌 수 있다.
+- `--stop-on-error`는 재시도를 모두 마친 뒤 최종 실패가 남았을 때 적용한다.
+
+재시도에 성공한 항목은 최종 결과와 함께 `retry.attempt_count`, `retry.history`를 남긴다. `history`에는 최초 배치 실패와 실패한 단건 재시도만 기록한다.
 
 ## 11. 산출물
 
@@ -208,10 +221,12 @@ manifest에는 다음 정보가 들어간다.
 - 실행 모드, 읽기 모드, 모델, 대상 범위, 병렬도
 - 시작/종료 시각, 전체 소요 시간
 - 대상 수, 성공 수, 실패 수
+- 재시도한 법안 수(`retried_item_count`)와 재시도 후 성공한 법안 수(`retry_success_count`)
 - DB 반영 수
 - 법안별 파일 경로, exit code, output bytes, 소요 시간
 - Codex thread id, JSON 이벤트 수
 - token usage가 있으면 `usage`와 `usage_totals`
+- 재시도한 항목은 실제 시도 횟수와 실패 유형·오류·사용량 이력
 - 주간/5시간 사용량 퍼센트 전후값이 있으면 `usage_meter`
 - 검사 모드가 켜졌는지와 검사 로그 디렉터리
 
