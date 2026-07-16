@@ -31,6 +31,7 @@ def _add_ai_summary_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--report-mode", default="deep_report", choices=["auto", "summary", "deep_report"])
     parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--batch-session-size", type=int, default=5, help="agent 모드 Codex 세션당 법안 수, 최대 5")
+    parser.add_argument("--failure-retry-attempts", type=int, default=1, help="배치 실패 항목의 단건 재시도 횟수, 0이면 비활성화")
     parser.add_argument("--weekly-usage-before", type=float)
     parser.add_argument("--weekly-usage-after", type=float)
     parser.add_argument("--five-hour-usage-before", type=float)
@@ -111,6 +112,7 @@ def build_parser() -> argparse.ArgumentParser:
     agent_report.add_argument("--report-mode", default="deep_report", choices=["auto", "summary", "deep_report"])
     agent_report.add_argument("--concurrency", type=int, default=1)
     agent_report.add_argument("--batch-session-size", type=int, default=5, help="Codex 세션당 법안 수, 최대 5")
+    agent_report.add_argument("--failure-retry-attempts", type=int, default=1, help="배치 실패 항목의 단건 재시도 횟수, 0이면 비활성화")
     agent_report.add_argument("--weekly-usage-before", type=float)
     agent_report.add_argument("--weekly-usage-after", type=float)
     agent_report.add_argument("--five-hour-usage-before", type=float)
@@ -199,6 +201,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             concurrency=args.concurrency,
             report_mode=args.report_mode,
             batch_session_size=args.batch_session_size,
+            failure_retry_attempts=args.failure_retry_attempts,
             weekly_usage_before=args.weekly_usage_before,
             weekly_usage_after=args.weekly_usage_after,
             five_hour_usage_before=args.five_hour_usage_before,
@@ -228,6 +231,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             concurrency=args.concurrency,
             report_mode=args.report_mode,
             batch_session_size=args.batch_session_size,
+            failure_retry_attempts=args.failure_retry_attempts,
             weekly_usage_before=args.weekly_usage_before,
             weekly_usage_after=args.weekly_usage_after,
             five_hour_usage_before=args.five_hour_usage_before,
