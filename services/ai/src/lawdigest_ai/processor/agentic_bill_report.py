@@ -2141,12 +2141,23 @@ class CodexBillReportAgent:
         inspection_dir: str | None = None,
         report_mode: str = "auto",
     ) -> Dict[str, Any]:
-        evidence = build_bill_report_evidence(bill, report_mode=report_mode)
-        resolved_mode = str(evidence.get("report_mode") or _resolve_report_mode(report_mode, bill))
-        prompt = build_bill_report_prompt(bill, report_mode=resolved_mode, evidence=evidence)
-        command, stdin_text = self.build_command(prompt=prompt, output_path=output_path, ephemeral=False)
         report_path = Path(output_path)
-        report_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            evidence = build_bill_report_evidence(bill, report_mode=report_mode)
+            resolved_mode = str(evidence.get("report_mode") or _resolve_report_mode(report_mode, bill))
+            prompt = build_bill_report_prompt(bill, report_mode=resolved_mode, evidence=evidence)
+            command, stdin_text = self.build_command(prompt=prompt, output_path=output_path, ephemeral=False)
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.unlink(missing_ok=True)
+            environment = self.build_environment()
+        except Exception as exc:
+            details = {
+                "bill_id": bill.get("bill_id"),
+                "bill_name": bill.get("bill_name"),
+                "report_path": str(report_path),
+                "failure_type": "configuration_error",
+            }
+            raise BillReportGenerationError(str(exc), details=details) from exc
         started_at = datetime.now(timezone.utc)
         started_perf = time.perf_counter()
 
@@ -2157,7 +2168,7 @@ class CodexBillReportAgent:
                 capture_output=True,
                 text=True,
                 cwd=self.workdir,
-                env=self.build_environment(),
+                env=environment,
                 timeout=self.timeout_seconds,
             )
             stdout_text = (proc.stdout or "").strip()
@@ -2311,14 +2322,49 @@ class CodexBillReportAgent:
             bill_id = str(bill.get("bill_id") or "")
             report_path = output_root / f"{_slugify_bill_id(bill_id)}.md"
             output_paths.append(str(report_path))
-            evidence = build_bill_report_evidence(bill, report_mode=report_mode)
-            resolved_mode = str(evidence.get("report_mode") or _resolve_report_mode(report_mode, bill))
-            prompt = build_bill_report_prompt(bill, report_mode=resolved_mode, evidence=evidence)
-            if turn_index == 1:
-                command, stdin_text = self.build_command(prompt=prompt, output_path=str(report_path), ephemeral=False)
-            elif session_id:
-                command, stdin_text = self.build_resume_command(session_id=session_id, prompt=prompt, output_path=str(report_path))
-            else:
+            resolved_mode = report_mode
+            try:
+                evidence = build_bill_report_evidence(bill, report_mode=report_mode)
+                resolved_mode = str(evidence.get("report_mode") or _resolve_report_mode(report_mode, bill))
+                prompt = build_bill_report_prompt(bill, report_mode=resolved_mode, evidence=evidence)
+                if turn_index == 1:
+                    command, stdin_text = self.build_command(prompt=prompt, output_path=str(report_path), ephemeral=False)
+                elif session_id:
+                    command, stdin_text = self.build_resume_command(
+                        session_id=session_id,
+                        prompt=prompt,
+                        output_path=str(report_path),
+                    )
+                else:
+                    command = None
+                    stdin_text = ""
+                if command is not None:
+                    report_path.unlink(missing_ok=True)
+                    environment = self.build_environment()
+            except Exception as exc:
+                details = {
+                    "bill_id": bill.get("bill_id"),
+                    "bill_name": bill.get("bill_name"),
+                    "report_path": str(report_path),
+                    "batch_index": batch_index,
+                    "batch_turn_index": turn_index,
+                    "status": "failed",
+                    "failure_type": "configuration_error",
+                    "error": str(exc),
+                    "token_usage_available": False,
+                    "report_mode": resolved_mode,
+                }
+                completed_items.append(details)
+                turns.append({
+                    "turn_index": turn_index,
+                    "bill_id": bill_id,
+                    "status": "failed",
+                    "error": details["error"],
+                    "output_path": str(report_path),
+                })
+                continue
+
+            if command is None:
                 details = {
                     "bill_id": bill.get("bill_id"),
                     "bill_name": bill.get("bill_name"),
@@ -2355,7 +2401,7 @@ class CodexBillReportAgent:
                     capture_output=True,
                     text=True,
                     cwd=self.workdir,
-                    env=self.build_environment(),
+                    env=environment,
                     timeout=self.timeout_seconds,
                 )
                 stdout_text = (proc.stdout or "").strip()
@@ -2535,8 +2581,8 @@ def run_agentic_bill_reports(
         raise ValueError("batch_session_size는 1 이상이어야 합니다.")
     if batch_session_size > MAX_BATCH_SESSION_SIZE:
         raise ValueError(f"batch_session_size는 {MAX_BATCH_SESSION_SIZE} 이하여야 합니다.")
-    if failure_retry_attempts < 0:
-        raise ValueError("failure_retry_attempts는 0 이상이어야 합니다.")
+    if not isinstance(failure_retry_attempts, int) or isinstance(failure_retry_attempts, bool) or failure_retry_attempts < 0:
+        raise ValueError("failure_retry_attempts는 0 이상의 정수여야 합니다.")
 
     targets = _fetch_bill_report_targets(mode=mode, limit=limit, read_mode=read_mode, target=target)
     output_root = Path(output_dir).expanduser().resolve()
@@ -2685,9 +2731,6 @@ def run_agentic_bill_reports(
         items[index] = final_item
 
     completed_items = [item for item in items if item is not None]
-    if stop_on_error and any(item.get("status") == "failed" for item in completed_items):
-        first_failed = next(item for item in completed_items if item.get("status") == "failed")
-        raise BillReportGenerationError(str(first_failed.get("error") or "report failed"), details=first_failed)
     finished_at = datetime.now(timezone.utc)
     total_duration_seconds = round(time.perf_counter() - started_perf, 3)
     usage_totals: dict[str, int] = {}
@@ -2700,11 +2743,13 @@ def run_agentic_bill_reports(
                 usage_totals[key] = usage_totals.get(key, 0) + value
 
     for item in completed_items:
-        add_usage(item.get("usage"))
-        tooltip = item.get("tooltip")
-        if isinstance(tooltip, dict):
-            add_usage(tooltip.get("usage"))
         retry = item.get("retry")
+        failed_retry = item.get("status") == "failed" and isinstance(retry, dict)
+        if not failed_retry:
+            add_usage(item.get("usage"))
+            tooltip = item.get("tooltip")
+            if isinstance(tooltip, dict):
+                add_usage(tooltip.get("usage"))
         if isinstance(retry, dict):
             for history_item in retry.get("history") or []:
                 add_usage(history_item.get("usage"))
@@ -2754,8 +2799,15 @@ def run_agentic_bill_reports(
     normalized_usage_meter = _normalize_usage_meter(usage_meter)
     if normalized_usage_meter is not None:
         report["usage_meter"] = normalized_usage_meter
-    (output_root / "manifest.json").write_text(
+    manifest_path = output_root / "manifest.json"
+    manifest_path.write_text(
         json.dumps(report, ensure_ascii=False, indent=2, default=str),
         encoding="utf-8",
     )
+    if stop_on_error and any(item.get("status") == "failed" for item in completed_items):
+        first_failed = next(item for item in completed_items if item.get("status") == "failed")
+        raise BillReportGenerationError(
+            str(first_failed.get("error") or "report failed"),
+            details={**first_failed, "manifest_path": str(manifest_path)},
+        )
     return report
