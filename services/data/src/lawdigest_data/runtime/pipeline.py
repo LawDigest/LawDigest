@@ -754,6 +754,7 @@ class PipelineRuntime:
         read_mode: str | None = None,
         codex_model: str | None = None,
         batch_size: int = 5,
+        concurrency: int = 1,
     ) -> Dict[str, Any]:
         params = {
             "mode": mode,
@@ -762,6 +763,7 @@ class PipelineRuntime:
             "read_mode": read_mode,
             "codex_model": codex_model,
             "batch_size": batch_size,
+            "concurrency": concurrency,
         }
 
         def execute(run_id: str) -> List[Dict[str, Any]]:

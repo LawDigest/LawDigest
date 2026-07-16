@@ -322,6 +322,7 @@ def test_bill_title_regeneration_delegates_to_title_only_runtime(tmp_path):
         read_mode="prod",
         codex_model=None,
         batch_size=5,
+        concurrency=1,
     )
     assert result["command"] == "bill.title_regeneration"
     assert result["steps"][0]["step"] == "regenerate_bill_titles"
@@ -673,6 +674,7 @@ def test_cli_dispatches_bill_title_regeneration(tmp_path):
         read_mode="prod",
         codex_model=None,
         batch_size=5,
+        concurrency=1,
     )
 
 

@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -100,6 +101,8 @@ def build_bill_title_batch_prompt(bills: list[dict[str, Any]]) -> str:
         "- 각 title은 '[핵심 변경 목적/수단]을/를 위한 [정확한 bill_name]' 형식이어야 합니다.\n"
         "- 정확한 bill_name을 바꾸거나 줄이지 말고 title 끝에 그대로 붙이세요.\n"
         "- prefix는 1~80자의 짧은 명사형으로 쓰고 마침표, 물음표, 느낌표와 문장 종결 표현을 쓰지 마세요.\n"
+        "- 여러 명사를 한 단어처럼 붙이지 말고 표준적인 한국어 띄어쓰기를 지키세요. 예: '지원 확대', '협력 대응', '주거 공제'.\n"
+        "- 출력 전에 prefix만 다시 읽고 독립된 명사가 붙어 있으면 띄어쓰기를 고치세요. 다만 법안에서 하나의 용어로 쓰는 말은 유지하세요.\n"
         "- summary 또는 gpt_summary의 첫 문장을 그대로 복사하지 마세요.\n"
         "- 여러 변화가 있으면 가장 중요한 2~3개를 간결하게 묶으세요.\n\n"
         "출력 규칙:\n"
@@ -202,6 +205,7 @@ def run_bill_title_regeneration(
     read_mode: str | None = None,
     codex_model: str | None = None,
     batch_size: int = MAX_TITLE_BATCH_SIZE,
+    concurrency: int = 1,
     agent: Any | None = None,
 ) -> dict[str, Any]:
     if mode not in {"dry_run", "test", "prod"}:
@@ -210,22 +214,24 @@ def run_bill_title_regeneration(
         raise ValueError("limit는 1 이상이어야 합니다.")
     if batch_size < 1 or batch_size > MAX_TITLE_BATCH_SIZE:
         raise ValueError(f"batch_size는 1~{MAX_TITLE_BATCH_SIZE}여야 합니다.")
+    if concurrency < 1:
+        raise ValueError("concurrency는 1 이상이어야 합니다.")
 
     targets = fetch_bill_title_regeneration_targets(mode=mode, read_mode=read_mode, limit=limit)
     output_root = Path(output_dir).expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     resolved_model = codex_model or DEFAULT_TITLE_CODEX_MODEL
     title_agent = agent or CodexBillTitleAgent(model=resolved_model)
-    items: list[dict[str, Any]] = []
+    batches = [targets[start : start + batch_size] for start in range(0, len(targets), batch_size)]
 
-    for start in range(0, len(targets), batch_size):
-        batch = targets[start : start + batch_size]
-        batch_path = output_root / f"batch-{start // batch_size + 1:04d}.json"
+    def process_batch(batch_index: int, batch: list[dict[str, Any]]) -> tuple[int, list[dict[str, Any]]]:
+        batch_path = output_root / f"batch-{batch_index + 1:04d}.json"
+        batch_items: list[dict[str, Any]] = []
         try:
             generated = title_agent.write_titles_batch(batch, output_path=str(batch_path))
         except Exception as exc:
             for bill in batch:
-                items.append(
+                batch_items.append(
                     {
                         "bill_id": bill.get("bill_id"),
                         "bill_name": bill.get("bill_name"),
@@ -236,7 +242,7 @@ def run_bill_title_regeneration(
                         "error": str(exc),
                     }
                 )
-            continue
+            return batch_index, batch_items
 
         for bill in batch:
             bill_id = str(bill.get("bill_id") or "")
@@ -252,7 +258,7 @@ def run_bill_title_regeneration(
                 )
                 if not db_updated:
                     error = "조회 이후 title이 변경되어 조건부 UPDATE를 적용하지 않았습니다."
-            items.append(
+            batch_items.append(
                 {
                     "bill_id": bill_id,
                     "bill_name": bill.get("bill_name"),
@@ -264,6 +270,24 @@ def run_bill_title_regeneration(
                     **({"error": error} if error else {}),
                 }
             )
+        return batch_index, batch_items
+
+    ordered_batches: list[list[dict[str, Any]] | None] = [None] * len(batches)
+    if concurrency == 1:
+        for batch_index, batch in enumerate(batches):
+            index, batch_items = process_batch(batch_index, batch)
+            ordered_batches[index] = batch_items
+    else:
+        with ThreadPoolExecutor(max_workers=min(concurrency, len(batches))) as executor:
+            futures = [
+                executor.submit(process_batch, batch_index, batch)
+                for batch_index, batch in enumerate(batches)
+            ]
+            for future in as_completed(futures):
+                index, batch_items = future.result()
+                ordered_batches[index] = batch_items
+
+    items = [item for batch_items in ordered_batches if batch_items for item in batch_items]
 
     success_count = sum(item["status"] == "success" for item in items)
     failure_count = len(items) - success_count
@@ -279,6 +303,7 @@ def run_bill_title_regeneration(
         "status": status,
         "mode": mode,
         "model": resolved_model,
+        "concurrency": concurrency,
         "stats": {
             "target_count": len(targets),
             "success_count": success_count,

@@ -130,6 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     title_regeneration.add_argument("--read-mode", choices=["test", "prod"])
     title_regeneration.add_argument("--codex-model")
     title_regeneration.add_argument("--batch-size", type=int, default=5)
+    title_regeneration.add_argument("--concurrency", type=int, default=1)
 
     return parser
 
@@ -257,6 +258,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             read_mode=args.read_mode,
             codex_model=args.codex_model,
             batch_size=args.batch_size,
+            concurrency=args.concurrency,
         )
     else:
         parser.error(f"unsupported command: {args.command}")

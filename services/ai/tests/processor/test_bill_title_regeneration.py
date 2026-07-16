@@ -1,5 +1,6 @@
 import hashlib
 import json
+import threading
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -227,3 +228,36 @@ def test_run_bill_title_regeneration_dry_run_does_not_update_db(tmp_path):
 
     update_title.assert_not_called()
     assert result["items"][0]["db_updated"] is False
+
+
+def test_run_bill_title_regeneration_runs_batches_concurrently_and_preserves_order(tmp_path):
+    from lawdigest_ai.processor.bill_title_regeneration import run_bill_title_regeneration
+
+    targets = [_target(bill_id=f"B{index:03d}") for index in range(10)]
+    barrier = threading.Barrier(2)
+    agent = MagicMock()
+
+    def generate(batch, *, output_path):
+        barrier.wait(timeout=2)
+        return {
+            bill["bill_id"]: f"새 제도 도입을 위한 {bill['bill_name']}"
+            for bill in batch
+        }
+
+    agent.write_titles_batch.side_effect = generate
+    with patch(
+        "lawdigest_ai.processor.bill_title_regeneration.fetch_bill_title_regeneration_targets",
+        return_value=targets,
+    ):
+        result = run_bill_title_regeneration(
+            mode="dry_run",
+            limit=10,
+            output_dir=str(tmp_path),
+            concurrency=2,
+            agent=agent,
+        )
+
+    assert result["concurrency"] == 2
+    assert [item["bill_id"] for item in result["items"]] == [
+        target["bill_id"] for target in targets
+    ]
