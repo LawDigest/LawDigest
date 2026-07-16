@@ -4,7 +4,7 @@
 
 에이전틱 법안 리포트는 여러 법안을 한 Codex 세션에서 순서대로 처리할 수 있다. 세션의 한 turn이 빈 출력을 남기거나 실행·검증에 실패하면 해당 법안만 실패하지만, 현재 runner는 실패 항목을 그대로 manifest에 기록하고 종료한다. 정상 처리된 법안까지 다시 실행하지 않으면서 실패한 법안만 복구할 수 있는 자동 재시도가 필요하다.
 
-출력 QA 집계는 이번 구현에 포함하지 않는다. 잔여 JSON wrapper나 별도 품질 문제를 manifest에 모으는 기능은 GitHub 이슈로 남긴다.
+출력 QA 집계는 이번 구현에 포함하지 않는다. pull 전 작업 트리에만 있던 output-QA RED 테스트는 구현 브랜치로 옮기지 않고, 잔여 JSON wrapper나 별도 품질 문제를 manifest에 모으는 기능은 한국어 제목과 본문으로 GitHub 이슈를 작성한다. 이슈 URL을 완료 보고에 포함해야 이 범위가 끝난다.
 
 ## 목표
 
@@ -26,7 +26,7 @@
 
 초기 배치 실행이 끝난 뒤 실패 항목을 모아 새 단건 세션으로 다시 실행한다. 배치 세션을 재개하지 않는 이유는 실패 turn의 세션 상태가 다음 시도에 영향을 주지 않게 하기 위해서다. 성공 항목은 건드리지 않는다.
 
-재시도는 `failure_retry_attempts`로 제어한다. 허용 범위는 0~3회이며 기본값은 1회다. CLI에는 `--failure-retry-attempts`를 노출한다.
+재시도는 `failure_retry_attempts`로 제어한다. 0 이상의 정수를 허용하고 기본값은 1회로 둔다. CLI에는 `--failure-retry-attempts`를 노출한다.
 
 ## 실패 분류
 
@@ -63,7 +63,7 @@ DB upsert 과정의 실패는 `persistence_error`로 구분하고 모델을 다�
     "attempt_count": 1,
     "history": [
       {
-        "attempt": 1,
+        "attempt": 0,
         "failure_type": "empty_output",
         "error": "Codex agent report body is empty."
       }
@@ -72,16 +72,18 @@ DB upsert 과정의 실패는 `persistence_error`로 구분하고 모델을 다�
 }
 ```
 
+`attempt_count`는 실제로 실행한 단건 재시도 횟수다. `history`는 실패한 실행만 기록한다. 최초 배치 실패는 `attempt: 0`, 실패한 첫 번째 단건 재시도는 `attempt: 1`로 기록한다. 재시도 성공 결과 자체는 최종 item에 남기므로 history에 중복 저장하지 않는다.
+
 전체 통계에는 다음 값을 추가한다.
 
 - `retried_item_count`: 한 번 이상 재시도한 법안 수
 - `retry_success_count`: 재시도 후 성공한 법안 수
 
-기존 `success_count`, `failure_count`, `db_upserted_count`는 재시도가 끝난 최종 항목을 기준으로 계산한다. 재시도 호출의 token usage도 기존 usage 합산 규칙에 포함한다.
+기존 `success_count`, `failure_count`, `db_upserted_count`는 재시도가 끝난 최종 항목을 기준으로 계산한다. 최종 성공 item의 usage와 `retry.history`에 보존한 최초 실패·실패한 재시도의 usage를 모두 기존 usage 합산 규칙에 포함한다. 초기 배치 session 자체에 별도 usage가 있으면 기존 session 합산 규칙을 유지한다.
 
 ## 오류 처리
 
-- `failure_retry_attempts`가 0보다 작거나 3보다 크면 실행 전에 `ValueError`를 발생시킨다.
+- `failure_retry_attempts`가 0보다 작으면 실행 전에 `ValueError`를 발생시킨다.
 - 재시도 중 예외가 발생해도 다른 재시도 항목은 계속 처리한다. `stop_on_error`는 최종 실패가 남았을 때만 실행 전체를 실패시킨다.
 - DB 저장이 성공한 항목은 다시 저장하지 않는다.
 - 재시도 불가능한 실패는 기존 항목을 유지하고 이력을 만들지 않는다.
@@ -111,5 +113,6 @@ DB upsert 과정의 실패는 `persistence_error`로 구분하고 모델을 다�
 - 재시도 성공 항목이 DB에 정확히 한 번 저장되는지 확인한다.
 - `failure_retry_attempts=0`에서 기존 동작이 유지되는지 확인한다.
 - CLI와 runtime이 값을 누락 없이 전달하는지 확인한다.
+- 기존 title 직접 생성·검증과 성공 항목 persistence 테스트가 계속 통과하는지 확인한다.
+- output-QA RED 테스트가 구현 브랜치에 포함되지 않았는지 확인하고 후속 GitHub 이슈 URL을 남긴다.
 - AI 및 data lint를 실행한다.
-
