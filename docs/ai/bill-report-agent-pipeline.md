@@ -74,7 +74,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
 | `--concurrency` | `1` | 동시에 실행할 Codex 세션 수. 3개 병렬 실행은 `--concurrency 3`으로 지정한다. |
 | `--batch-session-size` | `5` | 한 Codex 배치 세션에서 처리할 법안 수. 최대 5건이다. |
 | `--failure-retry-attempts` | `1` | 배치에서 생성에 실패한 항목을 새 단건 세션으로 다시 실행하는 횟수. `0`이면 재시도하지 않는다. |
-| `--codex-model` | 환경변수 또는 `gpt-5.4-mini` | 실행 모델 override. |
+| `--codex-model` | 환경변수 또는 경로별 기본값 | 실행 모델 override. 일반 리포트는 `gpt-5.6-luna`, 제목 전용 재생성은 `gpt-5.4-mini`다. |
 | `--inspection` | 꺼짐 | 법안별 검사 로그를 `inspection/` 아래에 추가로 저장한다. 에이전트 행동, 도구 호출 요약, 프롬프트, 검증 결과, 최종 근거 섹션을 감사할 때 사용한다. |
 | `--stop-on-error` | 꺼짐 | 자동 재시도를 마친 뒤에도 실패가 남으면 실행을 실패 처리한다. 기본은 실패 항목을 manifest에 남긴다. |
 | `--weekly-usage-before`, `--weekly-usage-after` | 없음 | 주간 사용량 퍼센트 계측값. |
@@ -87,7 +87,7 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
 | `ASSEMBLY_API_KEY` | 필수 | 열린국회정보 계열 MCP 서버가 사용한다. 없으면 `APIKEY_billsInfo`, `APIKEY_status`도 대체 키로 본다. |
 | `LAW_OC` | 권장 | 법제처/국가법령정보센터 API 인증키. `korean-law` MCP에 전달한다. |
 | `KOSIS_API_KEY` | 권장 | KOSIS 통계 조회 키. `korean-stats` MCP에 전달한다. |
-| `BILL_AGENT_CODEX_MODEL` | 선택 | 기본 모델을 바꾼다. 기본값은 `gpt-5.4-mini`다. |
+| `BILL_AGENT_CODEX_MODEL` | 선택 | 일반 리포트 기본 모델을 바꾼다. 기본값은 `gpt-5.6-luna`다. |
 | `BILL_AGENT_CODEX_TIMEOUT_SECONDS` | 선택 | Codex 세션 제한 시간. 기본값은 900초다. |
 | `BILL_AGENT_CODEX_WORKDIR` | 선택 | Codex 실행 디렉터리. 기본값은 `/tmp`다. |
 | `CODEX_CLI_BIN` | 선택 | Codex CLI 실행 파일. 기본값은 `codex`다. |
@@ -272,6 +272,8 @@ PYTHONPATH=services/data/src:services/ai/src python -m lawdigest_data.runtime.cl
 ```
 
 대상은 `gpt_summary`에 `## 쉬운 요약`과 `## 주요 내용`이 있고, `제안이유 및 주요내용` 머리말을 제거한 원문 요약의 prefix가 현재 제목과 일치하는 법안이다. 에이전트는 `summary`, 기존 `gpt_summary`, 정확한 `bill_name`을 입력받아 제목 JSON만 생성한다.
+
+제목 전용 재생성은 대량 임시 작업의 비용을 낮추기 위해 기본적으로 `gpt-5.4-mini`를 사용한다. 필요한 경우에만 명령의 `--codex-model`로 명시적으로 바꾼다.
 
 `--mode prod`에서도 DB UPDATE는 조회 당시 제목이 그대로인 행의 `title`에만 적용된다. `gpt_summary`, `summary_tags`, `category`는 변경하지 않는다. 생성·검증 결과와 실행 전 `gpt_summary` SHA-256은 출력 디렉터리의 `result.json`에 기록된다.
 

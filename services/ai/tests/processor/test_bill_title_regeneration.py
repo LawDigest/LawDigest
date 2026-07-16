@@ -64,6 +64,16 @@ def test_build_bill_title_batch_prompt_only_requests_titles():
     assert '"report_body"' not in prompt
 
 
+def test_bill_title_regeneration_keeps_low_cost_default_model():
+    from lawdigest_ai.processor.bill_title_regeneration import (
+        DEFAULT_TITLE_CODEX_MODEL,
+        CodexBillTitleAgent,
+    )
+
+    assert DEFAULT_TITLE_CODEX_MODEL == "gpt-5.4-mini"
+    assert CodexBillTitleAgent().model == "gpt-5.4-mini"
+
+
 def test_parse_bill_title_batch_output_validates_ids_and_title_contract():
     from lawdigest_ai.processor.bill_title_regeneration import parse_bill_title_batch_output
 
@@ -187,6 +197,7 @@ def test_run_bill_title_regeneration_updates_only_title_and_writes_result(tmp_pa
         mode="prod",
     )
     assert result["status"] == "success"
+    assert result["model"] == "gpt-5.4-mini"
     assert result["stats"] == {"target_count": 1, "success_count": 1, "failure_count": 0}
     assert result["items"][0]["gpt_summary_sha256"] == hashlib.sha256(
         target["gpt_summary"].encode("utf-8")

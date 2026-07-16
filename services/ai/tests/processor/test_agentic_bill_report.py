@@ -1735,10 +1735,10 @@ def test_codex_agent_writes_inspection_artifacts(tmp_path, monkeypatch):
     assert "국회 의안 상세" in event_lines[2]
 
 
-def test_codex_agent_uses_gpt_54_mini_by_default():
+def test_codex_agent_uses_gpt_56_luna_by_default():
     from lawdigest_ai.processor.agentic_bill_report import DEFAULT_CODEX_MODEL
 
-    assert DEFAULT_CODEX_MODEL == "gpt-5.4-mini"
+    assert DEFAULT_CODEX_MODEL == "gpt-5.6-luna"
 
 
 def test_codex_agent_requires_assembly_api_key(tmp_path, monkeypatch):

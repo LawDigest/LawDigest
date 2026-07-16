@@ -10,7 +10,6 @@ from typing import Any
 
 from lawdigest_ai.db import get_db_connection, update_bill_title_if_current
 from lawdigest_ai.processor.agentic_bill_report import (
-    DEFAULT_CODEX_MODEL,
     CodexBillReportAgent,
     _extract_json_object,
     _parse_codex_json_metadata,
@@ -19,6 +18,7 @@ from lawdigest_ai.processor.agentic_bill_report import (
 )
 
 MAX_TITLE_BATCH_SIZE = 5
+DEFAULT_TITLE_CODEX_MODEL = "gpt-5.4-mini"
 RAW_SUMMARY_HEADING = re.compile(r"^제안이유\s*및\s*주요내용\s*")
 
 
@@ -147,7 +147,7 @@ def parse_bill_title_batch_output(
 
 @dataclass(frozen=True)
 class CodexBillTitleAgent:
-    model: str = DEFAULT_CODEX_MODEL
+    model: str = DEFAULT_TITLE_CODEX_MODEL
 
     def write_titles_batch(
         self,
@@ -214,7 +214,8 @@ def run_bill_title_regeneration(
     targets = fetch_bill_title_regeneration_targets(mode=mode, read_mode=read_mode, limit=limit)
     output_root = Path(output_dir).expanduser().resolve()
     output_root.mkdir(parents=True, exist_ok=True)
-    title_agent = agent or CodexBillTitleAgent(model=codex_model or DEFAULT_CODEX_MODEL)
+    resolved_model = codex_model or DEFAULT_TITLE_CODEX_MODEL
+    title_agent = agent or CodexBillTitleAgent(model=resolved_model)
     items: list[dict[str, Any]] = []
 
     for start in range(0, len(targets), batch_size):
@@ -277,6 +278,7 @@ def run_bill_title_regeneration(
     result = {
         "status": status,
         "mode": mode,
+        "model": resolved_model,
         "stats": {
             "target_count": len(targets),
             "success_count": success_count,
