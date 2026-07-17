@@ -20,7 +20,9 @@ from lawdigest_ai.processor.agentic_bill_report import (
 
 MAX_TITLE_BATCH_SIZE = 5
 DEFAULT_TITLE_CODEX_MODEL = "gpt-5.4-mini"
-RAW_SUMMARY_HEADING = re.compile(r"^제안이유\s*및\s*주요내용\s*")
+RAW_SUMMARY_HEADING = re.compile(
+    r"^(?:제안이유\s*및\s*주요내용|제안이유|주요내용)\s*"
+)
 
 
 def _normalize_text(value: Any) -> str:

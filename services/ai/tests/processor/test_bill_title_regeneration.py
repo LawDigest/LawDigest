@@ -27,6 +27,17 @@ def test_is_raw_summary_copy_title_matches_exact_investigation_contract():
     assert is_raw_summary_copy_title(_target(gpt_summary="일반 요약")) is False
 
 
+@pytest.mark.parametrize("heading", ["제안이유", "주요내용"])
+def test_is_raw_summary_copy_title_accepts_single_section_heading(heading):
+    from lawdigest_ai.processor.bill_title_regeneration import is_raw_summary_copy_title
+
+    assert is_raw_summary_copy_title(
+        _target(
+            summary=f"{heading}\n\n현행법은 오래된 제도를 규정하고 있음. 이에 새 제도를 도입하려는 것임."
+        )
+    ) is True
+
+
 def test_fetch_bill_title_regeneration_targets_filters_before_limit():
     from lawdigest_ai.processor.bill_title_regeneration import fetch_bill_title_regeneration_targets
 
